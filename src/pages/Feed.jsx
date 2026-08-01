@@ -1,24 +1,32 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import {
   followingPosts,
   communityPosts,
-  notificationsActivity,
+  notificationsHighlights,
+  notificationsFollowers,
+  sellers,
 } from "../data/mockData";
+import { useFollow } from "../context/FollowContext";
 
 const TABS = ["Following", "Your Community", "Notifications"];
 
 export default function Feed() {
   const [tab, setTab] = useState("Following");
+  const { followedSellers } = useFollow();
 
   const getPosts = () => {
     switch (tab) {
       case "Following":
-        return followingPosts;
+        if (followedSellers.length === 0) {
+          return [];
+        }
+        return followingPosts.filter((post) => followedSellers.includes(post.sellerId));
       case "Your Community":
         return communityPosts;
       case "Notifications":
-        return notificationsActivity;
+        return null; // Handled separately with sub-tabs
       default:
         return followingPosts;
     }
@@ -46,9 +54,15 @@ export default function Feed() {
       <div className="overflow-y-auto flex-1 no-scrollbar">
         {tab === "Following" && (
           <div className="flex flex-col gap-8 px-4 py-6">
-            {followingPosts.map((post) => (
-              <Post key={post.id} post={post} />
-            ))}
+            {getPosts().length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-[14px] text-[#828282]">Follow stores to see their posts here</p>
+              </div>
+            ) : (
+              getPosts().map((post) => (
+                <Post key={post.id} post={post} />
+              ))
+            )}
           </div>
         )}
 
@@ -67,18 +81,43 @@ export default function Feed() {
 }
 
 function Post({ post }) {
+  const navigate = useNavigate();
+  const seller = Object.values(sellers).find((s) => s.name === post.name);
+
+  const handleSellerClick = () => {
+    if (seller) {
+      navigate(`/seller/${seller.id}`);
+    }
+  };
+
+  const handleImageClick = () => {
+    if (post.productId) {
+      navigate(`/product/${post.productId}`);
+    }
+  };
+
   return (
     <div className="flex gap-3">
-      <img
-        src={post.avatar}
-        alt={post.name}
-        className="w-8 h-8 rounded-full object-cover shrink-0"
-      />
+      <button
+        onClick={handleSellerClick}
+        className="shrink-0"
+      >
+        <img
+          src={post.avatar}
+          alt={post.name}
+          className="w-8 h-8 rounded-full object-cover hover:opacity-80 transition-opacity"
+        />
+      </button>
       <div className="flex flex-col gap-3 flex-1">
         <div className="flex items-start justify-between">
           <div className="flex flex-col">
             <div className="flex items-baseline gap-1">
-              <span className="text-[14px] font-semibold">{post.name}</span>
+              <button
+                onClick={handleSellerClick}
+                className="text-[14px] font-semibold text-[#498467] hover:underline"
+              >
+                {post.name}
+              </button>
               <span className="text-[14px] text-[#B56576]">
                 in {post.group}
               </span>
@@ -96,11 +135,16 @@ function Post({ post }) {
         </div>
 
         {post.image && (
-          <img
-            src={post.image}
-            alt=""
-            className="w-full aspect-square object-cover rounded"
-          />
+          <button
+            onClick={handleImageClick}
+            className="w-full aspect-square overflow-hidden rounded"
+          >
+            <img
+              src={post.image}
+              alt=""
+              className="w-full h-full object-cover hover:opacity-90 transition-opacity"
+            />
+          </button>
         )}
 
         <p className="text-[14px] leading-[140%]">{post.body}</p>
@@ -160,10 +204,37 @@ function IconCount({ children, label }) {
 }
 
 function Notifications() {
+  const navigate = useNavigate();
+  const [sub, setSub] = useState("Highlights");
+  const list = sub === "Highlights" ? notificationsHighlights : notificationsFollowers;
+
+  const handleViewClick = (notification) => {
+    if (notification.type === "store" || notification.type === "follow") {
+      navigate(`/seller/${notification.sellerId}`);
+    } else if (notification.type === "product") {
+      navigate(`/product/${notification.productId}`);
+    }
+  };
+
   return (
     <div className="flex flex-col">
+      <div className="sticky top-0 bg-white z-10 flex justify-center gap-2 pt-6 pb-4">
+        {["Highlights", "Followers"].map((s) => (
+          <button
+            key={s}
+            onClick={() => setSub(s)}
+            className={`px-3.5 py-1.5 rounded-full text-[14px] font-medium border ${
+              sub === s
+                ? "bg-[#498467] text-white border-transparent"
+                : "bg-white text-black border-[#E6E6E6]"
+            }`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
       <div className="flex flex-col">
-        {notificationsActivity.map((n) => (
+        {list.map((n) => (
           <div
             key={n.id}
             className="flex items-center gap-4 px-4 py-3 border-b border-black/5"
@@ -191,9 +262,24 @@ function Notifications() {
                 </div>
               )}
             </div>
-            {n.type === "follow" && (
-              <button className="shrink-0 h-8 px-4 rounded-lg bg-black text-white text-[14px] font-medium">
-                Follow
+            {n.button && (
+              <button 
+                onClick={() => handleViewClick(n)}
+                className="shrink-0 h-8 px-4 rounded-lg bg-[#498467] text-white text-[14px] font-medium"
+              >
+                {n.button}
+              </button>
+            )}
+            {n.thumb && (
+              <button
+                onClick={() => handleViewClick(n)}
+                className="shrink-0"
+              >
+                <img
+                  src={n.thumb}
+                  alt=""
+                  className="w-12 h-12 rounded-lg object-cover"
+                />
               </button>
             )}
           </div>

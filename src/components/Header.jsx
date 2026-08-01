@@ -1,4 +1,4 @@
-export default function Header({ title, onBack, onMenu, right }) {
+export default function Header({ title, onBack, onMenu, right, postButton }) {
   return (
     <div className="h-14 flex items-center justify-between px-4 border-b border-[#E6E6E6]">
       <div className="flex items-center gap-2">
@@ -39,6 +39,7 @@ export default function Header({ title, onBack, onMenu, right }) {
         </div>
       )}
       <div className="flex items-center gap-2">
+        {postButton}
         {right ?? (
           <img
             src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80"

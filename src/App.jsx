@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import PhoneFrame from "./components/PhoneFrame";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
+import { FollowProvider } from "./context/FollowContext";
 import Feed from "./pages/Feed";
 import Search from "./pages/Search";
 import Messages from "./pages/Messages";
@@ -17,15 +18,18 @@ import AccountSettings from "./pages/AccountSettings";
 import CreateListing from "./pages/CreateListing";
 import Saved from "./pages/Saved";
 import SellerProfile from "./pages/SellerProfile";
+import CreatePost from "./pages/CreatePost";
 
 export default function App() {
   return (
     <AuthProvider>
-      <Routes>
+      <FollowProvider>
+        <Routes>
         <Route path="/signin" element={<PhoneFrame hideTabBar statusBarBackground="bg-[#E6DCCF]" backgroundColor="bg-[#E6DCCF]"><SignIn /></PhoneFrame>} />
         <Route path="/" element={<PhoneFrame><Feed /></PhoneFrame>} />
         <Route path="/shop" element={<PhoneFrame><ShopHome /></PhoneFrame>} />
         <Route path="/product/:id" element={<PhoneFrame><ProductDetail /></PhoneFrame>} />
+        <Route path="/product/:productId" element={<PhoneFrame><ProductDetail /></PhoneFrame>} />
         <Route path="/seller/:sellerId" element={<PhoneFrame><SellerProfile /></PhoneFrame>} />
         <Route path="/search" element={<PhoneFrame><Search /></PhoneFrame>} />
         <Route
@@ -72,6 +76,16 @@ export default function App() {
           }
         />
         <Route
+          path="/create-post"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute>
+                <CreatePost />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
+        <Route
           path="/saved"
           element={
             <PhoneFrame>
@@ -92,6 +106,7 @@ export default function App() {
           }
         />
       </Routes>
+      </FollowProvider>
     </AuthProvider>
   );
 }

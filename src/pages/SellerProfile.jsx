@@ -1,16 +1,30 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { useState } from "react";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import CarouselRow from "../components/CarouselRow";
-import { products, sellers } from "../data/mockData";
+import { products, sellers, messages } from "../data/mockData";
+import { useFollow } from "../context/FollowContext";
 
 export default function SellerProfile() {
   const { sellerId } = useParams();
   const navigate = useNavigate();
-  const [isFollowing, setIsFollowing] = useState(false);
+  const { isFollowing, toggleFollow } = useFollow();
   const seller = sellers[sellerId] || sellers["sarahs-backyard"];
   const sellerProducts = products.filter((p) => p.sellerId === sellerId || p.shop === seller.name);
+
+  const handleMessageClick = () => {
+    // Check if conversation already exists with this seller
+    const existingConversation = messages.find((m) => m.sellerId === sellerId);
+    
+    if (existingConversation) {
+      // Open existing conversation
+      navigate(`/messages/${existingConversation.id}`);
+    } else {
+      // Create new conversation and navigate to it
+      // For mock data, use sellerId as the conversation ID
+      navigate(`/messages/${sellerId}`);
+    }
+  };
 
   return (
     <MobileScreenLayout>
@@ -63,16 +77,19 @@ export default function SellerProfile() {
             {/* Action Buttons */}
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => setIsFollowing(!isFollowing)}
+                onClick={() => toggleFollow(sellerId)}
                 className={`flex-1 py-2.5 rounded-lg text-[14px] font-medium ${
-                  isFollowing
+                  isFollowing(sellerId)
                     ? "bg-[#498467] text-white"
                     : "bg-[#498467] text-white"
                 }`}
               >
-                {isFollowing ? "Following" : "Follow Store"}
+                {isFollowing(sellerId) ? "Following" : "Follow Store"}
               </button>
-              <button className="flex-1 border border-[#498467] text-[#498467] py-2.5 rounded-lg text-[14px] font-medium">
+              <button 
+                onClick={handleMessageClick}
+                className="flex-1 border border-[#498467] text-[#498467] py-2.5 rounded-lg text-[14px] font-medium"
+              >
                 Message
               </button>
             </div>

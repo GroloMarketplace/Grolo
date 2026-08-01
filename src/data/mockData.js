@@ -215,6 +215,8 @@ export const followingPosts = [
   {
     id: 1,
     name: "Sarah's Backyard",
+    sellerId: "sarahs-backyard",
+    productId: "strawberries",
     group: "Local Produce",
     time: "2 hrs ago",
     avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
@@ -228,6 +230,8 @@ export const followingPosts = [
   {
     id: 2,
     name: "Pennie's Produce",
+    sellerId: "pennies-produce",
+    productId: "organic-beets",
     group: "Local Produce",
     time: "5 hrs ago",
     avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
@@ -238,12 +242,59 @@ export const followingPosts = [
     shares: 2,
     sends: 1,
   },
+  {
+    id: 3,
+    name: "Daniel's Donuts",
+    sellerId: "daniels-donuts",
+    productId: "dozen-donuts",
+    group: "Local Bakery",
+    time: "1 hr ago",
+    avatar: "https://images.unsplash.com/photo-1541823709867-1b206113eafd?w=100&q=80",
+    image: "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=800&q=80",
+    body: "Fresh glazed donuts available! Come by the shop this morning for the best selection.",
+    likes: 42,
+    comments: 12,
+    shares: 8,
+    sends: 5,
+  },
+  {
+    id: 4,
+    name: "Dustin's Donut Store",
+    sellerId: "dustins-donuts",
+    productId: "dozen-donuts",
+    group: "Local Bakery",
+    time: "3 hrs ago",
+    avatar: "https://images.unsplash.com/photo-1541823709867-1b206113eafd?w=100&q=80",
+    image: "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=800&q=80",
+    body: "Maple bacon donuts are back! Our most popular flavor. Limited supply available this weekend.",
+    likes: 67,
+    comments: 23,
+    shares: 15,
+    sends: 9,
+  },
+  {
+    id: 5,
+    name: "Brandy's Crafts",
+    sellerId: "brandys-crafts",
+    productId: "crochet-hat",
+    group: "Handmade Crafts",
+    time: "6 hrs ago",
+    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80",
+    image: "https://images.unsplash.com/photo-1516912481808-3406841bd33c?w=800&q=80",
+    body: "New crochet patterns available! Check out our latest winter collection of handmade hats and scarves.",
+    likes: 35,
+    comments: 7,
+    shares: 4,
+    sends: 3,
+  },
 ];
 
 export const communityPosts = [
   {
     id: 1,
     name: "Dustin's Donut Store",
+    sellerId: "dustins-donuts",
+    productId: "dozen-donuts",
     group: "Trending in Calgary",
     time: "1 hr ago",
     avatar: "https://images.unsplash.com/photo-1541823709867-1b206113eafd?w=100&q=80",
@@ -257,6 +308,8 @@ export const communityPosts = [
   {
     id: 2,
     name: "Kensington Farmers Market",
+    sellerId: "sarahs-backyard",
+    productId: "strawberries",
     group: "Event",
     time: "3 hrs ago",
     avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
@@ -270,6 +323,8 @@ export const communityPosts = [
   {
     id: 3,
     name: "Brandy's Crafts",
+    sellerId: "brandys-crafts",
+    productId: "crochet-hat",
     group: "Local Maker Spotlight",
     time: "6 hrs ago",
     avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80",
@@ -283,6 +338,8 @@ export const communityPosts = [
   {
     id: 4,
     name: "Mission District",
+    sellerId: "jennys-home-bake-shop",
+    productId: "dozen-donuts",
     group: "Neighborhood Guide",
     time: "1 day ago",
     avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
@@ -355,45 +412,59 @@ export const notificationsHighlights = [
     name: "starryskies23",
     time: "1d",
     action: "Viewed your store",
-    button: "View",
+    button: "View Profile",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    type: "store",
+    sellerId: "sarahs-backyard",
   },
   {
     id: 2,
     name: "nebulanomad",
     time: "1d",
     action: "Liked your product",
+    button: "View Listing",
     thumb:
       "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=100&q=80",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    type: "product",
+    productId: "strawberries",
   },
   {
     id: 3,
     name: "emberecho",
     time: "2d",
     action: "Liked your comment",
+    button: "View Listing",
     quote: "It's 100% Organic Certified!",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    type: "product",
+    productId: "strawberries",
   },
   {
     id: 4,
     name: "lunavoyager",
     time: "3d",
     action: "Shared your store",
+    button: "View Profile",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    type: "store",
+    sellerId: "pennies-produce",
   },
   {
     id: 5,
     name: "shadowlynx",
     time: "4d",
     action: "Commented on your product",
+    button: "View Listing",
     quote: "Are these organic?",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    type: "product",
+    productId: "organic-beets",
   },
 ];
 
@@ -403,45 +474,57 @@ export const notificationsFollowers = [
     name: "starryskies23",
     time: "1d",
     action: "Started following you",
-    button: "View",
+    button: "View Profile",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    type: "follow",
+    sellerId: "sarahs-backyard",
   },
   {
     id: 2,
     name: "lennie0298",
     time: "1d",
     action: "Started following you",
-    button: "View",
+    button: "View Profile",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    type: "follow",
+    sellerId: "pennies-produce",
   },
   {
     id: 3,
     name: "nebulanomad",
     time: "1d",
     action: "Started following you",
-    button: "View",
+    button: "View Profile",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    type: "follow",
+    sellerId: "dustins-donuts",
   },
   {
     id: 4,
     name: "emberecho",
     time: "2d",
     action: "Viewed your product",
+    button: "View Listing",
     quote: "Organic Fresh Basil",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    type: "product",
+    productId: "strawberries",
   },
   {
     id: 5,
     name: "shadowlynx",
     time: "4d",
     action: "Left a review",
+    button: "View Listing",
     quote: "Great communication and very fresh produce!",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    type: "product",
+    productId: "organic-beets",
   },
 ];
 
@@ -449,6 +532,7 @@ export const messages = [
   {
     id: "1",
     name: "Daniel's Donuts",
+    sellerId: "daniels-donuts",
     location: "Marda Loop",
     time: "2 hrs ago",
     timestamp: "10:42 AM",
@@ -459,6 +543,7 @@ export const messages = [
   {
     id: "2",
     name: "Michelle's Candlewax",
+    sellerId: "michelles-candlewax",
     location: "Beltline",
     time: "2 hrs ago",
     timestamp: "10:15 AM",
@@ -469,6 +554,7 @@ export const messages = [
   {
     id: "3",
     name: "Jamie's Garden",
+    sellerId: "jamies-garden",
     location: "Royal Oak",
     time: "2 hrs ago",
     timestamp: "9:30 AM",
@@ -479,6 +565,7 @@ export const messages = [
   {
     id: "4",
     name: "Noah Smith",
+    sellerId: "noah-smith",
     location: "Balzak",
     time: "Yesterday",
     timestamp: "Yesterday",
@@ -489,6 +576,7 @@ export const messages = [
   {
     id: "5",
     name: "Sarah's Backyard",
+    sellerId: "sarahs-backyard",
     location: "Kensington",
     time: "Jul 31",
     timestamp: "Jul 31",
@@ -499,6 +587,7 @@ export const messages = [
   {
     id: "6",
     name: "Jenny's Home Bake Shop",
+    sellerId: "jennys-home-bake-shop",
     location: "Mission",
     time: "Jul 29",
     timestamp: "Jul 29",
@@ -509,6 +598,7 @@ export const messages = [
   {
     id: "7",
     name: "Mike's Meal Prep",
+    sellerId: "mikes-meal-prep",
     location: "Inglewood",
     time: "Jul 28",
     timestamp: "Jul 28",

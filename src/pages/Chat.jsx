@@ -1,12 +1,22 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { useState } from "react";
-import { chatMessages, sellers } from "../data/mockData";
+import { useState, useEffect } from "react";
+import { chatMessages, sellers, messages } from "../data/mockData";
 
 export default function Chat() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [text, setText] = useState("");
-  const seller = Object.values(sellers).find((s) => s.name === "Pennie's Produce") || sellers["pennies-produce"];
+  const seller = Object.values(sellers).find((s) => s.id === id) || sellers["pennies-produce"];
+
+  // Check if this is a new conversation (created from Seller Profile)
+  const isNewConversation = !messages.find((m) => m.id === id);
+
+  // Pre-fill welcome message for new conversations
+  useEffect(() => {
+    if (isNewConversation) {
+      setText("Hi! I was looking at your store and had a question about your listings.");
+    }
+  }, [isNewConversation]);
 
   return (
     <div className="flex flex-col h-full">
@@ -20,12 +30,12 @@ export default function Chat() {
           </svg>
         </button>
         <img
-          src="https://images.unsplash.com/photo-1541823709867-1b206113eafd?w=100&q=80"
-          alt="Helena Hills"
+          src={seller.avatar}
+          alt={seller.name}
           className="w-8 h-8 rounded-full object-cover"
         />
         <div className="flex-1">
-          <div className="text-[16px] font-semibold">Helena Hills</div>
+          <div className="text-[16px] font-semibold">{seller.name}</div>
           <div className="text-[12px] text-black/50">Active 11m ago</div>
         </div>
       </div>
@@ -36,18 +46,18 @@ export default function Chat() {
           className="flex gap-3 p-3 rounded-lg border border-[#E6E6E6] bg-white hover:bg-[#F5F5F5] transition-colors cursor-pointer text-left"
         >
           <img
-            src="https://images.unsplash.com/photo-1518843875459-f738682238a6?w=400&q=80"
-            alt="Pennie's Produce"
+            src={seller.banner}
+            alt={seller.name}
             className="w-20 h-20 rounded-lg object-cover shrink-0"
           />
           <div className="flex-1 flex flex-col justify-center">
-            <h4 className="text-[16px] font-semibold">Organic Beets</h4>
-            <p className="text-[14px] text-[#828282]">Pennie's Produce</p>
-            <p className="text-[16px] font-semibold text-[#498467]">$4.99</p>
+            <h4 className="text-[16px] font-semibold">{seller.name}</h4>
+            <p className="text-[14px] text-[#828282]">{seller.location}</p>
+            <p className="text-[16px] font-semibold text-[#498467]">Active Listings</p>
           </div>
         </button>
 
-        {chatMessages.map((m) => (
+        {!isNewConversation && chatMessages.map((m) => (
           <div
             key={m.id}
             className={`flex ${m.from === "me" ? "justify-end" : "justify-start"}`}
@@ -66,9 +76,12 @@ export default function Chat() {
             </div>
           </div>
         ))}
-        <div className="text-center text-[12px] text-[#828282]">
-          Delivered
-        </div>
+
+        {!isNewConversation && (
+          <div className="text-center text-[12px] text-[#828282]">
+            Delivered
+          </div>
+        )}
       </div>
 
       <div className="p-2 border-t border-[#E6E6E6]">

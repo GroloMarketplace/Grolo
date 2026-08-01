@@ -57,6 +57,11 @@ export const categories = [
     image:
       "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&q=80",
   },
+  {
+    name: "Services",
+    image:
+      "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=200&q=80",
+  },
 ];
 
 export const reviews = [

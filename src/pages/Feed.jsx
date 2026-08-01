@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import {
   followingPosts,
@@ -10,6 +10,99 @@ const TABS = ["Following", "Your Community", "Notifications"];
 
 export default function Feed() {
   const [tab, setTab] = useState("Following");
+  const [animating, setAnimating] = useState(false);
+  const [animationDirection, setAnimationDirection] = useState(0);
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+  const mouseDownX = useRef(0);
+  const mouseUpX = useRef(0);
+  const isDragging = useRef(false);
+  const currentTab = useRef(tab);
+
+  useEffect(() => {
+    currentTab.current = tab;
+  }, [tab]);
+
+  const handleTouchStart = useCallback((e) => {
+    touchStartX.current = e.changedTouches[0].screenX;
+  }, []);
+
+  const handleTouchEnd = useCallback((e) => {
+    touchEndX.current = e.changedTouches[0].screenX;
+    handleSwipe();
+  }, []);
+
+  const handleMouseDown = useCallback((e) => {
+    isDragging.current = true;
+    mouseDownX.current = e.clientX;
+  }, []);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isDragging.current) return;
+  }, []);
+
+  const handleMouseUp = useCallback((e) => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    mouseUpX.current = e.clientX;
+    handleMouseSwipe();
+  }, []);
+
+  const handleSwipe = useCallback(() => {
+    const swipeThreshold = 50;
+    const diff = touchStartX.current - touchEndX.current;
+    const currentTabValue = currentTab.current;
+
+    if (Math.abs(diff) > swipeThreshold) {
+      const currentIndex = TABS.indexOf(currentTabValue);
+      if (diff > 0 && currentIndex < TABS.length - 1) {
+        handleTabChange(TABS[currentIndex + 1]);
+      } else if (diff < 0 && currentIndex > 0) {
+        handleTabChange(TABS[currentIndex - 1]);
+      }
+    }
+  }, []);
+
+  const handleMouseSwipe = useCallback(() => {
+    const swipeThreshold = 50;
+    const diff = mouseDownX.current - mouseUpX.current;
+    const currentTabValue = currentTab.current;
+
+    if (Math.abs(diff) > swipeThreshold) {
+      const currentIndex = TABS.indexOf(currentTabValue);
+      if (diff > 0 && currentIndex < TABS.length - 1) {
+        handleTabChange(TABS[currentIndex + 1]);
+      } else if (diff < 0 && currentIndex > 0) {
+        handleTabChange(TABS[currentIndex - 1]);
+      }
+    }
+  }, []);
+
+  const handleTabChange = useCallback((newTab) => {
+    if (newTab === currentTab.current) return;
+    const direction = TABS.indexOf(newTab) > TABS.indexOf(currentTab.current) ? 1 : -1;
+    setAnimationDirection(direction);
+    setAnimating(true);
+    setTimeout(() => setTab(newTab), 100);
+    setTimeout(() => setAnimating(false), 300);
+  }, []);
+
+  useEffect(() => {
+    const element = document.body;
+    element.addEventListener("touchstart", handleTouchStart);
+    element.addEventListener("touchend", handleTouchEnd);
+    element.addEventListener("mousedown", handleMouseDown);
+    element.addEventListener("mousemove", handleMouseMove);
+    element.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      element.removeEventListener("touchstart", handleTouchStart);
+      element.removeEventListener("touchend", handleTouchEnd);
+      element.removeEventListener("mousedown", handleMouseDown);
+      element.removeEventListener("mousemove", handleMouseMove);
+      element.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [handleTouchStart, handleTouchEnd, handleMouseDown, handleMouseMove, handleMouseUp]);
 
   return (
     <MobileScreenLayout>
@@ -17,25 +110,37 @@ export default function Feed() {
         {TABS.map((t) => (
           <button
             key={t}
-            onClick={() => setTab(t)}
-            className={`text-[14px] font-semibold tracking-[-0.28px] ${
-              tab === t ? "text-black" : "text-black/40"
+            onClick={() => handleTabChange(t)}
+            className={`text-[14px] font-semibold tracking-[-0.28px] relative ${
+              tab === t ? "text-[#498467]" : "text-black/40"
             }`}
           >
             {t}
+            {tab === t && <div className="absolute -bottom-2.5 left-0 right-0 h-0.5 bg-[#498467]" />}
           </button>
         ))}
       </div>
 
-      {tab !== "Notifications" && (
-        <div className="flex flex-col gap-8 px-4 py-6">
-          {followingPosts.map((post) => (
-            <Post key={post.id} post={post} />
-          ))}
-        </div>
-      )}
+      <div className="overflow-hidden">
+        <div 
+          className={`flex transition-all duration-300 ease-in-out ${
+            animating ? 'opacity-0' : 'opacity-100'
+          }`}
+          style={{
+            transform: animating ? `translateX(${animationDirection * 20}px)` : 'translateX(0)'
+          }}
+        >
+          {tab !== "Notifications" && (
+            <div className="flex flex-col gap-8 px-4 py-6">
+              {followingPosts.map((post) => (
+                <Post key={post.id} post={post} />
+              ))}
+            </div>
+          )}
 
-      {tab === "Notifications" && <Notifications />}
+          {tab === "Notifications" && <Notifications />}
+        </div>
+      </div>
     </MobileScreenLayout>
   );
 }

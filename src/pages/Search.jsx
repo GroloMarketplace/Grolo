@@ -1,6 +1,7 @@
 import { useState } from "react";
 import SearchBar from "../components/SearchBar";
 import CarouselRow from "../components/CarouselRow";
+import MobileScreenLayout from "../components/MobileScreenLayout";
 import { categories, products } from "../data/mockData";
 
 const TABS = ["Local", "History", "My Stores"];
@@ -9,24 +10,23 @@ export default function Search() {
   const [tab, setTab] = useState("Local");
 
   return (
-    <div>
-      <div className="flex gap-2 px-4 py-3 border-b border-black/5">
+    <MobileScreenLayout>
+      <div className="sticky top-0 bg-white z-10 flex items-center justify-center gap-8 px-4 py-2.5 border-b border-black/5 relative">
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-3 py-1.5 rounded-md text-[14px] font-medium border ${
-              tab === t
-                ? "bg-black text-white border-transparent"
-                : "bg-white text-black/90 border-[#E6E6E6]"
+            className={`text-[14px] font-semibold tracking-[-0.28px] relative ${
+              tab === t ? "text-[#498467]" : "text-black/40"
             }`}
           >
             {t}
+            {tab === t && <div className="absolute -bottom-2.5 left-0 right-0 h-0.5 bg-[#498467]" />}
           </button>
         ))}
       </div>
 
-      <div className="py-3">
+      <div className="sticky top-[57px] bg-white z-9 py-3 border-b border-black/5">
         <SearchBar />
       </div>
 
@@ -59,7 +59,7 @@ export default function Search() {
           <CarouselRow title="Top Shops" products={products} />
         </>
       )}
-    </div>
+    </MobileScreenLayout>
   );
 }
 

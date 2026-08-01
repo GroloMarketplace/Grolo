@@ -19,6 +19,8 @@ import CreateListing from "./pages/CreateListing";
 import Saved from "./pages/Saved";
 import SellerProfile from "./pages/SellerProfile";
 import CreatePost from "./pages/CreatePost";
+import EditListing from "./pages/EditListing";
+import StoreReviews from "./pages/StoreReviews";
 
 export default function App() {
   return (
@@ -28,8 +30,8 @@ export default function App() {
         <Route path="/signin" element={<PhoneFrame hideTabBar statusBarBackground="bg-[#E6DCCF]" backgroundColor="bg-[#E6DCCF]"><SignIn /></PhoneFrame>} />
         <Route path="/" element={<PhoneFrame><Feed /></PhoneFrame>} />
         <Route path="/shop" element={<PhoneFrame><ShopHome /></PhoneFrame>} />
+        <Route path="/my-shop/reviews" element={<PhoneFrame><StoreReviews /></PhoneFrame>} />
         <Route path="/product/:id" element={<PhoneFrame><ProductDetail /></PhoneFrame>} />
-        <Route path="/product/:productId" element={<PhoneFrame><ProductDetail /></PhoneFrame>} />
         <Route path="/seller/:sellerId" element={<PhoneFrame><SellerProfile /></PhoneFrame>} />
         <Route path="/search" element={<PhoneFrame><Search /></PhoneFrame>} />
         <Route
@@ -71,6 +73,16 @@ export default function App() {
             <PhoneFrame>
               <ProtectedRoute>
                 <CreateListing />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
+        <Route
+          path="/edit-listing/:id"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute>
+                <EditListing />
               </ProtectedRoute>
             </PhoneFrame>
           }

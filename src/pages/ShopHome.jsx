@@ -2,10 +2,10 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import CarouselRow from "../components/CarouselRow";
 import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../hooks/useSidebar";
 import { products, sellers } from "../data/mockData";
+import SellerListingCard from "../components/SellerListingCard";
 
 export default function ShopHome() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -16,7 +16,13 @@ export default function ShopHome() {
   const [description, setDescription] = useState("I've grown lots of fruits and vegetables in my backyard and would love to share them with the community! All produce is grown with 100% organic soil and seeds.");
   
   const seller = sellers["sarahs-backyard"];
-  const sellerProducts = products.filter((p) => p.sellerId === "sarahs-backyard" || p.shop === storeName);
+  const [sellerProducts, setSellerProducts] = useState(
+    products.filter((p) => p.sellerId === "sarahs-backyard" || p.shop === storeName)
+  );
+
+  const handleDeleteListing = (productId) => {
+    setSellerProducts(sellerProducts.filter((p) => p.id !== productId));
+  };
 
   const handleEditStore = () => {
     setIsEditing(true);
@@ -122,7 +128,12 @@ export default function ShopHome() {
                     </svg>
                     <span className="text-[14px] font-semibold">{seller.rating}</span>
                   </div>
-                  <span className="text-[14px] text-[#828282]">({seller.reviewCount} reviews)</span>
+                  <button
+                    onClick={() => navigate("/my-shop/reviews")}
+                    className="text-[14px] text-[#828282] hover:text-[#498467]"
+                  >
+                    ({seller.reviewCount} reviews)
+                  </button>
                   <span className="text-[14px] text-[#828282]">•</span>
                   <span className="text-[14px] text-[#828282]">{seller.followers} followers</span>
                 </div>
@@ -174,7 +185,15 @@ export default function ShopHome() {
                 </button>
               </div>
               {sellerProducts.length > 0 ? (
-                <CarouselRow title="" products={sellerProducts} />
+                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+                  {sellerProducts.map((product) => (
+                    <SellerListingCard
+                      key={product.id}
+                      product={product}
+                      onDelete={handleDeleteListing}
+                    />
+                  ))}
+                </div>
               ) : (
                 <div className="text-center py-8 text-[14px] text-[#828282]">
                   No active listings

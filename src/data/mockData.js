@@ -5,6 +5,10 @@ export const products = [
     price: 4.99,
     shop: "Pennie's Produce",
     sellerId: "pennies-produce",
+    status: "Active",
+    views: 156,
+    favorites: 23,
+    messages: 8,
     image:
       "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=400&q=80",
   },
@@ -14,6 +18,10 @@ export const products = [
     price: 8.99,
     shop: "Dustin's Donut Store",
     sellerId: "dustins-donuts",
+    status: "Active",
+    views: 342,
+    favorites: 45,
+    messages: 12,
     image:
       "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=400&q=80",
   },
@@ -23,6 +31,10 @@ export const products = [
     price: 14.99,
     shop: "Brandy's Crafts",
     sellerId: "brandys-crafts",
+    status: "Sold",
+    views: 89,
+    favorites: 18,
+    messages: 5,
     image:
       "https://images.unsplash.com/photo-1520903920243-00d872a2d1c9?w=400&q=80",
   },
@@ -32,6 +44,10 @@ export const products = [
     price: 5,
     shop: "Sarah's Backyard",
     sellerId: "sarahs-backyard",
+    status: "Active",
+    views: 267,
+    favorites: 34,
+    messages: 15,
     image:
       "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=800&q=80",
     tag: "Tag",

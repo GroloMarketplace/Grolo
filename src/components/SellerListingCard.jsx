@@ -1,0 +1,152 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+export default function SellerListingCard({ product, onDelete }) {
+  const navigate = useNavigate();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [status, setStatus] = useState(product.status || "Active");
+
+  const handleEdit = () => {
+    navigate(`/edit-listing/${product.id}`);
+  };
+
+  const handleDeleteClick = () => {
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    setShowDeleteModal(false);
+    if (onDelete) {
+      onDelete(product.id);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+  };
+
+  const handleImageClick = () => {
+    navigate(`/product/${product.id}`);
+  };
+
+  const statusColors = {
+    Active: "bg-[#498467] text-white",
+    Sold: "bg-[#828282] text-white",
+    Draft: "bg-[#E6E6E6] text-black",
+  };
+
+  return (
+    <>
+      <div className="flex flex-col gap-3 w-[148px] shrink-0 relative">
+        {/* Status Badge */}
+        <div className="absolute top-2 right-2 z-10">
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusColors[status]}`}>
+            {status}
+          </span>
+        </div>
+
+        {/* Product Image */}
+        <button
+          onClick={handleImageClick}
+          className="w-[148px] h-[148px] rounded-lg object-cover overflow-hidden"
+        >
+          <img
+            src={product.image}
+            alt={product.name}
+            className="w-full h-full object-cover hover:opacity-90 transition-opacity"
+          />
+        </button>
+
+        {/* Product Info */}
+        <div className="flex flex-col gap-0.5">
+          <div className="text-[12px] text-black/50 line-clamp-2">
+            {product.shop}
+          </div>
+          <div className="text-[14px] text-black line-clamp-2">
+            {product.name}
+          </div>
+          <div className="text-[16px] font-medium text-black">
+            ${product.price.toFixed(2)}
+          </div>
+        </div>
+
+        {/* Performance Metrics */}
+        <div className="flex items-center gap-3 text-[11px] text-[#828282]">
+          <div className="flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
+              <path
+                d="M10 3.5c-3.5 0-6.5 2-8 5 1.5 3 4.5 5 8 5s6.5-2 8-5c-1.5-3-4.5-5-8-5Zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3Zm0-4.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5Z"
+                fill="currentColor"
+              />
+            </svg>
+            <span>{product.views || 0}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
+              <path
+                d="M17.37 3.84a4.13 4.13 0 0 0-6.49-.5L10 4.22l-.88-.88a4.13 4.13 0 0 0-6.13 5.5l.63.88L10 17.19l6.48-6.48.63-.88a4.13 4.13 0 0 0 .26-6.49Z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>{product.favorites || 0}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
+              <path
+                d="M17.5 12.5a1.67 1.67 0 0 1-1.67 1.67H5.83L2.5 17.5V4.17A1.67 1.67 0 0 1 4.17 2.5h11.66A1.67 1.67 0 0 1 17.5 4.17v8.33Z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+            </svg>
+            <span>{product.messages || 0}</span>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 mt-1">
+          <button
+            onClick={handleEdit}
+            className="flex-1 text-[12px] font-medium text-[#498467] border border-[#498467] rounded py-1"
+          >
+            Edit
+          </button>
+          <button
+            onClick={handleDeleteClick}
+            className="flex-1 text-[12px] font-medium text-red-500 border border-red-500 rounded py-1"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-[300px]">
+            <h3 className="text-[18px] font-semibold mb-2">Delete Listing</h3>
+            <p className="text-[14px] text-[#828282] mb-6">
+              Are you sure you want to delete this listing?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleDeleteCancel}
+                className="flex-1 py-2.5 rounded-lg text-[14px] font-medium border border-[#E6E6E6]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="flex-1 py-2.5 rounded-lg text-[14px] font-medium bg-red-500 text-white"
+              >
+                Delete Listing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

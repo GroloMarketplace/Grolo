@@ -39,6 +39,18 @@ export default function Sidebar({ isOpen, onClose }) {
           <h2 className="text-xl font-semibold mb-6">Menu</h2>
           <nav className="flex flex-col gap-2">
             <button
+              onClick={() => handleMenuClick(() => navigate("/create-listing"))}
+              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
+            >
+              Create New Listing
+            </button>
+            <button
+              onClick={() => handleMenuClick(() => navigate("/saved"))}
+              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
+            >
+              Saved Items
+            </button>
+            <button
               onClick={() => handleMenuClick(() => navigate("/profit"))}
               className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
             >

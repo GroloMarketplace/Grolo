@@ -14,6 +14,9 @@ import ShopHome from "./pages/ShopHome";
 import ProductDetail from "./pages/ProductDetail";
 import SignIn from "./pages/SignIn";
 import AccountSettings from "./pages/AccountSettings";
+import CreateListing from "./pages/CreateListing";
+import Saved from "./pages/Saved";
+import SellerProfile from "./pages/SellerProfile";
 
 export default function App() {
   return (
@@ -23,6 +26,7 @@ export default function App() {
         <Route path="/" element={<PhoneFrame><Feed /></PhoneFrame>} />
         <Route path="/shop" element={<PhoneFrame><ShopHome /></PhoneFrame>} />
         <Route path="/product/:id" element={<PhoneFrame><ProductDetail /></PhoneFrame>} />
+        <Route path="/seller/:sellerId" element={<PhoneFrame><SellerProfile /></PhoneFrame>} />
         <Route path="/search" element={<PhoneFrame><Search /></PhoneFrame>} />
         <Route
           path="/messages"
@@ -53,6 +57,26 @@ export default function App() {
             <PhoneFrame>
               <ProtectedRoute>
                 <Profit />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
+        <Route
+          path="/create-listing"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute>
+                <CreateListing />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
+        <Route
+          path="/saved"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute>
+                <Saved />
               </ProtectedRoute>
             </PhoneFrame>
           }

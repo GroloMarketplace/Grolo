@@ -1,108 +1,30 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState } from "react";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import {
   followingPosts,
-  notificationsHighlights,
-  notificationsFollowers,
+  communityPosts,
+  notificationsActivity,
 } from "../data/mockData";
 
 const TABS = ["Following", "Your Community", "Notifications"];
 
 export default function Feed() {
   const [tab, setTab] = useState("Following");
-  const [animating, setAnimating] = useState(false);
-  const [animationDirection, setAnimationDirection] = useState(0);
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
-  const mouseDownX = useRef(0);
-  const mouseUpX = useRef(0);
-  const isDragging = useRef(false);
-  const currentTab = useRef(tab);
 
-  useEffect(() => {
-    currentTab.current = tab;
-  }, [tab]);
-
-  const handleTouchStart = useCallback((e) => {
-    touchStartX.current = e.changedTouches[0].screenX;
-  }, []);
-
-  const handleTouchEnd = useCallback((e) => {
-    touchEndX.current = e.changedTouches[0].screenX;
-    handleSwipe();
-  }, []);
-
-  const handleMouseDown = useCallback((e) => {
-    isDragging.current = true;
-    mouseDownX.current = e.clientX;
-  }, []);
-
-  const handleMouseMove = useCallback((e) => {
-    if (!isDragging.current) return;
-  }, []);
-
-  const handleMouseUp = useCallback((e) => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-    mouseUpX.current = e.clientX;
-    handleMouseSwipe();
-  }, []);
-
-  const handleSwipe = useCallback(() => {
-    const swipeThreshold = 50;
-    const diff = touchStartX.current - touchEndX.current;
-    const currentTabValue = currentTab.current;
-
-    if (Math.abs(diff) > swipeThreshold) {
-      const currentIndex = TABS.indexOf(currentTabValue);
-      if (diff > 0 && currentIndex < TABS.length - 1) {
-        handleTabChange(TABS[currentIndex + 1]);
-      } else if (diff < 0 && currentIndex > 0) {
-        handleTabChange(TABS[currentIndex - 1]);
-      }
+  const getPosts = () => {
+    switch (tab) {
+      case "Following":
+        return followingPosts;
+      case "Your Community":
+        return communityPosts;
+      case "Notifications":
+        return notificationsActivity;
+      default:
+        return followingPosts;
     }
-  }, []);
+  };
 
-  const handleMouseSwipe = useCallback(() => {
-    const swipeThreshold = 50;
-    const diff = mouseDownX.current - mouseUpX.current;
-    const currentTabValue = currentTab.current;
-
-    if (Math.abs(diff) > swipeThreshold) {
-      const currentIndex = TABS.indexOf(currentTabValue);
-      if (diff > 0 && currentIndex < TABS.length - 1) {
-        handleTabChange(TABS[currentIndex + 1]);
-      } else if (diff < 0 && currentIndex > 0) {
-        handleTabChange(TABS[currentIndex - 1]);
-      }
-    }
-  }, []);
-
-  const handleTabChange = useCallback((newTab) => {
-    if (newTab === currentTab.current) return;
-    const direction = TABS.indexOf(newTab) > TABS.indexOf(currentTab.current) ? 1 : -1;
-    setAnimationDirection(direction);
-    setAnimating(true);
-    setTimeout(() => setTab(newTab), 100);
-    setTimeout(() => setAnimating(false), 300);
-  }, []);
-
-  useEffect(() => {
-    const element = document.body;
-    element.addEventListener("touchstart", handleTouchStart);
-    element.addEventListener("touchend", handleTouchEnd);
-    element.addEventListener("mousedown", handleMouseDown);
-    element.addEventListener("mousemove", handleMouseMove);
-    element.addEventListener("mouseup", handleMouseUp);
-
-    return () => {
-      element.removeEventListener("touchstart", handleTouchStart);
-      element.removeEventListener("touchend", handleTouchEnd);
-      element.removeEventListener("mousedown", handleMouseDown);
-      element.removeEventListener("mousemove", handleMouseMove);
-      element.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [handleTouchStart, handleTouchEnd, handleMouseDown, handleMouseMove, handleMouseUp]);
+  const currentPosts = getPosts();
 
   return (
     <MobileScreenLayout>
@@ -110,7 +32,7 @@ export default function Feed() {
         {TABS.map((t) => (
           <button
             key={t}
-            onClick={() => handleTabChange(t)}
+            onClick={() => setTab(t)}
             className={`text-[14px] font-semibold tracking-[-0.28px] relative ${
               tab === t ? "text-[#498467]" : "text-black/40"
             }`}
@@ -121,25 +43,24 @@ export default function Feed() {
         ))}
       </div>
 
-      <div className="overflow-hidden">
-        <div 
-          className={`flex transition-all duration-300 ease-in-out ${
-            animating ? 'opacity-0' : 'opacity-100'
-          }`}
-          style={{
-            transform: animating ? `translateX(${animationDirection * 20}px)` : 'translateX(0)'
-          }}
-        >
-          {tab !== "Notifications" && (
-            <div className="flex flex-col gap-8 px-4 py-6">
-              {followingPosts.map((post) => (
-                <Post key={post.id} post={post} />
-              ))}
-            </div>
-          )}
+      <div className="overflow-y-auto flex-1 no-scrollbar">
+        {tab === "Following" && (
+          <div className="flex flex-col gap-8 px-4 py-6">
+            {followingPosts.map((post) => (
+              <Post key={post.id} post={post} />
+            ))}
+          </div>
+        )}
 
-          {tab === "Notifications" && <Notifications />}
-        </div>
+        {tab === "Your Community" && (
+          <div className="flex flex-col gap-8 px-4 py-6">
+            {communityPosts.map((post) => (
+              <Post key={post.id} post={post} />
+            ))}
+          </div>
+        )}
+
+        {tab === "Notifications" && <Notifications />}
       </div>
     </MobileScreenLayout>
   );
@@ -239,28 +160,10 @@ function IconCount({ children, label }) {
 }
 
 function Notifications() {
-  const [sub, setSub] = useState("Highlights");
-  const list = sub === "Highlights" ? notificationsHighlights : notificationsFollowers;
-
   return (
     <div className="flex flex-col">
-      <div className="sticky top-0 bg-white z-10 flex justify-center gap-2 pt-6 pb-4">
-        {["Highlights", "Followers"].map((s) => (
-          <button
-            key={s}
-            onClick={() => setSub(s)}
-            className={`px-3.5 py-1.5 rounded-full text-[14px] font-medium border ${
-              sub === s
-                ? "bg-black/90 text-white border-transparent"
-                : "bg-white text-black border-[#E6E6E6]"
-            }`}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
       <div className="flex flex-col">
-        {list.map((n) => (
+        {notificationsActivity.map((n) => (
           <div
             key={n.id}
             className="flex items-center gap-4 px-4 py-3 border-b border-black/5"
@@ -288,17 +191,10 @@ function Notifications() {
                 </div>
               )}
             </div>
-            {n.button && (
+            {n.type === "follow" && (
               <button className="shrink-0 h-8 px-4 rounded-lg bg-black text-white text-[14px] font-medium">
-                {n.button}
+                Follow
               </button>
-            )}
-            {n.thumb && (
-              <img
-                src={n.thumb}
-                alt=""
-                className="w-12 h-12 rounded-lg object-cover shrink-0"
-              />
             )}
           </div>
         ))}

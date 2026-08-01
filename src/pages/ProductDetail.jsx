@@ -2,7 +2,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useState } from "react";
 import Header from "../components/Header";
 import CarouselRow from "../components/CarouselRow";
-import { products, reviews } from "../data/mockData";
+import { products, reviews, sellers } from "../data/mockData";
 import { useFavorites } from "../hooks/useFavorites";
 
 export default function ProductDetail() {
@@ -14,6 +14,7 @@ export default function ProductDetail() {
     products.find((p) => p.id === "strawberries");
   const { isFavorite, toggleFavorite } = useFavorites();
   const saved = isFavorite(product.id);
+  const seller = Object.values(sellers).find((s) => s.name === product.shop);
 
   return (
     <div>
@@ -59,7 +60,18 @@ export default function ProductDetail() {
               </div>
             </div>
           </div>
-          <div className="text-[16px] text-[#757575]">{product.shop}</div>
+          <div className="text-[16px] text-[#757575]">
+            {seller ? (
+              <button
+                onClick={() => navigate(`/seller/${seller.id}`)}
+                className="text-[#498467] hover:underline"
+              >
+                {product.shop}
+              </button>
+            ) : (
+              product.shop
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-4">

@@ -26,39 +26,41 @@ export default function Search() {
         ))}
       </div>
 
-      <div className="sticky top-[57px] bg-white z-9 py-3 border-b border-black/5">
-        <SearchBar />
-      </div>
+      <div className="overflow-y-auto flex-1 no-scrollbar">
+        <div className="bg-white py-3 border-b border-black/5">
+          <SearchBar />
+        </div>
 
-      {tab === "Local" && (
-        <>
-          <div className="px-4">
-            <div className="rounded-lg overflow-hidden">
-              <img
-                src="https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80"
-                alt="Calgary Farmers Market"
-                className="w-full h-[136px] object-cover"
-              />
+        {tab === "Local" && (
+          <>
+            <div className="px-4">
+              <div className="rounded-lg overflow-hidden">
+                <img
+                  src="https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80"
+                  alt="Calgary Farmers Market"
+                  className="w-full h-[136px] object-cover"
+                />
+              </div>
             </div>
-          </div>
-          <CategoryRow />
-          <CarouselRow title="Featured" products={products} />
-        </>
-      )}
+            <CategoryRow />
+            <CarouselRow title="Featured" products={products} />
+          </>
+        )}
 
-      {tab === "History" && (
-        <>
-          <CategoryRow />
-          <CarouselRow title="Today" products={products} />
-        </>
-      )}
+        {tab === "History" && (
+          <>
+            <CategoryRow />
+            <CarouselRow title="Today" products={products} />
+          </>
+        )}
 
-      {tab === "My Stores" && (
-        <>
-          <StoreRow />
-          <CarouselRow title="Top Shops" products={products} />
-        </>
-      )}
+        {tab === "My Stores" && (
+          <>
+            <StoreRow />
+            <CarouselRow title="Top Shops" products={products} />
+          </>
+        )}
+      </div>
     </MobileScreenLayout>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import { shoppers, chartXAxis } from "../data/mockData";
 import { useAuth } from "../context/AuthContext";
@@ -29,11 +30,13 @@ export default function Profit() {
   const [tab, setTab] = useState("Revenue");
   const active = TABS[tab];
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <div>
       <Header
         title="Profit"
+        onBack={() => navigate("/shop")}
         right={
           isSupabaseConfigured && user ? (
             <button

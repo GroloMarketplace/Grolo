@@ -1,4 +1,5 @@
 import { useState } from "react";
+import MobileScreenLayout from "../components/MobileScreenLayout";
 import {
   followingPosts,
   notificationsHighlights,
@@ -11,8 +12,8 @@ export default function Feed() {
   const [tab, setTab] = useState("Following");
 
   return (
-    <div>
-      <div className="flex items-center justify-center gap-8 px-4 py-2.5 border-b border-black/5 relative">
+    <MobileScreenLayout>
+      <div className="sticky top-0 bg-white z-10 flex items-center justify-center gap-8 px-4 py-2.5 border-b border-black/5 relative">
         {TABS.map((t) => (
           <button
             key={t}
@@ -35,7 +36,7 @@ export default function Feed() {
       )}
 
       {tab === "Notifications" && <Notifications />}
-    </div>
+    </MobileScreenLayout>
   );
 }
 
@@ -137,8 +138,8 @@ function Notifications() {
   const list = sub === "Highlights" ? notificationsHighlights : notificationsFollowers;
 
   return (
-    <div>
-      <div className="flex justify-center gap-2 pt-6 pb-4">
+    <div className="flex flex-col">
+      <div className="sticky top-0 bg-white z-10 flex justify-center gap-2 pt-6 pb-4">
         {["Highlights", "Followers"].map((s) => (
           <button
             key={s}

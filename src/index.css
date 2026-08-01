@@ -25,6 +25,10 @@ body {
   background: #efefef;
 }
 
+.font-serif {
+  font-family: Georgia, 'Times New Roman', Times, serif;
+}
+
 #root {
   min-height: 100svh;
 }

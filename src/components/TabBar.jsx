@@ -10,8 +10,8 @@ const tabs = [
           fillRule="evenodd"
           clipRule="evenodd"
           d="M12.594 1.994c-.346-.283-.843-.283-1.189 0L1.343 10.244a1.1 1.1 0 0 0-.288 1.34c.133.373.487.622.883.622h1.457l.745 8.142c.074.804.748 1.42 1.556 1.42h3.49c.345 0 .625-.28.625-.625v-4.803c0-1.875 1.53-1.875 1.875-1.875h.625c.345 0 1.875 0 1.875 1.875v4.803c0 .345.28.625.625.625h3.49c.808 0 1.483-.616 1.556-1.42l.745-8.142h1.457c.396 0 .75-.25.883-.622a1.1 1.1 0 0 0-.288-1.34L12.594 1.994Z"
-          fill={active ? "white" : "black"}
-          stroke="black"
+          fill="none"
+          stroke={active ? "#498467" : "black"}
           strokeWidth="2"
           strokeLinejoin="round"
         />
@@ -58,13 +58,27 @@ const tabs = [
     ),
   },
   {
-    to: "/profit",
+    to: "/shop",
     label: "Profile",
     icon: (active) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
         <path
-          d="M12 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 11.5c5.15 0 8.33 3.5 8.5 8.5a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5c-.15-3.92-2.45-6.5-6.5-6.5s-6.35 2.58-6.5 6.5a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5c.17-5 3.35-8.5 8.5-8.5Z"
-          fill={active ? "#498467" : "black"}
+          d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
+          fill="none"
+          stroke={active ? "#498467" : "black"}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle
+          cx="12"
+          cy="7"
+          r="4"
+          fill="none"
+          stroke={active ? "#498467" : "black"}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
       </svg>
     ),

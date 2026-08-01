@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { cartItems } from "../data/mockData";
 
 export default function Cart() {
@@ -9,14 +10,31 @@ export default function Cart() {
     <div className="flex flex-col">
       <div className="h-14 flex items-center justify-center border-b border-[#E6E6E6]">
         <span className="text-[17px] font-semibold tracking-[-0.34px]">
-          Checkout
+          Cart
         </span>
+      </div>
+
+      <div className="px-4 py-4 flex flex-col gap-2 border-b border-[#E6E6E6]">
+        <Row label={`Subtotal (${cartItems.length})`} value={`$${subtotal.toFixed(2)}`} />
+        <Row label="Shipping total" value="Free" />
+        <Row label="Taxes" value={`$${tax.toFixed(2)}`} />
+        <Row label="Total" value={`$${total.toFixed(2)}`} bold />
+      </div>
+
+      <div className="px-4 py-4">
+        <Link to="/checkout" className="w-full rounded-lg bg-[#498467] text-white text-[16px] font-medium py-3.5 shadow-sm block text-center">
+          Go to Checkout
+        </Link>
+      </div>
+
+      <div className="px-4 py-3 border-b border-[#E6E6E6]">
+        <div className="text-[14px] font-medium">Saved for Later</div>
       </div>
 
       <div className="border-b-4 border-[#E6E6E6]">
         <div className="flex items-center justify-between px-4 py-3 border-b border-black/5">
           <span className="text-[12px] font-semibold text-[#B56576]">
-            Sarah’s Backyard
+            Sarah's Backyard
           </span>
           <span className="text-[14px] text-black/50">View Store</span>
         </div>
@@ -42,19 +60,6 @@ export default function Cart() {
             ))}
           </div>
         </div>
-      </div>
-
-      <div className="px-4 py-4 flex flex-col gap-2">
-        <Row label={`Subtotal (${cartItems.length})`} value={`$${subtotal.toFixed(2)}`} />
-        <Row label="Shipping total" value="Free" />
-        <Row label="Taxes" value={`$${tax.toFixed(2)}`} />
-        <Row label="Total" value={`$${total.toFixed(2)}`} bold />
-      </div>
-
-      <div className="px-4 pb-8">
-        <button className="w-full rounded-lg bg-[#498467] text-white text-[16px] font-medium py-3.5 shadow-sm">
-          Place order
-        </button>
       </div>
     </div>
   );

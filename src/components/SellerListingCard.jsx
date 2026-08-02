@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import PromotionBadge from "./PromotionBadge";
+import { usePromotions } from "../context/PromotionContext";
 
 export default function SellerListingCard({ product, onDelete }) {
   const navigate = useNavigate();
+  const { promotionsForProduct } = usePromotions();
+  const promotion = promotionsForProduct(product.id)[0];
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [status, setStatus] = useState(product.status || "Active");
 
@@ -44,6 +48,7 @@ export default function SellerListingCard({ product, onDelete }) {
             {status}
           </span>
         </div>
+        <PromotionBadge promotion={promotion} className="absolute left-2 top-2 z-10" />
 
         {/* Product Image */}
         <button

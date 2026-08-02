@@ -1,6 +1,9 @@
 ﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MobileScreenLayout from "../components/MobileScreenLayout";
+import CommunityImpactCard from "../components/CommunityImpactCard";
+import PromotionBadge from "../components/PromotionBadge";
+import { usePromotions } from "../context/PromotionContext";
 import {
   followingPosts,
   communityPosts,
@@ -21,7 +24,13 @@ const TABS = ["Following", "Your Community", "Notifications"];
 
 export default function Feed() {
   const [tab, setTab] = useState("Following");
+  const [communityScrolled, setCommunityScrolled] = useState(false);
   const { followedSellers } = useFollow();
+
+  const handleTabChange = (nextTab) => {
+    setTab(nextTab);
+    setCommunityScrolled(false);
+  };
 
   const getPosts = () => {
     switch (tab) {
@@ -47,7 +56,7 @@ export default function Feed() {
         {TABS.map((t) => (
           <button
             key={t}
-            onClick={() => setTab(t)}
+            onClick={() => handleTabChange(t)}
             className={`text-[14px] font-semibold tracking-[-0.28px] relative ${
               tab === t ? "text-[#498467]" : "text-black/40"
             }`}
@@ -58,7 +67,14 @@ export default function Feed() {
         ))}
       </div>
 
-      <div className="overflow-y-auto flex-1 no-scrollbar">
+      <div
+        className="overflow-y-auto flex-1 no-scrollbar"
+        onScroll={(event) => {
+          if (tab === "Your Community") {
+            setCommunityScrolled(event.currentTarget.scrollTop > 24);
+          }
+        }}
+      >
         {tab === "Following" && (
           <div className="flex flex-col gap-8 px-4 py-6">
             {getPosts().length === 0 ? (
@@ -73,7 +89,7 @@ export default function Feed() {
           </div>
         )}
 
-        {tab === "Your Community" && <CommunityFeed />}
+        {tab === "Your Community" && <CommunityFeed collapsed={communityScrolled} />}
 
         {tab === "Notifications" && <Notifications />}
       </div>
@@ -81,12 +97,13 @@ export default function Feed() {
   );
 }
 
-function CommunityFeed() {
+function CommunityFeed({ collapsed }) {
   const { upcomingEvents } = useEvents();
   const events = upcomingEvents();
 
   return (
     <div className="flex flex-col gap-8 px-4 py-6">
+      <CommunityImpactCard collapsed={collapsed} />
       {events.map((event) => (
         <EventPost key={event.id} event={event} />
       ))}
@@ -102,10 +119,25 @@ function EventPost({ event }) {
   const seller = sellers[event.sellerId];
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
+  const [likes, setLikes] = useState(event.likes ?? 0);
+  const [reposts, setReposts] = useState(event.reposts ?? 0);
   const [shares, setShares] = useState(event.shares ?? 0);
 
   const openEvent = () => navigate(`/event/${event.id}`);
+  const openComments = () => navigate(`/event/${event.id}#comments`);
   const openSeller = () => seller && navigate(`/seller/${seller.id}`);
+
+  const handleLike = () => {
+    if (liked) return;
+    setLiked(true);
+    setLikes((count) => count + 1);
+  };
+
+  const handleRepost = () => {
+    if (reposted) return;
+    setReposted(true);
+    setReposts((count) => count + 1);
+  };
 
   const handleShare = () => {
     const url = `${window.location.origin}/event/${event.id}`;
@@ -176,6 +208,19 @@ function EventPost({ event }) {
         />
         <EventMeta label="Location" value={event.location} />
       </div>
+
+      <EngagementRow
+        likes={likes}
+        comments={event.comments ?? 0}
+        reposts={reposts}
+        shares={shares}
+        liked={liked}
+        reposted={reposted}
+        onLike={handleLike}
+        onComment={openComments}
+        onRepost={handleRepost}
+        onShare={handleShare}
+      />
     </div>
   );
 }
@@ -193,7 +238,9 @@ function EventMeta({ label, value }) {
 
 function Post({ post, stacked }) {
   const navigate = useNavigate();
+  const { promotionsForProduct } = usePromotions();
   const seller = Object.values(sellers).find((s) => s.name === post.name);
+  const promotion = post.productId ? promotionsForProduct(post.productId)[0] : null;
 
   const handleSellerClick = () => {
     if (seller) {
@@ -246,58 +293,29 @@ function Post({ post, stacked }) {
   const content = (
     <>
       {post.image && (
-        <button
-          onClick={handleImageClick}
-          className="w-full aspect-square overflow-hidden rounded"
-        >
-          <img
-            src={post.image}
-            alt=""
-            className="w-full h-full object-cover hover:opacity-90 transition-opacity"
-          />
-        </button>
+        <div className="relative">
+          <button
+            onClick={handleImageClick}
+            className="w-full aspect-square overflow-hidden rounded"
+          >
+            <img
+              src={post.image}
+              alt=""
+              className="w-full h-full object-cover hover:opacity-90 transition-opacity"
+            />
+          </button>
+          <PromotionBadge promotion={promotion} className="absolute left-2 top-2" />
+        </div>
       )}
 
       <p className="text-[14px] leading-[140%]">{post.body}</p>
 
-      <div className="flex items-center gap-11">
-        <IconCount label={post.likes}>
-          <path
-            d="M17.37 3.84a4.13 4.13 0 0 0-6.49-.5L10 4.22l-.88-.88a4.13 4.13 0 0 0-6.13 5.5l.63.88L10 17.19l6.48-6.48.63-.88a4.13 4.13 0 0 0 .26-6.49Z"
-            stroke="black"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </IconCount>
-        <IconCount label={post.comments}>
-          <path
-            d="M17.5 12.5a1.67 1.67 0 0 1-1.67 1.67H5.83L2.5 17.5V4.17A1.67 1.67 0 0 1 4.17 2.5h11.66A1.67 1.67 0 0 1 17.5 4.17v8.33Z"
-            stroke="black"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </IconCount>
-        <IconCount label={post.shares}>
-          <path
-            d="M5.83 7.5 2.5 4.17 5.83.83M2.5 4.17h11.67a3.33 3.33 0 0 1 3.33 3.33v1.67M14.17 12.5l3.33 3.33-3.33 3.34M17.5 15.83H5.83A3.33 3.33 0 0 1 2.5 12.5v-1.66"
-            stroke="#1E1E1E"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </IconCount>
-        <IconCount label={post.sends}>
-          <path
-            d="M18.33 1.67 9.17 10.83M9.17 10.83 1.67 7.5l16.66-5.83-5.83 16.66-3.33-7.5Z"
-            stroke="#1E1E1E"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </IconCount>
-      </div>
+      <EngagementRow
+        likes={post.likes}
+        comments={post.comments}
+        reposts={post.shares}
+        shares={post.sends}
+      />
     </>
   );
 
@@ -330,14 +348,84 @@ function Post({ post, stacked }) {
   );
 }
 
-function IconCount({ children, label }) {
+function EngagementRow({
+  likes,
+  comments,
+  reposts,
+  shares,
+  liked,
+  reposted,
+  onLike,
+  onComment,
+  onRepost,
+  onShare,
+}) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-11">
+      <IconCount label={likes} onClick={onLike} ariaLabel="Like" active={liked}>
+        <path
+          d="M17.37 3.84a4.13 4.13 0 0 0-6.49-.5L10 4.22l-.88-.88a4.13 4.13 0 0 0-6.13 5.5l.63.88L10 17.19l6.48-6.48.63-.88a4.13 4.13 0 0 0 .26-6.49Z"
+          stroke="black"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </IconCount>
+      <IconCount label={comments} onClick={onComment} ariaLabel="Comment">
+        <path
+          d="M17.5 12.5a1.67 1.67 0 0 1-1.67 1.67H5.83L2.5 17.5V4.17A1.67 1.67 0 0 1 4.17 2.5h11.66a1.67 1.67 0 0 1 1.67 1.67v8.33Z"
+          stroke="black"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </IconCount>
+      <IconCount label={reposts} onClick={onRepost} ariaLabel="Regrow" active={reposted}>
+        <path
+          d="M5.83 7.5 2.5 4.17 5.83.83M2.5 4.17h11.67a3.33 3.33 0 0 1 3.33 3.33v1.67M14.17 12.5l3.33 3.33-3.33 3.34M17.5 15.83H5.83A3.33 3.33 0 0 1 2.5 12.5v-1.66"
+          stroke="#1E1E1E"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </IconCount>
+      <IconCount label={shares} onClick={onShare} ariaLabel="Share">
+        <path
+          d="M18.33 1.67 9.17 10.83M9.17 10.83 1.67 7.5l16.66-5.83-5.83 16.66-3.33-7.5Z"
+          stroke="#1E1E1E"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </IconCount>
+    </div>
+  );
+}
+
+function IconCount({ children, label, onClick, ariaLabel, active }) {
+  const content = (
+    <>
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         {children}
       </svg>
       <span className="text-[14px] font-medium">{label}</span>
-    </div>
+    </>
+  );
+
+  if (!onClick) {
+    return <div className="flex items-center gap-2">{content}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      aria-pressed={active}
+      className="flex items-center gap-2"
+    >
+      {content}
+    </button>
   );
 }
 

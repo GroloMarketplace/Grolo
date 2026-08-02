@@ -2,6 +2,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import CarouselRow from "../components/CarouselRow";
+import PromotionBadge from "../components/PromotionBadge";
 import { products, sellers, messages } from "../data/mockData";
 import { useFollow } from "../context/FollowContext";
 import { useReviews } from "../context/ReviewContext";
@@ -9,6 +10,7 @@ import {
   formatEventDate,
   useEvents,
 } from "../context/EventContext";
+import { usePromotions } from "../context/PromotionContext";
 
 export default function SellerProfile() {
   const { sellerId } = useParams();
@@ -16,8 +18,10 @@ export default function SellerProfile() {
   const { isFollowing, toggleFollow } = useFollow();
   const { sellerRating } = useReviews();
   const { upcomingEvents } = useEvents();
+  const { promotionsForSeller } = usePromotions();
   const seller = sellers[sellerId] || sellers["sarahs-backyard"];
   const sellerEvents = upcomingEvents(seller.id);
+  const sellerPromotions = promotionsForSeller(seller.id);
   const { average, count } = sellerRating(seller.id);
   const sellerProducts = products.filter((p) => p.sellerId === sellerId || p.shop === seller.name);
 
@@ -104,6 +108,26 @@ export default function SellerProfile() {
             </div>
           </div>
         </div>
+
+        {sellerPromotions.length > 0 && (
+          <div className="mt-4 px-4">
+            <h2 className="text-[18px] font-semibold mb-3">Special Offers</h2>
+            <div className="flex flex-col gap-2">
+              {sellerPromotions.map((promotion) => (
+                <div
+                  key={promotion.id}
+                  className="rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-3 flex flex-col gap-1"
+                >
+                  <PromotionBadge promotion={promotion} />
+                  <span className="text-[14px] font-semibold">{promotion.title}</span>
+                  <span className="text-[12px] text-[#828282]">
+                    Available on {promotion.productIds.length} listing{promotion.productIds.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Upcoming Events */}
         {sellerEvents.length > 0 && (

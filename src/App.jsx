@@ -6,6 +6,7 @@ import { FollowProvider } from "./context/FollowContext";
 import { ReviewProvider } from "./context/ReviewContext";
 import { OrderProvider } from "./context/OrderContext";
 import { EventProvider } from "./context/EventContext";
+import { PromotionProvider } from "./context/PromotionContext";
 import Feed from "./pages/Feed";
 import Search from "./pages/Search";
 import Messages from "./pages/Messages";
@@ -31,6 +32,8 @@ import ProductReviews from "./pages/ProductReviews";
 import ShopOrders from "./pages/ShopOrders";
 import ShopEvents from "./pages/ShopEvents";
 import CreateEvent from "./pages/CreateEvent";
+import CreatePromotion from "./pages/CreatePromotion";
+import CommunityImpact from "./pages/CommunityImpact";
 import EventDetail from "./pages/EventDetail";
 
 export default function App() {
@@ -39,6 +42,7 @@ export default function App() {
       <FollowProvider>
         <OrderProvider>
         <EventProvider>
+        <PromotionProvider>
         <ReviewProvider>
         <Routes>
         <Route path="/signin" element={<PhoneFrame hideTabBar statusBarBackground="bg-[#E6DCCF]" backgroundColor="bg-[#E6DCCF]"><SignIn /></PhoneFrame>} />
@@ -66,6 +70,17 @@ export default function App() {
             </PhoneFrame>
           }
         />
+        <Route
+          path="/create-promotion"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute>
+                <CreatePromotion />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
+        <Route path="/community-impact" element={<PhoneFrame><CommunityImpact /></PhoneFrame>} />
         <Route
           path="/my-shop/orders"
           element={
@@ -195,6 +210,7 @@ export default function App() {
         />
       </Routes>
         </ReviewProvider>
+        </PromotionProvider>
         </EventProvider>
         </OrderProvider>
       </FollowProvider>

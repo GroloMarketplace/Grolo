@@ -4,7 +4,9 @@ import Header from "../components/Header";
 import CarouselRow from "../components/CarouselRow";
 import StarRating from "../components/StarRating";
 import ImageGallery from "../components/ImageGallery";
+import PromotionBadge from "../components/PromotionBadge";
 import { products, sellers } from "../data/mockData";
+import { usePromotions } from "../context/PromotionContext";
 import { useFavorites } from "../hooks/useFavorites";
 import { useReviews } from "../context/ReviewContext";
 
@@ -18,6 +20,8 @@ export default function ProductDetail() {
   const { isFavorite, toggleFavorite } = useFavorites();
   const saved = isFavorite(product.id);
   const seller = Object.values(sellers).find((s) => s.name === product.shop);
+  const { promotionsForProduct } = usePromotions();
+  const promotion = promotionsForProduct(product.id)[0];
   const { reviewsForProduct, productRating, canReviewProduct } = useReviews();
   const { average, count } = productRating(product.id);
   const productReviewList = reviewsForProduct(product.id);
@@ -53,10 +57,18 @@ export default function ProductDetail() {
             <h1 className="text-[24px] font-semibold tracking-[-0.48px]">
               {product.name}
             </h1>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
               <span className="inline-flex w-fit items-center rounded-lg bg-[#CFF7D3] text-[#02542D] text-[16px] px-2 py-2">
                 {product.tag ?? "Tag"}
               </span>
+              {promotion && (
+                <div className="flex flex-col items-start gap-1">
+                  <PromotionBadge promotion={promotion} />
+                  <span className="text-[14px] font-medium text-[#498467]">
+                    {promotion.title}
+                  </span>
+                </div>
+              )}
               <div className="flex items-end">
                 <span className="text-[24px] font-bold">$</span>
                 <span className="text-[48px] font-bold leading-none">

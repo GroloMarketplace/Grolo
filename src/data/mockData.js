@@ -85,6 +85,56 @@ export const products = [
   },
 ];
 
+export const promotions = [
+  {
+    id: "promo-strawberries-percent",
+    title: "15% off fresh strawberries",
+    type: "percentage",
+    value: "15",
+    productIds: ["strawberries"],
+    sellerId: "sarahs-backyard",
+    startsAt: "2026-07-01",
+    endsAt: "2026-12-31",
+  },
+  {
+    id: "promo-beets-dollar",
+    title: "$1 off organic beets",
+    type: "dollar",
+    value: "1",
+    productIds: ["organic-beets"],
+    sellerId: "pennies-produce",
+    startsAt: "2026-07-01",
+    endsAt: "2026-12-31",
+  },
+  {
+    id: "promo-donuts-bogo",
+    title: "Buy one dozen, get one free",
+    type: "bogo",
+    productIds: ["dozen-donuts"],
+    sellerId: "dustins-donuts",
+    startsAt: "2026-07-01",
+    endsAt: "2026-12-31",
+  },
+  {
+    id: "promo-strawberries-pickup",
+    title: "Free pickup this weekend",
+    type: "pickup",
+    productIds: ["strawberries"],
+    sellerId: "sarahs-backyard",
+    startsAt: "2026-07-01",
+    endsAt: "2026-12-31",
+  },
+  {
+    id: "promo-crochet-limited",
+    title: "Limited time maker special",
+    type: "limited",
+    productIds: ["crochet-hat"],
+    sellerId: "brandys-crafts",
+    startsAt: "2026-07-01",
+    endsAt: "2026-12-31",
+  },
+];
+
 export const sellers = {
   "sarahs-backyard": {
     id: "sarahs-backyard",

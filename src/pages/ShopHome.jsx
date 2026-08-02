@@ -212,12 +212,20 @@ export default function ShopHome() {
             <div className="mt-4 px-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-[18px] font-semibold">Active Listings</h2>
-                <button
-                  onClick={() => navigate("/create-listing")}
-                  className="text-[14px] text-[#498467] font-medium"
-                >
-                  + New Listing
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => navigate("/create-promotion")}
+                    className="text-[14px] text-[#498467] font-medium"
+                  >
+                    + Promotion
+                  </button>
+                  <button
+                    onClick={() => navigate("/create-listing")}
+                    className="text-[14px] text-[#498467] font-medium"
+                  >
+                    + New Listing
+                  </button>
+                </div>
               </div>
               {sellerProducts.length > 0 ? (
                 <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">

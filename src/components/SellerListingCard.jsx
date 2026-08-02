@@ -103,6 +103,17 @@ export default function SellerListingCard({ product, onDelete }) {
             </svg>
             <span>{product.messages || 0}</span>
           </div>
+          <div className="flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
+              <path
+                d="M10 1.67 12.58 6.88l5.75.84-4.16 4.06.98 5.73L10 14.81l-5.15 2.71.98-5.73L1.67 7.73l5.75-.84L10 1.67Z"
+                fill="#FFC107"
+                stroke="#FFC107"
+                strokeWidth="1"
+              />
+            </svg>
+            <span>{product.rating || 0}</span>
+          </div>
         </div>
 
         {/* Action Buttons */}

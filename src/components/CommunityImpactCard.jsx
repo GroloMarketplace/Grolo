@@ -6,20 +6,24 @@ export default function CommunityImpactCard({ collapsed }) {
 
   return (
     <>
-      <div
-        className={`sticky top-0 z-20 overflow-hidden bg-white/95 transition-all duration-300 ease-out ${
+      <button
+        type="button"
+        onClick={() => navigate("/community-impact")}
+        aria-label="View Community Impact"
+        className={`sticky top-0 z-20 flex w-full items-center justify-between overflow-hidden bg-white/95 text-left transition-all duration-300 ease-out hover:bg-[#F5FFF6] active:bg-[#CFF7D3] ${
           collapsed
             ? "mb-0 max-h-14 translate-y-0 border-b border-[#CFF7D3] py-2 opacity-100"
             : "pointer-events-none -mb-8 max-h-0 -translate-y-2 py-0 opacity-0"
         }`}
       >
-        <div className="flex items-center gap-2 text-[#02542D]">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#CFF7D3] text-[#498467]">
+        <span className="flex items-center gap-2 text-[#02542D]">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#CFF7D3] text-[#498467]">
             <SproutIcon />
-          </div>
+          </span>
           <span className="text-[14px] font-semibold">Your Community Impact</span>
-        </div>
-      </div>
+        </span>
+        <ChevronIcon />
+      </button>
 
       <section className="rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4">
         <div className="flex items-start justify-between gap-3">
@@ -70,6 +74,14 @@ function ImpactIcon({ type }) {
   return (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className="shrink-0 text-[#498467]">
       <path d={paths[type]} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ChevronIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="mr-1 shrink-0 text-[#498467]">
+      <path d="m6 3 5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

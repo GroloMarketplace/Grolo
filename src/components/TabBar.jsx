@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useProfileMode } from "../context/ProfileModeContext";
 
 const tabs = [
   {
@@ -86,13 +87,16 @@ const tabs = [
 ];
 
 export default function TabBar() {
+  const { profileMode } = useProfileMode();
+  const profilePath = profileMode === "buyer" ? "/profile" : "/shop";
+
   return (
     <div className="absolute bottom-0 left-0 right-0 bg-white shadow-[0_-0.5px_0_0_rgba(0,0,0,0.1)]">
       <div className="flex h-[64px]">
         {tabs.map((tab) => (
           <NavLink
             key={tab.to}
-            to={tab.to}
+            to={tab.to === "/shop" ? profilePath : tab.to}
             end={tab.to === "/"}
             className="flex-1 flex items-center justify-center"
           >

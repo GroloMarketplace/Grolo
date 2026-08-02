@@ -4,6 +4,9 @@ import SearchBar from "../components/SearchBar";
 import CarouselRow from "../components/CarouselRow";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { categories, products } from "../data/mockData";
+import PromotionBadge from "../components/PromotionBadge";
+import { useFavorites } from "../hooks/useFavorites";
+import { useSavedItems } from "../context/SavedContext";
 import { useReviews } from "../context/ReviewContext";
 import { useOrders } from "../context/OrderContext";
 import MapView from "../components/MapView";
@@ -59,16 +62,81 @@ export default function Search() {
 
         {tab === "Map" && <MapView />}
 
-        {tab === "History" && (
-          <>
-            <CategoryRow />
-            <CarouselRow title="Today" products={products} />
-          </>
-        )}
+        {tab === "History" && <History />}
 
         {tab === "My Orders" && <MyOrders />}
       </div>
     </MobileScreenLayout>
+  );
+}
+
+function History() {
+  const navigate = useNavigate();
+  const { savedItems } = useSavedItems();
+  const { favoriteIds } = useFavorites();
+  const savedListings = products.filter((product) => favoriteIds.includes(product.id));
+  const savedPosts = savedItems.filter((item) => item.type === "post");
+  const savedEvents = savedItems.filter((item) => item.type === "event");
+  const savedPromotions = savedItems.filter((item) => item.type === "promotion");
+  const hasSavedItems = savedPosts.length || savedEvents.length || savedPromotions.length || savedListings.length;
+
+  return (
+    <div className="flex flex-col gap-5 px-4 py-3">
+      <HistoryGroup title="Recent Searches">
+        <p className="text-[14px] text-[#828282]">No recent searches yet</p>
+      </HistoryGroup>
+      <HistoryGroup title="Recently Viewed">
+        <div className="-mx-4"><CarouselRow title="" products={products.slice(0, 4)} /></div>
+      </HistoryGroup>
+      <HistoryGroup title="Saved Items">
+        {!hasSavedItems ? (
+          <div className="rounded-lg border border-[#E6E6E6] px-4 py-6 text-center">
+            <p className="text-[16px] font-semibold">No saved items yet</p>
+            <p className="mt-1 text-[14px] text-[#828282]">Tap the heart icon on posts, events, or listings to save them here.</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {savedPosts.map((item) => (
+              <SavedHistoryCard key={item.id} item={item} onClick={() => navigate("/comments", { state: { content: { type: "post", post: item.post } } })} />
+            ))}
+            {savedEvents.map((item) => (
+              <SavedHistoryCard key={item.id} item={item} onClick={() => navigate(`/event/${item.sourceId}`)} />
+            ))}
+            {savedListings.map((product) => (
+              <SavedHistoryCard key={product.id} item={{ ...product, storeName: product.shop, name: product.name }} onClick={() => navigate(`/product/${product.id}`)} listing />
+            ))}
+            {savedPromotions.map((item) => (
+              <SavedHistoryCard key={item.id} item={item} onClick={() => item.productId && navigate(`/product/${item.productId}`)} promotion />
+            ))}
+          </div>
+        )}
+      </HistoryGroup>
+    </div>
+  );
+}
+
+function HistoryGroup({ title, children }) {
+  return (
+    <section>
+      <h2 className="mb-3 text-[18px] font-semibold">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function SavedHistoryCard({ item, onClick, listing, promotion }) {
+  return (
+    <button type="button" onClick={onClick} className="flex w-full gap-3 rounded-lg border border-[#E6E6E6] p-3 text-left transition-colors hover:bg-[#F5FFF6]">
+      <div className="relative shrink-0">
+        {item.image ? <img src={item.image} alt="" className="h-16 w-16 rounded-lg object-cover" /> : <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-[#F5FFF6] text-[11px] font-medium text-[#498467]">Promotion</div>}
+        {promotion && <PromotionBadge promotion={item.promotion} className="absolute left-1 top-1" />}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+        <span className="text-[12px] text-[#828282]">{item.storeName || item.shop}</span>
+        <span className="text-[14px] font-semibold">{item.name || item.title}</span>
+        <span className="line-clamp-2 text-[12px] leading-[130%] text-[#828282]">{listing ? `$${item.price.toFixed(2)}` : item.description}</span>
+      </div>
+    </button>
   );
 }
 

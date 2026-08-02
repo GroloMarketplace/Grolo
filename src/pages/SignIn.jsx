@@ -1,24 +1,30 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useProfileMode } from "../context/ProfileModeContext";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import MobileScreenLayout from "../components/MobileScreenLayout";
+
+function profilePath(accountType) {
+  return accountType === "buyer" ? "/profile" : "/shop";
+}
 
 export default function SignIn() {
   const navigate = useNavigate();
   const { signInWithEmail, signInWithProvider, isAuthenticated } = useAuth();
+  const { accountType, setAccountType } = useProfileMode();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (isAuthenticated) navigate("/");
-  }, [isAuthenticated, navigate]);
+    if (isAuthenticated) navigate(profilePath(accountType));
+  }, [accountType, isAuthenticated, navigate]);
 
   async function handleContinue() {
     setError("");
     if (!isSupabaseConfigured) {
-      navigate("/");
+      navigate(profilePath(accountType));
       return;
     }
     try {
@@ -34,7 +40,7 @@ export default function SignIn() {
   async function handleProvider(provider) {
     setError("");
     if (!isSupabaseConfigured) {
-      navigate("/");
+      navigate(profilePath(accountType));
       return;
     }
     try {
@@ -59,6 +65,26 @@ export default function SignIn() {
           <div className="text-[16px] font-semibold">Create an account</div>
           <div className="text-[14px]">
             Enter your email to sign up for this app
+          </div>
+        </div>
+
+        <div className="w-full">
+          <p className="mb-2 text-[14px] font-medium">Choose your Grolo profile</p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              ["buyer", "Buyer Only"],
+              ["seller", "Seller Only"],
+              ["both", "Both"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setAccountType(value)}
+                className={`rounded-lg border px-2 py-2 text-[12px] font-medium ${accountType === value ? "border-[#498467] bg-[#498467] text-white" : "border-[#E0E0E0] bg-white text-black"}`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 

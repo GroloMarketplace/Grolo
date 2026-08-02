@@ -7,6 +7,9 @@ import { ReviewProvider } from "./context/ReviewContext";
 import { OrderProvider } from "./context/OrderContext";
 import { EventProvider } from "./context/EventContext";
 import { PromotionProvider } from "./context/PromotionContext";
+import { SavedProvider } from "./context/SavedContext";
+import { RegrowProvider } from "./context/RegrowContext";
+import { ProfileModeProvider } from "./context/ProfileModeContext";
 import Feed from "./pages/Feed";
 import Search from "./pages/Search";
 import Messages from "./pages/Messages";
@@ -16,6 +19,7 @@ import Checkout from "./pages/Checkout";
 import OrderConfirmation from "./pages/OrderConfirmation";
 import Profit from "./pages/Profit";
 import ShopHome from "./pages/ShopHome";
+import BuyerProfile from "./pages/BuyerProfile";
 import ProductDetail from "./pages/ProductDetail";
 import SignIn from "./pages/SignIn";
 import AccountSettings from "./pages/AccountSettings";
@@ -34,20 +38,27 @@ import ShopEvents from "./pages/ShopEvents";
 import CreateEvent from "./pages/CreateEvent";
 import CreatePromotion from "./pages/CreatePromotion";
 import CommunityImpact from "./pages/CommunityImpact";
+import Comments from "./pages/Comments";
 import EventDetail from "./pages/EventDetail";
 
 export default function App() {
   return (
     <AuthProvider>
+      <ProfileModeProvider>
       <FollowProvider>
         <OrderProvider>
         <EventProvider>
         <PromotionProvider>
+        <SavedProvider>
+        <RegrowProvider>
         <ReviewProvider>
         <Routes>
         <Route path="/signin" element={<PhoneFrame hideTabBar statusBarBackground="bg-[#E6DCCF]" backgroundColor="bg-[#E6DCCF]"><SignIn /></PhoneFrame>} />
         <Route path="/" element={<PhoneFrame><Feed /></PhoneFrame>} />
         <Route path="/shop" element={<PhoneFrame><ShopHome /></PhoneFrame>} />
+        <Route path="/seller-profile" element={<PhoneFrame><ShopHome /></PhoneFrame>} />
+        <Route path="/profile" element={<PhoneFrame><BuyerProfile /></PhoneFrame>} />
+        <Route path="/buyer-profile" element={<PhoneFrame><BuyerProfile /></PhoneFrame>} />
         <Route path="/my-shop/reviews" element={<PhoneFrame><StoreReviews /></PhoneFrame>} />
         <Route path="/event/:eventId" element={<PhoneFrame><EventDetail /></PhoneFrame>} />
         <Route
@@ -81,6 +92,7 @@ export default function App() {
           }
         />
         <Route path="/community-impact" element={<PhoneFrame><CommunityImpact /></PhoneFrame>} />
+        <Route path="/comments" element={<PhoneFrame hideTabBar><Comments /></PhoneFrame>} />
         <Route
           path="/my-shop/orders"
           element={
@@ -210,10 +222,13 @@ export default function App() {
         />
       </Routes>
         </ReviewProvider>
+        </RegrowProvider>
+        </SavedProvider>
         </PromotionProvider>
         </EventProvider>
         </OrderProvider>
       </FollowProvider>
+      </ProfileModeProvider>
     </AuthProvider>
   );
 }

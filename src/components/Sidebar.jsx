@@ -57,12 +57,6 @@ export default function Sidebar({ isOpen, onClose }) {
               My Orders
             </button>
             <button
-              onClick={() => handleMenuClick(() => navigate("/saved"))}
-              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
-            >
-              Saved Items
-            </button>
-            <button
               onClick={() => handleMenuClick(() => navigate("/analytics"))}
               className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
             >
@@ -78,7 +72,7 @@ export default function Sidebar({ isOpen, onClose }) {
               onClick={() => handleMenuClick(() => navigate("/profit"))}
               className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
             >
-              Profit
+              Performance
             </button>
             <button
               onClick={() => handleMenuClick(() => navigate("/account-settings"))}

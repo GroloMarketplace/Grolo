@@ -76,7 +76,7 @@ export default function SellerListingCard({ product, onDelete }) {
         </div>
 
         {/* Performance Metrics */}
-        <div className="flex items-center gap-3 text-[11px] text-[#828282]">
+        <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#828282]">
           <div className="flex items-center gap-1">
             <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
               <path
@@ -107,6 +107,18 @@ export default function SellerListingCard({ product, onDelete }) {
               />
             </svg>
             <span>{product.messages || 0}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
+              <path
+                d="M5.83 7.5 2.5 4.17 5.83.83M2.5 4.17h11.67a3.33 3.33 0 0 1 3.33 3.33v1.67M14.17 12.5l3.33 3.33-3.33 3.34M17.5 15.83H5.83A3.33 3.33 0 0 1 2.5 12.5v-1.66"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>{product.regrows || 0}</span>
           </div>
           <div className="flex items-center gap-1">
             <svg width="12" height="12" viewBox="0 0 20 20" fill="none">

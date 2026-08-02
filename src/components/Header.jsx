@@ -1,4 +1,4 @@
-export default function Header({ title, onBack, onMenu, right, postButton }) {
+export default function Header({ title, titleContent, onBack, onMenu, right, postButton }) {
   return (
     <div className="h-14 flex items-center justify-between px-4 border-b border-[#E6E6E6]">
       <div className="flex items-center gap-2">
@@ -33,9 +33,9 @@ export default function Header({ title, onBack, onMenu, right, postButton }) {
           </svg>
         )}
       </div>
-      {title && (
+      {(title || titleContent) && (
         <div className="text-[20px] font-semibold tracking-[-0.4px] flex-1 text-center">
-          {title}
+          {titleContent ?? title}
         </div>
       )}
       <div className="flex items-center gap-2">

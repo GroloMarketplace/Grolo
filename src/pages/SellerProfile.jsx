@@ -1,13 +1,14 @@
+import { useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import CarouselRow from "../components/CarouselRow";
 import PromotionBadge from "../components/PromotionBadge";
-import { products, sellers, messages } from "../data/mockData";
+import { communityPosts, followingPosts, products, sellers, messages } from "../data/mockData";
 import { useFollow } from "../context/FollowContext";
 import { useReviews } from "../context/ReviewContext";
 import {
   formatEventDate,
+  formatEventTime,
   useEvents,
 } from "../context/EventContext";
 import { usePromotions } from "../context/PromotionContext";
@@ -23,7 +24,28 @@ export default function SellerProfile() {
   const sellerEvents = upcomingEvents(seller.id);
   const sellerPromotions = promotionsForSeller(seller.id);
   const { average, count } = sellerRating(seller.id);
-  const sellerProducts = products.filter((p) => p.sellerId === sellerId || p.shop === seller.name);
+  const sellerProducts = products.filter((p) => p.sellerId === seller.id || p.shop === seller.name);
+  const sellerPosts = [...followingPosts, ...communityPosts].filter(
+    (post, index, posts) =>
+      post.sellerId === seller.id && posts.findIndex((item) => item.id === post.id) === index,
+  );
+  const sellerRegrows = sellerPosts.slice(0, 2);
+  const [activeTab, setActiveTab] = useState(0);
+  const contentRef = useRef(null);
+  const tabs = ["Listings", "Posts", "Events", "Regrows"];
+
+  const handleTabChange = (index) => {
+    setActiveTab(index);
+    contentRef.current?.scrollTo({
+      left: index * contentRef.current.clientWidth,
+      behavior: "smooth",
+    });
+  };
+
+  const handleContentScroll = (event) => {
+    const index = Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth);
+    if (index !== activeTab) setActiveTab(index);
+  };
 
   const handleMessageClick = () => {
     // Check if conversation already exists with this seller
@@ -109,72 +131,142 @@ export default function SellerProfile() {
           </div>
         </div>
 
-        {sellerPromotions.length > 0 && (
-          <div className="mt-4 px-4">
-            <h2 className="text-[18px] font-semibold mb-3">Special Offers</h2>
-            <div className="flex flex-col gap-2">
-              {sellerPromotions.map((promotion) => (
-                <div
-                  key={promotion.id}
-                  className="rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-3 flex flex-col gap-1"
-                >
-                  <PromotionBadge promotion={promotion} />
-                  <span className="text-[14px] font-semibold">{promotion.title}</span>
-                  <span className="text-[12px] text-[#828282]">
-                    Available on {promotion.productIds.length} listing{promotion.productIds.length === 1 ? "" : "s"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Upcoming Events */}
-        {sellerEvents.length > 0 && (
-          <div className="mt-4 px-4">
-            <h2 className="text-[18px] font-semibold mb-3">Upcoming Events</h2>
-            <div className="flex flex-col gap-2">
-              {sellerEvents.map((event) => (
+        <div className="mt-4">
+          <div className="sticky top-0 z-20 border-y border-[#E6E6E6] bg-white">
+            <div className="flex">
+              {tabs.map((tab, index) => (
                 <button
-                  key={event.id}
-                  onClick={() => navigate(`/event/${event.id}`)}
-                  className="w-full text-left rounded-lg border border-[#E6E6E6] p-3 flex items-start gap-3"
+                  key={tab}
+                  type="button"
+                  onClick={() => handleTabChange(index)}
+                  className={`relative flex-1 py-3 text-[14px] font-semibold ${
+                    activeTab === index ? "text-[#498467]" : "text-black/40"
+                  }`}
                 >
-                  <img
-                    src={event.image}
-                    alt={event.title}
-                    className="w-14 h-14 rounded-lg object-cover shrink-0"
-                  />
-                  <div className="flex-1 flex flex-col gap-0.5">
-                    <span className="text-[14px] font-medium">{event.title}</span>
-                    <span className="text-[12px] text-[#498467] font-medium">
-                      {event.type}
-                    </span>
-                    <span className="text-[12px] text-[#828282]">
-                      {formatEventDate(event.date)}
-                    </span>
-                    <span className="text-[12px] text-[#828282]">
-                      {event.location}
-                    </span>
-                  </div>
+                  {tab}
+                  {activeTab === index && (
+                    <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-[#498467]" />
+                  )}
                 </button>
               ))}
             </div>
           </div>
-        )}
 
-        {/* Active Listings */}
-        <div className="mt-4 px-4">
-          <h2 className="text-[18px] font-semibold mb-3">Active Listings</h2>
-          {sellerProducts.length > 0 ? (
-            <CarouselRow title="" products={sellerProducts} />
-          ) : (
-            <div className="text-center py-8 text-[14px] text-[#828282]">
-              No active listings
-            </div>
-          )}
+          <div
+            ref={contentRef}
+            onScroll={handleContentScroll}
+            className="flex snap-x snap-mandatory overflow-x-auto no-scrollbar"
+          >
+            <ListingsTab products={sellerProducts} promotions={sellerPromotions} navigate={navigate} />
+            <PostsTab posts={sellerPosts} navigate={navigate} />
+            <EventsTab events={sellerEvents} navigate={navigate} />
+            <RegrowsTab posts={sellerRegrows} navigate={navigate} />
+          </div>
         </div>
       </div>
     </MobileScreenLayout>
+  );
+}
+
+function TabPanel({ children }) {
+  return <div className="min-w-full shrink-0 snap-start px-4 py-4">{children}</div>;
+}
+
+function EmptyTab({ children }) {
+  return <div className="py-10 text-center text-[14px] text-[#828282]">{children}</div>;
+}
+
+function ListingsTab({ products, promotions, navigate }) {
+  return (
+    <TabPanel>
+      {promotions.length > 0 && (
+        <div className="mb-4 flex flex-col gap-2">
+          {promotions.map((promotion) => (
+            <div key={promotion.id} className="rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-3 flex flex-col gap-1">
+              <PromotionBadge promotion={promotion} />
+              <span className="text-[14px] font-semibold">{promotion.title}</span>
+              <span className="text-[12px] text-[#828282]">Available on {promotion.productIds.length} listing{promotion.productIds.length === 1 ? "" : "s"}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {products.length === 0 ? (
+        <EmptyTab>No active listings</EmptyTab>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          {products.map((product) => {
+            const promotion = promotions.find((item) => item.productIds.includes(product.id));
+            return (
+              <button key={product.id} type="button" onClick={() => navigate(`/product/${product.id}`)} className="text-left">
+                <div className="relative">
+                  <img src={product.image} alt={product.name} className="aspect-square w-full rounded-lg object-cover" />
+                  {promotion && <PromotionBadge promotion={promotion} className="absolute left-2 top-2" />}
+                </div>
+                <span className="mt-2 block text-[14px] font-medium">{product.name}</span>
+                <span className="mt-0.5 block text-[16px] font-semibold text-[#498467]">${product.price.toFixed(2)}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </TabPanel>
+  );
+}
+
+function PostsTab({ posts, navigate }) {
+  return (
+    <TabPanel>
+      {posts.length === 0 ? <EmptyTab>No posts yet</EmptyTab> : <div className="flex flex-col gap-4">{posts.map((post) => <StorePostCard key={post.id} post={post} navigate={navigate} />)}</div>}
+    </TabPanel>
+  );
+}
+
+function EventsTab({ events, navigate }) {
+  return (
+    <TabPanel>
+      {events.length === 0 ? (
+        <EmptyTab>No upcoming events</EmptyTab>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {events.map((event) => (
+            <button key={event.id} type="button" onClick={() => navigate(`/event/${event.id}`)} className="flex w-full items-start gap-3 rounded-lg border border-[#E6E6E6] p-3 text-left">
+              <img src={event.image} alt={event.title} className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-[14px] font-medium">{event.title}</span>
+                <span className="text-[12px] font-medium text-[#498467]">{event.type}</span>
+                <span className="text-[12px] text-[#828282]">{formatEventDate(event.date)}</span>
+                <span className="text-[12px] text-[#828282]">{formatEventTime(event.startTime)} – {formatEventTime(event.endTime)}</span>
+                <span className="text-[12px] text-[#828282]">{event.location}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </TabPanel>
+  );
+}
+
+function RegrowsTab({ posts, navigate }) {
+  return (
+    <TabPanel>
+      {posts.length === 0 ? <EmptyTab>No regrows yet</EmptyTab> : <div className="flex flex-col gap-4">{posts.map((post) => <StorePostCard key={post.id} post={post} navigate={navigate} regrow />)}</div>}
+    </TabPanel>
+  );
+}
+
+function StorePostCard({ post, navigate, regrow }) {
+  return (
+    <button type="button" onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })} className="w-full text-left">
+      <div className="flex items-center gap-2">
+        <img src={post.avatar} alt={post.name} className="h-8 w-8 rounded-full object-cover" />
+        <div>
+          <div className="text-[14px] font-semibold text-[#498467]">{post.name}</div>
+          <div className="text-[12px] text-[#828282]">{post.time}</div>
+        </div>
+        {regrow && <span className="ml-auto rounded-full bg-[#CFF7D3] px-2 py-1 text-[11px] font-medium text-[#02542D]">Regrow</span>}
+      </div>
+      {post.image && <img src={post.image} alt="" className="mt-3 aspect-square w-full rounded-lg object-cover" />}
+      <p className="mt-2 text-[14px] leading-[140%]">{post.body}</p>
+    </button>
   );
 }

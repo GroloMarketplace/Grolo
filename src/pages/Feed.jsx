@@ -1,9 +1,11 @@
-﻿import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+﻿import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import CommunityImpactCard from "../components/CommunityImpactCard";
 import PromotionBadge from "../components/PromotionBadge";
 import { usePromotions } from "../context/PromotionContext";
+import { useSavedItems } from "../context/SavedContext";
+import { useRegrow } from "../context/RegrowContext";
 import {
   followingPosts,
   communityPosts,
@@ -23,9 +25,28 @@ import {
 const TABS = ["Following", "Your Community", "Notifications"];
 
 export default function Feed() {
-  const [tab, setTab] = useState("Following");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const scrollContainerRef = useRef(null);
+  const [tab, setTab] = useState(location.state?.tab ?? "Following");
   const [communityScrolled, setCommunityScrolled] = useState(false);
   const { followedSellers } = useFollow();
+
+  useEffect(() => {
+    const savedScrollTop = sessionStorage.getItem("grolo-feed-scroll-top");
+    if (savedScrollTop && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = Number(savedScrollTop);
+      sessionStorage.removeItem("grolo-feed-scroll-top");
+    }
+  }, []);
+
+  const openComments = (content) => {
+    sessionStorage.setItem(
+      "grolo-feed-scroll-top",
+      String(scrollContainerRef.current?.scrollTop ?? 0),
+    );
+    navigate("/comments", { state: { content } });
+  };
 
   const handleTabChange = (nextTab) => {
     setTab(nextTab);
@@ -68,6 +89,7 @@ export default function Feed() {
       </div>
 
       <div
+        ref={scrollContainerRef}
         className="overflow-y-auto flex-1 no-scrollbar"
         onScroll={(event) => {
           if (tab === "Your Community") {
@@ -83,13 +105,15 @@ export default function Feed() {
               </div>
             ) : (
               getPosts().map((post) => (
-                <Post key={post.id} post={post} />
+                <Post key={post.id} post={post} onComment={openComments} />
               ))
             )}
           </div>
         )}
 
-        {tab === "Your Community" && <CommunityFeed collapsed={communityScrolled} />}
+        {tab === "Your Community" && (
+          <CommunityFeed collapsed={communityScrolled} onComment={openComments} />
+        )}
 
         {tab === "Notifications" && <Notifications />}
       </div>
@@ -97,7 +121,7 @@ export default function Feed() {
   );
 }
 
-function CommunityFeed({ collapsed }) {
+function CommunityFeed({ collapsed, onComment }) {
   const { upcomingEvents } = useEvents();
   const events = upcomingEvents();
 
@@ -105,38 +129,49 @@ function CommunityFeed({ collapsed }) {
     <div className="flex flex-col gap-8 px-4 py-6">
       <CommunityImpactCard collapsed={collapsed} />
       {events.map((event) => (
-        <EventPost key={event.id} event={event} />
+        <EventPost key={event.id} event={event} onComment={onComment} />
       ))}
       {communityPosts.map((post) => (
-        <Post key={post.id} post={post} stacked />
+        <Post key={post.id} post={post} stacked onComment={onComment} />
       ))}
     </div>
   );
 }
 
-function EventPost({ event }) {
+function EventPost({ event, onComment }) {
   const navigate = useNavigate();
+  const { isSaved, toggleSaved } = useSavedItems();
+  const { isRegrown, toggleRegrow } = useRegrow();
   const seller = sellers[event.sellerId];
-  const [liked, setLiked] = useState(false);
-  const [reposted, setReposted] = useState(false);
-  const [likes, setLikes] = useState(event.likes ?? 0);
-  const [reposts, setReposts] = useState(event.reposts ?? 0);
+  const likes = event.likes ?? 0;
+  const [reposts, setReposts] = useState(
+    (event.reposts ?? 0) + (isRegrown(`event:${event.id}`) ? 1 : 0),
+  );
   const [shares, setShares] = useState(event.shares ?? 0);
 
   const openEvent = () => navigate(`/event/${event.id}`);
-  const openComments = () => navigate(`/event/${event.id}#comments`);
   const openSeller = () => seller && navigate(`/seller/${seller.id}`);
-
-  const handleLike = () => {
-    if (liked) return;
-    setLiked(true);
-    setLikes((count) => count + 1);
+  const savedEvent = {
+    id: `event:${event.id}`,
+    type: "event",
+    sourceId: event.id,
+    name: event.title,
+    storeName: seller?.name,
+    storeImage: seller?.avatar,
+    image: event.image,
+    description: event.description,
+    event,
   };
 
+  const handleSave = () => toggleSaved([savedEvent]);
+
   const handleRepost = () => {
-    if (reposted) return;
-    setReposted(true);
-    setReposts((count) => count + 1);
+    const regrown = isRegrown(`event:${event.id}`);
+    setReposts((count) => count + (regrown ? -1 : 1));
+    toggleRegrow(
+      `event:${event.id}`,
+      regrown ? "🌱 Regrow removed" : "🎉 Event regrown successfully",
+    );
   };
 
   const handleShare = () => {
@@ -214,10 +249,10 @@ function EventPost({ event }) {
         comments={event.comments ?? 0}
         reposts={reposts}
         shares={shares}
-        liked={liked}
-        reposted={reposted}
-        onLike={handleLike}
-        onComment={openComments}
+        liked={isSaved(savedEvent.id)}
+        reposted={isRegrown(`event:${event.id}`)}
+        onLike={handleSave}
+        onComment={() => onComment({ type: "event", event, seller })}
         onRepost={handleRepost}
         onShare={handleShare}
       />
@@ -236,11 +271,56 @@ function EventMeta({ label, value }) {
   );
 }
 
-function Post({ post, stacked }) {
+function Post({ post, stacked, onComment }) {
   const navigate = useNavigate();
   const { promotionsForProduct } = usePromotions();
+  const { isSaved, toggleSaved } = useSavedItems();
+  const { isRegrown, toggleRegrow } = useRegrow();
+  const [reposts, setReposts] = useState(
+    (post.shares ?? 0) + (isRegrown(`post:${post.id}`) ? 1 : 0),
+  );
   const seller = Object.values(sellers).find((s) => s.name === post.name);
   const promotion = post.productId ? promotionsForProduct(post.productId)[0] : null;
+  const savedPost = {
+    id: `post:${post.id}`,
+    type: "post",
+    sourceId: post.id,
+    name: post.body,
+    storeName: post.name,
+    storeImage: post.avatar,
+    image: post.image,
+    description: post.body,
+    feedTab: stacked ? "Your Community" : "Following",
+    post,
+  };
+  const savedPromotion = promotion
+    ? {
+        id: `promotion:${promotion.id}`,
+        type: "promotion",
+        sourceId: promotion.id,
+        name: promotion.title,
+        storeName: post.name,
+        storeImage: post.avatar,
+        image: post.image,
+        description: promotion.title,
+        promotion,
+        productId: post.productId,
+      }
+    : null;
+
+  const handleSave = () => toggleSaved([savedPost, ...(savedPromotion ? [savedPromotion] : [])]);
+
+  const handleRepost = () => {
+    const regrowId = `post:${post.id}`;
+    const regrown = isRegrown(regrowId);
+    const message = promotion
+      ? "🔥 Promotion regrown successfully"
+      : post.productId
+        ? "🛍 Product regrown successfully"
+        : "🌱 Post regrown successfully";
+    setReposts((count) => count + (regrown ? -1 : 1));
+    toggleRegrow(regrowId, regrown ? "🌱 Regrow removed" : message);
+  };
 
   const handleSellerClick = () => {
     if (seller) {
@@ -313,8 +393,13 @@ function Post({ post, stacked }) {
       <EngagementRow
         likes={post.likes}
         comments={post.comments}
-        reposts={post.shares}
+        reposts={reposts}
         shares={post.sends}
+        liked={isSaved(savedPost.id)}
+        reposted={isRegrown(`post:${post.id}`)}
+        onLike={handleSave}
+        onComment={() => onComment({ type: "post", post })}
+        onRepost={handleRepost}
       />
     </>
   );
@@ -365,7 +450,8 @@ function EngagementRow({
       <IconCount label={likes} onClick={onLike} ariaLabel="Like" active={liked}>
         <path
           d="M17.37 3.84a4.13 4.13 0 0 0-6.49-.5L10 4.22l-.88-.88a4.13 4.13 0 0 0-6.13 5.5l.63.88L10 17.19l6.48-6.48.63-.88a4.13 4.13 0 0 0 .26-6.49Z"
-          stroke="black"
+          stroke={liked ? "#498467" : "black"}
+          fill={liked ? "#498467" : "none"}
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -383,7 +469,7 @@ function EngagementRow({
       <IconCount label={reposts} onClick={onRepost} ariaLabel="Regrow" active={reposted}>
         <path
           d="M5.83 7.5 2.5 4.17 5.83.83M2.5 4.17h11.67a3.33 3.33 0 0 1 3.33 3.33v1.67M14.17 12.5l3.33 3.33-3.33 3.34M17.5 15.83H5.83A3.33 3.33 0 0 1 2.5 12.5v-1.66"
-          stroke="#1E1E1E"
+          stroke={reposted ? "#498467" : "#1E1E1E"}
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"

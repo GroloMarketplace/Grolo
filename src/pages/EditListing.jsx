@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
+import PhotoManager from "../components/PhotoManager";
 import { products } from "../data/mockData";
 
 export default function EditListing() {
@@ -14,10 +15,19 @@ export default function EditListing() {
   const [description, setDescription] = useState(product.description || "");
   const [category, setCategory] = useState(product.category || "Produce");
   const [location, setLocation] = useState(product.location || "Kensington, Calgary");
+  const [photos, setPhotos] = useState(product.images ?? [product.image]);
 
   const handleSave = () => {
     // Handle saving the listing
-    console.log("Saving listing:", { title, price, description, category, location });
+    console.log("Saving listing:", {
+      title,
+      price,
+      description,
+      category,
+      location,
+      images: photos,
+      image: photos[0],
+    });
     navigate("/shop");
   };
 
@@ -95,25 +105,7 @@ export default function EditListing() {
 
         {/* Images */}
         <div className="mb-6">
-          <label className="text-[14px] font-semibold mb-2 block">Images</label>
-          <div className="border-2 border-dashed border-[#E6E6E6] rounded-lg p-6 text-center">
-            <svg
-              width="40"
-              height="40"
-              viewBox="0 0 24 24"
-              fill="none"
-              className="mx-auto mb-2 text-[#828282]"
-            >
-              <path
-                d="M12 4.5v15m7.5-7.5h-15"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <p className="text-[14px] text-[#828282]">Add or change photos</p>
-          </div>
+          <PhotoManager photos={photos} onChange={setPhotos} label="Photos" />
         </div>
 
         {/* Action Buttons */}

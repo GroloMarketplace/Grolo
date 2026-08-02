@@ -69,9 +69,9 @@ export default function OrderConfirmation() {
           </div>
         </div>
 
-        <button className="w-full rounded-lg bg-[#498467] text-white text-[16px] font-medium py-3.5 shadow-sm mb-3">
+        <Link to="/orders" className="w-full rounded-lg bg-[#498467] text-white text-[16px] font-medium py-3.5 shadow-sm mb-3 block text-center">
           Track Order
-        </button>
+        </Link>
 
         <Link to="/shop" className="w-full rounded-lg border border-black text-black text-[16px] font-medium py-3.5 block text-center">
           Continue Shopping

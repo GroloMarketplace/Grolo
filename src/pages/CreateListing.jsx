@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import MobileScreenLayout from "../components/MobileScreenLayout";
+import PhotoManager from "../components/PhotoManager";
 import { useSidebar } from "../hooks/useSidebar";
 
 export default function CreateListing() {
   const navigate = useNavigate();
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
+  const [photos, setPhotos] = useState([]);
   const [formData, setFormData] = useState({
     title: "",
     category: "",
@@ -19,7 +21,7 @@ export default function CreateListing() {
   const handleSubmit = (e) => {
     e.preventDefault();
     // Handle form submission logic here
-    console.log("Listing created:", formData);
+    console.log("Listing created:", { ...formData, images: photos, image: photos[0] });
     navigate("/shop");
   };
 
@@ -99,17 +101,7 @@ export default function CreateListing() {
             />
           </div>
 
-          <div>
-            <label className="block text-[14px] font-medium mb-2">Image</label>
-            <div className="w-full px-4 py-8 rounded-lg border-2 border-dashed border-[#E6E6E6] flex flex-col items-center justify-center gap-2 bg-[#F5F5F5]">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#828282" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeLinecap="round" strokeLinejoin="round"/>
-                <polyline points="17 8 12 3 7 8" strokeLinecap="round" strokeLinejoin="round"/>
-                <line x1="12" y1="3" x2="12" y2="15" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <span className="text-[14px] text-[#828282]">Upload image</span>
-            </div>
-          </div>
+          <PhotoManager photos={photos} onChange={setPhotos} />
 
           <button
             type="submit"

@@ -2,61 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
+import { products } from "../data/mockData";
+import { useReviews } from "../context/ReviewContext";
 
-const mockReviews = [
-  {
-    id: 1,
-    reviewer: "johndoe",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
-    rating: 5,
-    date: "2 days ago",
-    text: "Fantastic quality and very fresh! The strawberries were sweet and perfectly ripe. Will definitely order again.",
-    product: "Bag of Strawberries",
-    productImage: "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=100&q=80",
-  },
-  {
-    id: 2,
-    reviewer: "janedoe",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80",
-    rating: 5,
-    date: "1 week ago",
-    text: "Amazing produce! The organic beets were delicious and perfect for roasting. Great seller!",
-    product: "Organic Beets",
-    productImage: "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=100&q=80",
-  },
-  {
-    id: 3,
-    reviewer: "bobsmith",
-    avatar: "https://images.unsplash.com/photo-1541823709867-1b206113eafd?w=100&q=80",
-    rating: 4,
-    date: "2 weeks ago",
-    text: "Good quality and fair prices. The produce was fresh and well-packaged. Would recommend.",
-    product: "Bag of Strawberries",
-    productImage: "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=100&q=80",
-  },
-  {
-    id: 4,
-    reviewer: "alicejohnson",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
-    rating: 5,
-    date: "3 weeks ago",
-    text: "Best strawberries I've ever had! So sweet and juicy. The seller is very responsive and friendly.",
-    product: "Bag of Strawberries",
-    productImage: "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=100&q=80",
-  },
-  {
-    id: 5,
-    reviewer: "charliebrown",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80",
-    rating: 3,
-    date: "1 month ago",
-    text: "Decent quality but delivery was a bit delayed. The produce was still fresh though.",
-    product: "Organic Beets",
-    productImage: "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=100&q=80",
-  },
-];
+const STORE_ID = "sarahs-backyard";
 
-const ratingBreakdown = [
+const baseRatingBreakdown = [
   { stars: 5, count: 78 },
   { stars: 4, count: 23 },
   { stars: 3, count: 12 },
@@ -68,18 +19,30 @@ export default function StoreReviews() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState("All");
   const [sortBy, setSortBy] = useState("Most Recent");
+  const { reviewsForSeller, sellerRating, submittedReviews } = useReviews();
 
   const filters = ["All", "5 Stars", "4 Stars", "3 Stars", "2 Stars", "1 Star"];
   const sortOptions = ["Most Recent", "Oldest", "Highest Rating", "Lowest Rating"];
 
-  const averageRating = 4.8;
-  const totalReviews = 124;
+  const { average: averageRating, count: totalReviews } = sellerRating(STORE_ID);
 
-  const filteredReviews = mockReviews.filter((review) => {
-    if (filter === "All") return true;
-    const starRating = parseInt(filter);
-    return review.rating === starRating;
-  });
+  const ratingBreakdown = baseRatingBreakdown.map((item) => ({
+    ...item,
+    count:
+      item.count +
+      submittedReviews.filter(
+        (r) => r.sellerId === STORE_ID && r.rating === item.stars,
+      ).length,
+  }));
+
+  const filteredReviews = reviewsForSeller(STORE_ID)
+    .filter((review) => filter === "All" || review.rating === parseInt(filter, 10))
+    .sort((a, b) => {
+      if (sortBy === "Most Recent") return b.createdAt.localeCompare(a.createdAt);
+      if (sortBy === "Oldest") return a.createdAt.localeCompare(b.createdAt);
+      if (sortBy === "Highest Rating") return b.rating - a.rating;
+      return a.rating - b.rating;
+    });
 
   const renderStars = (rating) => {
     return Array(5)
@@ -179,50 +142,69 @@ export default function StoreReviews() {
 
         {/* Reviews List */}
         <div className="flex flex-col">
-          {filteredReviews.map((review) => (
-            <div
-              key={review.id}
-              className="p-4 border-b border-[#E6E6E6]"
-            >
-              <div className="flex items-start gap-3">
-                <img
-                  src={review.avatar}
-                  alt={review.reviewer}
-                  className="w-10 h-10 rounded-full object-cover shrink-0"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[14px] font-semibold">
-                        {review.reviewer}
-                      </span>
-                      <div className="flex gap-0.5">
-                        {renderStars(review.rating)}
-                      </div>
-                    </div>
-                    <span className="text-[12px] text-[#828282]">
-                      {review.date}
-                    </span>
-                  </div>
-                  
-                  {/* Product Purchased */}
-                  <div className="flex items-center gap-2 mt-2 p-2 bg-[#F5F5F5] rounded-lg">
-                    <img
-                      src={review.productImage}
-                      alt={review.product}
-                      className="w-12 h-12 rounded-lg object-cover shrink-0"
-                    />
-                    <div className="flex-1">
-                      <div className="text-[12px] text-[#828282]">Purchased:</div>
-                      <div className="text-[14px] font-medium">{review.product}</div>
-                    </div>
-                  </div>
+          {filteredReviews.map((review) => {
+            const product = products.find((p) => p.id === review.productId);
 
-                  <p className="text-[14px] mt-3 leading-[140%]">{review.text}</p>
+            return (
+              <div
+                key={review.id}
+                className="p-4 border-b border-[#E6E6E6]"
+              >
+                <div className="flex items-start gap-3">
+                  <img
+                    src={review.avatar}
+                    alt={review.reviewer}
+                    className="w-10 h-10 rounded-full object-cover shrink-0"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[14px] font-semibold">
+                          {review.reviewer}
+                        </span>
+                        <div className="flex gap-0.5">
+                          {renderStars(review.rating)}
+                        </div>
+                      </div>
+                      <span className="text-[12px] text-[#828282]">
+                        {review.date}
+                      </span>
+                    </div>
+
+                    {/* Product Purchased */}
+                    {product && (
+                      <div className="flex items-center gap-2 mt-2 p-2 bg-[#F5F5F5] rounded-lg">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="w-12 h-12 rounded-lg object-cover shrink-0"
+                        />
+                        <div className="flex-1">
+                          <div className="text-[12px] text-[#828282]">Purchased:</div>
+                          <div className="text-[14px] font-medium">{product.name}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-[14px] mt-3 leading-[140%]">{review.text}</p>
+
+                    {review.photos?.length > 0 && (
+                      <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">
+                        {review.photos.map((photo) => (
+                          <img
+                            key={photo}
+                            src={photo}
+                            alt="Review photo"
+                            className="w-20 h-20 rounded-lg object-cover shrink-0"
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </MobileScreenLayout>

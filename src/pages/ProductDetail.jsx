@@ -2,8 +2,11 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useState } from "react";
 import Header from "../components/Header";
 import CarouselRow from "../components/CarouselRow";
-import { products, reviews, sellers } from "../data/mockData";
+import StarRating from "../components/StarRating";
+import ImageGallery from "../components/ImageGallery";
+import { products, sellers } from "../data/mockData";
 import { useFavorites } from "../hooks/useFavorites";
+import { useReviews } from "../context/ReviewContext";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -15,21 +18,23 @@ export default function ProductDetail() {
   const { isFavorite, toggleFavorite } = useFavorites();
   const saved = isFavorite(product.id);
   const seller = Object.values(sellers).find((s) => s.name === product.shop);
+  const { reviewsForProduct, productRating, canReviewProduct } = useReviews();
+  const { average, count } = productRating(product.id);
+  const productReviewList = reviewsForProduct(product.id);
 
   return (
     <div>
       <Header onBack={() => navigate(-1)} />
       <div className="p-6 flex flex-col gap-6">
         <div className="relative">
-          <img
-            src={product.image}
+          <ImageGallery
+            images={product.images ?? [product.image]}
             alt={product.name}
-            className="w-full h-[327px] object-cover rounded-lg"
           />
           <button
             aria-label={saved ? "Remove from favorites" : "Save to favorites"}
             onClick={() => toggleFavorite(product.id)}
-            className="absolute left-2.5 top-2.5 p-2 rounded-full bg-[#2C2C2C] border border-[#2C2C2C]"
+            className="absolute left-2.5 top-2.5 z-10 p-2 rounded-full bg-[#2C2C2C] border border-[#2C2C2C]"
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill={saved ? "#F5F5F5" : "none"}>
               <path
@@ -72,6 +77,16 @@ export default function ProductDetail() {
               product.shop
             )}
           </div>
+          <button
+            onClick={() => navigate(`/product/${product.id}/reviews`)}
+            className="flex items-center gap-2 w-fit"
+          >
+            <StarRating rating={average} size={20} />
+            <span className="text-[16px] font-semibold">{average}</span>
+            <span className="text-[16px] text-[#498467] underline">
+              ({count} Reviews)
+            </span>
+          </button>
         </div>
 
         <div className="flex flex-col gap-4">
@@ -127,26 +142,49 @@ export default function ProductDetail() {
       </div>
 
       <div className="p-6 flex flex-col gap-6">
-        <h2 className="text-[24px] font-semibold tracking-[-0.48px]">
-          Latest reviews
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-[24px] font-semibold tracking-[-0.48px]">
+            Latest reviews
+          </h2>
+          <button
+            onClick={() => navigate(`/product/${product.id}/reviews`)}
+            className="text-[16px] text-[#498467]"
+          >
+            See all
+          </button>
+        </div>
+
+        {canReviewProduct(product.id) && (
+          <button
+            onClick={() => navigate(`/leave-review/${product.id}`)}
+            className="w-full rounded-lg bg-[#498467] text-[#F5F5F5] text-[16px] py-3"
+          >
+            Leave Review
+          </button>
+        )}
+
         <div className="flex flex-col gap-6">
-          {reviews.map((review) => (
+          {productReviewList.slice(0, 3).map((review) => (
             <div
               key={review.id}
               className="rounded-lg border border-[#D9D9D9] p-6 flex flex-col gap-6"
             >
-              <div className="flex items-center gap-1">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} />
-                ))}
-              </div>
+              <StarRating rating={review.rating} size={20} />
               <div className="flex flex-col gap-1">
-                <h3 className="text-[24px] font-semibold tracking-[-0.48px]">
-                  {review.title}
-                </h3>
-                <p className="text-[16px]">{review.body}</p>
+                <p className="text-[16px]">{review.text}</p>
               </div>
+              {review.photos?.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                  {review.photos.map((photo) => (
+                    <img
+                      key={photo}
+                      src={photo}
+                      alt="Review photo"
+                      className="w-20 h-20 rounded-lg object-cover shrink-0"
+                    />
+                  ))}
+                </div>
+              )}
               <div className="flex items-center gap-3">
                 <img
                   src={review.avatar}
@@ -164,6 +202,9 @@ export default function ProductDetail() {
               </div>
             </div>
           ))}
+          {productReviewList.length === 0 && (
+            <p className="text-[16px] text-[#828282]">No reviews yet</p>
+          )}
         </div>
       </div>
 
@@ -182,20 +223,6 @@ function Chevron() {
         d="M4 6l4 4 4-4"
         stroke="#1E1E1E"
         strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function Star() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path
-        d="M10 1.67 12.58 6.88l5.75.84-4.16 4.06.98 5.73L10 14.81l-5.15 2.71.98-5.73L1.67 7.73l5.75-.84L10 1.67Z"
-        stroke="#2C2C2C"
-        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />

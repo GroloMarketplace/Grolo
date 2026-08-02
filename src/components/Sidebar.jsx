@@ -45,10 +45,34 @@ export default function Sidebar({ isOpen, onClose }) {
               Create New Listing
             </button>
             <button
+              onClick={() => handleMenuClick(() => navigate("/my-shop/orders"))}
+              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
+            >
+              Store Orders
+            </button>
+            <button
+              onClick={() => handleMenuClick(() => navigate("/orders"))}
+              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
+            >
+              My Orders
+            </button>
+            <button
               onClick={() => handleMenuClick(() => navigate("/saved"))}
               className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
             >
               Saved Items
+            </button>
+            <button
+              onClick={() => handleMenuClick(() => navigate("/analytics"))}
+              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
+            >
+              Analytics
+            </button>
+            <button
+              onClick={() => handleMenuClick(() => navigate("/my-shop/events"))}
+              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
+            >
+              Events
             </button>
             <button
               onClick={() => handleMenuClick(() => navigate("/profit"))}

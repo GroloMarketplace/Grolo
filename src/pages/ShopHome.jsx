@@ -6,6 +6,7 @@ import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../hooks/useSidebar";
 import { products, sellers } from "../data/mockData";
 import SellerListingCard from "../components/SellerListingCard";
+import { useOrders } from "../context/OrderContext";
 
 export default function ShopHome() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -16,6 +17,13 @@ export default function ShopHome() {
   const [description, setDescription] = useState("I've grown lots of fruits and vegetables in my backyard and would love to share them with the community! All produce is grown with 100% organic soil and seeds.");
   
   const seller = sellers["sarahs-backyard"];
+  const { sellerOrders } = useOrders();
+  const storeOrders = sellerOrders("sarahs-backyard");
+  const orderCounts = [
+    { label: "New", count: storeOrders.filter((o) => o.status === "Order Placed").length },
+    { label: "Preparing", count: storeOrders.filter((o) => o.status === "Preparing").length },
+    { label: "Ready", count: storeOrders.filter((o) => o.status === "Ready for Pickup").length },
+  ];
   const [sellerProducts, setSellerProducts] = useState(
     products.filter((p) => p.sellerId === "sarahs-backyard" || p.shop === storeName)
   );
@@ -170,6 +178,33 @@ export default function ShopHome() {
                     </button>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Incoming Orders */}
+            <div className="mt-4 px-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-[18px] font-semibold">Incoming Orders</h2>
+                <button
+                  onClick={() => navigate("/my-shop/orders")}
+                  className="text-[14px] text-[#498467] font-medium"
+                >
+                  Manage Orders
+                </button>
+              </div>
+              <div className="flex gap-2">
+                {orderCounts.map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => navigate("/my-shop/orders")}
+                    className="flex-1 rounded-lg border border-[#E6E6E6] py-3 flex flex-col items-center gap-1"
+                  >
+                    <span className="text-[20px] font-semibold text-[#498467]">
+                      {item.count}
+                    </span>
+                    <span className="text-[12px] text-[#828282]">{item.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
 

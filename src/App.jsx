@@ -3,6 +3,9 @@ import PhoneFrame from "./components/PhoneFrame";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import { FollowProvider } from "./context/FollowContext";
+import { ReviewProvider } from "./context/ReviewContext";
+import { OrderProvider } from "./context/OrderContext";
+import { EventProvider } from "./context/EventContext";
 import Feed from "./pages/Feed";
 import Search from "./pages/Search";
 import Messages from "./pages/Messages";
@@ -21,17 +24,80 @@ import SellerProfile from "./pages/SellerProfile";
 import CreatePost from "./pages/CreatePost";
 import EditListing from "./pages/EditListing";
 import StoreReviews from "./pages/StoreReviews";
+import Analytics from "./pages/Analytics";
+import Orders from "./pages/Orders";
+import LeaveReview from "./pages/LeaveReview";
+import ProductReviews from "./pages/ProductReviews";
+import ShopOrders from "./pages/ShopOrders";
+import ShopEvents from "./pages/ShopEvents";
+import CreateEvent from "./pages/CreateEvent";
+import EventDetail from "./pages/EventDetail";
 
 export default function App() {
   return (
     <AuthProvider>
       <FollowProvider>
+        <OrderProvider>
+        <EventProvider>
+        <ReviewProvider>
         <Routes>
         <Route path="/signin" element={<PhoneFrame hideTabBar statusBarBackground="bg-[#E6DCCF]" backgroundColor="bg-[#E6DCCF]"><SignIn /></PhoneFrame>} />
         <Route path="/" element={<PhoneFrame><Feed /></PhoneFrame>} />
         <Route path="/shop" element={<PhoneFrame><ShopHome /></PhoneFrame>} />
         <Route path="/my-shop/reviews" element={<PhoneFrame><StoreReviews /></PhoneFrame>} />
+        <Route path="/event/:eventId" element={<PhoneFrame><EventDetail /></PhoneFrame>} />
+        <Route
+          path="/my-shop/events"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute>
+                <ShopEvents />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
+        <Route
+          path="/create-event"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute>
+                <CreateEvent />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
+        <Route
+          path="/my-shop/orders"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute>
+                <ShopOrders />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
         <Route path="/product/:id" element={<PhoneFrame><ProductDetail /></PhoneFrame>} />
+        <Route path="/product/:id/reviews" element={<PhoneFrame><ProductReviews /></PhoneFrame>} />
+        <Route
+          path="/orders"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute>
+                <Orders />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
+        <Route
+          path="/leave-review/:productId"
+          element={
+            <PhoneFrame hideTabBar>
+              <ProtectedRoute>
+                <LeaveReview />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
         <Route path="/seller/:sellerId" element={<PhoneFrame><SellerProfile /></PhoneFrame>} />
         <Route path="/search" element={<PhoneFrame><Search /></PhoneFrame>} />
         <Route
@@ -63,6 +129,16 @@ export default function App() {
             <PhoneFrame>
               <ProtectedRoute>
                 <Profit />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
+        <Route
+          path="/analytics"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute>
+                <Analytics />
               </ProtectedRoute>
             </PhoneFrame>
           }
@@ -118,6 +194,9 @@ export default function App() {
           }
         />
       </Routes>
+        </ReviewProvider>
+        </EventProvider>
+        </OrderProvider>
       </FollowProvider>
     </AuthProvider>
   );

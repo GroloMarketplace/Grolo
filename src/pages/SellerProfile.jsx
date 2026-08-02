@@ -4,12 +4,21 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import CarouselRow from "../components/CarouselRow";
 import { products, sellers, messages } from "../data/mockData";
 import { useFollow } from "../context/FollowContext";
+import { useReviews } from "../context/ReviewContext";
+import {
+  formatEventDate,
+  useEvents,
+} from "../context/EventContext";
 
 export default function SellerProfile() {
   const { sellerId } = useParams();
   const navigate = useNavigate();
   const { isFollowing, toggleFollow } = useFollow();
+  const { sellerRating } = useReviews();
+  const { upcomingEvents } = useEvents();
   const seller = sellers[sellerId] || sellers["sarahs-backyard"];
+  const sellerEvents = upcomingEvents(seller.id);
+  const { average, count } = sellerRating(seller.id);
   const sellerProducts = products.filter((p) => p.sellerId === sellerId || p.shop === seller.name);
 
   const handleMessageClick = () => {
@@ -67,9 +76,9 @@ export default function SellerProfile() {
                     strokeWidth="1"
                   />
                 </svg>
-                <span className="text-[14px] font-semibold">{seller.rating}</span>
+                <span className="text-[14px] font-semibold">{average}</span>
               </div>
-              <span className="text-[14px] text-[#828282]">({seller.reviewCount} reviews)</span>
+              <span className="text-[14px] text-[#828282]">({count} reviews)</span>
               <span className="text-[14px] text-[#828282]">•</span>
               <span className="text-[14px] text-[#828282]">{seller.followers} followers</span>
             </div>
@@ -95,6 +104,40 @@ export default function SellerProfile() {
             </div>
           </div>
         </div>
+
+        {/* Upcoming Events */}
+        {sellerEvents.length > 0 && (
+          <div className="mt-4 px-4">
+            <h2 className="text-[18px] font-semibold mb-3">Upcoming Events</h2>
+            <div className="flex flex-col gap-2">
+              {sellerEvents.map((event) => (
+                <button
+                  key={event.id}
+                  onClick={() => navigate(`/event/${event.id}`)}
+                  className="w-full text-left rounded-lg border border-[#E6E6E6] p-3 flex items-start gap-3"
+                >
+                  <img
+                    src={event.image}
+                    alt={event.title}
+                    className="w-14 h-14 rounded-lg object-cover shrink-0"
+                  />
+                  <div className="flex-1 flex flex-col gap-0.5">
+                    <span className="text-[14px] font-medium">{event.title}</span>
+                    <span className="text-[12px] text-[#498467] font-medium">
+                      {event.type}
+                    </span>
+                    <span className="text-[12px] text-[#828282]">
+                      {formatEventDate(event.date)}
+                    </span>
+                    <span className="text-[12px] text-[#828282]">
+                      {event.location}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Active Listings */}
         <div className="mt-4 px-4">

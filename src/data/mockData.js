@@ -10,8 +10,14 @@ export const products = [
     favorites: 23,
     messages: 8,
     rating: 4.5,
+    reviewCount: 42,
     image:
       "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=400&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=800&q=80",
+      "https://images.unsplash.com/photo-1466637574441-749b8f19452f?w=800&q=80",
+      "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&q=80",
+    ],
   },
   {
     id: "dozen-donuts",
@@ -24,8 +30,15 @@ export const products = [
     favorites: 45,
     messages: 12,
     rating: 4.8,
+    reviewCount: 67,
     image:
       "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=400&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=800&q=80",
+      "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=800&q=80",
+      "https://images.unsplash.com/photo-1509365465985-25d11c17e812?w=800&q=80",
+      "https://images.unsplash.com/photo-1514517521153-1be72277b32f?w=800&q=80",
+    ],
   },
   {
     id: "crochet-hat",
@@ -38,8 +51,13 @@ export const products = [
     favorites: 18,
     messages: 5,
     rating: 5.0,
+    reviewCount: 18,
     image:
       "https://images.unsplash.com/photo-1520903920243-00d872a2d1c9?w=400&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1520903920243-00d872a2d1c9?w=800&q=80",
+      "https://images.unsplash.com/photo-1516912481808-3406841bd33c?w=800&q=80",
+    ],
   },
   {
     id: "strawberries",
@@ -51,9 +69,16 @@ export const products = [
     views: 267,
     favorites: 34,
     messages: 15,
-    rating: 4.9,
+    rating: 4.8,
+    reviewCount: 124,
     image:
       "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=800&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=800&q=80",
+      "https://images.unsplash.com/photo-1518635017498-87f514b751ba?w=800&q=80",
+      "https://images.unsplash.com/photo-1587393855524-087f83d95bc9?w=800&q=80",
+      "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80",
+    ],
     tag: "Tag",
     description:
       "Fresh bags of strawberries, straight from my backyard garden. All soil and seeds are 100% organic.",
@@ -228,6 +253,442 @@ export const reviews = [
     date: "Date",
     avatar:
       "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=100&q=80",
+  },
+];
+
+export const mapLocations = [
+  {
+    id: "map-sarahs-backyard",
+    kind: "store",
+    sellerId: "sarahs-backyard",
+    category: "Garden",
+    distanceKm: 0.4,
+    x: 26,
+    y: 38,
+  },
+  {
+    id: "map-daniels-donuts",
+    kind: "store",
+    sellerId: "daniels-donuts",
+    category: "Bakery",
+    distanceKm: 1.2,
+    x: 64,
+    y: 24,
+  },
+  {
+    id: "map-pennies-produce",
+    kind: "store",
+    sellerId: "pennies-produce",
+    category: "Garden",
+    distanceKm: 0.9,
+    x: 44,
+    y: 62,
+  },
+  {
+    id: "map-michelles-candlewax",
+    kind: "store",
+    sellerId: "michelles-candlewax",
+    category: "Crafts",
+    distanceKm: 2.4,
+    x: 76,
+    y: 70,
+  },
+  {
+    id: "map-kensington-farmers-market",
+    kind: "event",
+    eventId: "kensington-farmers-market",
+    distanceKm: 0.6,
+    x: 38,
+    y: 18,
+  },
+  {
+    id: "map-marda-loop-popup",
+    kind: "event",
+    eventId: "marda-loop-popup",
+    distanceKm: 3.1,
+    x: 18,
+    y: 74,
+  },
+  {
+    id: "map-backyard-berry-tasting",
+    kind: "event",
+    eventId: "backyard-berry-tasting",
+    distanceKm: 0.5,
+    x: 56,
+    y: 44,
+  },
+  {
+    id: "map-strawberries",
+    kind: "product",
+    productId: "strawberries",
+    distanceKm: 0.4,
+    x: 32,
+    y: 54,
+  },
+  {
+    id: "map-dozen-donuts",
+    kind: "product",
+    productId: "dozen-donuts",
+    distanceKm: 1.6,
+    x: 70,
+    y: 46,
+  },
+];
+
+export const eventTypes = [
+  "Farmers Market",
+  "Pop-Up",
+  "Workshop",
+  "Pickup Day",
+  "Sale",
+  "Tasting",
+  "Other",
+];
+
+function eventDate(dayOffset) {
+  const date = new Date();
+  date.setDate(date.getDate() + dayOffset);
+  return date.toISOString().slice(0, 10);
+}
+
+export const events = [
+  {
+    id: "kensington-farmers-market",
+    title: "Kensington Farmers Market",
+    type: "Farmers Market",
+    date: eventDate(5),
+    startTime: "09:00",
+    endTime: "14:00",
+    location: "Kensington Community Hall, Calgary",
+    description:
+      "Find our berry stand at the weekly market with fresh-picked strawberries, rhubarb and garden herbs.",
+    image:
+      "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80",
+    sellerId: "sarahs-backyard",
+    likes: 48,
+    comments: 12,
+    reposts: 9,
+    shares: 6,
+  },
+  {
+    id: "backyard-berry-tasting",
+    title: "Backyard Berry Tasting",
+    type: "Tasting",
+    date: eventDate(0),
+    startTime: "16:00",
+    endTime: "18:00",
+    location: "Sarah's Backyard, Kensington",
+    description:
+      "Taste four strawberry varieties straight from the garden and take home a sample bag.",
+    image:
+      "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=800&q=80",
+    sellerId: "sarahs-backyard",
+    likes: 31,
+    comments: 7,
+    reposts: 4,
+    shares: 3,
+  },
+  {
+    id: "weekend-pickup-day",
+    title: "Weekend Pickup Day",
+    type: "Pickup Day",
+    date: eventDate(2),
+    startTime: "10:00",
+    endTime: "13:00",
+    location: "12 Kensington Rd NW, Calgary",
+    description:
+      "Collect your weekend orders from the front porch stand. No appointment needed.",
+    image:
+      "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&q=80",
+    sellerId: "sarahs-backyard",
+    likes: 18,
+    comments: 3,
+    reposts: 2,
+    shares: 2,
+  },
+  {
+    id: "summer-harvest-sale",
+    title: "Summer Harvest Sale",
+    type: "Sale",
+    date: eventDate(-6),
+    startTime: "11:00",
+    endTime: "16:00",
+    location: "Sarah's Backyard, Kensington",
+    description:
+      "End of season sale with 20% off every bag of berries and free herb bundles.",
+    image:
+      "https://images.unsplash.com/photo-1466637574441-749b8f19452f?w=800&q=80",
+    sellerId: "sarahs-backyard",
+    likes: 64,
+    comments: 15,
+    reposts: 11,
+    shares: 8,
+  },
+  {
+    id: "donut-decorating-workshop",
+    title: "Donut Decorating Workshop",
+    type: "Workshop",
+    date: eventDate(8),
+    startTime: "18:00",
+    endTime: "20:00",
+    location: "Beltline Kitchen Studio, Calgary",
+    description:
+      "Learn to glaze and finish a dozen donuts with our baker. All supplies included.",
+    image:
+      "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=800&q=80",
+    sellerId: "dustins-donuts",
+    likes: 52,
+    comments: 14,
+    reposts: 7,
+    shares: 5,
+  },
+  {
+    id: "marda-loop-popup",
+    title: "Marda Loop Garden Pop-Up",
+    type: "Pop-Up",
+    date: eventDate(3),
+    startTime: "12:00",
+    endTime: "17:00",
+    location: "33rd Ave SW, Marda Loop",
+    description:
+      "A one day pop-up stand with organic beets, carrots and fresh cut herbs.",
+    image:
+      "https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=800&q=80",
+    sellerId: "pennies-produce",
+    likes: 27,
+    comments: 6,
+    reposts: 5,
+    shares: 4,
+  },
+  {
+    id: "crochet-basics-workshop",
+    title: "Crochet Basics Workshop",
+    type: "Workshop",
+    date: eventDate(-12),
+    startTime: "13:00",
+    endTime: "15:00",
+    location: "Mission Craft Room, Calgary",
+    description:
+      "Beginner friendly session covering stitches, tension and finishing a simple hat.",
+    image:
+      "https://images.unsplash.com/photo-1516912481808-3406841bd33c?w=800&q=80",
+    sellerId: "brandys-crafts",
+    likes: 22,
+    comments: 9,
+    reposts: 3,
+    shares: 2,
+  },
+];
+
+export const currentUser = {
+  username: "you",
+  avatar:
+    "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
+};
+
+export const orderStatuses = [
+  "Order Placed",
+  "Preparing",
+  "Ready for Pickup",
+  "Completed",
+  "Cancelled",
+];
+
+export const orders = [
+  {
+    id: "ORD-1042",
+    productId: "strawberries",
+    quantity: 2,
+    total: 10,
+    status: "Completed",
+    date: "Nov 24, 2025",
+    buyer: "you",
+    buyerAvatar:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
+  },
+  {
+    id: "ORD-1038",
+    productId: "dozen-donuts",
+    quantity: 1,
+    total: 8.99,
+    status: "Completed",
+    date: "Nov 18, 2025",
+    buyer: "you",
+    buyerAvatar:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
+  },
+  {
+    id: "ORD-1051",
+    productId: "organic-beets",
+    quantity: 3,
+    total: 14.97,
+    status: "Preparing",
+    date: "Nov 29, 2025",
+    buyer: "you",
+    buyerAvatar:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
+  },
+  {
+    id: "ORD-1053",
+    productId: "crochet-hat",
+    quantity: 1,
+    total: 14.99,
+    status: "Order Placed",
+    date: "Nov 30, 2025",
+    buyer: "you",
+    buyerAvatar:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
+  },
+  {
+    id: "ORD-1049",
+    productId: "strawberries",
+    quantity: 1,
+    total: 5,
+    status: "Ready for Pickup",
+    date: "Nov 28, 2025",
+    buyer: "you",
+    buyerAvatar:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
+  },
+  {
+    id: "ORD-1031",
+    productId: "organic-beets",
+    quantity: 1,
+    total: 4.99,
+    status: "Cancelled",
+    date: "Nov 12, 2025",
+    buyer: "you",
+    buyerAvatar:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
+  },
+  {
+    id: "ORD-1061",
+    productId: "strawberries",
+    quantity: 3,
+    total: 15,
+    status: "Order Placed",
+    date: "Nov 30, 2025",
+    buyer: "starryskies23",
+    buyerAvatar:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+  },
+  {
+    id: "ORD-1060",
+    productId: "strawberries",
+    quantity: 1,
+    total: 5,
+    status: "Order Placed",
+    date: "Nov 30, 2025",
+    buyer: "nebulanomad",
+    buyerAvatar:
+      "https://images.unsplash.com/photo-1541823709867-1b206113eafd?w=100&q=80",
+  },
+  {
+    id: "ORD-1057",
+    productId: "strawberries",
+    quantity: 2,
+    total: 10,
+    status: "Preparing",
+    date: "Nov 29, 2025",
+    buyer: "janedoe",
+    buyerAvatar:
+      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80",
+  },
+  {
+    id: "ORD-1044",
+    productId: "strawberries",
+    quantity: 1,
+    total: 5,
+    status: "Completed",
+    date: "Nov 25, 2025",
+    buyer: "bobsmith",
+    buyerAvatar:
+      "https://images.unsplash.com/photo-1541823709867-1b206113eafd?w=100&q=80",
+  },
+];
+
+export const productReviews = [
+  {
+    id: "rev-1",
+    productId: "strawberries",
+    sellerId: "sarahs-backyard",
+    reviewer: "johndoe",
+    avatar:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    rating: 5,
+    date: "2 days ago",
+    createdAt: "2025-11-27T10:00:00.000Z",
+    text: "Fantastic quality and very fresh! The strawberries were sweet and perfectly ripe. Will definitely order again.",
+    photos: [
+      "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=300&q=80",
+    ],
+  },
+  {
+    id: "rev-2",
+    productId: "strawberries",
+    sellerId: "sarahs-backyard",
+    reviewer: "bobsmith",
+    avatar:
+      "https://images.unsplash.com/photo-1541823709867-1b206113eafd?w=100&q=80",
+    rating: 4,
+    date: "2 weeks ago",
+    createdAt: "2025-11-15T10:00:00.000Z",
+    text: "Good quality and fair prices. The produce was fresh and well-packaged. Would recommend.",
+    photos: [],
+  },
+  {
+    id: "rev-3",
+    productId: "strawberries",
+    sellerId: "sarahs-backyard",
+    reviewer: "alicejohnson",
+    avatar:
+      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80",
+    rating: 5,
+    date: "3 weeks ago",
+    createdAt: "2025-11-08T10:00:00.000Z",
+    text: "Best strawberries I've ever had! So sweet and juicy. The seller is very responsive and friendly.",
+    photos: [],
+  },
+  {
+    id: "rev-4",
+    productId: "organic-beets",
+    sellerId: "pennies-produce",
+    reviewer: "janedoe",
+    avatar:
+      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80",
+    rating: 5,
+    date: "1 week ago",
+    createdAt: "2025-11-22T10:00:00.000Z",
+    text: "Amazing produce! The organic beets were delicious and perfect for roasting. Great seller!",
+    photos: [
+      "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=300&q=80",
+    ],
+  },
+  {
+    id: "rev-5",
+    productId: "organic-beets",
+    sellerId: "pennies-produce",
+    reviewer: "charliebrown",
+    avatar:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    rating: 3,
+    date: "1 month ago",
+    createdAt: "2025-10-28T10:00:00.000Z",
+    text: "Decent quality but delivery was a bit delayed. The produce was still fresh though.",
+    photos: [],
+  },
+  {
+    id: "rev-6",
+    productId: "dozen-donuts",
+    sellerId: "dustins-donuts",
+    reviewer: "miafields",
+    avatar:
+      "https://images.unsplash.com/photo-1541823709867-1b206113eafd?w=100&q=80",
+    rating: 4,
+    date: "5 days ago",
+    createdAt: "2025-11-24T10:00:00.000Z",
+    text: "Donuts were warm on pickup and the maple one is a must try. Box was a little squished.",
+    photos: [],
   },
 ];
 
@@ -661,5 +1122,60 @@ export const shoppers = [
   { name: "Oscar Dum", email: "email@fakedomain.net", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80" },
   { name: "Carlo Emilion", email: "email@fakedomain.net", avatar: "https://images.unsplash.com/photo-1541823709867-1b206113eafd?w=100&q=80" },
 ];
+
+export const analyticsData = {
+  "7days": {
+    totalViews: 1247,
+    totalFavorites: 89,
+    totalMessages: 34,
+    totalFollowers: 12,
+    totalListings: 8,
+    totalSales: 23,
+    averageRating: 4.8,
+    viewsOverTime: [45, 62, 78, 54, 89, 112, 156],
+    favoritesOverTime: [5, 8, 12, 9, 15, 18, 22],
+    messagesOverTime: [3, 5, 4, 6, 8, 4, 4],
+    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+  },
+  "30days": {
+    totalViews: 5842,
+    totalFavorites: 342,
+    totalMessages: 156,
+    totalFollowers: 48,
+    totalListings: 12,
+    totalSales: 89,
+    averageRating: 4.7,
+    viewsOverTime: [120, 145, 132, 178, 156, 189, 210, 195, 234, 267, 245, 289, 312, 298, 334, 356, 345, 378, 401, 389, 412, 434, 423, 456, 478, 467, 489, 501, 489, 512],
+    favoritesOverTime: [15, 18, 22, 25, 28, 32, 35, 38, 42, 45, 48, 52, 55, 58, 62, 65, 68, 72, 75, 78, 82, 85, 88, 92, 95, 98, 102, 105, 108, 112],
+    messagesOverTime: [8, 10, 12, 11, 14, 16, 15, 18, 20, 19, 22, 24, 23, 26, 28, 27, 30, 32, 31, 34, 36, 35, 38, 40, 39, 42, 44, 43, 46, 48],
+    labels: ["1", "5", "10", "15", "20", "25", "30"]
+  },
+  "90days": {
+    totalViews: 15678,
+    totalFavorites: 892,
+    totalMessages: 423,
+    totalFollowers: 134,
+    totalListings: 18,
+    totalSales: 234,
+    averageRating: 4.6,
+    viewsOverTime: [450, 512, 478, 534, 589, 612, 678, 723, 756, 789, 823, 856, 889, 912, 945, 978, 1001, 1034, 1067, 1089, 1123, 1156, 1178, 1201, 1234, 1256, 1289, 1312, 1334, 1356],
+    favoritesOverTime: [45, 52, 58, 64, 72, 78, 85, 92, 98, 105, 112, 118, 125, 132, 138, 145, 152, 158, 165, 172, 178, 185, 192, 198, 205, 212, 218, 225, 232, 238],
+    messagesOverTime: [25, 28, 32, 35, 38, 42, 45, 48, 52, 55, 58, 62, 65, 68, 72, 75, 78, 82, 85, 88, 92, 95, 98, 102, 105, 108, 112, 115, 118, 122],
+    labels: ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+  },
+  "allTime": {
+    totalViews: 45678,
+    totalFavorites: 2345,
+    totalMessages: 892,
+    totalFollowers: 567,
+    totalListings: 42,
+    totalSales: 892,
+    averageRating: 4.5,
+    viewsOverTime: [1200, 1456, 1678, 1890, 2123, 2345, 2567, 2789, 3012, 3234, 3456, 3678],
+    favoritesOverTime: [89, 112, 134, 156, 178, 201, 223, 245, 267, 289, 312, 334],
+    messagesOverTime: [45, 56, 67, 78, 89, 101, 112, 123, 134, 145, 156, 167],
+    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+  }
+};
 
 export const chartXAxis = ["Nov 23", "24", "25", "26", "27", "28", "29", "30"];

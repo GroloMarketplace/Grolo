@@ -11,6 +11,8 @@ import { SavedProvider } from "./context/SavedContext";
 import { RegrowProvider } from "./context/RegrowContext";
 import { ProfileModeProvider } from "./context/ProfileModeContext";
 import { AdvertisingProvider } from "./context/AdvertisingContext";
+import { CartProvider } from "./context/CartContext";
+import { PaymentMethodsProvider } from "./context/PaymentMethodsContext";
 import Feed, { Notifications } from "./pages/Feed";
 import Search from "./pages/Search";
 import Category from "./pages/Category";
@@ -59,6 +61,8 @@ export default function App() {
         <RegrowProvider>
         <ReviewProvider>
         <AdvertisingProvider>
+        <CartProvider>
+        <PaymentMethodsProvider>
         <Routes>
         <Route path="/signin" element={<PhoneFrame hideTabBar statusBarBackground="bg-[#E6DCCF]" backgroundColor="bg-[#E6DCCF]"><SignIn /></PhoneFrame>} />
         <Route path="/" element={<PhoneFrame><Feed /></PhoneFrame>} />
@@ -253,6 +257,8 @@ export default function App() {
           }
         />
       </Routes>
+        </PaymentMethodsProvider>
+        </CartProvider>
         </AdvertisingProvider>
         </ReviewProvider>
         </RegrowProvider>

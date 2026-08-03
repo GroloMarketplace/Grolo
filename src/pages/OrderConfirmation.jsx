@@ -1,12 +1,28 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { cartItems } from "../data/mockData";
+import { useCart } from "../context/CartContext";
+import { usePaymentMethods } from "../context/PaymentMethodsContext";
+
+function PaymentMethodsList({ paymentSettings }) {
+  const { methods, eTransferEmail } = paymentSettings;
+  return (
+    <div className="mt-3 border-t border-black/10 pt-3">
+      <div className="text-[12px] font-medium text-[#498467]">Payment methods accepted</div>
+      {methods.includes("cash") && <div className="mt-1 text-[13px] text-black/70">Cash · Pay at pickup</div>}
+      {methods.includes("etransfer") && <div className="mt-1 text-[13px] text-black/70">E-Transfer · {eTransferEmail}</div>}
+      <div className="mt-1 text-[12px] text-[#828282]">Credit/Debit (Coming Soon)</div>
+    </div>
+  );
+}
 
 export default function OrderConfirmation() {
   const [isAnimated, setIsAnimated] = useState(false);
-  const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const tax = 2;
-  const total = subtotal + tax;
+  const { items, subtotal } = useCart();
+  const { getPaymentMethods, fulfillmentMethod } = usePaymentMethods();
+  const paymentSettings = getPaymentMethods(items[0]?.sellerId ?? "sarahs-backyard");
+  const selectedFulfillment = paymentSettings.fulfillmentMethods.includes(fulfillmentMethod) ? fulfillmentMethod : paymentSettings.fulfillmentMethods[0] ?? "pickup";
+  const deliveryFee = selectedFulfillment === "delivery" ? paymentSettings.deliveryFee : 0;
+  const total = subtotal + deliveryFee;
   const orderNumber = `ORD-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
   
   // Calculate estimated delivery date (3-4 days from now)
@@ -63,10 +79,15 @@ export default function OrderConfirmation() {
             <span className="text-[14px] text-black/70">Estimated Delivery</span>
             <span className="text-[14px] font-medium">{formattedDeliveryDate}</span>
           </div>
+          <div className="flex justify-between mb-3">
+            <span className="text-[14px] text-black/70">Fulfillment Method</span>
+            <span className="text-[14px] font-medium">{selectedFulfillment === "delivery" ? "Delivery" : "Pickup"}</span>
+          </div>
           <div className="flex justify-between">
             <span className="text-[14px] text-black/70">Total Paid</span>
             <span className="text-[14px] font-medium">${total.toFixed(2)}</span>
           </div>
+          <PaymentMethodsList paymentSettings={paymentSettings} />
         </div>
 
         <Link to="/orders" className="w-full rounded-lg bg-[#498467] text-white text-[16px] font-medium py-3.5 shadow-sm mb-3 block text-center">

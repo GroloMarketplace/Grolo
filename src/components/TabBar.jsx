@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useProfileMode } from "../context/ProfileModeContext";
+import { useCart } from "../context/CartContext";
 
 const tabs = [
   {
@@ -88,6 +89,7 @@ const tabs = [
 
 export default function TabBar() {
   const { profileMode } = useProfileMode();
+  const { totalQuantity } = useCart();
   const profilePath = profileMode === "buyer" ? "/profile" : "/shop";
 
   return (
@@ -100,7 +102,16 @@ export default function TabBar() {
             end={tab.to === "/"}
             className="flex-1 flex items-center justify-center"
           >
-            {({ isActive }) => tab.icon(isActive)}
+            {({ isActive }) => (
+              <span className="relative">
+                {tab.icon(isActive)}
+                {tab.to === "/cart" && totalQuantity > 0 && (
+                  <span className="absolute -right-2 -top-2 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[#498467] px-1 text-[10px] font-semibold leading-4 text-white">
+                    {totalQuantity}
+                  </span>
+                )}
+              </span>
+            )}
           </NavLink>
         ))}
       </div>

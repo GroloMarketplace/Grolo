@@ -12,6 +12,7 @@ import {
   useEvents,
 } from "../context/EventContext";
 import { usePromotions } from "../context/PromotionContext";
+import { usePaymentMethods } from "../context/PaymentMethodsContext";
 
 export default function SellerProfile() {
   const { sellerId } = useParams();
@@ -20,7 +21,9 @@ export default function SellerProfile() {
   const { sellerRating } = useReviews();
   const { upcomingEvents } = useEvents();
   const { promotionsForSeller } = usePromotions();
+  const { getPaymentMethods } = usePaymentMethods();
   const seller = sellers[sellerId] || sellers["sarahs-backyard"];
+  const sellerPaymentMethods = getPaymentMethods(seller.id);
   const sellerEvents = upcomingEvents(seller.id);
   const sellerPromotions = promotionsForSeller(seller.id);
   const { average, count } = sellerRating(seller.id);
@@ -90,6 +93,7 @@ export default function SellerProfile() {
             </div>
 
             <p className="text-[14px] mt-3 leading-[140%]">{seller.description}</p>
+            <PaymentMethodsList paymentSettings={sellerPaymentMethods} />
 
             {/* Rating */}
             <div className="flex items-center gap-2 mt-3">
@@ -167,6 +171,18 @@ export default function SellerProfile() {
         </div>
       </div>
     </MobileScreenLayout>
+  );
+}
+
+function PaymentMethodsList({ paymentSettings }) {
+  const { methods, eTransferEmail } = paymentSettings;
+  return (
+    <div className="mt-3 rounded-lg bg-[#F5FFF6] p-3">
+      <div className="text-[12px] font-medium text-[#498467]">Accepted Payment Methods</div>
+      {methods.includes("cash") && <div className="mt-1 text-[13px] text-[#4F4F4F]">Cash · Pay at pickup</div>}
+      {methods.includes("etransfer") && <div className="mt-1 text-[13px] text-[#4F4F4F]">E-Transfer · {eTransferEmail}</div>}
+      <div className="mt-1 text-[12px] text-[#828282]">Credit/Debit (Coming Soon)</div>
+    </div>
   );
 }
 

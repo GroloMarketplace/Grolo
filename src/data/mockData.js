@@ -158,6 +158,11 @@ export const sellers = {
     rating: 4.8,
     reviewCount: 124,
     followers: 234,
+    acceptedPaymentMethods: ["cash", "etransfer"],
+    eTransferEmail: "sarahs.backyard@grolo.local",
+    fulfillmentMethods: ["pickup", "delivery"],
+    deliveryFee: 5,
+    deliveryRadius: 10,
   },
   "pennies-produce": {
     id: "pennies-produce",
@@ -1167,6 +1172,7 @@ export const cartItems = [
     price: 10.99,
     image:
       "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=200&q=80",
+    sellerId: "sarahs-backyard",
   },
   {
     id: 2,
@@ -1176,6 +1182,7 @@ export const cartItems = [
     price: 8.99,
     image:
       "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=200&q=80",
+    sellerId: "sarahs-backyard",
   },
 ];
 

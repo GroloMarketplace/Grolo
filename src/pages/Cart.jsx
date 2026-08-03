@@ -1,10 +1,15 @@
 import { Link } from "react-router-dom";
-import { cartItems } from "../data/mockData";
+import { useCart } from "../context/CartContext";
+import { usePaymentMethods } from "../context/PaymentMethodsContext";
 
 export default function Cart() {
-  const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const tax = 2;
-  const total = subtotal + tax;
+  const { items, updateQuantity, subtotal } = useCart();
+  const { getPaymentMethods, fulfillmentMethod } = usePaymentMethods();
+  const sellerId = items[0]?.sellerId ?? "sarahs-backyard";
+  const fulfillmentSettings = getPaymentMethods(sellerId);
+  const selectedFulfillment = fulfillmentSettings.fulfillmentMethods.includes(fulfillmentMethod) ? fulfillmentMethod : fulfillmentSettings.fulfillmentMethods[0] ?? "pickup";
+  const deliveryFee = selectedFulfillment === "delivery" ? fulfillmentSettings.deliveryFee : 0;
+  const total = subtotal + deliveryFee;
 
   return (
     <div className="flex flex-col">
@@ -15,9 +20,9 @@ export default function Cart() {
       </div>
 
       <div className="px-4 py-4 flex flex-col gap-2 border-b border-[#E6E6E6]">
-        <Row label={`Subtotal (${cartItems.length})`} value={`$${subtotal.toFixed(2)}`} />
-        <Row label="Shipping total" value="Free" />
-        <Row label="Taxes" value={`$${tax.toFixed(2)}`} />
+        <Row label="Subtotal" value={`$${subtotal.toFixed(2)}`} />
+        <Row label="Fulfillment Method" value={selectedFulfillment === "delivery" ? "Delivery" : "Pickup"} />
+        <Row label="Delivery Fee" value={deliveryFee === 0 ? "Free" : `$${deliveryFee.toFixed(2)}`} />
         <Row label="Total" value={`$${total.toFixed(2)}`} bold />
       </div>
 
@@ -42,7 +47,7 @@ export default function Cart() {
         <div className="px-4 py-3 border-b border-black/5">
           <div className="text-[12px] font-medium mb-3">ITEMS</div>
           <div className="flex flex-col gap-4">
-            {cartItems.map((item) => (
+            {items.map((item) => (
               <div key={item.id} className="flex gap-3">
                 <img
                   src={item.image}
@@ -53,7 +58,27 @@ export default function Cart() {
                   <div className="text-[12px] text-black/50">Brand</div>
                   <div className="text-[14px]">{item.name}</div>
                   <div className="text-[14px]">{item.description}</div>
-                  <div className="text-[14px]">Quantity: {String(item.quantity).padStart(2, "0")}</div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-[12px] text-black/50">Quantity</span>
+                    <button
+                      type="button"
+                      aria-label={`Decrease quantity of ${item.name}`}
+                      onClick={() => updateQuantity(item.id, -1)}
+                      disabled={item.quantity === 1}
+                      className="flex h-7 w-7 items-center justify-center rounded border border-[#E6E6E6] text-[16px] leading-none disabled:opacity-40"
+                    >
+                      −
+                    </button>
+                    <span className="min-w-5 text-center text-[14px]">{item.quantity}</span>
+                    <button
+                      type="button"
+                      aria-label={`Increase quantity of ${item.name}`}
+                      onClick={() => updateQuantity(item.id, 1)}
+                      className="flex h-7 w-7 items-center justify-center rounded border border-[#498467] text-[16px] leading-none text-[#498467]"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
                 <div className="text-[14px]">${item.price.toFixed(2)}</div>
               </div>

@@ -1,11 +1,17 @@
 import { Link, useNavigate } from "react-router-dom";
-import { cartItems } from "../data/mockData";
+import { useCart } from "../context/CartContext";
+import { usePaymentMethods } from "../context/PaymentMethodsContext";
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const tax = 2;
-  const total = subtotal + tax;
+  const { items, subtotal } = useCart();
+  const { getPaymentMethods, fulfillmentMethod, setFulfillmentMethod } = usePaymentMethods();
+  const sellerId = items[0]?.sellerId ?? "sarahs-backyard";
+  const paymentSettings = getPaymentMethods(sellerId);
+  const fulfillmentMethods = paymentSettings.fulfillmentMethods;
+  const selectedFulfillment = fulfillmentMethods.includes(fulfillmentMethod) ? fulfillmentMethod : fulfillmentMethods[0] ?? "pickup";
+  const deliveryFee = selectedFulfillment === "delivery" ? paymentSettings.deliveryFee : 0;
+  const total = subtotal + deliveryFee;
 
   return (
     <div className="flex flex-col">
@@ -33,13 +39,19 @@ export default function Checkout() {
         </div>
 
         <div className="flex items-center justify-between px-4 py-3 border-b border-black/5">
-          <span className="text-[14px]">Delivery</span>
-          <span className="text-[14px] text-black/50">Free Standard | 3-4 days</span>
+          <span className="text-[14px]">Fulfillment Method</span>
+          {fulfillmentMethods.length > 1 ? (
+            <select value={selectedFulfillment} onChange={(event) => setFulfillmentMethod(event.target.value)} className="rounded-lg border border-[#E6E6E6] bg-white px-2 py-1.5 text-[14px] outline-none focus:border-[#498467]">
+              {fulfillmentMethods.map((method) => <option key={method} value={method}>{method === "delivery" ? "Delivery" : "Pickup"}</option>)}
+            </select>
+          ) : (
+            <span className="text-[14px] text-black/50">Pickup</span>
+          )}
         </div>
 
-        <div className="flex items-center justify-between px-4 py-3 border-b border-black/5">
-          <span className="text-[14px]">Payment</span>
-          <span className="text-[14px] text-black/50">Visa *1234</span>
+        <div className="border-b border-black/5 px-4 py-3">
+          <div className="text-[14px]">Payment</div>
+          <PaymentMethodsList paymentSettings={paymentSettings} />
         </div>
 
         <div className="flex items-center justify-between px-4 py-3">
@@ -52,7 +64,7 @@ export default function Checkout() {
         <div className="px-4 py-3 border-b border-black/5">
           <div className="text-[12px] font-medium mb-3">ITEMS</div>
           <div className="flex flex-col gap-4">
-            {cartItems.map((item) => (
+            {items.map((item) => (
               <div key={item.id} className="flex gap-3">
                 <img
                   src={item.image}
@@ -73,9 +85,9 @@ export default function Checkout() {
       </div>
 
       <div className="px-4 py-4 flex flex-col gap-2">
-        <Row label={`Subtotal (${cartItems.length})`} value={`$${subtotal.toFixed(2)}`} />
-        <Row label="Shipping total" value="Free" />
-        <Row label="Taxes" value={`$${tax.toFixed(2)}`} />
+        <Row label="Subtotal" value={`$${subtotal.toFixed(2)}`} />
+        <Row label="Fulfillment Method" value={selectedFulfillment === "delivery" ? "Delivery" : "Pickup"} />
+        <Row label="Delivery Fee" value={deliveryFee === 0 ? "Free" : `$${deliveryFee.toFixed(2)}`} />
         <Row label="Total" value={`$${total.toFixed(2)}`} bold />
       </div>
 
@@ -87,6 +99,17 @@ export default function Checkout() {
           Place order
         </button>
       </div>
+    </div>
+  );
+}
+
+function PaymentMethodsList({ paymentSettings }) {
+  const { methods, eTransferEmail } = paymentSettings;
+  return (
+    <div className="mt-2 rounded-lg bg-[#F5FFF6] p-3">
+      {methods.includes("cash") && <div className="text-[13px] text-[#4F4F4F]">Cash · Pay at pickup</div>}
+      {methods.includes("etransfer") && <div className="mt-1 text-[13px] text-[#4F4F4F]">E-Transfer · {eTransferEmail}</div>}
+      <div className="mt-1 text-[12px] text-[#828282]">Credit/Debit (Coming Soon)</div>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { products, sellers } from "../data/mockData";
 import { usePromotions } from "../context/PromotionContext";
 import { useFavorites } from "../hooks/useFavorites";
 import { useReviews } from "../context/ReviewContext";
+import { usePaymentMethods } from "../context/PaymentMethodsContext";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -21,6 +22,8 @@ export default function ProductDetail() {
   const { isFavorite, toggleFavorite } = useFavorites();
   const saved = isFavorite(product.id);
   const seller = Object.values(sellers).find((s) => s.name === product.shop);
+  const { getPaymentMethods } = usePaymentMethods();
+  const sellerPaymentMethods = getPaymentMethods(seller?.id);
   const { promotionsForProduct } = usePromotions();
   const promotion = promotionsForProduct(product.id)[0];
   const { reviewsForProduct, productRating, canReviewProduct } = useReviews();
@@ -91,6 +94,7 @@ export default function ProductDetail() {
               product.shop
             )}
           </div>
+          <PaymentMethodsList paymentSettings={sellerPaymentMethods} />
           <button
             onClick={() => navigate(`/product/${product.id}/reviews`)}
             className="flex items-center gap-2 w-fit"
@@ -228,6 +232,18 @@ export default function ProductDetail() {
       />
       </div>
     </MobileScreenLayout>
+  );
+}
+
+function PaymentMethodsList({ paymentSettings }) {
+  const { methods, eTransferEmail } = paymentSettings;
+  return (
+    <div className="rounded-lg bg-[#F5FFF6] p-3">
+      <div className="text-[12px] font-medium text-[#498467]">Accepted Payment Methods</div>
+      {methods.includes("cash") && <div className="mt-1 text-[13px] text-[#4F4F4F]">Cash · Pay at pickup</div>}
+      {methods.includes("etransfer") && <div className="mt-1 text-[13px] text-[#4F4F4F]">E-Transfer · {eTransferEmail}</div>}
+      <div className="mt-1 text-[12px] text-[#828282]">Credit/Debit (Coming Soon)</div>
+    </div>
   );
 }
 

@@ -12,6 +12,7 @@ import { useOrders } from "../context/OrderContext";
 import { formatEventDate, formatEventTime, useEvents } from "../context/EventContext";
 import { usePromotions } from "../context/PromotionContext";
 import { useRegrow } from "../context/RegrowContext";
+import { usePaymentMethods } from "../context/PaymentMethodsContext";
 
 export default function ShopHome() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -22,6 +23,11 @@ export default function ShopHome() {
   const [description, setDescription] = useState("I've grown lots of fruits and vegetables in my backyard and would love to share them with the community! All produce is grown with 100% organic soil and seeds.");
   
   const seller = sellers["sarahs-backyard"];
+  const { getPaymentMethods, updatePaymentMethods, updateFulfillment } = usePaymentMethods();
+  const [paymentMethods, setPaymentMethods] = useState(() => getPaymentMethods(seller.id).methods);
+  const [fulfillmentMethods, setFulfillmentMethods] = useState(() => getPaymentMethods(seller.id).fulfillmentMethods);
+  const [deliveryFee, setDeliveryFee] = useState(() => getPaymentMethods(seller.id).deliveryFee);
+  const [deliveryRadius, setDeliveryRadius] = useState(() => getPaymentMethods(seller.id).deliveryRadius);
   const { sellerOrders } = useOrders();
   const { upcomingEvents } = useEvents();
   const { promotionsForSeller } = usePromotions();
@@ -55,10 +61,17 @@ export default function ShopHome() {
   };
 
   const handleSaveStore = () => {
+    updatePaymentMethods(seller.id, paymentMethods);
+    updateFulfillment(seller.id, fulfillmentMethods, deliveryFee, deliveryRadius);
     setIsEditing(false);
   };
 
   const handleCancelEdit = () => {
+    const settings = getPaymentMethods(seller.id);
+    setPaymentMethods(settings.methods);
+    setFulfillmentMethods(settings.fulfillmentMethods);
+    setDeliveryFee(settings.deliveryFee);
+    setDeliveryRadius(settings.deliveryRadius);
     setIsEditing(false);
   };
 
@@ -180,6 +193,49 @@ export default function ShopHome() {
                   <p className="text-[14px] mt-3 leading-[140%]">{description}</p>
                 )}
 
+                {isEditing && (
+                  <div className="mt-4 rounded-lg border border-[#E6E6E6] p-3">
+                    <div className="mb-2 text-[14px] font-medium">Accepted Payment Methods</div>
+                    {[{ id: "cash", label: "Cash" }, { id: "etransfer", label: "E-Transfer" }].map((method) => (
+                      <label key={method.id} className="flex items-center gap-3 py-1.5 text-[14px]">
+                        <input
+                          type="checkbox"
+                          checked={paymentMethods.includes(method.id)}
+                          onChange={() => setPaymentMethods((current) => current.includes(method.id) ? current.filter((item) => item !== method.id) : [...current, method.id])}
+                          className="h-4 w-4 accent-[#498467]"
+                        />
+                        {method.label}
+                      </label>
+                    ))}
+                    <div className="flex items-center gap-3 py-1.5 text-[14px] text-[#828282]">
+                      <input type="checkbox" checked readOnly disabled className="h-4 w-4 accent-[#498467]" />
+                      Credit/Debit <span className="text-[12px]">(Coming Soon)</span>
+                    </div>
+                    <div className="mt-3 border-t border-[#E6E6E6] pt-3">
+                      <div className="mb-2 text-[14px] font-medium">Fulfillment Preferences</div>
+                      {[{ id: "pickup", label: "Pickup" }, { id: "delivery", label: "Delivery" }].map((method) => (
+                        <label key={method.id} className="flex items-center gap-3 py-1.5 text-[14px]">
+                          <input
+                            type="checkbox"
+                            checked={fulfillmentMethods.includes(method.id)}
+                            onChange={() => setFulfillmentMethods((current) => current.includes(method.id) ? (current.length === 1 ? current : current.filter((item) => item !== method.id)) : [...current, method.id])}
+                            className="h-4 w-4 accent-[#498467]"
+                          />
+                          {method.label}
+                        </label>
+                      ))}
+                      {fulfillmentMethods.includes("delivery") && (
+                        <div className="mt-2 flex gap-2">
+                          <label className="flex-1 text-[12px] text-[#828282]">Delivery fee<input type="number" min="0" step="0.01" value={deliveryFee} onChange={(event) => setDeliveryFee(event.target.value)} className="mt-1 w-full rounded-lg border border-[#E6E6E6] px-2 py-2 text-[14px] text-black outline-none focus:border-[#498467]" /></label>
+                          <label className="flex-1 text-[12px] text-[#828282]">Radius (km)<input type="number" min="0" value={deliveryRadius} onChange={(event) => setDeliveryRadius(event.target.value)} className="mt-1 w-full rounded-lg border border-[#E6E6E6] px-2 py-2 text-[14px] text-black outline-none focus:border-[#498467]" /></label>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {!isEditing && <PaymentMethodsList methods={getPaymentMethods(seller.id).methods} />}
+
                 {/* Rating */}
                 <div className="flex items-center gap-2 mt-3">
                   <div className="flex items-center gap-1">
@@ -300,6 +356,16 @@ export default function ShopHome() {
       </MobileScreenLayout>
       <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
     </>
+  );
+}
+
+function PaymentMethodsList({ methods }) {
+  return (
+    <div className="mt-4 rounded-lg bg-[#F5FFF6] p-3">
+      <div className="text-[12px] font-medium text-[#498467]">Accepted Payment Methods</div>
+      <div className="mt-1 text-[13px] text-[#4F4F4F]">{methods.includes("cash") && "Cash · Pay at pickup"}{methods.includes("cash") && methods.includes("etransfer") && " · "}{methods.includes("etransfer") && "E-Transfer"}</div>
+      <div className="mt-1 text-[12px] text-[#828282]">Credit/Debit (Coming Soon)</div>
+    </div>
   );
 }
 

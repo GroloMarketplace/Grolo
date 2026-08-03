@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -32,8 +32,20 @@ export default function Comments() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const content = state?.content ?? fallbackContent;
-  const [comments, setComments] = useState(MOCK_COMMENTS);
+  const [comments, setComments] = useState(() =>
+    state?.highlightedComment
+      ? [state.highlightedComment, ...MOCK_COMMENTS]
+      : MOCK_COMMENTS,
+  );
   const [commentText, setCommentText] = useState("");
+  const commentRefs = useRef({});
+  const replyInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!state?.commentId) return;
+    commentRefs.current[state.commentId]?.scrollIntoView({ block: "center" });
+    if (state.focusReply) replyInputRef.current?.focus();
+  }, [state]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -62,7 +74,14 @@ export default function Comments() {
           <h2 className="text-[18px] font-semibold">Comments</h2>
           <div className="mt-4 flex flex-col gap-5">
             {comments.map((comment) => (
-              <CommentItem key={comment.id} comment={comment} />
+              <CommentItem
+                key={comment.id}
+                comment={comment}
+                commentRef={(element) => {
+                  commentRefs.current[comment.id] = element;
+                }}
+                highlighted={comment.id === state?.commentId}
+              />
             ))}
           </div>
         </div>
@@ -70,6 +89,7 @@ export default function Comments() {
       <form onSubmit={handleSubmit} className="flex shrink-0 items-center gap-2 border-t border-[#E6E6E6] bg-white px-4 py-3">
         <img src={CURRENT_USER.avatar} alt="Your profile" className="h-8 w-8 rounded-full object-cover" />
         <input
+          ref={replyInputRef}
           value={commentText}
           onChange={(event) => setCommentText(event.target.value)}
           placeholder="Add a comment..."
@@ -120,7 +140,7 @@ function OriginalContent({ content }) {
   );
 }
 
-function CommentItem({ comment }) {
+function CommentItem({ comment, commentRef, highlighted }) {
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(comment.likes);
 
@@ -130,7 +150,10 @@ function CommentItem({ comment }) {
   };
 
   return (
-    <div className="flex gap-3">
+    <div
+      ref={commentRef}
+      className={`flex gap-3 rounded-lg ${highlighted ? "bg-[#498467]/10 p-2" : ""}`}
+    >
       <img src={comment.avatar} alt={comment.username} className="h-8 w-8 shrink-0 rounded-full object-cover" />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">

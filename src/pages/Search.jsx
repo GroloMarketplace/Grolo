@@ -308,7 +308,14 @@ function TradingSection({ products: allProducts, navigate }) {
     <section className="py-2">
       <button type="button" onClick={() => navigate("/trading")} className="flex w-full items-center gap-2 px-4 py-2 text-left">
         <span className="text-[16px] font-semibold tracking-[-0.32px]">Trading</span>
-        <span aria-hidden="true" className="text-[20px] leading-none">›</span>
+        <span aria-hidden="true" className="rounded-full bg-[#F5F5F5] p-0.5">
+          <svg width="14" height="14" viewBox="0 0 7 14" fill="none">
+            <path
+              d="M4.78 7 .79 3.01a.4.4 0 0 1 0-.55l.53-.53a.4.4 0 0 1 .55 0l4.73 4.73a.4.4 0 0 1 0 .55l-4.73 4.73a.4.4 0 0 1-.55 0l-.53-.53a.4.4 0 0 1 0-.55L4.78 7Z"
+              fill="black"
+            />
+          </svg>
+        </span>
       </button>
       <div className="flex gap-3 overflow-x-auto px-4 no-scrollbar">
         {tradeProducts.slice(0, 4).map((product) => (
@@ -330,7 +337,7 @@ function CategoryRow() {
     <div className="py-2">
       <div className="flex items-center gap-2 px-4 py-2">
         <span className="text-[16px] font-semibold tracking-[-0.32px]">
-          Category
+          Categories
         </span>
       </div>
       <div className="flex gap-6 px-4 overflow-x-auto no-scrollbar">

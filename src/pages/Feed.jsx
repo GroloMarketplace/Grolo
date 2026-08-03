@@ -25,6 +25,7 @@ import {
   formatEventTime,
   useEvents,
 } from "../context/EventContext";
+import { displayPostClassification } from "../data/postClassifications";
 
 const TABS = ["Following", "Your Community"];
 
@@ -368,7 +369,7 @@ function EventPost({ event, onComment, onMenu, onShare }) {
               >
                 {seller?.name}
               </button>
-              <span className="text-[14px] text-[#B56576]">in Event</span>
+              <span className="text-[14px] text-[#B56576]">in {displayPostClassification("Event")}</span>
             </div>
             <span className="text-[12px] text-[#828282]">
               {formatEventDate(event.date)}
@@ -522,7 +523,7 @@ function Post({ post, stacked, onComment, onMenu, onShare }) {
         >
           {post.name}
         </button>
-        <span className="text-[14px] text-[#B56576]">in {post.classification}</span>
+        <span className="text-[14px] text-[#B56576]">in {displayPostClassification(post.classification)}</span>
       </div>
       <span className="text-[12px] text-[#828282]">{post.time}</span>
     </div>
@@ -680,7 +681,9 @@ export function Notifications() {
   const location = useLocation();
   const navigate = useNavigate();
   const edgeStartRef = useRef(null);
-  const [sub, setSub] = useState("Highlights");
+  const tabContentRef = useRef(null);
+  const [activeTab, setActiveTab] = useState(0);
+  const [likedComments, setLikedComments] = useState(() => new Set());
   const fromTab = location.state?.fromTab === "Your Community" ? "Your Community" : "Following";
 
   const goBackToFeed = () => navigate("/", { state: { tab: fromTab } });
@@ -688,17 +691,56 @@ export function Notifications() {
     if (edgeStartRef.current !== null && edgeStartRef.current < 30 && event.clientX - edgeStartRef.current > 50) goBackToFeed();
     edgeStartRef.current = null;
   };
+  const handleTabChange = (index) => {
+    setActiveTab(index);
+    tabContentRef.current?.scrollTo({
+      left: index * tabContentRef.current.clientWidth,
+      behavior: "smooth",
+    });
+  };
+  const handleTabScroll = (event) => {
+    const index = Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth);
+    if (index !== activeTab) setActiveTab(index);
+  };
   const { orderNotifications } = useOrders();
-  const list =
-    sub === "Highlights"
-      ? [...orderNotifications, ...notificationsHighlights]
-      : notificationsFollowers;
+  const notificationLists = [
+    [...orderNotifications, ...notificationsHighlights],
+    notificationsFollowers,
+  ];
+
+  const toggleCommentLike = (notificationId) => {
+    setLikedComments((current) => {
+      const next = new Set(current);
+      if (next.has(notificationId)) next.delete(notificationId);
+      else next.add(notificationId);
+      return next;
+    });
+  };
 
   const handleViewClick = (notification) => {
-    if (notification.type === "order") {
+    const isCommentNotification = notification.quote && /comment/i.test(notification.action);
+
+    if (isCommentNotification) {
+      navigate("/comments", {
+        state: {
+          commentId: notification.commentId ?? notification.id,
+          focusReply: true,
+          highlightedComment: {
+            id: notification.commentId ?? notification.id,
+            username: notification.name,
+            avatar: notification.avatar,
+            timestamp: notification.time,
+            text: notification.quote,
+            likes: 0,
+          },
+        },
+      });
+    } else if (notification.type === "order") {
       navigate("/orders");
-    } else if (notification.type === "store" || notification.type === "follow") {
+    } else if (notification.type === "store" || notification.type === "follow" || notification.type === "profile") {
       navigate(`/seller/${notification.sellerId}`);
+    } else if (notification.type === "event") {
+      navigate(`/event/${notification.eventId}`);
     } else if (notification.type === "product") {
       navigate(`/product/${notification.productId}`);
     }
@@ -715,73 +757,120 @@ export function Notifications() {
     >
       <Header title="Notifications" onBack={goBackToFeed} />
       <div className="overflow-y-auto flex-1 no-scrollbar">
-        <div className="sticky top-0 bg-white z-10 flex justify-center gap-2 pt-6 pb-4">
-        {["Highlights", "Followers"].map((s) => (
-          <button
-            key={s}
-            onClick={() => setSub(s)}
-            className={`px-3.5 py-1.5 rounded-full text-[14px] font-medium border ${
-              sub === s
-                ? "bg-[#498467] text-white border-transparent"
-                : "bg-white text-black border-[#E6E6E6]"
-            }`}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-      <div className="flex flex-col">
-        {list.map((n) => (
+        <div className="sticky top-0 z-10 flex justify-center gap-2 bg-white pt-6 pb-4">
+          {["Highlights", "Followers"].map((label, index) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => handleTabChange(index)}
+              className={`rounded-full border px-3.5 py-1.5 text-[14px] font-medium ${
+                activeTab === index
+                  ? "border-transparent bg-[#498467] text-white"
+                  : "border-[#E6E6E6] bg-white text-black"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="w-full max-w-full overflow-hidden">
           <div
-            key={n.id}
-            className="flex items-center gap-4 px-4 py-3 border-b border-black/5"
+            ref={tabContentRef}
+            onScroll={handleTabScroll}
+            className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
           >
-            <div className="relative shrink-0">
-              <img
-                src={n.avatar}
-                alt={n.name}
-                className="w-12 h-12 rounded-full object-cover"
-              />
-              <span className="absolute left-0 top-8 w-1.5 h-1.5 rounded-full bg-[#FE2C55]" />
-            </div>
-            <div className="flex-1 flex flex-col gap-0.5 min-w-0">
-              <div className="flex items-baseline gap-1">
-                <span className="text-[14px] font-medium">{n.name}</span>
-                <span className="text-[14px] text-black/50">{n.time}</span>
+            {notificationLists.map((notifications, index) => (
+              <div key={index} className="box-border w-full min-w-full max-w-full shrink-0 snap-start">
+                <div className="flex flex-col">
+        {notifications.map((n) => {
+          const productThumb = n.productId
+            ? products.find((product) => product.id === n.productId)?.image
+            : undefined;
+          const thumbnail = n.thumb ?? productThumb;
+          const isProfileNotification = ["store", "follow", "profile"].includes(n.type);
+          const isCommentNotification = n.quote && /comment/i.test(n.action);
+
+          return (
+            <div
+              key={n.id}
+              className="flex items-start gap-3 border-b border-black/5 px-4 py-4"
+            >
+              <div className="relative shrink-0">
+                <img
+                  src={n.avatar}
+                  alt={n.name}
+                  className="h-12 w-12 rounded-full object-cover"
+                />
+                <span className="absolute left-0 top-8 h-1.5 w-1.5 rounded-full bg-[#498467]" />
               </div>
-              <div className="text-[14px] text-black/50">{n.action}</div>
-              {n.quote && (
-                <div className="flex items-center gap-2.5 mt-1">
-                  <span className="w-[3px] h-5 rounded bg-[#D9D9D9]" />
-                  <span className="text-[14px] text-[#828282] truncate">
-                    {n.quote}
-                  </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-[14px] font-medium">{n.name}</span>
+                  <span className="text-[14px] text-black/50">{n.time}</span>
                 </div>
+                <div className="mt-0.5 text-[14px] leading-5 text-black/60">{n.action}</div>
+                {n.quote && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => isCommentNotification && handleViewClick(n)}
+                      className={`mt-1 flex max-w-full items-center gap-2.5 text-left ${isCommentNotification ? "cursor-pointer" : "cursor-default"}`}
+                    >
+                      <span className="h-5 w-[3px] shrink-0 rounded bg-[#D9D9D9]" />
+                      <span className="truncate text-[14px] text-[#828282]">{n.quote}</span>
+                    </button>
+                    {isCommentNotification && (
+                      <div className="mt-1.5 flex items-center gap-3 text-[12px]">
+                        <button
+                          type="button"
+                          onClick={() => toggleCommentLike(n.id)}
+                          className={likedComments.has(n.id) ? "text-[#498467]" : "text-black/60"}
+                        >
+                          ♡ Like
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleViewClick(n)}
+                          className="text-black/60"
+                        >
+                          Reply
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+                {isProfileNotification && (
+                  <button
+                    type="button"
+                    onClick={() => handleViewClick(n)}
+                    className="mt-1 text-[13px] font-medium text-[#498467]"
+                  >
+                    View Profile
+                  </button>
+                )}
+              </div>
+              {thumbnail && (n.type === "product" || n.type === "event" || n.type === "order") && (
+                <button
+                  type="button"
+                  onClick={() => handleViewClick(n)}
+                  className="shrink-0"
+                  aria-label={`Open ${n.type}`}
+                >
+                  <img
+                    src={thumbnail}
+                    alt=""
+                    className="h-12 w-12 rounded object-cover"
+                  />
+                </button>
               )}
             </div>
-            {n.button && (
-              <button 
-                onClick={() => handleViewClick(n)}
-                className="shrink-0 h-8 px-4 rounded-lg bg-[#498467] text-white text-[14px] font-medium"
-              >
-                {n.button}
-              </button>
-            )}
-            {n.thumb && (
-              <button
-                onClick={() => handleViewClick(n)}
-                className="shrink-0"
-              >
-                <img
-                  src={n.thumb}
-                  alt=""
-                  className="w-12 h-12 rounded-lg object-cover"
-                />
-              </button>
-            )}
+          );
+                })}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
       </div>
     </div>
   );

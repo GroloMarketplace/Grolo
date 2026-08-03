@@ -7,8 +7,12 @@ export const POST_CLASSIFICATIONS = [
   "Plants",
   "Honey",
   "Beverages",
-  "Event",
+  "Events",
   "Featured",
   "Trading",
   "Promotion",
 ];
+
+export function displayPostClassification(classification) {
+  return classification === "Event" ? "Events" : classification;
+}

@@ -1,100 +1,49 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useProfileMode } from "../context/ProfileModeContext";
 
-export default function Sidebar({ isOpen, onClose }) {
+export default function Sidebar({ isOpen, onClose, mode = "seller" }) {
   const navigate = useNavigate();
-  const { signOut, user } = useAuth();
+  const { signOut } = useAuth();
+  const { canSeller, setProfileMode } = useProfileMode();
 
   const handleMenuClick = (action) => {
     onClose();
     action();
   };
 
+  const sellerItems = [
+    ["Create New Listing", "/create-listing"],
+    ["Store Orders", "/my-shop/orders"],
+    ["My Orders", "/orders"],
+    ["Analytics", "/analytics"],
+    ["Events", "/my-shop/events"],
+    ["Advertising", "/my-shop/advertising"],
+    ["Performance", "/profit"],
+    ["Account Settings", "/account-settings"],
+  ];
+  const buyerItems = [
+    ["My Orders", "/orders"],
+    ["Saved Items", "/saved"],
+    ["Community Impact", "/community-impact"],
+    ["Account Settings", "/account-settings"],
+  ];
+  const items = mode === "buyer" ? buyerItems : sellerItems;
+
   return (
     <>
-      {/* Overlay */}
-      {isOpen && (
-        <div
-          className="absolute inset-0 bg-black/50 z-40 h-full"
-          onClick={onClose}
-        />
-      )}
-      
-      {/* Sidebar */}
-      <div className={`absolute left-0 top-0 bottom-0 w-64 bg-white z-50 shadow-lg transform transition-transform duration-300 ease-in-out h-full ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      {isOpen && <div className="absolute inset-0 z-40 h-full bg-black/50" onClick={onClose} />}
+      <div className={`absolute bottom-0 left-0 top-0 z-50 h-full w-64 transform bg-white shadow-lg transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="p-4">
-          {/* Profile Section */}
-          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#E6E6E6]">
-            <img
-              src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80"
-              alt="Profile"
-              className="w-12 h-12 rounded-full object-cover"
-            />
-            <div>
-              <div className="font-semibold text-[16px]">My Shop</div>
-              <div className="text-[12px] text-[#828282]">Seller Account</div>
-            </div>
+          <div className="mb-6 flex items-center gap-3 border-b border-[#E6E6E6] pb-4">
+            <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80" alt="Profile" className="h-12 w-12 rounded-full object-cover" />
+            <div><div className="text-[16px] font-semibold">{mode === "buyer" ? "Buyer Profile" : "My Shop"}</div><div className="text-[12px] text-[#828282]">{mode === "buyer" ? "Buyer Account" : "Seller Account"}</div></div>
           </div>
-
-          <h2 className="text-xl font-semibold mb-6">Menu</h2>
+          <h2 className="mb-6 text-xl font-semibold">Menu</h2>
           <nav className="flex flex-col gap-2">
-            <button
-              onClick={() => handleMenuClick(() => navigate("/create-listing"))}
-              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
-            >
-              Create New Listing
-            </button>
-            <button
-              onClick={() => handleMenuClick(() => navigate("/my-shop/orders"))}
-              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
-            >
-              Store Orders
-            </button>
-            <button
-              onClick={() => handleMenuClick(() => navigate("/orders"))}
-              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
-            >
-              My Orders
-            </button>
-            <button
-              onClick={() => handleMenuClick(() => navigate("/analytics"))}
-              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
-            >
-              Analytics
-            </button>
-            <button
-              onClick={() => handleMenuClick(() => navigate("/my-shop/events"))}
-              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
-            >
-              Events
-            </button>
-            <button
-              onClick={() => handleMenuClick(() => navigate("/my-shop/advertising"))}
-              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
-            >
-              Advertising
-            </button>
-            <button
-              onClick={() => handleMenuClick(() => navigate("/profit"))}
-              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
-            >
-              Performance
-            </button>
-            <button
-              onClick={() => handleMenuClick(() => navigate("/account-settings"))}
-              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
-            >
-              Account Settings
-            </button>
-            <button
-              onClick={() => handleMenuClick(() => {
-                signOut();
-                navigate("/signin");
-              })}
-              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
-            >
-              Logout
-            </button>
+            {items.map(([label, path]) => <button key={label} onClick={() => handleMenuClick(() => navigate(path))} className="rounded-lg px-4 py-3 text-left transition-colors duration-200 hover:bg-[#498467] hover:text-white">{label}</button>)}
+            {mode === "buyer" && canSeller && <button onClick={() => handleMenuClick(() => { setProfileMode("seller"); navigate("/shop"); })} className="rounded-lg px-4 py-3 text-left transition-colors duration-200 hover:bg-[#498467] hover:text-white">Switch to Seller Profile</button>}
+            <button onClick={() => handleMenuClick(() => { signOut(); navigate("/signin"); })} className="rounded-lg px-4 py-3 text-left transition-colors duration-200 hover:bg-[#498467] hover:text-white">Logout</button>
           </nav>
         </div>
       </div>

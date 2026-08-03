@@ -13,6 +13,7 @@ import { ProfileModeProvider } from "./context/ProfileModeContext";
 import { AdvertisingProvider } from "./context/AdvertisingContext";
 import { CartProvider } from "./context/CartContext";
 import { PaymentMethodsProvider } from "./context/PaymentMethodsContext";
+import { DeliveryAddressProvider } from "./context/DeliveryAddressContext";
 import Feed, { Notifications } from "./pages/Feed";
 import Search from "./pages/Search";
 import Category from "./pages/Category";
@@ -48,6 +49,8 @@ import EventDetail from "./pages/EventDetail";
 import Advertising from "./pages/Advertising";
 import CreateAdvertisingAd from "./pages/CreateAdvertisingAd";
 import Trading from "./pages/Trading";
+import StoreCheckout from "./pages/StoreCheckout";
+import DeliveryAddress from "./pages/DeliveryAddress";
 
 export default function App() {
   return (
@@ -63,6 +66,7 @@ export default function App() {
         <AdvertisingProvider>
         <CartProvider>
         <PaymentMethodsProvider>
+        <DeliveryAddressProvider>
         <Routes>
         <Route path="/signin" element={<PhoneFrame hideTabBar statusBarBackground="bg-[#E6DCCF]" backgroundColor="bg-[#E6DCCF]"><SignIn /></PhoneFrame>} />
         <Route path="/" element={<PhoneFrame><Feed /></PhoneFrame>} />
@@ -185,6 +189,8 @@ export default function App() {
         />
         <Route path="/cart" element={<PhoneFrame><Cart /></PhoneFrame>} />
         <Route path="/checkout" element={<PhoneFrame hideTabBar><Checkout /></PhoneFrame>} />
+        <Route path="/checkout/:sellerId" element={<PhoneFrame hideTabBar><StoreCheckout /></PhoneFrame>} />
+        <Route path="/delivery-address" element={<PhoneFrame hideTabBar><DeliveryAddress /></PhoneFrame>} />
         <Route path="/order-confirmation" element={<PhoneFrame hideTabBar><OrderConfirmation /></PhoneFrame>} />
         <Route
           path="/profit"
@@ -257,6 +263,7 @@ export default function App() {
           }
         />
       </Routes>
+        </DeliveryAddressProvider>
         </PaymentMethodsProvider>
         </CartProvider>
         </AdvertisingProvider>

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useCart } from "../context/CartContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
@@ -17,10 +17,14 @@ function PaymentMethodsList({ paymentSettings }) {
 
 export default function OrderConfirmation() {
   const [isAnimated, setIsAnimated] = useState(false);
-  const { items, subtotal } = useCart();
+  const { state } = useLocation();
+  const { items } = useCart();
   const { getPaymentMethods, fulfillmentMethod } = usePaymentMethods();
-  const paymentSettings = getPaymentMethods(items[0]?.sellerId ?? "sarahs-backyard");
-  const selectedFulfillment = paymentSettings.fulfillmentMethods.includes(fulfillmentMethod) ? fulfillmentMethod : paymentSettings.fulfillmentMethods[0] ?? "pickup";
+  const orderItems = state?.sellerId ? items.filter((item) => (item.sellerId ?? "sarahs-backyard") === state.sellerId) : items;
+  const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const paymentSettings = getPaymentMethods(state?.sellerId ?? orderItems[0]?.sellerId ?? "sarahs-backyard");
+  const requestedFulfillment = state?.fulfillmentMethod ?? fulfillmentMethod;
+  const selectedFulfillment = paymentSettings.fulfillmentMethods.includes(requestedFulfillment) ? requestedFulfillment : paymentSettings.fulfillmentMethods[0] ?? "pickup";
   const deliveryFee = selectedFulfillment === "delivery" ? paymentSettings.deliveryFee : 0;
   const total = subtotal + deliveryFee;
   const orderNumber = `ORD-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;

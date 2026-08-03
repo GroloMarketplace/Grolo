@@ -2,15 +2,17 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
+import { POST_CLASSIFICATIONS } from "../data/postClassifications";
 
 export default function CreatePost() {
   const navigate = useNavigate();
   const [content, setContent] = useState("");
+  const [classification, setClassification] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   const handlePublish = () => {
     // Handle post publishing logic
-    console.log("Publishing post:", { content, selectedProduct });
+    console.log("Publishing post:", { content, classification, selectedProduct });
     navigate("/my-shop");
   };
 
@@ -26,6 +28,14 @@ export default function CreatePost() {
             placeholder="What's on your mind?"
             className="w-full h-32 p-3 border border-[#E6E6E6] rounded-lg text-[14px] outline-none resize-none"
           />
+        </div>
+
+        <div className="mb-4">
+          <label className="mb-2 block text-[14px] font-semibold">Post Classification</label>
+          <select required value={classification} onChange={(e) => setClassification(e.target.value)} className="w-full rounded-lg border border-[#E6E6E6] px-3 py-3 text-[14px] outline-none focus:border-[#498467]">
+            <option value="">Select classification</option>
+            {POST_CLASSIFICATIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
         </div>
 
         {/* Image Upload Placeholder */}

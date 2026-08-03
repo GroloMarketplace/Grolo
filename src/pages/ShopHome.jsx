@@ -28,6 +28,8 @@ export default function ShopHome() {
   const [fulfillmentMethods, setFulfillmentMethods] = useState(() => getPaymentMethods(seller.id).fulfillmentMethods);
   const [deliveryFee, setDeliveryFee] = useState(() => getPaymentMethods(seller.id).deliveryFee);
   const [deliveryRadius, setDeliveryRadius] = useState(() => getPaymentMethods(seller.id).deliveryRadius);
+  const [pickupLocation, setPickupLocation] = useState(() => getPaymentMethods(seller.id).pickupLocation);
+  const [pickupNotes, setPickupNotes] = useState(() => getPaymentMethods(seller.id).pickupNotes);
   const { sellerOrders } = useOrders();
   const { upcomingEvents } = useEvents();
   const { promotionsForSeller } = usePromotions();
@@ -62,7 +64,7 @@ export default function ShopHome() {
 
   const handleSaveStore = () => {
     updatePaymentMethods(seller.id, paymentMethods);
-    updateFulfillment(seller.id, fulfillmentMethods, deliveryFee, deliveryRadius);
+    updateFulfillment(seller.id, fulfillmentMethods, deliveryFee, deliveryRadius, pickupLocation, pickupNotes);
     setIsEditing(false);
   };
 
@@ -72,6 +74,8 @@ export default function ShopHome() {
     setFulfillmentMethods(settings.fulfillmentMethods);
     setDeliveryFee(settings.deliveryFee);
     setDeliveryRadius(settings.deliveryRadius);
+    setPickupLocation(settings.pickupLocation);
+    setPickupNotes(settings.pickupNotes);
     setIsEditing(false);
   };
 
@@ -228,6 +232,12 @@ export default function ShopHome() {
                         <div className="mt-2 flex gap-2">
                           <label className="flex-1 text-[12px] text-[#828282]">Delivery fee<input type="number" min="0" step="0.01" value={deliveryFee} onChange={(event) => setDeliveryFee(event.target.value)} className="mt-1 w-full rounded-lg border border-[#E6E6E6] px-2 py-2 text-[14px] text-black outline-none focus:border-[#498467]" /></label>
                           <label className="flex-1 text-[12px] text-[#828282]">Radius (km)<input type="number" min="0" value={deliveryRadius} onChange={(event) => setDeliveryRadius(event.target.value)} className="mt-1 w-full rounded-lg border border-[#E6E6E6] px-2 py-2 text-[14px] text-black outline-none focus:border-[#498467]" /></label>
+                        </div>
+                      )}
+                      {fulfillmentMethods.includes("pickup") && (
+                        <div className="mt-2 flex flex-col gap-2">
+                          <label className="text-[12px] text-[#828282]">Pickup Location<input value={pickupLocation} onChange={(event) => setPickupLocation(event.target.value)} className="mt-1 w-full rounded-lg border border-[#E6E6E6] px-2 py-2 text-[14px] text-black outline-none focus:border-[#498467]" /></label>
+                          <label className="text-[12px] text-[#828282]">Pickup Notes<input value={pickupNotes} onChange={(event) => setPickupNotes(event.target.value)} placeholder="Optional pickup instructions" className="mt-1 w-full rounded-lg border border-[#E6E6E6] px-2 py-2 text-[14px] text-black outline-none focus:border-[#498467]" /></label>
                         </div>
                       )}
                     </div>

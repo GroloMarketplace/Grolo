@@ -35,7 +35,6 @@ export default function Feed() {
   const mainTabContentRef = useRef(null);
   const initialTabRef = useRef(TABS.includes(location.state?.tab) ? location.state.tab : "Your Community");
   const [tab, setTab] = useState(initialTabRef.current);
-  const [communityScrolled, setCommunityScrolled] = useState(false);
   const [actionContent, setActionContent] = useState(null);
   const [shareContent, setShareContent] = useState(null);
   const [hiddenContentIds, setHiddenContentIds] = useState(() => new Set());
@@ -67,7 +66,6 @@ export default function Feed() {
   const handleTabChange = (nextTab) => {
     const nextIndex = TABS.indexOf(nextTab);
     setTab(nextTab);
-    setCommunityScrolled(false);
     if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
     mainTabContentRef.current?.scrollTo({
       left: nextIndex * mainTabContentRef.current.clientWidth,
@@ -79,8 +77,7 @@ export default function Feed() {
     const index = Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth);
     if (index >= 0 && index < TABS.length && TABS[index] !== tab) {
       setTab(TABS[index]);
-      setCommunityScrolled(false);
-    }
+      }
   };
 
   const showFeedToast = (message) => {
@@ -120,11 +117,6 @@ export default function Feed() {
       <div
         ref={scrollContainerRef}
         className="overflow-y-auto flex-1 no-scrollbar"
-        onScroll={(event) => {
-          if (tab === "Your Community") {
-            setCommunityScrolled(event.currentTarget.scrollTop > 24);
-          }
-        }}
       >
         <div className="w-full max-w-full overflow-hidden">
           <div
@@ -142,7 +134,7 @@ export default function Feed() {
               />
             </div>
             <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start">
-              <CommunityFeed collapsed={communityScrolled} onComment={openComments} onMenu={setActionContent} onShare={openShare} hiddenContentIds={hiddenContentIds} />
+              <CommunityFeed onComment={openComments} onMenu={setActionContent} onShare={openShare} hiddenContentIds={hiddenContentIds} />
             </div>
 
           </div>
@@ -203,7 +195,7 @@ function getFollowedItems({ posts, events, listings, promotions, hiddenContentId
 
 const COMMUNITY_FILTERS = ["For You", "Posts", "Events", "Listings", "Promotions"];
 
-function CommunityFeed({ collapsed, onComment, onMenu, onShare, hiddenContentIds }) {
+function CommunityFeed({ onComment, onMenu, onShare, hiddenContentIds }) {
   const { upcomingEvents } = useEvents();
   const { activePromotions } = usePromotions();
   const { followedSellers } = useFollow();
@@ -230,7 +222,7 @@ function CommunityFeed({ collapsed, onComment, onMenu, onShare, hiddenContentIds
   return (
     <div className="flex flex-col">
       <div
-        className="touch-pan-x flex gap-6 overflow-x-auto border-b border-black/5 bg-white px-4 py-2 no-scrollbar"
+        className="sticky top-0 z-20 flex touch-pan-x gap-6 overflow-x-auto border-b border-black/5 bg-white px-4 py-2 no-scrollbar"
         onPointerDown={(event) => {
           event.stopPropagation();
           setTouchStart(event.clientX);
@@ -256,8 +248,8 @@ function CommunityFeed({ collapsed, onComment, onMenu, onShare, hiddenContentIds
           </button>
         ))}
       </div>
-      <div className="flex flex-col gap-8 px-4 py-6">
-        <CommunityImpactCard collapsed={collapsed} compactOnly />
+      <div className="flex flex-col gap-4 px-4 py-3">
+        <CommunityImpactCard />
         {items.map((item) => renderCommunityItem(item, onComment, onMenu, onShare))}
       </div>
     </div>
@@ -376,7 +368,7 @@ function EventPost({ event, onComment, onMenu, onShare }) {
               >
                 {seller?.name}
               </button>
-              <span className="text-[14px] text-[#B56576]">in {event.type}</span>
+              <span className="text-[14px] text-[#B56576]">in Event</span>
             </div>
             <span className="text-[12px] text-[#828282]">
               {formatEventDate(event.date)}
@@ -530,7 +522,7 @@ function Post({ post, stacked, onComment, onMenu, onShare }) {
         >
           {post.name}
         </button>
-        <span className="text-[14px] text-[#B56576]">in {post.group}</span>
+        <span className="text-[14px] text-[#B56576]">in {post.classification}</span>
       </div>
       <span className="text-[12px] text-[#828282]">{post.time}</span>
     </div>

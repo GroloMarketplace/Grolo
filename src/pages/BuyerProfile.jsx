@@ -3,9 +3,12 @@ import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import ProfileSwitcher from "../components/ProfileSwitcher";
+import Sidebar from "../components/Sidebar";
+import { useSidebar } from "../hooks/useSidebar";
 import { communityPosts, events, followingPosts, products, promotions } from "../data/mockData";
 import { formatEventDate, formatEventTime } from "../context/EventContext";
 import { impactBadges, impactStats, impactTimeline } from "../data/communityImpact";
+import { getCommunityStatus } from "../data/communityStatus";
 
 const BUYER = {
   username: "remi",
@@ -17,6 +20,7 @@ const BUYER = {
 
 export default function BuyerProfile() {
   const navigate = useNavigate();
+  const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
   const [editing, setEditing] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const tabContentRef = useRef(null);
@@ -36,8 +40,9 @@ export default function BuyerProfile() {
   };
 
   return (
-    <MobileScreenLayout>
-      <Header titleContent={<ProfileSwitcher />} onBack={() => navigate(-1)} />
+    <>
+      <MobileScreenLayout>
+      <Header titleContent={<ProfileSwitcher />} onMenu={openSidebar} />
       <div className="overflow-y-auto flex-1 no-scrollbar">
         <div className="relative h-[136px]">
           <img src={BUYER.banner} alt="Buyer profile banner" className="h-full w-full object-cover" />
@@ -48,6 +53,7 @@ export default function BuyerProfile() {
               <img src={BUYER.avatar} alt={BUYER.username} className="h-16 w-16 rounded-full border-2 border-white object-cover shadow" />
               <div className="flex-1">
                 {editing ? <input defaultValue={BUYER.username} className="w-full border-b border-[#E6E6E6] text-[20px] font-semibold outline-none" /> : <h1 className="text-[20px] font-semibold">{BUYER.username}</h1>}
+                <CommunityStatusBadge />
                 <p className="text-[14px] text-[#828282]">{BUYER.location}</p>
               </div>
             </div>
@@ -90,7 +96,9 @@ export default function BuyerProfile() {
           </div>
         </div>
       </div>
-    </MobileScreenLayout>
+      </MobileScreenLayout>
+      <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} mode="buyer" />
+    </>
   );
 }
 
@@ -112,10 +120,21 @@ function buildActivity() {
   ];
 }
 
+function CommunityStatusBadge() {
+  const status = getCommunityStatus();
+  return <p className="mt-1 text-[13px] font-medium text-[#498467]">{status.icon} {status.name}</p>;
+}
+
+function CommunityStatusCard({ status }) {
+  return <section className="rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4"><div className="text-[12px] font-medium uppercase tracking-[0.4px] text-[#498467]">Community Status</div><div className="mt-2 text-[20px] font-semibold">{status.icon} {status.name}</div><div className="mt-3 flex items-center justify-between text-[12px] text-[#828282]"><span>Progress to Next Level</span><span>{status.total} / {status.nextThreshold} actions</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-[#DDEBDF]"><div className="h-full rounded-full bg-[#498467]" style={{ width: `${status.progress}%` }} /></div></section>;
+}
+
 function CommunityImpactTab() {
+  const status = getCommunityStatus();
   return (
     <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4">
-      <div className="rounded-lg bg-[#498467] p-5 text-white">
+      <CommunityStatusCard status={status} />
+      <div className="mt-4 rounded-lg bg-[#498467] p-5 text-white">
         <h2 className="text-[20px] font-semibold">Your Community Impact</h2>
         <p className="mt-1 text-[14px] leading-[140%] text-white/80">Because of you, local businesses continue to grow.</p>
       </div>

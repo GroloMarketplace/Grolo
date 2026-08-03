@@ -89,6 +89,7 @@ export default function SellerProfile() {
               <div className="flex-1">
                 <h1 className="text-[20px] font-semibold">{seller.name}</h1>
                 <p className="text-[14px] text-[#828282]">{seller.location}</p>
+                <FulfillmentAvailability methods={sellerPaymentMethods.fulfillmentMethods} />
               </div>
             </div>
 
@@ -172,6 +173,13 @@ export default function SellerProfile() {
       </div>
     </MobileScreenLayout>
   );
+}
+
+function FulfillmentAvailability({ methods }) {
+  const pickup = methods.includes("pickup");
+  const delivery = methods.includes("delivery");
+  const label = pickup && delivery ? "Pickup & Local Delivery" : pickup ? "Pickup Only" : "Delivery Only";
+  return <p className="mt-1 text-[14px] text-black"><span className="text-[#498467]">{delivery && !pickup ? "🚚" : "📍"}</span> {label}</p>;
 }
 
 function PaymentMethodsList({ paymentSettings }) {

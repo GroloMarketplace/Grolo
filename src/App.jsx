@@ -23,6 +23,7 @@ import Chat from "./pages/Chat";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import OrderConfirmation from "./pages/OrderConfirmation";
+import OrderTracking from "./pages/OrderTracking";
 import Profit from "./pages/Profit";
 import ShopHome from "./pages/ShopHome";
 import BuyerProfile from "./pages/BuyerProfile";
@@ -152,6 +153,7 @@ export default function App() {
             </PhoneFrame>
           }
         />
+        <Route path="/orders/:id" element={<PhoneFrame><OrderTracking /></PhoneFrame>} />
         <Route
           path="/leave-review/:productId"
           element={
@@ -188,10 +190,10 @@ export default function App() {
           }
         />
         <Route path="/cart" element={<PhoneFrame><Cart /></PhoneFrame>} />
-        <Route path="/checkout" element={<PhoneFrame hideTabBar><Checkout /></PhoneFrame>} />
-        <Route path="/checkout/:sellerId" element={<PhoneFrame hideTabBar><StoreCheckout /></PhoneFrame>} />
+        <Route path="/checkout" element={<PhoneFrame><Checkout /></PhoneFrame>} />
+        <Route path="/checkout/:sellerId" element={<PhoneFrame><StoreCheckout /></PhoneFrame>} />
         <Route path="/delivery-address" element={<PhoneFrame hideTabBar><DeliveryAddress /></PhoneFrame>} />
-        <Route path="/order-confirmation" element={<PhoneFrame hideTabBar><OrderConfirmation /></PhoneFrame>} />
+        <Route path="/order-confirmation" element={<PhoneFrame><OrderConfirmation /></PhoneFrame>} />
         <Route
           path="/profit"
           element={

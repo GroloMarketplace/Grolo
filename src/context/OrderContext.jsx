@@ -17,6 +17,7 @@ const NEXT_STATUS = {
 export function OrderProvider({ children }) {
   const [orders, setOrders] = useState(mockOrders);
   const [orderNotifications, setOrderNotifications] = useState([]);
+  const [sellerOrderNotifications, setSellerOrderNotifications] = useState([]);
 
   const buyerOrders = useCallback(
     () => orders.filter((o) => o.buyer === currentUser.username),
@@ -62,13 +63,52 @@ export function OrderProvider({ children }) {
     ]);
   }, [orders]);
 
+  const cancelOrder = useCallback((orderId, fallbackOrder) => {
+    const order = orders.find((item) => item.id === orderId) ?? fallbackOrder;
+    const product = products.find((item) => item.id === order?.productId);
+    const sellerId = order?.sellerId ?? product?.sellerId;
+    if (!order || !product || !sellerId || !["Order Placed", "Seller Notified"].includes(order.status)) return false;
+
+    const seller = sellers[sellerId];
+    setOrders((prev) => prev.some((item) => item.id === orderId)
+      ? prev.map((item) => (item.id === orderId ? { ...item, status: "Cancelled" } : item))
+      : [...prev, { ...order, status: "Cancelled" }]);
+    setOrderNotifications((prev) => [
+      {
+        id: `order-${orderId}-cancelled-${Date.now()}`,
+        name: seller?.name ?? product.shop,
+        avatar: seller?.avatar,
+        time: "now",
+        action: `${order.id} • Your order was cancelled`,
+        thumb: product.image,
+        type: "order",
+        orderId,
+      },
+      ...prev,
+    ]);
+    setSellerOrderNotifications((prev) => [
+      {
+        id: `seller-order-${orderId}-cancelled-${Date.now()}`,
+        sellerId,
+        orderId,
+        time: "now",
+        action: `${order.id} was cancelled by the buyer`,
+        type: "order",
+      },
+      ...prev,
+    ]);
+    return true;
+  }, [orders]);
+
   const value = {
     orders,
     buyerOrders,
     sellerOrders,
     nextStatuses,
     updateOrderStatus,
+    cancelOrder,
     orderNotifications,
+    sellerOrderNotifications,
   };
 
   return <OrderContext.Provider value={value}>{children}</OrderContext.Provider>;

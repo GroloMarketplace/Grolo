@@ -1,5 +1,6 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import Header from "../components/Header";
 import { useCart } from "../context/CartContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 
@@ -16,6 +17,7 @@ function PaymentMethodsList({ paymentSettings }) {
 }
 
 export default function OrderConfirmation() {
+  const navigate = useNavigate();
   const [isAnimated, setIsAnimated] = useState(false);
   const { state } = useLocation();
   const { items } = useCart();
@@ -44,7 +46,9 @@ export default function OrderConfirmation() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-6 py-12">
+    <div className="flex h-full flex-col">
+      <Header onBack={() => navigate(-1)} />
+      <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto no-scrollbar px-6 pb-12 pt-20">
       <div className="w-full max-w-sm">
         <div className="flex justify-center mb-6">
           <div 
@@ -80,7 +84,7 @@ export default function OrderConfirmation() {
             <span className="text-[14px] font-medium">{orderNumber}</span>
           </div>
           <div className="flex justify-between mb-3">
-            <span className="text-[14px] text-black/70">Estimated Delivery</span>
+            <span className="text-[14px] text-black/70">{selectedFulfillment === "delivery" ? "Estimated Delivery" : "Available for Pickup"}</span>
             <span className="text-[14px] font-medium">{formattedDeliveryDate}</span>
           </div>
           <div className="flex justify-between mb-3">
@@ -88,19 +92,33 @@ export default function OrderConfirmation() {
             <span className="text-[14px] font-medium">{selectedFulfillment === "delivery" ? "Delivery" : "Pickup"}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-[14px] text-black/70">Total Paid</span>
+            <span className="text-[14px] text-black/70">Total Owed</span>
             <span className="text-[14px] font-medium">${total.toFixed(2)}</span>
           </div>
           <PaymentMethodsList paymentSettings={paymentSettings} />
         </div>
 
-        <Link to="/orders" className="w-full rounded-lg bg-[#498467] text-white text-[16px] font-medium py-3.5 shadow-sm mb-3 block text-center">
+        <Link
+          to={`/orders/${orderNumber}`}
+          state={{
+            order: {
+              id: orderNumber,
+              sellerId: state?.sellerId ?? orderItems[0]?.sellerId ?? "sarahs-backyard",
+              productId: orderItems[0]?.id,
+              status: "Order Placed",
+              total,
+              fulfillmentMethod: selectedFulfillment,
+            },
+          }}
+          className="w-full rounded-lg bg-[#498467] text-white text-[16px] font-medium py-3.5 shadow-sm mb-3 block text-center"
+        >
           Track Order
         </Link>
 
-        <Link to="/shop" className="w-full rounded-lg border border-black text-black text-[16px] font-medium py-3.5 block text-center">
+        <Link to="/search" className="w-full rounded-lg border border-black text-black text-[16px] font-medium py-3.5 block text-center">
           Continue Shopping
         </Link>
+      </div>
       </div>
     </div>
   );

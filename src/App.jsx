@@ -10,7 +10,7 @@ import { PromotionProvider } from "./context/PromotionContext";
 import { SavedProvider } from "./context/SavedContext";
 import { RegrowProvider } from "./context/RegrowContext";
 import { ProfileModeProvider } from "./context/ProfileModeContext";
-import Feed from "./pages/Feed";
+import Feed, { Notifications } from "./pages/Feed";
 import Search from "./pages/Search";
 import Messages from "./pages/Messages";
 import Chat from "./pages/Chat";
@@ -55,6 +55,7 @@ export default function App() {
         <Routes>
         <Route path="/signin" element={<PhoneFrame hideTabBar statusBarBackground="bg-[#E6DCCF]" backgroundColor="bg-[#E6DCCF]"><SignIn /></PhoneFrame>} />
         <Route path="/" element={<PhoneFrame><Feed /></PhoneFrame>} />
+        <Route path="/notifications" element={<PhoneFrame><Notifications /></PhoneFrame>} />
         <Route path="/shop" element={<PhoneFrame><ShopHome /></PhoneFrame>} />
         <Route path="/seller-profile" element={<PhoneFrame><ShopHome /></PhoneFrame>} />
         <Route path="/profile" element={<PhoneFrame><BuyerProfile /></PhoneFrame>} />

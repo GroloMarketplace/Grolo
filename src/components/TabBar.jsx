@@ -96,7 +96,7 @@ export default function TabBar() {
         {tabs.map((tab) => (
           <NavLink
             key={tab.to}
-            to={tab.to === "/shop" ? profilePath : tab.to}
+            to={tab.to === "/shop" ? profilePath : tab.to === "/" ? { pathname: "/", state: { tab: "Your Community" } } : tab.to}
             end={tab.to === "/"}
             className="flex-1 flex items-center justify-center"
           >

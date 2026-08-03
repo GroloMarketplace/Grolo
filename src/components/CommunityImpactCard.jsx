@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { impactStats } from "../data/communityImpact";
 
-export default function CommunityImpactCard({ collapsed }) {
+export default function CommunityImpactCard({ collapsed, compactOnly = false }) {
   const navigate = useNavigate();
 
   return (
@@ -25,7 +25,8 @@ export default function CommunityImpactCard({ collapsed }) {
         <ChevronIcon />
       </button>
 
-      <section className="rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4">
+      {!compactOnly && (
+        <section className="rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4">
         <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-[18px] font-semibold text-[#02542D]">Your Community Impact</h2>
@@ -57,7 +58,8 @@ export default function CommunityImpactCard({ collapsed }) {
       >
         View Details
         </button>
-      </section>
+        </section>
+      )}
     </>
   );
 }

@@ -1,8 +1,11 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import MobileScreenLayout from "../components/MobileScreenLayout";
+import Header from "../components/Header";
 import CommunityImpactCard from "../components/CommunityImpactCard";
 import PromotionBadge from "../components/PromotionBadge";
+import ContentActionSheet from "../components/ContentActionSheet";
+import ShareSheet from "../components/ShareSheet";
 import { usePromotions } from "../context/PromotionContext";
 import { useSavedItems } from "../context/SavedContext";
 import { useRegrow } from "../context/RegrowContext";
@@ -11,6 +14,7 @@ import {
   communityPosts,
   notificationsHighlights,
   notificationsFollowers,
+  products,
   sellers,
 } from "../data/mockData";
 import { useFollow } from "../context/FollowContext";
@@ -22,21 +26,33 @@ import {
   useEvents,
 } from "../context/EventContext";
 
-const TABS = ["Following", "Your Community", "Notifications"];
+const TABS = ["Following", "Your Community"];
 
 export default function Feed() {
   const location = useLocation();
   const navigate = useNavigate();
   const scrollContainerRef = useRef(null);
-  const [tab, setTab] = useState(location.state?.tab ?? "Following");
+  const mainTabContentRef = useRef(null);
+  const initialTabRef = useRef(TABS.includes(location.state?.tab) ? location.state.tab : "Your Community");
+  const [tab, setTab] = useState(initialTabRef.current);
   const [communityScrolled, setCommunityScrolled] = useState(false);
+  const [actionContent, setActionContent] = useState(null);
+  const [shareContent, setShareContent] = useState(null);
+  const [hiddenContentIds, setHiddenContentIds] = useState(() => new Set());
+  const [feedToast, setFeedToast] = useState("");
+  const [notificationsRead, setNotificationsRead] = useState(() => localStorage.getItem("grolo-notifications-read") === "true");
   const { followedSellers } = useFollow();
+  const unreadNotifications = notificationsRead ? 0 : notificationsHighlights.length + notificationsFollowers.length;
 
   useEffect(() => {
     const savedScrollTop = sessionStorage.getItem("grolo-feed-scroll-top");
     if (savedScrollTop && scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = Number(savedScrollTop);
       sessionStorage.removeItem("grolo-feed-scroll-top");
+    }
+    const initialIndex = TABS.indexOf(initialTabRef.current);
+    if (initialIndex > 0 && mainTabContentRef.current) {
+      mainTabContentRef.current.scrollLeft = initialIndex * mainTabContentRef.current.clientWidth;
     }
   }, []);
 
@@ -49,27 +65,34 @@ export default function Feed() {
   };
 
   const handleTabChange = (nextTab) => {
+    const nextIndex = TABS.indexOf(nextTab);
     setTab(nextTab);
     setCommunityScrolled(false);
+    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+    mainTabContentRef.current?.scrollTo({
+      left: nextIndex * mainTabContentRef.current.clientWidth,
+      behavior: "smooth",
+    });
   };
 
-  const getPosts = () => {
-    switch (tab) {
-      case "Following":
-        if (followedSellers.length === 0) {
-          return [];
-        }
-        return followingPosts.filter((post) => followedSellers.includes(post.sellerId));
-      case "Your Community":
-        return communityPosts;
-      case "Notifications":
-        return null; // Handled separately with sub-tabs
-      default:
-        return followingPosts;
+  const handleMainTabScroll = (event) => {
+    const index = Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth);
+    if (index >= 0 && index < TABS.length && TABS[index] !== tab) {
+      setTab(TABS[index]);
+      setCommunityScrolled(false);
     }
   };
 
-  const currentPosts = getPosts();
+  const showFeedToast = (message) => {
+    setFeedToast(message);
+    window.setTimeout(() => setFeedToast(""), 2200);
+  };
+
+  const hideContent = (contentId) => {
+    setHiddenContentIds((current) => new Set([...current, contentId]));
+  };
+
+  const openShare = (content, onComplete) => setShareContent({ content, onComplete });
 
   return (
     <MobileScreenLayout>
@@ -86,6 +109,12 @@ export default function Feed() {
             {tab === t && <div className="absolute -bottom-2.5 left-0 right-0 h-0.5 bg-[#498467]" />}
           </button>
         ))}
+        <button type="button" onClick={() => { setNotificationsRead(true); localStorage.setItem("grolo-notifications-read", "true"); navigate("/notifications", { state: { fromTab: tab } }); }} aria-label="Notifications" className="absolute right-4 p-1">
+          <span className={`relative block ${unreadNotifications > 0 ? "animate-pulse" : ""}`}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 21V11m0 0C8 11 5 8.5 5 4c4.5 0 7 2.5 7 7Zm0 2c0-5 3-8 8-8 0 4.5-3 8-8 8Z" stroke="#498467" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            {unreadNotifications > 0 && <span className="absolute -right-1 -top-1 flex h-2 min-w-2 items-center justify-center rounded-full bg-[#498467] px-0.5 text-[8px] font-bold text-white">{unreadNotifications > 9 ? "9+" : unreadNotifications}</span>}
+          </span>
+        </button>
       </div>
 
       <div
@@ -97,48 +126,200 @@ export default function Feed() {
           }
         }}
       >
-        {tab === "Following" && (
-          <div className="flex flex-col gap-8 px-4 py-6">
-            {getPosts().length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-[14px] text-[#828282]">Follow stores to see their posts here</p>
-              </div>
-            ) : (
-              getPosts().map((post) => (
-                <Post key={post.id} post={post} onComment={openComments} />
-              ))
-            )}
+        <div className="w-full max-w-full overflow-hidden">
+          <div
+            ref={mainTabContentRef}
+            onScroll={handleMainTabScroll}
+            className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
+          >
+            <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start">
+              <FollowingFeed
+                followedSellers={followedSellers}
+                hiddenContentIds={hiddenContentIds}
+                onComment={openComments}
+                onMenu={setActionContent}
+                onShare={openShare}
+              />
+            </div>
+            <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start">
+              <CommunityFeed collapsed={communityScrolled} onComment={openComments} onMenu={setActionContent} onShare={openShare} hiddenContentIds={hiddenContentIds} />
+            </div>
+
           </div>
-        )}
-
-        {tab === "Your Community" && (
-          <CommunityFeed collapsed={communityScrolled} onComment={openComments} />
-        )}
-
-        {tab === "Notifications" && <Notifications />}
+        </div>
       </div>
+      {actionContent && (
+        <ContentActionSheet
+          content={actionContent}
+          onClose={() => setActionContent(null)}
+          onHide={hideContent}
+          onToast={showFeedToast}
+        />
+      )}
+      {shareContent && (
+        <ShareSheet
+          content={shareContent.content}
+          onClose={() => setShareContent(null)}
+          onSuccess={(message) => {
+            shareContent.onComplete?.();
+            showFeedToast(message);
+          }}
+        />
+      )}
+      {feedToast && <div className="pointer-events-none absolute bottom-20 left-1/2 z-[90] -translate-x-1/2 rounded-full bg-[#498467] px-4 py-2 text-[13px] font-medium text-white shadow-lg">{feedToast}</div>}
     </MobileScreenLayout>
   );
 }
 
-function CommunityFeed({ collapsed, onComment }) {
+function FollowingFeed({ followedSellers, hiddenContentIds, onComment, onMenu, onShare }) {
   const { upcomingEvents } = useEvents();
-  const events = upcomingEvents();
+  const { activePromotions } = usePromotions();
+  const events = upcomingEvents().filter((event) => followedSellers.includes(event.sellerId));
+  const posts = followingPosts.filter((post) => followedSellers.includes(post.sellerId));
+  const listings = products.filter((product) => followedSellers.includes(product.sellerId));
+  const promotions = activePromotions().filter((promotion) => followedSellers.includes(promotion.sellerId));
+  const items = getFollowedItems({ posts, events, listings, promotions, hiddenContentIds });
 
   return (
     <div className="flex flex-col gap-8 px-4 py-6">
-      <CommunityImpactCard collapsed={collapsed} />
-      {events.map((event) => (
-        <EventPost key={event.id} event={event} onComment={onComment} />
-      ))}
-      {communityPosts.map((post) => (
-        <Post key={post.id} post={post} stacked onComment={onComment} />
-      ))}
+      {items.length === 0 ? (
+        <div className="text-center py-12"><p className="text-[14px] text-[#828282]">{followedSellers.length === 0 ? "Follow stores to see their posts here" : "No content from followed stores yet"}</p></div>
+      ) : (
+        items.map((item) => renderCommunityItem(item, onComment, onMenu, onShare))
+      )}
     </div>
   );
 }
 
-function EventPost({ event, onComment }) {
+function getFollowedItems({ posts, events, listings, promotions, hiddenContentIds }) {
+  const items = [
+    ...posts.map((post) => ({ type: "post", id: `post:${post.id}`, post })),
+    ...events.map((event) => ({ type: "event", id: `event:${event.id}`, event })),
+    ...listings.map((product) => ({ type: "listing", id: `listing:${product.id}`, product })),
+    ...promotions.map((promotion) => ({ type: "promotion", id: `promotion:${promotion.id}`, promotion, product: products.find((product) => promotion.productIds?.includes(product.id)) })),
+  ];
+  return items.filter((item) => !hiddenContentIds.has(item.id));
+}
+
+const COMMUNITY_FILTERS = ["For You", "Posts", "Events", "Listings", "Promotions"];
+
+function CommunityFeed({ collapsed, onComment, onMenu, onShare, hiddenContentIds }) {
+  const { upcomingEvents } = useEvents();
+  const { activePromotions } = usePromotions();
+  const { followedSellers } = useFollow();
+  const { isSaved } = useSavedItems();
+  const { isRegrown } = useRegrow();
+  const [filter, setFilter] = useState("For You");
+  const [touchStart, setTouchStart] = useState(null);
+  const events = upcomingEvents();
+  const currentPromotions = activePromotions();
+  const items = getCommunityItems(filter, { events, currentPromotions, followedSellers, isSaved, isRegrown, hiddenContentIds });
+
+  const changeFilter = (nextFilter) => setFilter(nextFilter);
+  const handlePointerEnd = (event) => {
+    if (touchStart === null) return;
+    const distance = event.clientX - touchStart;
+    const currentIndex = COMMUNITY_FILTERS.indexOf(filter);
+    if (Math.abs(distance) > 40) {
+      const nextIndex = distance < 0 ? Math.min(currentIndex + 1, COMMUNITY_FILTERS.length - 1) : Math.max(currentIndex - 1, 0);
+      setFilter(COMMUNITY_FILTERS[nextIndex]);
+    }
+    setTouchStart(null);
+  };
+
+  return (
+    <div className="flex flex-col">
+      <div
+        className="touch-pan-x flex gap-6 overflow-x-auto border-b border-black/5 bg-white px-4 py-2 no-scrollbar"
+        onPointerDown={(event) => {
+          event.stopPropagation();
+          setTouchStart(event.clientX);
+        }}
+        onPointerUp={(event) => {
+          event.stopPropagation();
+          handlePointerEnd(event);
+        }}
+        onPointerCancel={(event) => {
+          event.stopPropagation();
+          setTouchStart(null);
+        }}
+      >
+        {COMMUNITY_FILTERS.map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => changeFilter(item)}
+            className={`relative shrink-0 py-1 text-[14px] font-semibold ${filter === item ? "text-[#498467]" : "text-black/40"}`}
+          >
+            {item}
+            {filter === item && <span className="absolute -bottom-2 left-0 right-0 h-0.5 bg-[#498467]" />}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-col gap-8 px-4 py-6">
+        <CommunityImpactCard collapsed={collapsed} compactOnly />
+        {items.map((item) => renderCommunityItem(item, onComment, onMenu, onShare))}
+      </div>
+    </div>
+  );
+}
+
+function getCommunityItems(filter, { events, currentPromotions, followedSellers, isSaved, isRegrown, hiddenContentIds }) {
+  const listingItems = products.map((product) => ({ type: "listing", id: `listing:${product.id}`, product }));
+  const postItems = communityPosts.map((post) => ({ type: "post", id: `post:${post.id}`, post }));
+  const eventItems = events.map((event) => ({ type: "event", id: `event:${event.id}`, event }));
+  const promotionItems = currentPromotions.map((promotion) => ({
+    type: "promotion",
+    id: `promotion:${promotion.id}`,
+    promotion,
+    product: products.find((product) => promotion.productIds?.includes(product.id)),
+  }));
+  const allItems = [...postItems, ...eventItems, ...listingItems, ...promotionItems];
+  const visibleItems = allItems.filter((item) => !hiddenContentIds.has(item.id));
+  const filtered = filter === "For You"
+    ? visibleItems
+    : visibleItems.filter((item) => item.type === filter.slice(0, -1).toLowerCase());
+
+  return filtered.sort((a, b) => relevanceScore(b, { followedSellers, isSaved, isRegrown }) - relevanceScore(a, { followedSellers, isSaved, isRegrown }));
+}
+
+function relevanceScore(item, { followedSellers, isSaved, isRegrown }) {
+  const sellerId = item.post?.sellerId ?? item.event?.sellerId ?? item.product?.sellerId ?? item.promotion?.sellerId;
+  const contentId = item.type === "post" ? `post:${item.post.id}` : `${item.type}:${item.event?.id ?? item.product?.id ?? item.promotion?.id}`;
+  const postScore = item.post ? (item.post.likes ?? 0) + (item.post.comments ?? 0) * 2 : 0;
+  return (followedSellers.includes(sellerId) ? 30 : 0) + (isSaved(contentId) ? 24 : 0) + (isRegrown(contentId) ? 18 : 0) + postScore + (item.type === "promotion" ? 16 : 0) + (item.type === "event" ? 10 : 0);
+}
+
+function renderCommunityItem(item, onComment, onMenu, onShare) {
+  if (item.type === "post") return <Post key={item.id} post={item.post} stacked onComment={onComment} onMenu={onMenu} onShare={onShare} />;
+  if (item.type === "event") return <EventPost key={item.id} event={item.event} onComment={onComment} onMenu={onMenu} onShare={onShare} />;
+  if (item.type === "listing") return <ListingFeedCard key={item.id} product={item.product} onMenu={onMenu} onShare={onShare} />;
+  return <PromotionFeedCard key={item.id} promotion={item.promotion} product={item.product} onMenu={onMenu} onShare={onShare} />;
+}
+
+function ListingFeedCard({ product, onMenu, onShare }) {
+  const menuContent = { id: `listing:${product.id}`, type: "listing", title: product.name, name: product.name, sellerId: product.sellerId, productId: product.id, sharePath: `/product/${product.id}`, savedItem: { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName: product.shop, image: product.image, description: product.name } };
+  return <div className="rounded-lg border border-[#E6E6E6] p-3"><div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><img src={product.image} alt={product.name} className="h-8 w-8 rounded-full object-cover" /><span className="text-[14px] font-semibold text-[#498467]">{product.shop}</span></div><MoreButton onClick={() => onMenu(menuContent)} /></div><img src={product.image} alt={product.name} className="mt-3 aspect-square w-full rounded object-cover" /><h3 className="mt-2 text-[16px] font-semibold">{product.name}</h3><p className="text-[14px] text-[#498467]">${product.price.toFixed(2)}</p><div className="mt-3 flex justify-end"><ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>;
+}
+
+function PromotionFeedCard({ promotion, product, onMenu, onShare }) {
+  const menuContent = { id: `promotion:${promotion.id}`, type: "promotion", title: promotion.title, name: promotion.title, sellerId: promotion.sellerId, productId: product?.id, sharePath: product ? `/product/${product.id}` : "/", savedItem: { id: `promotion:${promotion.id}`, type: "promotion", sourceId: promotion.id, name: promotion.title, storeName: product?.shop, image: product?.image, description: promotion.title, promotion, productId: product?.id } };
+  return <div className="rounded-lg border border-[#E6E6E6] p-3"><div className="flex items-center justify-between gap-2"><PromotionBadge promotion={promotion} /><MoreButton onClick={() => onMenu(menuContent)} /></div>{product && <img src={product.image} alt={product.name} className="mt-3 aspect-square w-full rounded object-cover" />}<h3 className="mt-2 text-[16px] font-semibold">{promotion.title}</h3><p className="text-[14px] text-[#498467]">{product?.shop}</p><div className="mt-3 flex justify-end"><ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>;
+}
+
+function ShareButton({ onClick }) {
+  return <button type="button" aria-label="Share" onClick={onClick} className="flex items-center gap-1 text-[12px] text-[#498467]"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M18.33 1.67 9.17 10.83M9.17 10.83 1.67 7.5l16.66-5.83-5.83 16.66-3.33-7.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>Share</button>;
+}
+
+function MoreButton({ onClick }) {
+  return (
+    <button type="button" aria-label="More options" onClick={onClick} className="p-1">
+      <svg width="15" height="3" viewBox="0 0 15 3" fill="none"><path d="M1.5 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" fill="black" /></svg>
+    </button>
+  );
+}
+
+function EventPost({ event, onComment, onMenu, onShare }) {
   const navigate = useNavigate();
   const { isSaved, toggleSaved } = useSavedItems();
   const { isRegrown, toggleRegrow } = useRegrow();
@@ -163,6 +344,7 @@ function EventPost({ event, onComment }) {
     event,
   };
 
+  const menuContent = { id: `event:${event.id}`, type: "event", title: event.title, name: event.title, sellerId: event.sellerId, eventId: event.id, sharePath: `/event/${event.id}`, savedItem: savedEvent, commentContent: { type: "event", event, seller } };
   const handleSave = () => toggleSaved([savedEvent]);
 
   const handleRepost = () => {
@@ -174,18 +356,9 @@ function EventPost({ event, onComment }) {
     );
   };
 
-  const handleShare = () => {
-    const url = `${window.location.origin}/event/${event.id}`;
-    setShares((count) => count + 1);
-    if (navigator.share) {
-      navigator.share({ title: event.title, url }).catch(() => {});
-    } else {
-      navigator.clipboard?.writeText(url).catch(() => {});
-    }
-  };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="rounded-lg border border-[#E6E6E6] p-3 flex flex-col gap-3">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <button onClick={openSeller} className="shrink-0">
@@ -210,9 +383,12 @@ function EventPost({ event, onComment }) {
             </span>
           </div>
         </div>
-        <span className="text-[12px] font-medium px-2 py-1 rounded-full bg-[#CFF7D3] text-[#02542D] whitespace-nowrap">
-          {eventStatus(event)}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[12px] font-medium px-2 py-1 rounded-full bg-[#CFF7D3] text-[#02542D] whitespace-nowrap">
+            {eventStatus(event)}
+          </span>
+          <MoreButton onClick={() => onMenu(menuContent)} />
+        </div>
       </div>
 
       <button
@@ -254,7 +430,7 @@ function EventPost({ event, onComment }) {
         onLike={handleSave}
         onComment={() => onComment({ type: "event", event, seller })}
         onRepost={handleRepost}
-        onShare={handleShare}
+        onShare={() => onShare(menuContent, () => setShares((count) => count + 1))}
       />
     </div>
   );
@@ -271,7 +447,7 @@ function EventMeta({ label, value }) {
   );
 }
 
-function Post({ post, stacked, onComment }) {
+function Post({ post, stacked, onComment, onMenu, onShare }) {
   const navigate = useNavigate();
   const { promotionsForProduct } = usePromotions();
   const { isSaved, toggleSaved } = useSavedItems();
@@ -307,6 +483,7 @@ function Post({ post, stacked, onComment }) {
         productId: post.productId,
       }
     : null;
+  const menuContent = { id: `post:${post.id}`, type: "post", title: post.body, name: post.body, sellerId: post.sellerId, productId: post.productId, sharePath: post.productId ? `/product/${post.productId}` : "/", savedItems: [savedPost, ...(savedPromotion ? [savedPromotion] : [])], commentContent: { type: "post", post } };
 
   const handleSave = () => toggleSaved([savedPost, ...(savedPromotion ? [savedPromotion] : [])]);
 
@@ -359,16 +536,7 @@ function Post({ post, stacked, onComment }) {
     </div>
   );
 
-  const moreButton = (
-    <button aria-label="More options">
-      <svg width="15" height="3" viewBox="0 0 15 3" fill="none">
-        <path
-          d="M1.5 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"
-          fill="black"
-        />
-      </svg>
-    </button>
-  );
+  const moreButton = <MoreButton onClick={() => onMenu(menuContent)} />;
 
   const content = (
     <>
@@ -400,13 +568,14 @@ function Post({ post, stacked, onComment }) {
         onLike={handleSave}
         onComment={() => onComment({ type: "post", post })}
         onRepost={handleRepost}
+        onShare={() => onShare(menuContent, () => {})}
       />
     </>
   );
 
   if (stacked) {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="rounded-lg border border-[#E6E6E6] p-3 flex flex-col gap-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             {avatar}
@@ -420,7 +589,7 @@ function Post({ post, stacked, onComment }) {
   }
 
   return (
-    <div className="flex gap-3">
+    <div className="rounded-lg border border-[#E6E6E6] p-3 flex gap-3">
       {avatar}
       <div className="flex flex-col gap-3 flex-1">
         <div className="flex items-start justify-between">
@@ -515,9 +684,18 @@ function IconCount({ children, label, onClick, ariaLabel, active }) {
   );
 }
 
-function Notifications() {
+export function Notifications() {
+  const location = useLocation();
   const navigate = useNavigate();
+  const edgeStartRef = useRef(null);
   const [sub, setSub] = useState("Highlights");
+  const fromTab = location.state?.fromTab === "Your Community" ? "Your Community" : "Following";
+
+  const goBackToFeed = () => navigate("/", { state: { tab: fromTab } });
+  const handlePointerUp = (event) => {
+    if (edgeStartRef.current !== null && edgeStartRef.current < 30 && event.clientX - edgeStartRef.current > 50) goBackToFeed();
+    edgeStartRef.current = null;
+  };
   const { orderNotifications } = useOrders();
   const list =
     sub === "Highlights"
@@ -535,8 +713,17 @@ function Notifications() {
   };
 
   return (
-    <div className="flex flex-col">
-      <div className="sticky top-0 bg-white z-10 flex justify-center gap-2 pt-6 pb-4">
+    <div
+      className="flex h-full flex-col touch-pan-y"
+      onPointerDown={(event) => {
+        if (event.clientX < 30) edgeStartRef.current = event.clientX;
+      }}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={() => { edgeStartRef.current = null; }}
+    >
+      <Header title="Notifications" onBack={goBackToFeed} />
+      <div className="overflow-y-auto flex-1 no-scrollbar">
+        <div className="sticky top-0 bg-white z-10 flex justify-center gap-2 pt-6 pb-4">
         {["Highlights", "Followers"].map((s) => (
           <button
             key={s}
@@ -602,6 +789,7 @@ function Notifications() {
             )}
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

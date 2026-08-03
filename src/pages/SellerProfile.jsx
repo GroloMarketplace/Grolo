@@ -152,15 +152,17 @@ export default function SellerProfile() {
             </div>
           </div>
 
-          <div
-            ref={contentRef}
-            onScroll={handleContentScroll}
-            className="flex snap-x snap-mandatory overflow-x-auto no-scrollbar"
-          >
+          <div className="w-full max-w-full min-w-0 overflow-hidden">
+            <div
+              ref={contentRef}
+              onScroll={handleContentScroll}
+              className="flex w-full max-w-full min-w-0 snap-x snap-mandatory overflow-x-auto no-scrollbar"
+            >
             <ListingsTab products={sellerProducts} promotions={sellerPromotions} navigate={navigate} />
             <PostsTab posts={sellerPosts} navigate={navigate} />
             <EventsTab events={sellerEvents} navigate={navigate} />
-            <RegrowsTab posts={sellerRegrows} navigate={navigate} />
+              <RegrowsTab posts={sellerRegrows} navigate={navigate} />
+            </div>
           </div>
         </div>
       </div>
@@ -169,7 +171,7 @@ export default function SellerProfile() {
 }
 
 function TabPanel({ children }) {
-  return <div className="min-w-full shrink-0 snap-start px-4 py-4">{children}</div>;
+  return <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start overflow-hidden px-4 py-4">{children}</div>;
 }
 
 function EmptyTab({ children }) {

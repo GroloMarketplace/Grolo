@@ -10,8 +10,11 @@ import { PromotionProvider } from "./context/PromotionContext";
 import { SavedProvider } from "./context/SavedContext";
 import { RegrowProvider } from "./context/RegrowContext";
 import { ProfileModeProvider } from "./context/ProfileModeContext";
+import { AdvertisingProvider } from "./context/AdvertisingContext";
 import Feed, { Notifications } from "./pages/Feed";
 import Search from "./pages/Search";
+import Category from "./pages/Category";
+import Featured from "./pages/Featured";
 import Messages from "./pages/Messages";
 import Chat from "./pages/Chat";
 import Cart from "./pages/Cart";
@@ -40,6 +43,9 @@ import CreatePromotion from "./pages/CreatePromotion";
 import CommunityImpact from "./pages/CommunityImpact";
 import Comments from "./pages/Comments";
 import EventDetail from "./pages/EventDetail";
+import Advertising from "./pages/Advertising";
+import CreateAdvertisingAd from "./pages/CreateAdvertisingAd";
+import Trading from "./pages/Trading";
 
 export default function App() {
   return (
@@ -52,6 +58,7 @@ export default function App() {
         <SavedProvider>
         <RegrowProvider>
         <ReviewProvider>
+        <AdvertisingProvider>
         <Routes>
         <Route path="/signin" element={<PhoneFrame hideTabBar statusBarBackground="bg-[#E6DCCF]" backgroundColor="bg-[#E6DCCF]"><SignIn /></PhoneFrame>} />
         <Route path="/" element={<PhoneFrame><Feed /></PhoneFrame>} />
@@ -61,6 +68,26 @@ export default function App() {
         <Route path="/profile" element={<PhoneFrame><BuyerProfile /></PhoneFrame>} />
         <Route path="/buyer-profile" element={<PhoneFrame><BuyerProfile /></PhoneFrame>} />
         <Route path="/my-shop/reviews" element={<PhoneFrame><StoreReviews /></PhoneFrame>} />
+        <Route
+          path="/my-shop/advertising"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute>
+                <Advertising />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
+        <Route
+          path="/my-shop/advertising/create"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute>
+                <CreateAdvertisingAd />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
         <Route path="/event/:eventId" element={<PhoneFrame><EventDetail /></PhoneFrame>} />
         <Route
           path="/my-shop/events"
@@ -105,6 +132,7 @@ export default function App() {
           }
         />
         <Route path="/product/:id" element={<PhoneFrame><ProductDetail /></PhoneFrame>} />
+        <Route path="/listing/:id" element={<PhoneFrame><ProductDetail /></PhoneFrame>} />
         <Route path="/product/:id/reviews" element={<PhoneFrame><ProductReviews /></PhoneFrame>} />
         <Route
           path="/orders"
@@ -127,6 +155,9 @@ export default function App() {
           }
         />
         <Route path="/seller/:sellerId" element={<PhoneFrame><SellerProfile /></PhoneFrame>} />
+        <Route path="/category/:categoryName" element={<PhoneFrame><Category /></PhoneFrame>} />
+        <Route path="/featured" element={<PhoneFrame><Featured /></PhoneFrame>} />
+        <Route path="/trading" element={<PhoneFrame><Trading /></PhoneFrame>} />
         <Route path="/search" element={<PhoneFrame><Search /></PhoneFrame>} />
         <Route
           path="/messages"
@@ -222,6 +253,7 @@ export default function App() {
           }
         />
       </Routes>
+        </AdvertisingProvider>
         </ReviewProvider>
         </RegrowProvider>
         </SavedProvider>

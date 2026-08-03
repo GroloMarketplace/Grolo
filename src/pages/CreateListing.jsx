@@ -16,6 +16,8 @@ export default function CreateListing() {
     price: "",
     description: "",
     location: "",
+    availableForTrade: false,
+    desiredTradeItems: "",
   });
 
   const handleSubmit = (e) => {
@@ -99,6 +101,31 @@ export default function CreateListing() {
               placeholder="Enter location"
               required
             />
+          </div>
+
+          <div className="rounded-lg border border-[#E6E6E6] p-3">
+            <label className="flex items-center gap-3 text-[14px] font-medium">
+              <input
+                type="checkbox"
+                checked={formData.availableForTrade}
+                onChange={(e) => setFormData({ ...formData, availableForTrade: e.target.checked })}
+                className="h-4 w-4 accent-[#498467]"
+              />
+              Available for Trade
+            </label>
+            {formData.availableForTrade && (
+              <div className="mt-3">
+                <label className="mb-2 block text-[14px] font-medium">What are you looking for?</label>
+                <input
+                  type="text"
+                  value={formData.desiredTradeItems}
+                  onChange={(e) => setFormData({ ...formData, desiredTradeItems: e.target.value })}
+                  className="w-full rounded-lg border border-[#E6E6E6] px-4 py-3 focus:border-[#498467] focus:outline-none"
+                  placeholder="e.g. Tomatoes, herbs, honey"
+                  required
+                />
+              </div>
+            )}
           </div>
 
           <PhotoManager photos={photos} onChange={setPhotos} />

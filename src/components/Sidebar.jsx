@@ -69,6 +69,12 @@ export default function Sidebar({ isOpen, onClose }) {
               Events
             </button>
             <button
+              onClick={() => handleMenuClick(() => navigate("/my-shop/advertising"))}
+              className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
+            >
+              Advertising
+            </button>
+            <button
               onClick={() => handleMenuClick(() => navigate("/profit"))}
               className="text-left px-4 py-3 rounded-lg hover:bg-[#498467] hover:text-white transition-colors duration-200"
             >

@@ -1,0 +1,181 @@
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import Header from "../components/Header";
+import MobileScreenLayout from "../components/MobileScreenLayout";
+import SearchBar from "../components/SearchBar";
+import PromotionBadge from "../components/PromotionBadge";
+import { formatEventDate, formatEventTime } from "../context/EventContext";
+import { useFollow } from "../context/FollowContext";
+import { useAdvertising } from "../context/AdvertisingContext";
+import { events, products, promotions, sellers } from "../data/mockData";
+
+const FILTERS = ["All", "Listings", "Events", "Stores", "Promotions"];
+const SORT_OPTIONS = ["Featured", "Trending", "Newest"];
+const STORE_CATEGORIES = {
+  "sarahs-backyard": "Garden",
+  "pennies-produce": "Garden",
+  "dustins-donuts": "Bakery",
+  "brandys-crafts": "Crafts",
+};
+
+export default function Featured() {
+  const navigate = useNavigate();
+  const { ads } = useAdvertising();
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("All");
+  const [sort, setSort] = useState("Featured");
+  const promotionByProduct = useMemo(
+    () => new Map(products.map((product) => [product.id, promotions.find((promotion) => promotion.productIds.includes(product.id))])),
+    [],
+  );
+  const paidStoreIds = new Set(
+    ads
+      .filter((ad) => (ad.status === "Trial" || ad.status === "Active") && ad.type === "Store")
+      .map((ad) => ad.destinationId),
+  );
+  const featuredStores = [
+    ...Object.values(sellers).filter((store) => paidStoreIds.has(store.id)),
+    ...Object.values(sellers).filter((store) => !paidStoreIds.has(store.id)),
+  ].slice(0, 4);
+  const feed = useMemo(
+    () => [
+      ...featuredStores.map((store) => ({ type: "store", item: store })),
+      ...products.map((product) => ({ type: "listing", item: product, promotion: promotionByProduct.get(product.id) })),
+      ...events.slice(0, 6).map((event) => ({ type: "event", item: event })),
+    ],
+    [featuredStores, promotionByProduct],
+  );
+  const filteredFeed = feed
+    .filter((entry) => filter === "All" || (filter === "Listings" && entry.type === "listing") || (filter === "Events" && entry.type === "event") || (filter === "Stores" && entry.type === "store") || (filter === "Promotions" && entry.promotion))
+    .filter((entry) => {
+      const item = entry.item;
+      const searchableText = entry.type === "listing"
+        ? `${item.name} ${item.shop}`
+        : entry.type === "event"
+          ? `${item.title} ${sellers[item.sellerId]?.name} ${item.location}`
+          : `${item.name} ${STORE_CATEGORIES[item.id] ?? ""}`;
+      return searchableText.toLowerCase().includes(query.trim().toLowerCase());
+    })
+    .sort((a, b) => {
+      if (sort === "Trending") return (b.item.views ?? b.item.likes ?? b.item.followers ?? 0) - (a.item.views ?? a.item.likes ?? a.item.followers ?? 0);
+      if (sort === "Newest") return String(b.item.date ?? b.item.id).localeCompare(String(a.item.date ?? a.item.id));
+      return 0;
+    });
+
+  return (
+    <MobileScreenLayout>
+      <Header title="Grown Local" onBack={() => navigate(-1)} />
+      <div className="flex-1 overflow-y-auto no-scrollbar">
+        <div className="border-b border-black/5 py-3">
+          <SearchBar
+            placeholder="Search featured products, stores, and events"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <div className="mt-3 flex gap-2 overflow-x-auto px-4 no-scrollbar">
+            {FILTERS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setFilter(option)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-[12px] font-medium ${filter === option ? "bg-[#498467] text-white" : "bg-[#F5F5F5] text-[#828282]"}`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between px-4 py-3">
+          <h2 className="text-[18px] font-semibold">Featured</h2>
+          <label className="flex items-center gap-1.5 text-[12px] text-[#828282]">
+            Sort by
+            <select value={sort} onChange={(event) => setSort(event.target.value)} className="rounded-md border border-[#E6E6E6] bg-white px-2 py-1 text-[12px] text-black outline-none">
+              {SORT_OPTIONS.map((option) => <option key={option}>{option}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <div className="flex flex-col gap-3 px-4 pb-6">
+          {filteredFeed.length === 0 ? (
+            <div className="rounded-lg border border-[#E6E6E6] px-4 py-8 text-center text-[14px] text-[#828282]">
+              No featured content matches your search.
+            </div>
+          ) : filteredFeed.map((entry, index) => (
+            <FeaturedFeedCard key={`${entry.type}-${entry.item.id}-${index}`} entry={entry} />
+          ))}
+        </div>
+      </div>
+    </MobileScreenLayout>
+  );
+}
+
+function FeaturedFeedCard({ entry }) {
+  if (entry.type === "event") return <FeaturedEventCard event={entry.item} />;
+  if (entry.type === "store") return <FeaturedStoreCard store={entry.item} />;
+  return <FeaturedListingCard product={entry.item} promotion={entry.promotion} />;
+}
+
+function FeaturedListingCard({ product, promotion }) {
+  return (
+    <article className="rounded-lg border border-[#E6E6E6] p-3">
+      <Link to={`/product/${product.id}`} className="block">
+        <div className="relative">
+          <img src={product.image} alt={product.name} className="h-[180px] w-full rounded-lg object-cover" />
+          {promotion && <PromotionBadge promotion={promotion} className="absolute left-2 top-2" />}
+        </div>
+        <div className="mt-3 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="truncate text-[16px] font-semibold">{product.name}</h3>
+            <p className="text-[13px] text-[#498467]">{product.shop}</p>
+          </div>
+          <span className="shrink-0 text-[16px] font-semibold">${product.price.toFixed(2)}</span>
+        </div>
+        <div className="mt-1 flex items-center gap-1 text-[12px] text-[#828282]">
+          <span className="text-[#498467]">★</span>
+          <span>{product.rating?.toFixed(1) ?? "New"}</span>
+          {product.reviewCount && <span>({product.reviewCount})</span>}
+        </div>
+      </Link>
+    </article>
+  );
+}
+
+function FeaturedEventCard({ event }) {
+  const navigate = useNavigate();
+  const seller = sellers[event.sellerId];
+
+  return (
+    <button type="button" onClick={() => navigate(`/event/${event.id}`)} className="w-full overflow-hidden rounded-lg border border-[#E6E6E6] text-left">
+      <img src={event.image} alt={event.title} className="h-[180px] w-full object-cover" />
+      <div className="flex flex-col gap-1 p-3">
+        <h3 className="text-[16px] font-semibold">{event.title}</h3>
+        <p className="text-[13px] text-[#498467]">{seller?.name}</p>
+        <p className="text-[12px] text-[#828282]">{formatEventDate(event.date)} • {formatEventTime(event.startTime)} – {formatEventTime(event.endTime)}</p>
+        <p className="text-[12px] text-[#828282]">{event.location}</p>
+      </div>
+    </button>
+  );
+}
+
+function FeaturedStoreCard({ store }) {
+  const { isFollowing, toggleFollow } = useFollow();
+  const navigate = useNavigate();
+  const following = isFollowing(store.id);
+
+  return (
+    <article className="flex items-center gap-3 rounded-lg border border-[#E6E6E6] p-3">
+      <button type="button" onClick={() => navigate(`/seller/${store.id}`)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+        <img src={store.avatar} alt={store.name} className="h-16 w-16 shrink-0 rounded-full object-cover" />
+        <span className="min-w-0">
+          <span className="block truncate text-[16px] font-semibold">{store.name}</span>
+          <span className="block text-[13px] text-[#828282]">{STORE_CATEGORIES[store.id] ?? "Local store"}</span>
+          <span className="mt-1 block text-[12px] text-[#828282]"><span className="text-[#498467]">★</span> {store.rating.toFixed(1)} ({store.reviewCount})</span>
+        </span>
+      </button>
+      <button type="button" onClick={() => toggleFollow(store.id)} className={`shrink-0 rounded-lg px-3 py-2 text-[12px] font-medium ${following ? "border border-[#498467] text-[#498467]" : "bg-[#498467] text-white"}`}>
+        {following ? "Following" : "Follow"}
+      </button>
+    </article>
+  );
+}

@@ -2,6 +2,7 @@ export const products = [
   {
     id: "organic-beets",
     name: "Organic Beets",
+    category: "Garden",
     price: 4.99,
     shop: "Pennie's Produce",
     sellerId: "pennies-produce",
@@ -11,6 +12,10 @@ export const products = [
     messages: 8,
     rating: 4.5,
     reviewCount: 42,
+    location: "Marda Loop, Calgary",
+    availableForTrade: true,
+    desiredTradeItems: "Fresh bread, jam, or herbs",
+    tradeAvailableFor: "Beets",
     image:
       "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=400&q=80",
     images: [
@@ -22,6 +27,7 @@ export const products = [
   {
     id: "dozen-donuts",
     name: "Dozen Donuts",
+    category: "Bakery",
     price: 8.99,
     shop: "Dustin's Donut Store",
     sellerId: "dustins-donuts",
@@ -43,6 +49,7 @@ export const products = [
   {
     id: "crochet-hat",
     name: "Crochet Hat",
+    category: "Crafts",
     price: 14.99,
     shop: "Brandy's Crafts",
     sellerId: "brandys-crafts",
@@ -62,6 +69,7 @@ export const products = [
   {
     id: "strawberries",
     name: "Bag of Strawberries",
+    category: "Garden",
     price: 5,
     shop: "Sarah's Backyard",
     sellerId: "sarahs-backyard",
@@ -82,6 +90,10 @@ export const products = [
     tag: "Tag",
     description:
       "Fresh bags of strawberries, straight from my backyard garden. All soil and seeds are 100% organic.",
+    location: "Kensington, Calgary",
+    availableForTrade: true,
+    desiredTradeItems: "Tomatoes, herbs, honey",
+    tradeAvailableFor: "Plants",
   },
 ];
 
@@ -1229,3 +1241,104 @@ export const analyticsData = {
 };
 
 export const chartXAxis = ["Nov 23", "24", "25", "26", "27", "28", "29", "30"];
+
+export const featuredCommunitySpotlights = [
+  {
+    id: "spotlight-fresh-harvest",
+    type: "store",
+    badge: "Promotion",
+    title: "Fresh Harvest Sale",
+    description: "20% off garden berries and free herb bundles this week.",
+    sellerId: "sarahs-backyard",
+    image: "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=800&q=80",
+  },
+  {
+    id: "spotlight-donut-workshop",
+    type: "event",
+    badge: "Event",
+    title: "Donut Decorating Workshop",
+    description: "Learn to glaze and finish a dozen donuts with Dustin's team.",
+    eventId: "donut-decorating-workshop",
+    sellerId: "dustins-donuts",
+    image: "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=800&q=80",
+  },
+  {
+    id: "spotlight-organic-strawberries",
+    type: "product",
+    badge: "New Arrival",
+    title: "Fresh Organic Strawberries",
+    description: "Sweet, soil-grown berries picked fresh from the backyard.",
+    productId: "strawberries",
+    sellerId: "sarahs-backyard",
+    image: "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=800&q=80",
+  },
+  {
+    id: "spotlight-farmers-market",
+    type: "event",
+    badge: "Event",
+    title: "Kensington Farmers Market",
+    description: "Find Sarah's berry stand at the weekly community market.",
+    eventId: "kensington-farmers-market",
+    sellerId: "sarahs-backyard",
+    image: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80",
+  },
+  {
+    id: "spotlight-maple-donuts",
+    type: "product",
+    badge: "Limited Time",
+    title: "Maple Bacon Donuts",
+    description: "Dustin's signature dozen is available while supplies last.",
+    productId: "dozen-donuts",
+    sellerId: "dustins-donuts",
+    image: "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=800&q=80",
+  },
+  {
+    id: "spotlight-craft-market",
+    type: "store",
+    badge: "Promotion",
+    title: "Handmade Maker Specials",
+    description: "Discover cozy crochet pieces and custom gifts from Brandy.",
+    sellerId: "brandys-crafts",
+    image: "https://images.unsplash.com/photo-1520903920243-00d872a2d1c9?w=800&q=80",
+  },
+  {
+    id: "spotlight-berry-tasting",
+    type: "event",
+    badge: "Event",
+    title: "Backyard Berry Tasting",
+    description: "Taste four strawberry varieties and take home a sample bag.",
+    eventId: "backyard-berry-tasting",
+    sellerId: "sarahs-backyard",
+    image: "https://images.unsplash.com/photo-1518635017498-87f514b751ba?w=800&q=80",
+  },
+  {
+    id: "spotlight-organic-beets",
+    type: "product",
+    badge: "New Arrival",
+    title: "Organic Beets",
+    description: "Freshly harvested vegetables from Pennie's weekly garden.",
+    productId: "organic-beets",
+    sellerId: "pennies-produce",
+    image: "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=800&q=80",
+  },
+  {
+    id: "spotlight-garden-popup",
+    type: "event",
+    badge: "Event",
+    title: "Marda Loop Garden Pop-Up",
+    description: "Shop local produce, handmade goods and seasonal specials.",
+    eventId: "marda-loop-popup",
+    sellerId: "pennies-produce",
+    image: "https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=800&q=80",
+  },
+  {
+    id: "spotlight-crochet-hat",
+    type: "product",
+    badge: "Limited Time",
+    title: "Cozy Crochet Hat",
+    description: "A one-of-a-kind handmade layer for cool Calgary evenings.",
+    productId: "crochet-hat",
+    sellerId: "brandys-crafts",
+    image: "https://images.unsplash.com/photo-1520903920243-00d872a2d1c9?w=800&q=80",
+  },
+];

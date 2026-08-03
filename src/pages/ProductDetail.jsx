@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useState } from "react";
 import Header from "../components/Header";
+import MobileScreenLayout from "../components/MobileScreenLayout";
 import CarouselRow from "../components/CarouselRow";
 import StarRating from "../components/StarRating";
 import ImageGallery from "../components/ImageGallery";
@@ -27,9 +28,10 @@ export default function ProductDetail() {
   const productReviewList = reviewsForProduct(product.id);
 
   return (
-    <div>
+    <MobileScreenLayout>
       <Header onBack={() => navigate(-1)} />
-      <div className="p-6 flex flex-col gap-6">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
+        <div className="p-6 flex flex-col gap-6">
         <div className="relative">
           <ImageGallery
             images={product.images ?? [product.image]}
@@ -224,7 +226,8 @@ export default function ProductDetail() {
         title="Products for you"
         products={products.filter((p) => p.id !== product.id)}
       />
-    </div>
+      </div>
+    </MobileScreenLayout>
   );
 }
 

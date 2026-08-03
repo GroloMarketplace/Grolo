@@ -3,7 +3,7 @@ import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { products } from "../data/mockData";
 import { useOrders } from "../context/OrderContext";
-import { getCommunityStatus } from "../data/communityStatus";
+import { getBuyerStatus } from "../data/communityStatus";
 
 const STORE_ID = "sarahs-backyard";
 
@@ -91,7 +91,7 @@ export default function ShopOrders() {
                               <span className="text-[12px] text-[#828282]">
                                 {order.buyer}
                               </span>
-                              {order.buyer !== "you" && <span className="text-[11px] text-[#498467]">{getCommunityStatus().icon}</span>}
+                              {order.buyer !== "you" && <span className="text-[11px] text-[#498467]">{getBuyerStatus().icon}</span>}
                             </div>
                           </div>
                           <div className="text-[14px] font-semibold">

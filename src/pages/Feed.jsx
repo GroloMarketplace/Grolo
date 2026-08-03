@@ -40,6 +40,10 @@ export default function Feed() {
   const [shareContent, setShareContent] = useState(null);
   const [hiddenContentIds, setHiddenContentIds] = useState(() => new Set());
   const [feedToast, setFeedToast] = useState("");
+  const [refreshDistance, setRefreshDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [feedVersion, setFeedVersion] = useState(0);
+  const touchStartRef = useRef(null);
   const [notificationsRead, setNotificationsRead] = useState(() => localStorage.getItem("grolo-notifications-read") === "true");
   const { followedSellers } = useFollow();
   const unreadNotifications = notificationsRead ? 0 : notificationsHighlights.length + notificationsFollowers.length;
@@ -92,6 +96,39 @@ export default function Feed() {
 
   const openShare = (content, onComplete) => setShareContent({ content, onComplete });
 
+  const refreshFeed = () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    setRefreshDistance(56);
+    setFeedVersion((version) => version + 1);
+    window.setTimeout(() => {
+      setIsRefreshing(false);
+      setRefreshDistance(0);
+    }, 900);
+  };
+
+  const handleTouchStart = (event) => {
+    if (scrollContainerRef.current?.scrollTop === 0 && !isRefreshing) {
+      touchStartRef.current = event.touches[0].clientY;
+    }
+  };
+
+  const handleTouchMove = (event) => {
+    if (touchStartRef.current === null || isRefreshing || scrollContainerRef.current?.scrollTop !== 0) return;
+    const distance = event.touches[0].clientY - touchStartRef.current;
+    if (distance > 0) {
+      setRefreshDistance(Math.min(distance * 0.55, 72));
+      if (distance > 4) event.preventDefault();
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartRef.current === null) return;
+    if (refreshDistance >= 48) refreshFeed();
+    else setRefreshDistance(0);
+    touchStartRef.current = null;
+  };
+
   return (
     <MobileScreenLayout>
       <div className="sticky top-0 bg-white z-10 flex items-center justify-center gap-8 px-4 py-2.5 border-b border-black/5 relative">
@@ -118,7 +155,22 @@ export default function Feed() {
       <div
         ref={scrollContainerRef}
         className="overflow-y-auto flex-1 no-scrollbar"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
+        {(refreshDistance > 0 || isRefreshing) && (
+          <div
+            className="flex items-center justify-center overflow-hidden text-[#498467] transition-[height] duration-150"
+            style={{ height: `${isRefreshing ? 56 : refreshDistance}px` }}
+          >
+            <div className="flex flex-col items-center gap-1 text-[12px] font-medium">
+              <span className={isRefreshing ? "animate-spin text-[20px] leading-none" : "text-[20px] leading-none"}>🌱</span>
+              <span>{isRefreshing ? "Loading fresh local content..." : "Pull to refresh"}</span>
+            </div>
+          </div>
+        )}
         <div className="w-full max-w-full overflow-hidden">
           <div
             ref={mainTabContentRef}
@@ -127,6 +179,7 @@ export default function Feed() {
           >
             <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start">
               <FollowingFeed
+                key={`following-${feedVersion}`}
                 followedSellers={followedSellers}
                 hiddenContentIds={hiddenContentIds}
                 onComment={openComments}
@@ -135,7 +188,7 @@ export default function Feed() {
               />
             </div>
             <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start">
-              <CommunityFeed onComment={openComments} onMenu={setActionContent} onShare={openShare} hiddenContentIds={hiddenContentIds} />
+              <CommunityFeed key={`community-${feedVersion}`} onComment={openComments} onMenu={setActionContent} onShare={openShare} hiddenContentIds={hiddenContentIds} />
             </div>
 
           </div>

@@ -8,7 +8,7 @@ import { useSidebar } from "../hooks/useSidebar";
 import { communityPosts, events, followingPosts, products, promotions } from "../data/mockData";
 import { formatEventDate, formatEventTime } from "../context/EventContext";
 import { impactBadges, impactStats, impactTimeline } from "../data/communityImpact";
-import { getCommunityStatus } from "../data/communityStatus";
+import { getBuyerStatus } from "../data/communityStatus";
 
 const BUYER = {
   username: "remi",
@@ -121,7 +121,7 @@ function buildActivity() {
 }
 
 function CommunityStatusBadge() {
-  const status = getCommunityStatus();
+  const status = getBuyerStatus();
   return <p className="mt-1 text-[13px] font-medium text-[#498467]">{status.icon} {status.name}</p>;
 }
 
@@ -130,7 +130,7 @@ function CommunityStatusCard({ status }) {
 }
 
 function CommunityImpactTab() {
-  const status = getCommunityStatus();
+  const status = getBuyerStatus();
   return (
     <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4">
       <CommunityStatusCard status={status} />

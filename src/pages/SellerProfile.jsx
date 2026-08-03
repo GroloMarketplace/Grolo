@@ -14,6 +14,8 @@ import {
 } from "../context/EventContext";
 import { usePromotions } from "../context/PromotionContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
+import { useOrders } from "../context/OrderContext";
+import { getSellerStatus } from "../data/communityStatus";
 
 export default function SellerProfile() {
   const { sellerId } = useParams();
@@ -23,12 +25,22 @@ export default function SellerProfile() {
   const { upcomingEvents } = useEvents();
   const { promotionsForSeller } = usePromotions();
   const { getPaymentMethods } = usePaymentMethods();
+  const { sellerOrders } = useOrders();
   const seller = sellers[sellerId] || sellers["sarahs-backyard"];
   const sellerPaymentMethods = getPaymentMethods(seller.id);
   const sellerEvents = upcomingEvents(seller.id);
   const sellerPromotions = promotionsForSeller(seller.id);
   const { average, count } = sellerRating(seller.id);
   const sellerProducts = products.filter((p) => p.sellerId === seller.id || p.shop === seller.name);
+  const sellerOrdersForStatus = sellerOrders(seller.id);
+  const sellerStatus = getSellerStatus({
+    ordersFulfilled: sellerOrdersForStatus.filter((order) => order.status === "Completed").length,
+    productsSold: sellerOrdersForStatus.reduce((total, order) => total + order.quantity, 0),
+    reviewsReceived: count,
+    eventsHosted: sellerEvents.length,
+    followersGained: seller.followers,
+    tradesCompleted: 3,
+  });
   const sellerPosts = [...followingPosts, ...communityPosts].filter(
     (post, index, posts) =>
       post.sellerId === seller.id && posts.findIndex((item) => item.id === post.id) === index,
@@ -89,6 +101,7 @@ export default function SellerProfile() {
               />
               <div className="flex-1">
                 <h1 className="text-[20px] font-semibold">{seller.name}</h1>
+                <SellerStatusBadge status={sellerStatus} />
                 <p className="text-[14px] text-[#828282]">{seller.location}</p>
                 <FulfillmentAvailability methods={sellerPaymentMethods.fulfillmentMethods} />
               </div>
@@ -174,6 +187,10 @@ export default function SellerProfile() {
       </div>
     </MobileScreenLayout>
   );
+}
+
+function SellerStatusBadge({ status }) {
+  return <p className="mt-1 text-[13px] font-medium text-[#498467]">{status.icon} {status.name}</p>;
 }
 
 function FulfillmentAvailability({ methods }) {

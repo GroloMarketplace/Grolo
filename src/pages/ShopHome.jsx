@@ -13,6 +13,7 @@ import { formatEventDate, formatEventTime, useEvents } from "../context/EventCon
 import { usePromotions } from "../context/PromotionContext";
 import { useRegrow } from "../context/RegrowContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
+import { getSellerStatus } from "../data/communityStatus";
 
 export default function ShopHome() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -53,6 +54,14 @@ export default function ShopHome() {
   const contentRef = useRef(null);
   const tabs = ["Listings", "Posts", "Events", "Regrows"];
   const sellerPromotions = promotionsForSeller(seller.id);
+  const sellerStatus = getSellerStatus({
+    ordersFulfilled: storeOrders.filter((order) => order.status === "Completed").length,
+    productsSold: storeOrders.reduce((total, order) => total + order.quantity, 0),
+    reviewsReceived: seller.reviewCount,
+    eventsHosted: managedEvents.length,
+    followersGained: seller.followers,
+    tradesCompleted: 3,
+  });
 
   const handleDeleteListing = (productId) => {
     setSellerProducts(sellerProducts.filter((p) => p.id !== productId));
@@ -127,15 +136,6 @@ export default function ShopHome() {
     }
   };
 
-  const postButton = (
-    <button
-      onClick={handleCreatePost}
-      className="bg-[#498467] text-white text-[12px] font-medium px-3 py-1.5 rounded-full"
-    >
-      + Post
-    </button>
-  );
-
   return (
     <>
       <MobileScreenLayout>
@@ -143,7 +143,6 @@ export default function ShopHome() {
           <Header
             titleContent={<ProfileSwitcher />}
             onMenu={openSidebar}
-            postButton={postButton}
           />
           <div className="overflow-y-auto flex-1 no-scrollbar">
             {/* Banner */}
@@ -174,6 +173,7 @@ export default function ShopHome() {
                     ) : (
                       <h1 className="text-[20px] font-semibold">{storeName}</h1>
                     )}
+                    <p className="mt-1 text-[13px] font-medium text-[#498467]">{sellerStatus.icon} {sellerStatus.name}</p>
                     {isEditing ? (
                       <input
                         value={location}
@@ -357,7 +357,7 @@ export default function ShopHome() {
                   className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
                 >
                 <ShopListingsTab products={sellerProducts} promotions={sellerPromotions} navigate={navigate} onDelete={handleDeleteListing} />
-                <ShopPostsTab posts={managedPosts} onEdit={handleEditPost} onDelete={handleDeletePost} />
+                <ShopPostsTab posts={managedPosts} onEdit={handleEditPost} onDelete={handleDeletePost} onCreate={handleCreatePost} />
                 <ShopEventsTab events={managedEvents} navigate={navigate} onEdit={handleEditEvent} onDelete={handleDeleteEvent} />
                   <ShopRegrowsTab products={sellerProducts} posts={managedPosts} events={managedEvents} promotions={sellerPromotions} isRegrown={isRegrown} />
                 </div>
@@ -405,10 +405,10 @@ function ShopListingsTab({ products, promotions, navigate, onDelete }) {
   );
 }
 
-function ShopPostsTab({ posts, onEdit, onDelete }) {
+function ShopPostsTab({ posts, onEdit, onDelete, onCreate }) {
   return (
     <ShopTabPanel>
-      <h2 className="mb-3 text-[18px] font-semibold">Posts</h2>
+      <div className="mb-3 flex items-center justify-between"><h2 className="text-[18px] font-semibold">Posts</h2><button type="button" onClick={onCreate} className="text-[14px] font-medium text-[#498467]">+ New Post</button></div>
       {posts.length === 0 ? <ShopEmptyTab>No posts yet</ShopEmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{posts.map((post) => <div key={post.id} className="w-full rounded-lg border border-[#E6E6E6] p-3"><div className="flex items-center gap-2"><img src={post.avatar} alt={post.name} className="h-8 w-8 rounded-full object-cover" /><div><p className="text-[14px] font-semibold">{post.name}</p><p className="text-[12px] text-[#828282]">{post.time}</p></div></div>{post.image && <img src={post.image} alt="" className="mt-3 aspect-square w-full rounded-lg object-cover" />}<p className="mt-3 text-[14px] leading-[140%]">{post.body}</p><div className="mt-3 flex gap-2"><button type="button" onClick={() => onEdit(post)} className="flex-1 rounded border border-[#498467] py-1 text-[12px] font-medium text-[#498467]">Edit</button><button type="button" onClick={() => onDelete(post.id)} className="flex-1 rounded border border-red-500 py-1 text-[12px] font-medium text-red-500">Delete</button></div></div>)}</div>}
     </ShopTabPanel>
   );

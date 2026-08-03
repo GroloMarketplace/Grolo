@@ -14,9 +14,8 @@ export default function Sidebar({ isOpen, onClose, mode = "seller" }) {
 
   const sellerItems = [
     ["Store Orders", "/my-shop/orders"],
-    ["Analytics", "/analytics"],
-    ["Events", "/my-shop/events"],
     ["Advertising", "/my-shop/advertising"],
+    ["Analytics", "/analytics"],
     ["Performance", "/profit"],
     ["Account Settings", "/account-settings"],
   ];

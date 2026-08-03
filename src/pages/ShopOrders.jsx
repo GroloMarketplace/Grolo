@@ -91,7 +91,7 @@ export default function ShopOrders() {
                               <span className="text-[12px] text-[#828282]">
                                 {order.buyer}
                               </span>
-                              {order.buyer !== "you" && <span className="text-[11px] text-[#498467]">{getCommunityStatus().icon} {getCommunityStatus().name}</span>}
+                              {order.buyer !== "you" && <span className="text-[11px] text-[#498467]">{getCommunityStatus().icon}</span>}
                             </div>
                           </div>
                           <div className="text-[14px] font-semibold">

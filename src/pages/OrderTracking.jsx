@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { products, sellers, orders as mockOrders } from "../data/mockData";
@@ -40,7 +40,8 @@ export default function OrderTracking() {
   const { getPaymentMethods } = usePaymentMethods();
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showMapSheet, setShowMapSheet] = useState(false);
-  const order = orders.find((item) => item.id === id) ?? state?.order ?? mockOrders.find((item) => item.id === id) ?? mockOrders[0];
+  const matchesRouteId = (item) => item.id === id || item.id.replace(/^ORD-/, "") === id;
+  const order = orders.find(matchesRouteId) ?? state?.order ?? mockOrders.find(matchesRouteId) ?? mockOrders[0];
   const product = products.find((item) => item.id === order?.productId);
   const sellerId = order?.sellerId ?? product?.sellerId ?? "sarahs-backyard";
   const seller = sellers[sellerId] ?? sellers["sarahs-backyard"];
@@ -54,14 +55,18 @@ export default function OrderTracking() {
   const isReadyForPickup = !isCancelled && !isDelivery && currentIndex >= 3;
   const needsChangeSection = !isCancelled && !canCancel && !isReadyForPickup;
 
+  useEffect(() => {
+    console.info("Route opened", window.location.pathname, "Component: OrderTracking");
+  }, [id]);
+
   const confirmCancellation = () => {
-    cancelOrder(id, order);
+    cancelOrder(order?.id ?? id, order);
     setShowCancelModal(false);
   };
 
   return (
     <MobileScreenLayout>
-      <Header title="Order Status" onBack={() => navigate(-1)} />
+      <Header title="Order Details" onBack={() => navigate(-1)} />
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-5">
         <section className="rounded-lg border border-[#E6E6E6] p-4">
           <div className="flex items-center justify-between gap-3">
@@ -104,7 +109,6 @@ export default function OrderTracking() {
           <section className="mt-1 border-t border-[#E6E6E6] pt-4">
             <h2 className="text-[16px] font-semibold">Need to make a change?</h2>
             <p className="mt-1 text-[13px] text-[#828282]">Please contact the seller directly to discuss modifications to your order.</p>
-            <button type="button" onClick={() => navigate(`/messages/${seller.id}`)} className="mt-3 rounded-lg border border-[#498467] px-4 py-2.5 text-[14px] font-medium text-[#498467]">Message Seller</button>
           </section>
         )}
 

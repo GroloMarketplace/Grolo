@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
+import { ActivityCard } from "./BuyerProfile";
 import PromotionBadge from "../components/PromotionBadge";
 import { communityPosts, followingPosts, products, sellers, messages } from "../data/mockData";
 import { useFollow } from "../context/FollowContext";
@@ -157,11 +158,11 @@ export default function SellerProfile() {
             </div>
           </div>
 
-          <div className="w-full max-w-full min-w-0 overflow-hidden">
+          <div className="w-full max-w-full overflow-hidden">
             <div
               ref={contentRef}
               onScroll={handleContentScroll}
-              className="flex w-full max-w-full min-w-0 snap-x snap-mandatory overflow-x-auto no-scrollbar"
+              className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
             >
             <ListingsTab products={sellerProducts} promotions={sellerPromotions} navigate={navigate} />
             <PostsTab posts={sellerPosts} navigate={navigate} />
@@ -195,7 +196,7 @@ function PaymentMethodsList({ paymentSettings }) {
 }
 
 function TabPanel({ children }) {
-  return <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start overflow-hidden px-4 py-4">{children}</div>;
+  return <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4">{children}</div>;
 }
 
 function EmptyTab({ children }) {
@@ -219,7 +220,7 @@ function ListingsTab({ products, promotions, navigate }) {
       {products.length === 0 ? (
         <EmptyTab>No active listings</EmptyTab>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid w-full min-w-0 grid-cols-2 gap-3">
           {products.map((product) => {
             const promotion = promotions.find((item) => item.productIds.includes(product.id));
             return (
@@ -242,7 +243,7 @@ function ListingsTab({ products, promotions, navigate }) {
 function PostsTab({ posts, navigate }) {
   return (
     <TabPanel>
-      {posts.length === 0 ? <EmptyTab>No posts yet</EmptyTab> : <div className="flex flex-col gap-4">{posts.map((post) => <StorePostCard key={post.id} post={post} navigate={navigate} />)}</div>}
+      {posts.length === 0 ? <EmptyTab>No posts yet</EmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{posts.map((post) => <ActivityCard key={post.id} activity={{ id: post.id, type: "post", label: post.name, timestamp: post.time, post }} navigate={navigate} />)}</div>}
     </TabPanel>
   );
 }
@@ -253,18 +254,19 @@ function EventsTab({ events, navigate }) {
       {events.length === 0 ? (
         <EmptyTab>No upcoming events</EmptyTab>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="flex w-full min-w-0 flex-col gap-4">
           {events.map((event) => (
-            <button key={event.id} type="button" onClick={() => navigate(`/event/${event.id}`)} className="flex w-full items-start gap-3 rounded-lg border border-[#E6E6E6] p-3 text-left">
-              <img src={event.image} alt={event.title} className="h-16 w-16 shrink-0 rounded-lg object-cover" />
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="text-[14px] font-medium">{event.title}</span>
-                <span className="text-[12px] font-medium text-[#498467]">{event.type}</span>
-                <span className="text-[12px] text-[#828282]">{formatEventDate(event.date)}</span>
-                <span className="text-[12px] text-[#828282]">{formatEventTime(event.startTime)} – {formatEventTime(event.endTime)}</span>
-                <span className="text-[12px] text-[#828282]">{event.location}</span>
-              </div>
-            </button>
+            <ActivityCard
+              key={event.id}
+              activity={{
+                id: event.id,
+                type: "event",
+                label: event.title,
+                timestamp: `${formatEventDate(event.date)} · ${formatEventTime(event.startTime)} · ${event.location}`,
+                event,
+              }}
+              navigate={navigate}
+            />
           ))}
         </div>
       )}
@@ -275,24 +277,7 @@ function EventsTab({ events, navigate }) {
 function RegrowsTab({ posts, navigate }) {
   return (
     <TabPanel>
-      {posts.length === 0 ? <EmptyTab>No regrows yet</EmptyTab> : <div className="flex flex-col gap-4">{posts.map((post) => <StorePostCard key={post.id} post={post} navigate={navigate} regrow />)}</div>}
+      {posts.length === 0 ? <EmptyTab>No regrows yet</EmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{posts.map((post) => <ActivityCard key={post.id} activity={{ id: post.id, type: "post", label: `🌱 Regrew a community post`, timestamp: post.time, post }} navigate={navigate} />)}</div>}
     </TabPanel>
-  );
-}
-
-function StorePostCard({ post, navigate, regrow }) {
-  return (
-    <button type="button" onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })} className="w-full text-left">
-      <div className="flex items-center gap-2">
-        <img src={post.avatar} alt={post.name} className="h-8 w-8 rounded-full object-cover" />
-        <div>
-          <div className="text-[14px] font-semibold text-[#498467]">{post.name}</div>
-          <div className="text-[12px] text-[#828282]">{post.time}</div>
-        </div>
-        {regrow && <span className="ml-auto rounded-full bg-[#CFF7D3] px-2 py-1 text-[11px] font-medium text-[#02542D]">Regrow</span>}
-      </div>
-      {post.image && <img src={post.image} alt="" className="mt-3 aspect-square w-full rounded-lg object-cover" />}
-      <p className="mt-2 text-[14px] leading-[140%]">{post.body}</p>
-    </button>
   );
 }

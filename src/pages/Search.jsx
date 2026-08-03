@@ -393,15 +393,32 @@ function MyOrders() {
                   const completed = order.status === "Completed";
                   const reviewed = hasReviewedProduct(order.productId);
 
+                  const orderRouteId = order.id.replace(/^ORD-/, "");
+                  const openOrderDetails = () => {
+                    const route = `/orders/${orderRouteId}`;
+                    console.info("Order card clicked", order.id);
+                    console.info("Order ID", order.id);
+                    console.info("Navigating to", route);
+                    navigate(route);
+                  };
+
                   return (
                     <div
                       key={order.id}
-                      className="rounded-lg border border-[#E6E6E6] p-3"
+                      onClick={openOrderDetails}
+                      onKeyDown={(event) => {
+                        if (
+                          event.target === event.currentTarget &&
+                          (event.key === "Enter" || event.key === " ")
+                        ) {
+                          openOrderDetails();
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      className="rounded-lg border border-[#E6E6E6] p-3 cursor-pointer"
                     >
-                      <button
-                        onClick={() => navigate(`/product/${product.id}`)}
-                        className="flex items-center gap-3 w-full text-left"
-                      >
+                      <div className="flex items-center gap-3 w-full text-left">
                         <img
                           src={product.image}
                           alt={product.name}
@@ -427,11 +444,14 @@ function MyOrders() {
                         >
                           {order.status}
                         </span>
-                      </button>
+                      </div>
 
                       {completed && !reviewed && (
                         <button
-                          onClick={() => navigate(`/leave-review/${product.id}`)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            navigate(`/leave-review/${product.id}`);
+                          }}
                           className="w-full mt-3 bg-[#498467] text-white py-2.5 rounded-lg text-[14px] font-medium"
                         >
                           Leave Review
@@ -439,9 +459,10 @@ function MyOrders() {
                       )}
                       {completed && reviewed && (
                         <button
-                          onClick={() =>
-                            navigate(`/product/${product.id}/reviews`)
-                          }
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            navigate(`/product/${product.id}/reviews`);
+                          }}
                           className="w-full mt-3 border border-[#498467] text-[#498467] py-2.5 rounded-lg text-[14px] font-medium"
                         >
                           View Your Review

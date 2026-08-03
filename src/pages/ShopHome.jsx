@@ -350,15 +350,17 @@ export default function ShopHome() {
                 </div>
               </div>
 
-              <div
-                ref={contentRef}
-                onScroll={handleContentScroll}
-                className="flex snap-x snap-mandatory overflow-x-auto no-scrollbar"
-              >
+              <div className="w-full max-w-full overflow-hidden">
+                <div
+                  ref={contentRef}
+                  onScroll={handleContentScroll}
+                  className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
+                >
                 <ShopListingsTab products={sellerProducts} promotions={sellerPromotions} navigate={navigate} onDelete={handleDeleteListing} />
                 <ShopPostsTab posts={managedPosts} onEdit={handleEditPost} onDelete={handleDeletePost} />
                 <ShopEventsTab events={managedEvents} navigate={navigate} onEdit={handleEditEvent} onDelete={handleDeleteEvent} />
-                <ShopRegrowsTab products={sellerProducts} posts={managedPosts} events={managedEvents} promotions={sellerPromotions} isRegrown={isRegrown} />
+                  <ShopRegrowsTab products={sellerProducts} posts={managedPosts} events={managedEvents} promotions={sellerPromotions} isRegrown={isRegrown} />
+                </div>
               </div>
             </div>
           </div>
@@ -380,7 +382,7 @@ function PaymentMethodsList({ methods }) {
 }
 
 function ShopTabPanel({ children }) {
-  return <div className="min-w-full shrink-0 snap-start px-4 py-4">{children}</div>;
+  return <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4">{children}</div>;
 }
 
 function ShopEmptyTab({ children }) {
@@ -407,7 +409,7 @@ function ShopPostsTab({ posts, onEdit, onDelete }) {
   return (
     <ShopTabPanel>
       <h2 className="mb-3 text-[18px] font-semibold">Posts</h2>
-      {posts.length === 0 ? <ShopEmptyTab>No posts yet</ShopEmptyTab> : <div className="flex flex-col gap-4">{posts.map((post) => <div key={post.id} className="rounded-lg border border-[#E6E6E6] p-3"><div className="flex items-center gap-2"><img src={post.avatar} alt={post.name} className="h-8 w-8 rounded-full object-cover" /><div><p className="text-[14px] font-semibold">{post.name}</p><p className="text-[12px] text-[#828282]">{post.time}</p></div></div>{post.image && <img src={post.image} alt="" className="mt-3 aspect-square w-full rounded-lg object-cover" />}<p className="mt-3 text-[14px] leading-[140%]">{post.body}</p><div className="mt-3 flex gap-2"><button type="button" onClick={() => onEdit(post)} className="flex-1 rounded border border-[#498467] py-1 text-[12px] font-medium text-[#498467]">Edit</button><button type="button" onClick={() => onDelete(post.id)} className="flex-1 rounded border border-red-500 py-1 text-[12px] font-medium text-red-500">Delete</button></div></div>)}</div>}
+      {posts.length === 0 ? <ShopEmptyTab>No posts yet</ShopEmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{posts.map((post) => <div key={post.id} className="w-full rounded-lg border border-[#E6E6E6] p-3"><div className="flex items-center gap-2"><img src={post.avatar} alt={post.name} className="h-8 w-8 rounded-full object-cover" /><div><p className="text-[14px] font-semibold">{post.name}</p><p className="text-[12px] text-[#828282]">{post.time}</p></div></div>{post.image && <img src={post.image} alt="" className="mt-3 aspect-square w-full rounded-lg object-cover" />}<p className="mt-3 text-[14px] leading-[140%]">{post.body}</p><div className="mt-3 flex gap-2"><button type="button" onClick={() => onEdit(post)} className="flex-1 rounded border border-[#498467] py-1 text-[12px] font-medium text-[#498467]">Edit</button><button type="button" onClick={() => onDelete(post.id)} className="flex-1 rounded border border-red-500 py-1 text-[12px] font-medium text-red-500">Delete</button></div></div>)}</div>}
     </ShopTabPanel>
   );
 }
@@ -416,7 +418,7 @@ function ShopEventsTab({ events, navigate, onEdit, onDelete }) {
   return (
     <ShopTabPanel>
       <div className="mb-3 flex items-center justify-between"><h2 className="text-[18px] font-semibold">Events</h2><button type="button" onClick={() => navigate("/create-event")} className="text-[14px] font-medium text-[#498467]">+ New Event</button></div>
-      {events.length === 0 ? <ShopEmptyTab>No events yet</ShopEmptyTab> : <div className="flex flex-col gap-3">{events.map((event) => <div key={event.id} className="rounded-lg border border-[#E6E6E6] p-3"><div className="flex gap-3"><img src={event.image} alt={event.title} className="h-16 w-16 shrink-0 rounded-lg object-cover" /><div className="min-w-0 flex-1"><p className="text-[14px] font-semibold">{event.title}</p><p className="text-[12px] text-[#498467]">{event.type}</p><p className="text-[12px] text-[#828282]">{formatEventDate(event.date)} · {formatEventTime(event.startTime)} – {formatEventTime(event.endTime)}</p><p className="text-[12px] text-[#828282]">{event.location}</p></div></div><div className="mt-3 flex gap-2"><button type="button" onClick={() => onEdit(event)} className="flex-1 rounded border border-[#498467] py-1 text-[12px] font-medium text-[#498467]">Edit</button><button type="button" onClick={() => onDelete(event.id)} className="flex-1 rounded border border-red-500 py-1 text-[12px] font-medium text-red-500">Delete</button></div></div>)}</div>}
+      {events.length === 0 ? <ShopEmptyTab>No events yet</ShopEmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{events.map((event) => <div key={event.id} className="rounded-lg border border-[#E6E6E6] p-3"><div className="flex gap-3"><img src={event.image} alt={event.title} className="h-16 w-16 shrink-0 rounded-lg object-cover" /><div className="min-w-0 flex-1"><p className="text-[14px] font-semibold">{event.title}</p><p className="text-[12px] text-[#498467]">{event.type}</p><p className="text-[12px] text-[#828282]">{formatEventDate(event.date)} · {formatEventTime(event.startTime)} – {formatEventTime(event.endTime)}</p><p className="text-[12px] text-[#828282]">{event.location}</p></div></div><div className="mt-3 flex gap-2"><button type="button" onClick={() => onEdit(event)} className="flex-1 rounded border border-[#498467] py-1 text-[12px] font-medium text-[#498467]">Edit</button><button type="button" onClick={() => onDelete(event.id)} className="flex-1 rounded border border-red-500 py-1 text-[12px] font-medium text-red-500">Delete</button></div></div>)}</div>}
     </ShopTabPanel>
   );
 }
@@ -432,7 +434,7 @@ function ShopRegrowsTab({ products, posts, events, promotions, isRegrown }) {
   return (
     <ShopTabPanel>
       <h2 className="mb-3 text-[18px] font-semibold">Regrows</h2>
-      {items.length === 0 ? <ShopEmptyTab>No regrown content yet</ShopEmptyTab> : <div className="grid grid-cols-2 gap-3">{items.map((item) => <div key={item.id} className="rounded-lg border border-[#E6E6E6] p-2">{item.image ? <img src={item.image} alt="" className="aspect-square w-full rounded object-cover" /> : <div className="flex aspect-square items-center justify-center rounded bg-[#F5FFF6] text-[#498467]">Promotion</div>}<span className="mt-2 block text-[12px] font-medium text-[#498467]">{item.type}</span><p className="mt-1 line-clamp-2 text-[14px]">{item.title}</p></div>)}</div>}
+      {items.length === 0 ? <ShopEmptyTab>No regrown content yet</ShopEmptyTab> : <div className="grid w-full min-w-0 grid-cols-2 gap-3">{items.map((item) => <div key={item.id} className="rounded-lg border border-[#E6E6E6] p-2">{item.image ? <img src={item.image} alt="" className="aspect-square w-full rounded object-cover" /> : <div className="flex aspect-square items-center justify-center rounded bg-[#F5FFF6] text-[#498467]">Promotion</div>}<span className="mt-2 block text-[12px] font-medium text-[#498467]">{item.type}</span><p className="mt-1 line-clamp-2 text-[14px]">{item.title}</p></div>)}</div>}
     </ShopTabPanel>
   );
 }

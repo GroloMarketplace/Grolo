@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import CarouselRow from "../components/CarouselRow";
@@ -29,6 +29,10 @@ export default function ProductDetail() {
   const { reviewsForProduct, productRating, canReviewProduct } = useReviews();
   const { average, count } = productRating(product.id);
   const productReviewList = reviewsForProduct(product.id);
+
+  useEffect(() => {
+    console.info("Route opened", window.location.pathname, "Component: ProductDetail");
+  }, [id]);
 
   return (
     <MobileScreenLayout>

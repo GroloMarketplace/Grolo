@@ -13,9 +13,7 @@ export default function Sidebar({ isOpen, onClose, mode = "seller" }) {
   };
 
   const sellerItems = [
-    ["Create New Listing", "/create-listing"],
     ["Store Orders", "/my-shop/orders"],
-    ["My Orders", "/orders"],
     ["Analytics", "/analytics"],
     ["Events", "/my-shop/events"],
     ["Advertising", "/my-shop/advertising"],
@@ -23,7 +21,6 @@ export default function Sidebar({ isOpen, onClose, mode = "seller" }) {
     ["Account Settings", "/account-settings"],
   ];
   const buyerItems = [
-    ["My Orders", "/orders"],
     ["Saved Items", "/saved"],
     ["Community Impact", "/community-impact"],
     ["Account Settings", "/account-settings"],

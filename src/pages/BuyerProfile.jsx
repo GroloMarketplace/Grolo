@@ -172,7 +172,7 @@ function CommunityImpactTab() {
   );
 }
 
-function ActivityCard({ activity, navigate }) {
+export function ActivityCard({ activity, navigate }) {
   const openActivity = () => {
     if (activity.type === "event") navigate(`/event/${activity.event.id}`);
     else if (activity.type === "listing" || activity.type === "promotion") navigate(`/product/${activity.listing.id}`);
@@ -180,7 +180,7 @@ function ActivityCard({ activity, navigate }) {
   };
 
   return (
-    <button type="button" onClick={openActivity} className="w-full rounded-lg border border-[#E6E6E6] p-3 text-left transition-colors hover:bg-[#F5FFF6]">
+    <button type="button" onClick={openActivity} className={`w-full rounded-lg border border-[#E6E6E6] p-3 text-left transition-colors hover:bg-[#F5FFF6]`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <img src={BUYER.avatar} alt={BUYER.username} className="h-8 w-8 rounded-full object-cover" />

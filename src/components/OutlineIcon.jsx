@@ -11,6 +11,7 @@ const ICON_PATHS = {
   tree: "M12 21V14m-4 7h8M12 3 8.5 8H10l-3 4h3l-2 4h8l-2-4h3l-3-4h1.5L12 3Z",
   globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm-8.5-9h17M12 3c2 2.3 3 5.3 3 9s-1 6.7-3 9c-2-2.3-3-5.3-3-9s1-6.7 3-9Z",
   home: "m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9Zm6 11v-6h6v6",
+  trash: "M4 7h16m-10 4v6m4-6v6M9 7V4h6v3m-9 0 1 13h10l1-13",
 };
 
 export default function OutlineIcon({ name, size = 18, className = "", label, fill = "none" }) {

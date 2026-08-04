@@ -98,7 +98,14 @@ export default function TabBar() {
       ? sum + item.quantity
       : sum
   ), 0);
-  const profilePath = profileMode === "buyer" ? "/profile" : "/shop";
+  const profileType = profileMode === "seller" ? "seller" : "buyer";
+  const profilePath = profileType === "seller" ? "/shop" : "/profile";
+  const handleProfileClick = () => {
+    console.info("Profile icon clicked", {
+      navigatingTo: profilePath,
+      profileType,
+    });
+  };
 
   return (
     <div className="absolute bottom-0 left-0 right-0 bg-white shadow-[0_-0.5px_0_0_rgba(0,0,0,0.1)]">
@@ -107,7 +114,7 @@ export default function TabBar() {
           <NavLink
             key={tab.to}
             to={tab.to === "/shop" ? profilePath : tab.to === "/" ? { pathname: "/", state: { tab: "Your Community" } } : tab.to === "/search" ? { pathname: "/search", state: { resetSearch: true } } : tab.to}
-            onClick={tab.to === "/search" ? () => writeNavigationState("search", { tab: "Local", query: "", scrollTop: 0 }) : undefined}
+            onClick={tab.to === "/shop" ? handleProfileClick : tab.to === "/search" ? () => writeNavigationState("search", { tab: "Local", query: "", scrollTop: 0 }) : undefined}
             end={tab.to === "/"}
             className="flex-1 flex items-center justify-center"
           >

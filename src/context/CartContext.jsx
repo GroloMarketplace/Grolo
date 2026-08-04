@@ -46,10 +46,12 @@ export function CartProvider({ children }) {
     });
   };
 
-  const addToCart = (product, quantity = 1) => {
+  const addToCart = (product, quantity = 1, availableOverride) => {
     setItems((current) => {
       const existing = current.find((item) => item.productId === product.id);
-      const available = getStoredAvailable(product.id, product.quantityAvailable ?? 0);
+      const available = Number.isFinite(availableOverride)
+        ? availableOverride
+        : getStoredAvailable(product.id, product.quantityAvailable ?? 0);
       const nextQuantity = (existing?.quantity ?? 0) + quantity;
       const cappedQuantity = Math.min(available, nextQuantity);
       if (cappedQuantity < 1) return current;
@@ -70,6 +72,15 @@ export function CartProvider({ children }) {
     });
   };
 
+  const restoreItems = (itemsToRestore) => {
+    setItems((current) => {
+      const existingIds = new Set(current.map((item) => item.id));
+      const nextItems = [...current, ...itemsToRestore.filter((item) => !existingIds.has(item.id))];
+      persistCart(nextItems);
+      return nextItems;
+    });
+  };
+
   const totalQuantity = useMemo(
     () => items.reduce((sum, item) => sum + item.quantity, 0),
     [items],
@@ -81,7 +92,7 @@ export function CartProvider({ children }) {
   );
 
   return (
-    <CartContext.Provider value={{ items, updateQuantity, addToCart, removeItems, totalQuantity, subtotal }}>
+    <CartContext.Provider value={{ items, updateQuantity, addToCart, removeItems, restoreItems, totalQuantity, subtotal }}>
       {children}
     </CartContext.Provider>
   );

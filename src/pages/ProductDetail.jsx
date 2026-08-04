@@ -150,17 +150,17 @@ export default function ProductDetail() {
           </button>
         </div>
 
-        {!soldOut && <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <span className="text-[14px] text-[#757575]">Available: {available}</span>
+        <div className="flex flex-col gap-4">
+          <span className="text-[14px] text-[#757575]">Available: {available}</span>
+          {!soldOut && <div className="flex flex-col gap-2">
             <label className="text-[16px]">Quantity</label>
             <div className="h-10 flex items-center justify-between rounded-lg border border-[#D9D9D9] px-4">
               <button type="button" aria-label="Decrease quantity" onClick={() => setQuantity((value) => Math.max(1, value - 1))} disabled={quantity === 1} className="text-[20px] disabled:opacity-40">−</button>
               <span className="text-[16px]">{quantity}</span>
               <button type="button" aria-label="Increase quantity" onClick={() => setQuantity((value) => Math.min(available, value + 1))} disabled={quantity >= available} className="text-[20px] text-[#498467] disabled:opacity-40">+</button>
             </div>
-          </div>
-        </div>}
+          </div>}
+        </div>
 
         {soldOut ? (
           <div className="w-full rounded-lg bg-[#E6E6E6] text-[#757575] text-center text-[16px] py-3">Sold Out</div>

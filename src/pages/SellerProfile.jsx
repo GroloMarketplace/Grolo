@@ -19,6 +19,7 @@ import { useOrders } from "../context/OrderContext";
 import { getSellerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import { useInventory } from "../context/InventoryContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 
 export default function SellerProfile() {
@@ -32,6 +33,7 @@ export default function SellerProfile() {
   const { sellerOrders } = useOrders();
   const { getSellerProfile } = useSellerSettings();
   const { listings } = useListings();
+  const { getAvailable } = useInventory();
   const seller = sellers[sellerId] || sellers["sarahs-backyard"];
   const sellerProfile = getSellerProfile(seller.id);
   const sellerPaymentMethods = getPaymentMethods(seller.id);
@@ -206,7 +208,7 @@ export default function SellerProfile() {
               onScroll={handleContentScroll}
               className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
             >
-            <ListingsTab products={sellerProducts} promotions={sellerPromotions} navigate={navigate} />
+            <ListingsTab products={sellerProducts} promotions={sellerPromotions} navigate={navigate} getAvailable={getAvailable} />
             <PostsTab posts={sellerPosts} navigate={navigate} />
             <EventsTab events={sellerEvents} navigate={navigate} />
               <RegrowsTab posts={sellerRegrows} navigate={navigate} />
@@ -249,7 +251,10 @@ function EmptyTab({ children }) {
   return <div className="py-10 text-center text-[14px] text-[#828282]">{children}</div>;
 }
 
-function ListingsTab({ products, promotions, navigate }) {
+function ListingsTab({ products, promotions, navigate, getAvailable }) {
+  const activeProducts = products.filter((product) => getAvailable(product.id) > 0);
+  const outOfStockProducts = products.filter((product) => getAvailable(product.id) <= 0);
+
   return (
     <TabPanel>
       {promotions.length > 0 && (
@@ -263,6 +268,32 @@ function ListingsTab({ products, promotions, navigate }) {
           ))}
         </div>
       )}
+      <ListingSection title="Listings" products={activeProducts} promotions={promotions} navigate={navigate} />
+      {outOfStockProducts.length > 0 && (
+        <section className="mt-6 border-t border-black/5 pt-4">
+          <h2 className="mb-3 text-[16px] font-semibold">Out of Stock</h2>
+          <div className="grid w-full min-w-0 grid-cols-2 gap-3">
+            {outOfStockProducts.map((product) => (
+              <button key={product.id} type="button" onClick={() => navigate(`/product/${product.id}`)} className="rounded-lg border border-[#E6E6E6] p-3 text-left">
+                <div className="relative">
+                  <img src={product.image} alt={product.name} className="aspect-square w-full rounded-lg object-cover" />
+                  <span className="absolute left-2 top-2 rounded-full bg-[#828282] px-2 py-0.5 text-[10px] font-semibold uppercase text-white">Sold Out</span>
+                </div>
+                <span className="mt-2 block text-[14px] font-medium">{product.name}</span>
+                <span className="mt-0.5 block text-[16px] font-semibold text-[#498467]">${product.price.toFixed(2)}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+    </TabPanel>
+  );
+}
+
+function ListingSection({ title, products, promotions, navigate }) {
+  return (
+    <section>
+      <h2 className="mb-3 text-[16px] font-semibold">{title}</h2>
       {products.length === 0 ? (
         <EmptyTab>No active listings</EmptyTab>
       ) : (
@@ -282,7 +313,7 @@ function ListingsTab({ products, promotions, navigate }) {
           })}
         </div>
       )}
-    </TabPanel>
+    </section>
   );
 }
 

@@ -10,9 +10,9 @@ export default function SellerListingCard({ product, onDelete }) {
   const promotion = promotionsForProduct(product.id)[0];
   const { getAvailable } = useInventory();
   const available = getAvailable(product.id);
-  const displayStatus = available === 0 ? "Sold" : status;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [status, setStatus] = useState(product.status || "Active");
+  const [status] = useState(product.status || "Active");
+  const displayStatus = available === 0 ? "Sold" : status;
 
   const handleEdit = () => {
     navigate(`/edit-listing/${product.id}`);

@@ -12,6 +12,7 @@ import { RegrowProvider } from "./context/RegrowContext";
 import { ProfileModeProvider } from "./context/ProfileModeContext";
 import { AdvertisingProvider } from "./context/AdvertisingContext";
 import { CartProvider } from "./context/CartContext";
+import { SavedForLaterProvider } from "./context/SavedForLaterContext";
 import { MessageProvider } from "./context/MessageContext";
 import { InventoryProvider } from "./context/InventoryContext";
 import { PaymentMethodsProvider } from "./context/PaymentMethodsContext";
@@ -71,6 +72,7 @@ export default function App() {
         <RegrowProvider>
         <ReviewProvider>
         <AdvertisingProvider>
+        <SavedForLaterProvider>
         <CartProvider>
         <MessageProvider>
         <InventoryProvider>
@@ -286,6 +288,7 @@ export default function App() {
         </InventoryProvider>
         </MessageProvider>
         </CartProvider>
+        </SavedForLaterProvider>
         </AdvertisingProvider>
         </ReviewProvider>
         </RegrowProvider>

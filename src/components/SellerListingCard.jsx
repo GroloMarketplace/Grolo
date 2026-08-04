@@ -2,11 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PromotionBadge from "./PromotionBadge";
 import { usePromotions } from "../context/PromotionContext";
+import { useInventory } from "../context/InventoryContext";
 
 export default function SellerListingCard({ product, onDelete }) {
   const navigate = useNavigate();
   const { promotionsForProduct } = usePromotions();
   const promotion = promotionsForProduct(product.id)[0];
+  const { getAvailable } = useInventory();
+  const available = getAvailable(product.id);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [status, setStatus] = useState(product.status || "Active");
 
@@ -73,6 +76,7 @@ export default function SellerListingCard({ product, onDelete }) {
           <div className="text-[16px] font-medium text-black">
             ${product.price.toFixed(2)}
           </div>
+          <div className="text-[12px] text-[#828282]">{available} Available</div>
         </div>
 
         {/* Performance Metrics */}

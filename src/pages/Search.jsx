@@ -16,6 +16,7 @@ import { useReviews } from "../context/ReviewContext";
 import { useOrders } from "../context/OrderContext";
 import { useAdvertising } from "../context/AdvertisingContext";
 import MapView from "../components/MapView";
+import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 
 const TABS = ["Local", "Map", "History", "My Orders"];
 
@@ -27,7 +28,21 @@ const ORDER_SECTIONS = [
 
 export default function Search() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState("Local");
+  const scrollRef = useRef(null);
+  const savedSearchState = readNavigationState("search", { tab: "Local", query: "", scrollTop: 0 });
+  const [tab, setTab] = useState(savedSearchState.tab);
+  const [query, setQuery] = useState(savedSearchState.query);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = savedSearchState.scrollTop;
+    const saveState = () => writeNavigationState("search", { tab, query, scrollTop: scrollRef.current?.scrollTop ?? 0 });
+    const scrollElement = scrollRef.current;
+    scrollElement?.addEventListener("scroll", saveState, { passive: true });
+    return () => {
+      saveState();
+      scrollElement?.removeEventListener("scroll", saveState);
+    };
+  }, [tab, query]);
 
   return (
     <MobileScreenLayout>
@@ -35,7 +50,7 @@ export default function Search() {
         {TABS.map((t) => (
           <button
             key={t}
-            onClick={() => setTab(t)}
+            onClick={() => { setTab(t); writeNavigationState("search", { tab: t, query, scrollTop: scrollRef.current?.scrollTop ?? 0 }); }}
             className={`text-[14px] font-semibold tracking-[-0.28px] relative ${
               tab === t ? "text-[#498467]" : "text-black/40"
             }`}
@@ -46,9 +61,9 @@ export default function Search() {
         ))}
       </div>
 
-      <div className="overflow-y-auto flex-1 no-scrollbar">
+      <div ref={scrollRef} className="overflow-y-auto flex-1 no-scrollbar">
         <div className="bg-white py-3 border-b border-black/5">
-          <SearchBar />
+          <SearchBar value={query} onChange={(event) => setQuery(event.target.value)} />
         </div>
 
         {tab === "Local" && (

@@ -1,4 +1,8 @@
+import { useNavigate } from "react-router-dom";
+
 export default function Header({ title, titleContent, onBack, onMenu, right, postButton }) {
+  const navigate = useNavigate();
+
   return (
     <div className="h-14 flex items-center justify-between px-4 border-b border-[#E6E6E6]">
       <div className="flex items-center gap-2">
@@ -41,11 +45,13 @@ export default function Header({ title, titleContent, onBack, onMenu, right, pos
       <div className="flex items-center gap-2">
         {postButton}
         {right ?? (
-          <img
-            src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80"
-            alt="Profile"
-            className="w-6 h-6 rounded-full object-cover"
-          />
+          <button type="button" onClick={() => navigate("/account-settings")} aria-label="Open Account Settings" className="rounded-full">
+            <img
+              src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80"
+              alt="Profile"
+              className="w-6 h-6 rounded-full object-cover"
+            />
+          </button>
         )}
       </div>
     </div>

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { analyticsData } from "../data/mockData";
+import OutlineIcon from "../components/OutlineIcon";
 
 const FILTER_OPTIONS = [
   { label: "7 Days", value: "7days" },
@@ -12,13 +13,13 @@ const FILTER_OPTIONS = [
 ];
 
 const STATS = [
-  { key: "totalViews", label: "Total Views", icon: "👁️" },
-  { key: "totalFavorites", label: "Total Favorites", icon: "❤️" },
-  { key: "totalMessages", label: "Total Messages", icon: "💬" },
-  { key: "totalFollowers", label: "Total Followers", icon: "👥" },
-  { key: "totalListings", label: "Total Listings", icon: "📦" },
-  { key: "totalSales", label: "Total Sales", icon: "💰" },
-  { key: "averageRating", label: "Average Rating", icon: "⭐" },
+  { key: "totalViews", label: "Total Views", icon: "eye" },
+  { key: "totalFavorites", label: "Total Favorites", icon: "heart" },
+  { key: "totalMessages", label: "Total Messages", icon: "message" },
+  { key: "totalFollowers", label: "Total Followers", icon: "users" },
+  { key: "totalListings", label: "Total Listings", icon: "box" },
+  { key: "totalSales", label: "Total Sales", icon: "sales" },
+  { key: "averageRating", label: "Average Rating", icon: "star" },
 ];
 
 export default function Analytics() {
@@ -31,7 +32,7 @@ export default function Analytics() {
       <div className="flex flex-col min-h-full">
         <Header
           title="Analytics"
-          onBack={() => navigate("/shop")}
+          onBack={() => navigate("/shop", { state: { openSellerMenu: true } })}
         />
 
         <div className="overflow-y-auto flex-1 no-scrollbar">
@@ -59,7 +60,7 @@ export default function Analytics() {
                 className="rounded-lg border border-[#E0E0E0] p-4 flex flex-col gap-2"
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-[16px]">{stat.icon}</span>
+                  <span className="flex h-5 w-5 items-center justify-center text-[#4F4F4F]"><OutlineIcon name={stat.icon} size={16} /></span>
                   <div className="text-[12px] font-medium text-[#828282]">{stat.label}</div>
                 </div>
                 <div className="text-[24px] font-semibold tracking-[-0.48px]">

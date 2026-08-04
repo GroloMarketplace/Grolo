@@ -16,7 +16,7 @@ export default function Advertising() {
 
   return (
     <MobileScreenLayout>
-      <Header title="Advertising" onBack={() => navigate("/shop")} />
+      <Header title="Advertising" onBack={() => navigate("/shop", { state: { openSellerMenu: true } })} />
       <div className="flex-1 overflow-y-auto no-scrollbar">
         <div className="flex flex-col gap-5 px-4 py-5">
           <section className="rounded-lg border border-[#498467] bg-[#F5FFF6] p-4">

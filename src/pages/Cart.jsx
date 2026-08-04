@@ -1,11 +1,15 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { sellers } from "../data/mockData";
+import { useInventory } from "../context/InventoryContext";
+import { useSellerSettings } from "../context/SellerSettingsContext";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 
 export default function Cart() {
   const navigate = useNavigate();
   const { items, updateQuantity, totalQuantity, subtotal } = useCart();
+  const { getAvailable } = useInventory();
+  const { getSellerProfile } = useSellerSettings();
   const storeGroups = Object.values(items.reduce((groups, item) => {
     const sellerId = item.sellerId ?? "sarahs-backyard";
     if (!groups[sellerId]) groups[sellerId] = [];
@@ -37,9 +41,10 @@ export default function Cart() {
           <section key={sellerId} className="border-b border-black/5 last:border-0">
             <div className="flex items-center justify-between px-4 py-3">
               <span className="text-[14px] font-normal text-[#498467]">{sellers[sellerId]?.name ?? "Local Store"}</span>
+              {getSellerProfile(sellerId)?.vacationMode && <span className="text-[11px] font-medium text-[#4F4F4F]">Temporarily Closed</span>}
               <button type="button" onClick={() => navigate(`/seller/${sellerId}`)} className="text-[14px] font-normal text-[#498467]">View Store <span aria-hidden="true" className="text-[16px] text-[#498467]">›</span></button>
             </div>
-            <div className="px-4 py-3"><div className="mb-3 text-[12px] font-medium">ITEMS</div><div className="flex flex-col gap-4">{storeItems.map((item) => <CartItem key={item.id} item={item} updateQuantity={updateQuantity} />)}</div></div>
+            <div className="px-4 py-3">{getSellerProfile(sellerId)?.vacationMode && <div className="mb-3 rounded-lg bg-[#F5FFF6] p-3 text-[13px] text-[#4F4F4F]">This store is temporarily not accepting orders.</div>}<div className="mb-3 text-[12px] font-medium">ITEMS</div><div className="flex flex-col gap-4">{storeItems.map((item) => <CartItem key={item.id} item={item} updateQuantity={updateQuantity} available={getAvailable(item.productId ?? item.id)} />)}</div></div>
           </section>
         ))}
         </div>
@@ -48,8 +53,8 @@ export default function Cart() {
   );
 }
 
-function CartItem({ item, updateQuantity }) {
-  return <div className="flex gap-3"><img src={item.image} alt={item.name} className="h-[84px] w-[84px] rounded-lg object-cover" /><div className="flex-1"><div className="text-[12px] text-black/50">{item.description}</div><div className="text-[14px]">{item.name}</div><div className="mt-2 flex items-center gap-2"><span className="text-[12px] text-black/50">Quantity</span><button type="button" aria-label={`Decrease quantity of ${item.name}`} onClick={() => updateQuantity(item.id, -1)} disabled={item.quantity === 1} className="flex h-7 w-7 items-center justify-center rounded border border-[#E6E6E6] text-[16px] disabled:opacity-40">−</button><span className="min-w-5 text-center text-[14px]">{item.quantity}</span><button type="button" aria-label={`Increase quantity of ${item.name}`} onClick={() => updateQuantity(item.id, 1)} className="flex h-7 w-7 items-center justify-center rounded border border-[#498467] text-[#498467]">+</button></div></div><div className="text-[14px]">${item.price.toFixed(2)}</div></div>;
+function CartItem({ item, updateQuantity, available }) {
+  return <div className="flex gap-3"><img src={item.image} alt={item.name} className="h-[84px] w-[84px] rounded-lg object-cover" /><div className="flex-1"><div className="text-[12px] text-black/50">{item.description}</div><div className="text-[14px]">{item.name}</div><div className="mt-2 flex items-center gap-2"><span className="text-[12px] text-black/50">Quantity</span><button type="button" aria-label={`Decrease quantity of ${item.name}`} onClick={() => updateQuantity(item.id, -1)} disabled={item.quantity === 1} className="flex h-7 w-7 items-center justify-center rounded border border-[#E6E6E6] text-[16px] disabled:opacity-40">−</button><span className="min-w-5 text-center text-[14px]">{item.quantity}</span><button type="button" aria-label={`Increase quantity of ${item.name}`} onClick={() => updateQuantity(item.id, 1, available)} disabled={item.quantity >= available} className="flex h-7 w-7 items-center justify-center rounded border border-[#498467] text-[#498467]">+</button></div></div><div className="text-[14px]">${item.price.toFixed(2)}</div></div>;
 }
 
 function Row({ label, value }) { return <div className="flex justify-between"><span className="text-[14px]">{label}</span><span className="text-[14px]">{value}</span></div>; }

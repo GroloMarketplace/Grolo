@@ -34,10 +34,14 @@ export function PaymentMethodsProvider({ children }) {
     pickupNotes: "",
   };
 
-  const updatePaymentMethods = (sellerId, methods) => {
+  const updatePaymentMethods = (sellerId, methods, eTransferEmail) => {
     setSettings((current) => ({
       ...current,
-      [sellerId]: { ...(current[sellerId] ?? getPaymentMethods(sellerId)), methods },
+      [sellerId]: {
+        ...(current[sellerId] ?? getPaymentMethods(sellerId)),
+        methods,
+        ...(eTransferEmail === undefined ? {} : { eTransferEmail }),
+      },
     }));
   };
 

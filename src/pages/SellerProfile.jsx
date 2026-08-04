@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -16,6 +16,9 @@ import { usePromotions } from "../context/PromotionContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { useOrders } from "../context/OrderContext";
 import { getSellerStatus } from "../data/communityStatus";
+import OutlineIcon from "../components/OutlineIcon";
+import { useSellerSettings } from "../context/SellerSettingsContext";
+import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 
 export default function SellerProfile() {
   const { sellerId } = useParams();
@@ -26,7 +29,9 @@ export default function SellerProfile() {
   const { promotionsForSeller } = usePromotions();
   const { getPaymentMethods } = usePaymentMethods();
   const { sellerOrders } = useOrders();
+  const { getSellerProfile } = useSellerSettings();
   const seller = sellers[sellerId] || sellers["sarahs-backyard"];
+  const sellerProfile = getSellerProfile(seller.id);
   const sellerPaymentMethods = getPaymentMethods(seller.id);
   const sellerEvents = upcomingEvents(seller.id);
   const sellerPromotions = promotionsForSeller(seller.id);
@@ -46,12 +51,30 @@ export default function SellerProfile() {
       post.sellerId === seller.id && posts.findIndex((item) => item.id === post.id) === index,
   );
   const sellerRegrows = sellerPosts.slice(0, 2);
-  const [activeTab, setActiveTab] = useState(0);
+  const savedProfileState = readNavigationState(`seller-profile-${seller.id}`, { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 });
+  const [activeTab, setActiveTab] = useState(savedProfileState.activeTab);
+  const pageScrollRef = useRef(null);
   const contentRef = useRef(null);
+
+  useEffect(() => {
+    if (pageScrollRef.current) pageScrollRef.current.scrollTop = savedProfileState.scrollTop;
+    if (contentRef.current) contentRef.current.scrollLeft = savedProfileState.tabScrollLeft;
+    const saveState = () => writeNavigationState(`seller-profile-${seller.id}`, { activeTab, scrollTop: pageScrollRef.current?.scrollTop ?? 0, tabScrollLeft: contentRef.current?.scrollLeft ?? 0 });
+    const pageScroll = pageScrollRef.current;
+    const tabScroll = contentRef.current;
+    pageScroll?.addEventListener("scroll", saveState, { passive: true });
+    tabScroll?.addEventListener("scroll", saveState, { passive: true });
+    return () => {
+      saveState();
+      pageScroll?.removeEventListener("scroll", saveState);
+      tabScroll?.removeEventListener("scroll", saveState);
+    };
+  }, [activeTab, seller.id]);
   const tabs = ["Listings", "Posts", "Events", "Regrows"];
 
   const handleTabChange = (index) => {
     setActiveTab(index);
+    writeNavigationState(`seller-profile-${seller.id}`, { activeTab: index, scrollTop: pageScrollRef.current?.scrollTop ?? 0, tabScrollLeft: index * (contentRef.current?.clientWidth ?? 0) });
     contentRef.current?.scrollTo({
       left: index * contentRef.current.clientWidth,
       behavior: "smooth",
@@ -60,7 +83,10 @@ export default function SellerProfile() {
 
   const handleContentScroll = (event) => {
     const index = Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth);
-    if (index !== activeTab) setActiveTab(index);
+    if (index !== activeTab) {
+      setActiveTab(index);
+      writeNavigationState(`seller-profile-${seller.id}`, { activeTab: index, scrollTop: pageScrollRef.current?.scrollTop ?? 0, tabScrollLeft: event.currentTarget.scrollLeft });
+    }
   };
 
   const handleMessageClick = () => {
@@ -80,12 +106,13 @@ export default function SellerProfile() {
   return (
     <MobileScreenLayout>
       <Header onBack={() => navigate(-1)} />
-      <div className="overflow-y-auto flex-1 no-scrollbar">
+      <div ref={pageScrollRef} className="overflow-y-auto flex-1 no-scrollbar">
+        {sellerProfile.vacationMode && <div className="mx-4 mt-4 rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-3"><div className="text-[14px] font-semibold text-[#02542D]">Store Temporarily Closed</div>{sellerProfile.vacationMessage && <p className="mt-1 text-[13px] text-[#4F4F4F]">{sellerProfile.vacationMessage}</p>}{sellerProfile.returnDate && <p className="mt-1 text-[12px] text-[#828282]">Returning {new Date(`${sellerProfile.returnDate}T00:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>}</div>}
         {/* Banner */}
         <div className="h-[136px] relative">
           <img
-            src={seller.banner}
-            alt={`${seller.name} banner`}
+            src={sellerProfile.banner}
+            alt={`${sellerProfile.name} banner`}
             className="w-full h-full object-cover"
           />
         </div>
@@ -95,19 +122,19 @@ export default function SellerProfile() {
           <div className="bg-white rounded-lg p-4 shadow-sm">
             <div className="flex items-start gap-3">
               <img
-                src={seller.avatar}
-                alt={seller.name}
+                src={sellerProfile.avatar}
+                alt={sellerProfile.name}
                 className="w-16 h-16 rounded-full object-cover border-2 border-white shadow"
               />
               <div className="flex-1">
-                <h1 className="text-[20px] font-semibold">{seller.name}</h1>
+                <h1 className="text-[20px] font-semibold">{sellerProfile.name}</h1>
                 <SellerStatusBadge status={sellerStatus} />
-                <p className="text-[14px] text-[#828282]">{seller.location}</p>
+                <p className="text-[14px] text-[#828282]">{sellerProfile.location}</p>
                 <FulfillmentAvailability methods={sellerPaymentMethods.fulfillmentMethods} />
               </div>
             </div>
 
-            <p className="text-[14px] mt-3 leading-[140%]">{seller.description}</p>
+            <p className="text-[14px] mt-3 leading-[140%]">{sellerProfile.description}</p>
             <PaymentMethodsList paymentSettings={sellerPaymentMethods} />
 
             {/* Rating */}
@@ -190,14 +217,14 @@ export default function SellerProfile() {
 }
 
 function SellerStatusBadge({ status }) {
-  return <p className="mt-1 text-[13px] font-medium text-[#498467]">{status.icon} {status.name}</p>;
+  return <p className="mt-1 flex items-center gap-1 text-[13px] font-medium text-[#498467]"><OutlineIcon name={status.icon} size={15} /> {status.name}</p>;
 }
 
 function FulfillmentAvailability({ methods }) {
   const pickup = methods.includes("pickup");
   const delivery = methods.includes("delivery");
   const label = pickup && delivery ? "Pickup & Local Delivery" : pickup ? "Pickup Only" : "Delivery Only";
-  return <p className="mt-1 text-[14px] text-black"><span className="text-[#498467]">{delivery && !pickup ? "🚚" : "📍"}</span> {label}</p>;
+  return <p className="mt-1 flex items-center gap-1 text-[14px] text-black"><span className="text-[#498467]"><OutlineIcon name={delivery && !pickup ? "sales" : "home"} size={16} /></span> {label}</p>;
 }
 
 function PaymentMethodsList({ paymentSettings }) {

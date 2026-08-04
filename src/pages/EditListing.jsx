@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import PhotoManager from "../components/PhotoManager";
 import { products } from "../data/mockData";
+import { useInventory } from "../context/InventoryContext";
 
 export default function EditListing() {
   const navigate = useNavigate();
@@ -16,12 +17,16 @@ export default function EditListing() {
   const [category, setCategory] = useState(product.category || "Produce");
   const [location, setLocation] = useState(product.location || "Kensington, Calgary");
   const [photos, setPhotos] = useState(product.images ?? [product.image]);
+  const [quantityAvailable, setQuantityAvailable] = useState(product.quantityAvailable ?? 0);
+  const { updateAvailable } = useInventory();
 
   const handleSave = () => {
+    updateAvailable(product.id, quantityAvailable);
     // Handle saving the listing
     console.log("Saving listing:", {
       title,
       price,
+      quantityAvailable,
       description,
       category,
       location,
@@ -65,6 +70,20 @@ export default function EditListing() {
               step="0.01"
             />
           </div>
+        </div>
+
+        {/* Quantity Available */}
+        <div className="mb-4">
+          <label className="text-[14px] font-semibold mb-2 block">Quantity Available</label>
+          <input
+            type="number"
+            value={quantityAvailable}
+            onChange={(e) => setQuantityAvailable(e.target.value === "" ? "" : Number(e.target.value))}
+            className="w-full p-3 border border-[#E6E6E6] rounded-lg text-[14px] outline-none"
+            min="0"
+            step="1"
+            required
+          />
         </div>
 
         {/* Description */}

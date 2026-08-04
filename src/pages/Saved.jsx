@@ -16,7 +16,11 @@ export default function Saved() {
   const savedPosts = savedItems.filter((item) => item.type === "post");
   const savedEvents = savedItems.filter((item) => item.type === "event");
   const savedPromotions = savedItems.filter((item) => item.type === "promotion");
-  const savedListings = products.filter((product) => favoriteIds.includes(product.id));
+  const savedListingIds = new Set([
+    ...favoriteIds,
+    ...savedItems.filter((item) => item.type === "listing").map((item) => item.sourceId),
+  ]);
+  const savedListings = products.filter((product) => savedListingIds.has(product.id));
   const hasSavedItems = savedPosts.length || savedEvents.length || savedListings.length || savedPromotions.length;
 
   return (

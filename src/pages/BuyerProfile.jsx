@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -9,6 +9,10 @@ import { communityPosts, events, followingPosts, products, promotions } from "..
 import { formatEventDate, formatEventTime } from "../context/EventContext";
 import { impactBadges, impactStats, impactTimeline } from "../data/communityImpact";
 import { getBuyerStatus } from "../data/communityStatus";
+import OutlineIcon from "../components/OutlineIcon";
+import { useSavedItems } from "../context/SavedContext";
+import { useBuyerTrust } from "../context/BuyerTrustContext";
+import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 
 const BUYER = {
   username: "remi",
@@ -21,13 +25,33 @@ const BUYER = {
 export default function BuyerProfile() {
   const navigate = useNavigate();
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
+  const { savedItems } = useSavedItems();
+  const savedProductCount = savedItems.filter((item) => item.type === "listing").length;
+  const savedProfileState = readNavigationState("buyer-profile", { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 });
   const [editing, setEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(savedProfileState.activeTab);
+  const pageScrollRef = useRef(null);
   const tabContentRef = useRef(null);
+
+  useEffect(() => {
+    if (pageScrollRef.current) pageScrollRef.current.scrollTop = savedProfileState.scrollTop;
+    if (tabContentRef.current) tabContentRef.current.scrollLeft = savedProfileState.tabScrollLeft;
+    const saveState = () => writeNavigationState("buyer-profile", { activeTab, scrollTop: pageScrollRef.current?.scrollTop ?? 0, tabScrollLeft: tabContentRef.current?.scrollLeft ?? 0 });
+    const pageScroll = pageScrollRef.current;
+    const tabScroll = tabContentRef.current;
+    pageScroll?.addEventListener("scroll", saveState, { passive: true });
+    tabScroll?.addEventListener("scroll", saveState, { passive: true });
+    return () => {
+      saveState();
+      pageScroll?.removeEventListener("scroll", saveState);
+      tabScroll?.removeEventListener("scroll", saveState);
+    };
+  }, [activeTab]);
   const activity = buildActivity();
 
   const handleTabChange = (index) => {
     setActiveTab(index);
+    writeNavigationState("buyer-profile", { activeTab: index, scrollTop: pageScrollRef.current?.scrollTop ?? 0, tabScrollLeft: index * (tabContentRef.current?.clientWidth ?? 0) });
     tabContentRef.current?.scrollTo({
       left: index * tabContentRef.current.clientWidth,
       behavior: "smooth",
@@ -36,14 +60,17 @@ export default function BuyerProfile() {
 
   const handleTabScroll = (event) => {
     const index = Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth);
-    if (index !== activeTab) setActiveTab(index);
+    if (index !== activeTab) {
+      setActiveTab(index);
+      writeNavigationState("buyer-profile", { activeTab: index, scrollTop: pageScrollRef.current?.scrollTop ?? 0, tabScrollLeft: event.currentTarget.scrollLeft });
+    }
   };
 
   return (
     <>
       <MobileScreenLayout>
       <Header titleContent={<ProfileSwitcher />} onMenu={openSidebar} />
-      <div className="overflow-y-auto flex-1 no-scrollbar">
+      <div ref={pageScrollRef} className="overflow-y-auto flex-1 no-scrollbar">
         <div className="relative h-[136px]">
           <img src={BUYER.banner} alt="Buyer profile banner" className="h-full w-full object-cover" />
         </div>
@@ -61,11 +88,12 @@ export default function BuyerProfile() {
             <button type="button" onClick={() => setEditing((current) => !current)} className="mt-4 w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">{editing ? "Save Profile" : "Edit Profile"}</button>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <BuyerStat label="Stores Followed" value="12" />
-              <BuyerStat label="Saved Items" value="18" />
+              <button type="button" onClick={() => navigate("/saved")} className="text-left"><BuyerStat label="Saved Items" value={savedProductCount} /></button>
               <BuyerStat label="Reviews Written" value="18" />
               <BuyerStat label="Events Attended" value="6" />
             </div>
           </div>
+
         </div>
 
         <div className="mt-4">
@@ -122,19 +150,24 @@ function buildActivity() {
 
 function CommunityStatusBadge() {
   const status = getBuyerStatus();
-  return <p className="mt-1 text-[13px] font-medium text-[#498467]">{status.icon} {status.name}</p>;
+  return <p className="mt-1 flex items-center gap-1 text-[13px] font-medium text-[#498467]"><OutlineIcon name={status.icon} size={15} /> {status.name}</p>;
+}
+
+function TrustReputationCard() {
+  const { getBuyerTrust } = useBuyerTrust();
+  const trust = getBuyerTrust("you");
+  return <section className="mt-4 rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4"><div className="text-[12px] font-medium uppercase tracking-[0.4px] text-[#498467]">Trust & Reputation</div><div className="mt-2 flex items-center gap-2 text-[17px] font-semibold"><OutlineIcon name={trust.reliable ? "heart" : "sprout"} size={21} className="text-[#498467]" /> {trust.reliable ? "Reliable Buyer" : "Building Trust"}</div><div className="mt-3 grid grid-cols-3 gap-2 text-[11px] leading-[130%] text-[#828282]"><div><div className="text-[17px] font-semibold text-[#498467]">{trust.completedTransactions}</div>Completed Transactions</div><div><div className="text-[17px] font-semibold text-[#498467]">{trust.sellerRecommendations}</div>Seller Recommendations</div><div><div className="text-[17px] font-semibold text-[#498467]">{trust.wouldTransactAgain}</div>Would Transact Again</div></div></section>;
 }
 
 function CommunityStatusCard({ status }) {
-  return <section className="rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4"><div className="text-[12px] font-medium uppercase tracking-[0.4px] text-[#498467]">Community Status</div><div className="mt-2 text-[20px] font-semibold">{status.icon} {status.name}</div><div className="mt-3 flex items-center justify-between text-[12px] text-[#828282]"><span>Progress to Next Level</span><span>{status.total} / {status.nextThreshold} actions</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-[#DDEBDF]"><div className="h-full rounded-full bg-[#498467]" style={{ width: `${status.progress}%` }} /></div></section>;
+  return <section className="mt-4 rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4"><div className="text-[12px] font-medium uppercase tracking-[0.4px] text-[#498467]">Community Status</div><div className="mt-2 flex items-center gap-2 text-[20px] font-semibold"><OutlineIcon name={status.icon} size={22} className="text-[#498467]" /> {status.name}</div><div className="mt-3 flex items-center justify-between text-[12px] text-[#828282]"><span>Progress to Next Level</span><span>{status.total} / {status.nextThreshold} actions</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-[#DDEBDF]"><div className="h-full rounded-full bg-[#498467]" style={{ width: `${status.progress}%` }} /></div></section>;
 }
 
 function CommunityImpactTab() {
   const status = getBuyerStatus();
   return (
     <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4">
-      <CommunityStatusCard status={status} />
-      <div className="mt-4 rounded-lg bg-[#498467] p-5 text-white">
+      <div className="rounded-lg bg-[#498467] p-5 text-white">
         <h2 className="text-[20px] font-semibold">Your Community Impact</h2>
         <p className="mt-1 text-[14px] leading-[140%] text-white/80">Because of you, local businesses continue to grow.</p>
       </div>
@@ -146,6 +179,8 @@ function CommunityImpactTab() {
           </div>
         ))}
       </div>
+      <TrustReputationCard />
+      <CommunityStatusCard status={status} />
       <section className="mt-5">
         <h3 className="text-[18px] font-semibold">Impact timeline</h3>
         <div className="mt-3 flex flex-col">

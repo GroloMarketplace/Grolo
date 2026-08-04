@@ -26,6 +26,9 @@ import {
   useEvents,
 } from "../context/EventContext";
 import { displayPostClassification } from "../data/postClassifications";
+import OutlineIcon from "../components/OutlineIcon";
+import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
+import { useSellerSettings } from "../context/SellerSettingsContext";
 
 const TABS = ["Following", "Your Community"];
 
@@ -34,7 +37,8 @@ export default function Feed() {
   const navigate = useNavigate();
   const scrollContainerRef = useRef(null);
   const mainTabContentRef = useRef(null);
-  const initialTabRef = useRef(TABS.includes(location.state?.tab) ? location.state.tab : "Your Community");
+  const savedFeedState = readNavigationState("feed", { tab: "Your Community", scrollTop: 0 });
+  const initialTabRef = useRef(TABS.includes(location.state?.tab) ? location.state.tab : savedFeedState.tab);
   const [tab, setTab] = useState(initialTabRef.current);
   const [actionContent, setActionContent] = useState(null);
   const [shareContent, setShareContent] = useState(null);
@@ -49,15 +53,16 @@ export default function Feed() {
   const unreadNotifications = notificationsRead ? 0 : notificationsHighlights.length + notificationsFollowers.length;
 
   useEffect(() => {
-    const savedScrollTop = sessionStorage.getItem("grolo-feed-scroll-top");
-    if (savedScrollTop && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = Number(savedScrollTop);
-      sessionStorage.removeItem("grolo-feed-scroll-top");
-    }
+    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = savedFeedState.scrollTop;
     const initialIndex = TABS.indexOf(initialTabRef.current);
-    if (initialIndex > 0 && mainTabContentRef.current) {
-      mainTabContentRef.current.scrollLeft = initialIndex * mainTabContentRef.current.clientWidth;
-    }
+    if (initialIndex > 0 && mainTabContentRef.current) mainTabContentRef.current.scrollLeft = initialIndex * mainTabContentRef.current.clientWidth;
+    const scrollElement = scrollContainerRef.current;
+    const saveState = () => writeNavigationState("feed", { tab: initialTabRef.current, scrollTop: scrollElement?.scrollTop ?? 0 });
+    scrollElement?.addEventListener("scroll", saveState, { passive: true });
+    return () => {
+      saveState();
+      scrollElement?.removeEventListener("scroll", saveState);
+    };
   }, []);
 
   const openComments = (content) => {
@@ -71,6 +76,8 @@ export default function Feed() {
   const handleTabChange = (nextTab) => {
     const nextIndex = TABS.indexOf(nextTab);
     setTab(nextTab);
+    initialTabRef.current = nextTab;
+    writeNavigationState("feed", { tab: nextTab, scrollTop: scrollContainerRef.current?.scrollTop ?? 0 });
     if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
     mainTabContentRef.current?.scrollTo({
       left: nextIndex * mainTabContentRef.current.clientWidth,
@@ -82,7 +89,9 @@ export default function Feed() {
     const index = Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth);
     if (index >= 0 && index < TABS.length && TABS[index] !== tab) {
       setTab(TABS[index]);
-      }
+      initialTabRef.current = TABS[index];
+      writeNavigationState("feed", { tab: TABS[index], scrollTop: scrollContainerRef.current?.scrollTop ?? 0 });
+    }
   };
 
   const showFeedToast = (message) => {
@@ -166,7 +175,7 @@ export default function Feed() {
             style={{ height: `${isRefreshing ? 56 : refreshDistance}px` }}
           >
             <div className="flex flex-col items-center gap-1 text-[12px] font-medium">
-              <span className={isRefreshing ? "animate-spin text-[20px] leading-none" : "text-[20px] leading-none"}>🌱</span>
+              <span className={isRefreshing ? "animate-spin text-[#498467]" : "text-[#498467]"}><OutlineIcon name="sprout" size={20} /></span>
               <span>{isRefreshing ? "Loading fresh local content..." : "Pull to refresh"}</span>
             </div>
           </div>
@@ -344,17 +353,43 @@ function renderCommunityItem(item, onComment, onMenu, onShare) {
 }
 
 function ListingFeedCard({ product, onMenu, onShare }) {
-  const menuContent = { id: `listing:${product.id}`, type: "listing", title: product.name, name: product.name, sellerId: product.sellerId, productId: product.id, sharePath: `/product/${product.id}`, savedItem: { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName: product.shop, image: product.image, description: product.name } };
-  return <div className="rounded-lg border border-[#E6E6E6] p-3"><div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><img src={product.image} alt={product.name} className="h-8 w-8 rounded-full object-cover" /><span className="text-[14px] font-semibold text-[#498467]">{product.shop}</span></div><MoreButton onClick={() => onMenu(menuContent)} /></div><img src={product.image} alt={product.name} className="mt-3 aspect-square w-full rounded object-cover" /><h3 className="mt-2 text-[16px] font-semibold">{product.name}</h3><p className="text-[14px] text-[#498467]">${product.price.toFixed(2)}</p><div className="mt-3 flex justify-end"><ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>;
+  const savedItem = { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName: product.shop, image: product.image, description: product.name };
+  const menuContent = { id: `listing:${product.id}`, type: "listing", title: product.name, name: product.name, sellerId: product.sellerId, productId: product.id, sharePath: `/product/${product.id}`, savedItem };
+  return <div className="rounded-lg border border-[#E6E6E6] p-3"><div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><img src={product.image} alt={product.name} className="h-8 w-8 rounded-full object-cover" /><span className="text-[14px] font-semibold text-[#498467]">{product.shop}</span></div><MoreButton onClick={() => onMenu(menuContent)} /></div><VacationBadge sellerId={product.sellerId} /><img src={product.image} alt={product.name} className="mt-3 aspect-square w-full rounded object-cover" /><h3 className="mt-2 text-[16px] font-semibold">{product.name}</h3><p className="text-[14px] text-[#498467]">${product.price.toFixed(2)}</p><div className="mt-3 flex justify-end gap-4"><SaveButton savedItem={savedItem} /><ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>;
 }
 
 function PromotionFeedCard({ promotion, product, onMenu, onShare }) {
+  const savedItem = product ? { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName: product.shop, image: product.image, description: product.name } : null;
   const menuContent = { id: `promotion:${promotion.id}`, type: "promotion", title: promotion.title, name: promotion.title, sellerId: promotion.sellerId, productId: product?.id, sharePath: product ? `/product/${product.id}` : "/", savedItem: { id: `promotion:${promotion.id}`, type: "promotion", sourceId: promotion.id, name: promotion.title, storeName: product?.shop, image: product?.image, description: promotion.title, promotion, productId: product?.id } };
-  return <div className="rounded-lg border border-[#E6E6E6] p-3"><div className="flex items-center justify-between gap-2"><PromotionBadge promotion={promotion} /><MoreButton onClick={() => onMenu(menuContent)} /></div>{product && <img src={product.image} alt={product.name} className="mt-3 aspect-square w-full rounded object-cover" />}<h3 className="mt-2 text-[16px] font-semibold">{promotion.title}</h3><p className="text-[14px] text-[#498467]">{product?.shop}</p><div className="mt-3 flex justify-end"><ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>;
+  return <div className="rounded-lg border border-[#E6E6E6] p-3"><div className="flex items-center justify-between gap-2"><PromotionBadge promotion={promotion} /><MoreButton onClick={() => onMenu(menuContent)} /></div><VacationBadge sellerId={promotion.sellerId} />{product && <img src={product.image} alt={product.name} className="mt-3 aspect-square w-full rounded object-cover" />}<h3 className="mt-2 text-[16px] font-semibold">{promotion.title}</h3><p className="text-[14px] text-[#498467]">{product?.shop}</p><div className="mt-3 flex justify-end gap-4">{savedItem && <SaveButton savedItem={savedItem} />}<ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>;
 }
 
 function ShareButton({ onClick }) {
   return <button type="button" aria-label="Share" onClick={onClick} className="flex items-center gap-1 text-[12px] text-[#498467]"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M18.33 1.67 9.17 10.83M9.17 10.83 1.67 7.5l16.66-5.83-5.83 16.66-3.33-7.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>Share</button>;
+}
+
+function SaveButton({ savedItem }) {
+  const { isSaved, toggleSaved } = useSavedItems();
+  const saved = isSaved(savedItem.id);
+  return (
+    <button
+      type="button"
+      aria-label={saved ? "Remove from Saved Items" : "Save product"}
+      aria-pressed={saved}
+      onClick={() => toggleSaved([savedItem])}
+      className={`flex items-center gap-1 text-[12px] ${saved ? "text-[#498467]" : "text-[#4F4F4F]"}`}
+    >
+      <OutlineIcon name="heart" size={16} fill={saved ? "currentColor" : "none"} />
+      {saved ? "Saved" : "Save"}
+    </button>
+  );
+}
+
+function VacationBadge({ sellerId }) {
+  const { getSellerProfile } = useSellerSettings();
+  return getSellerProfile(sellerId)?.vacationMode
+    ? <div className="mt-2 w-fit rounded-full bg-[#F5FFF6] px-2 py-1 text-[11px] font-medium text-[#4F4F4F]">Temporarily Closed</div>
+    : null;
 }
 
 function MoreButton({ onClick }) {
@@ -503,6 +538,10 @@ function Post({ post, stacked, onComment, onMenu, onShare }) {
   );
   const seller = Object.values(sellers).find((s) => s.name === post.name);
   const promotion = post.productId ? promotionsForProduct(post.productId)[0] : null;
+  const product = post.productId ? products.find((item) => item.id === post.productId) : null;
+  const savedProduct = product
+    ? { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName: product.shop, image: product.image, description: product.name }
+    : null;
   const savedPost = {
     id: `post:${post.id}`,
     type: "post",
@@ -602,6 +641,7 @@ function Post({ post, stacked, onComment, onMenu, onShare }) {
         </div>
       )}
 
+      {product && <VacationBadge sellerId={product.sellerId} />}
       <p className="text-[14px] leading-[140%]">{post.body}</p>
 
       <EngagementRow
@@ -615,6 +655,7 @@ function Post({ post, stacked, onComment, onMenu, onShare }) {
         onComment={() => onComment({ type: "post", post })}
         onRepost={handleRepost}
         onShare={() => onShare(menuContent, () => {})}
+        saveAction={savedProduct ? <SaveButton savedItem={savedProduct} /> : null}
       />
     </>
   );
@@ -659,6 +700,7 @@ function EngagementRow({
   onComment,
   onRepost,
   onShare,
+  saveAction,
 }) {
   return (
     <div className="flex items-center gap-11">
@@ -699,6 +741,7 @@ function EngagementRow({
           strokeLinejoin="round"
         />
       </IconCount>
+      {saveAction}
     </div>
   );
 }
@@ -735,9 +778,26 @@ export function Notifications() {
   const navigate = useNavigate();
   const edgeStartRef = useRef(null);
   const tabContentRef = useRef(null);
-  const [activeTab, setActiveTab] = useState(0);
+  const notificationScrollRef = useRef(null);
+  const savedNotificationState = readNavigationState("notifications", { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 });
+  const [activeTab, setActiveTab] = useState(savedNotificationState.activeTab);
   const [likedComments, setLikedComments] = useState(() => new Set());
   const fromTab = location.state?.fromTab === "Your Community" ? "Your Community" : "Following";
+
+  useEffect(() => {
+    if (notificationScrollRef.current) notificationScrollRef.current.scrollTop = savedNotificationState.scrollTop;
+    if (tabContentRef.current) tabContentRef.current.scrollLeft = savedNotificationState.tabScrollLeft;
+    const saveState = () => writeNavigationState("notifications", { activeTab, scrollTop: notificationScrollRef.current?.scrollTop ?? 0, tabScrollLeft: tabContentRef.current?.scrollLeft ?? 0 });
+    const scrollElement = notificationScrollRef.current;
+    const tabElement = tabContentRef.current;
+    scrollElement?.addEventListener("scroll", saveState, { passive: true });
+    tabElement?.addEventListener("scroll", saveState, { passive: true });
+    return () => {
+      saveState();
+      scrollElement?.removeEventListener("scroll", saveState);
+      tabElement?.removeEventListener("scroll", saveState);
+    };
+  }, [activeTab]);
 
   const goBackToFeed = () => navigate("/", { state: { tab: fromTab } });
   const handlePointerUp = (event) => {
@@ -746,6 +806,7 @@ export function Notifications() {
   };
   const handleTabChange = (index) => {
     setActiveTab(index);
+    writeNavigationState("notifications", { activeTab: index, scrollTop: notificationScrollRef.current?.scrollTop ?? 0, tabScrollLeft: index * (tabContentRef.current?.clientWidth ?? 0) });
     tabContentRef.current?.scrollTo({
       left: index * tabContentRef.current.clientWidth,
       behavior: "smooth",
@@ -753,7 +814,10 @@ export function Notifications() {
   };
   const handleTabScroll = (event) => {
     const index = Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth);
-    if (index !== activeTab) setActiveTab(index);
+    if (index !== activeTab) {
+      setActiveTab(index);
+      writeNavigationState("notifications", { activeTab: index, scrollTop: notificationScrollRef.current?.scrollTop ?? 0, tabScrollLeft: event.currentTarget.scrollLeft });
+    }
   };
   const { orderNotifications } = useOrders();
   const notificationLists = [
@@ -809,7 +873,7 @@ export function Notifications() {
       onPointerCancel={() => { edgeStartRef.current = null; }}
     >
       <Header title="Notifications" onBack={goBackToFeed} />
-      <div className="overflow-y-auto flex-1 no-scrollbar">
+      <div ref={notificationScrollRef} className="overflow-y-auto flex-1 no-scrollbar">
         <div className="sticky top-0 z-10 flex justify-center gap-2 bg-white pt-6 pb-4">
           {["Highlights", "Followers"].map((label, index) => (
             <button

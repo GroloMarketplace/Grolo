@@ -4,6 +4,7 @@ export const products = [
     name: "Organic Beets",
     category: "Garden",
     price: 4.99,
+    quantityAvailable: 25,
     shop: "Pennie's Produce",
     sellerId: "pennies-produce",
     status: "Active",
@@ -29,6 +30,7 @@ export const products = [
     name: "Dozen Donuts",
     category: "Bakery",
     price: 8.99,
+    quantityAvailable: 12,
     shop: "Dustin's Donut Store",
     sellerId: "dustins-donuts",
     status: "Active",
@@ -51,6 +53,7 @@ export const products = [
     name: "Crochet Hat",
     category: "Crafts",
     price: 14.99,
+    quantityAvailable: 0,
     shop: "Brandy's Crafts",
     sellerId: "brandys-crafts",
     status: "Sold",
@@ -71,6 +74,7 @@ export const products = [
     name: "Bag of Strawberries",
     category: "Garden",
     price: 5,
+    quantityAvailable: 25,
     shop: "Sarah's Backyard",
     sellerId: "sarahs-backyard",
     status: "Active",
@@ -1177,6 +1181,7 @@ export const chatMessages = [
 export const cartItems = [
   {
     id: 1,
+    productId: "strawberries",
     name: "Fresh Strawberries",
     description: "Fresh-picked local berries",
     quantity: 1,
@@ -1187,6 +1192,7 @@ export const cartItems = [
   },
   {
     id: 2,
+    productId: "organic-beets",
     name: "Organic Beets",
     description: "Organic garden beets",
     quantity: 1,
@@ -1197,6 +1203,7 @@ export const cartItems = [
   },
   {
     id: 3,
+    productId: "dozen-donuts",
     name: "Donut Kit",
     description: "Everything needed for a dozen donuts",
     quantity: 1,

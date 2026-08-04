@@ -1,10 +1,13 @@
 import { Link } from "react-router-dom";
 import PromotionBadge from "./PromotionBadge";
 import { usePromotions } from "../context/PromotionContext";
+import { useSellerSettings } from "../context/SellerSettingsContext";
 
 export default function ProductCard({ product }) {
   const { promotionsForProduct } = usePromotions();
   const promotion = promotionsForProduct(product.id)[0];
+  const { getSellerProfile } = useSellerSettings();
+  const vacationMode = getSellerProfile(product.sellerId)?.vacationMode;
 
   return (
     <Link
@@ -18,6 +21,7 @@ export default function ProductCard({ product }) {
           className="w-[148px] h-[148px] rounded-lg object-cover"
         />
         <PromotionBadge promotion={promotion} className="absolute left-2 top-2" />
+        {vacationMode && <span className="absolute bottom-2 left-2 rounded-full bg-white/90 px-2 py-1 text-[10px] font-medium text-[#4F4F4F]">Temporarily Closed</span>}
       </div>
       <div className="flex flex-col gap-0.5">
         <div className="text-[12px] text-black/50 line-clamp-2">

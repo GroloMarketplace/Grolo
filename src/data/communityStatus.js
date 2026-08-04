@@ -1,17 +1,17 @@
 export const BUYER_STATUS_LEVELS = [
-  { name: "Community Seedling", icon: "🌱", threshold: 0, nextThreshold: 10 },
-  { name: "Community Supporter", icon: "🌿", threshold: 10, nextThreshold: 25 },
-  { name: "Community Champion", icon: "🌳", threshold: 25, nextThreshold: 75 },
-  { name: "Local Legend", icon: "🌎", threshold: 75, nextThreshold: 125 },
-  { name: "Community Builder", icon: "💚", threshold: 125, nextThreshold: 150 },
+  { name: "Community Seedling", icon: "sprout", threshold: 0, nextThreshold: 10 },
+  { name: "Community Supporter", icon: "leaf", threshold: 10, nextThreshold: 25 },
+  { name: "Community Champion", icon: "tree", threshold: 25, nextThreshold: 75 },
+  { name: "Local Legend", icon: "globe", threshold: 75, nextThreshold: 125 },
+  { name: "Community Builder", icon: "heart", threshold: 125, nextThreshold: 150 },
 ];
 
 export const SELLER_STATUS_LEVELS = [
-  { name: "New Seller", icon: "🌱", threshold: 0, nextThreshold: 10 },
-  { name: "Local Grower", icon: "🌿", threshold: 10, nextThreshold: 25 },
-  { name: "Trusted Merchant", icon: "🌳", threshold: 25, nextThreshold: 75 },
-  { name: "Community Favorite", icon: "🏡", threshold: 75, nextThreshold: 125 },
-  { name: "Grolo Partner", icon: "💚", threshold: 125, nextThreshold: 150 },
+  { name: "New Seller", icon: "sprout", threshold: 0, nextThreshold: 10 },
+  { name: "Local Grower", icon: "leaf", threshold: 10, nextThreshold: 25 },
+  { name: "Trusted Merchant", icon: "tree", threshold: 25, nextThreshold: 75 },
+  { name: "Community Favorite", icon: "home", threshold: 75, nextThreshold: 125 },
+  { name: "Grolo Partner", icon: "heart", threshold: 125, nextThreshold: 150 },
 ];
 
 export const mockBuyerActions = {

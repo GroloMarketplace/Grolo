@@ -6,6 +6,7 @@ import { products, sellers, orders as mockOrders } from "../data/mockData";
 import { useOrders } from "../context/OrderContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import MapOptionsSheet from "../components/MapOptionsSheet";
+import OutlineIcon from "../components/OutlineIcon";
 
 const PICKUP_STEPS = [
   ["Order Submitted", "Your order has been created."],
@@ -122,7 +123,7 @@ export default function OrderTracking() {
         {isReadyForPickup && (
           <section className="mt-2 rounded-lg bg-[#F5FFF6] p-4">
             <h2 className="text-[18px] font-semibold">Pickup Information</h2>
-            <div className="mt-3 text-[14px]"><div className="font-medium">Pickup Location</div><div className="mt-1 text-[#4F4F4F]">📍 {settings.pickupLocation}</div></div>
+            <div className="mt-3 text-[14px]"><div className="font-medium">Pickup Location</div><div className="mt-1 flex items-center gap-1 text-[#4F4F4F]"><OutlineIcon name="home" size={15} className="text-[#498467]" /> {settings.pickupLocation}</div></div>
             <div className="mt-3 text-[14px]"><div className="font-medium">Pickup Notes</div><div className="mt-1 text-[#4F4F4F]">{settings.pickupNotes || "Text when arriving"}</div></div>
             <button type="button" onClick={() => setShowMapSheet(true)} className="mt-3 text-[14px] font-medium text-[#498467]">View on Map <span aria-hidden="true">›</span></button>
           </section>

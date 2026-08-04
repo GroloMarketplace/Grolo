@@ -5,6 +5,7 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import { events, products, reviews, sellers } from "../data/mockData";
 import { useOrders } from "../context/OrderContext";
 import { getSellerStatus } from "../data/communityStatus";
+import OutlineIcon from "../components/OutlineIcon";
 
 const TABS = ["Overview", "Orders", "Community", "Products"];
 const SELLER_ID = "sarahs-backyard";
@@ -36,7 +37,7 @@ export default function Profit() {
 
   return (
     <MobileScreenLayout>
-      <Header title="Performance" onBack={() => navigate("/shop")} />
+      <Header title="Performance" onBack={() => navigate("/shop", { state: { openSellerMenu: true } })} />
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-4">
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
           {TABS.map((item) => (
@@ -93,7 +94,7 @@ function OverviewTab({ orders, productsSold, followers, communityStatus }) {
         label="Seller Status"
         value={(
           <span className="flex flex-col items-center gap-1">
-            <span className="text-[20px] leading-none">{communityStatus.icon}</span>
+            <span className="text-[#498467]"><OutlineIcon name={communityStatus.icon} size={22} /></span>
             <span className="whitespace-nowrap text-[14px]">{communityStatus.name}</span>
           </span>
         )}
@@ -129,7 +130,10 @@ function CommunityTab({ followers, reviewsReceived, eventsHosted, communityStatu
       <MetricCard label="New Followers" value={Math.max(Math.round(followers * 0.08), 1)} />
       <MetricCard label="Reviews Received" value={reviewsReceived} />
       <MetricCard label="Events Hosted" value={eventsHosted} />
-      <MetricCard label="Community Status" value={`${communityStatus.icon} ${communityStatus.name}`} />
+      <MetricCard
+        label="Community Status"
+        value={<span className="flex items-center gap-1"><OutlineIcon name={communityStatus.icon} size={16} /> {communityStatus.name}</span>}
+      />
     </div>
   );
 }

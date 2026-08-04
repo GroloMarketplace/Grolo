@@ -11,17 +11,29 @@ import { usePromotions } from "../context/PromotionContext";
 import { useFavorites } from "../hooks/useFavorites";
 import { useReviews } from "../context/ReviewContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
+import { useCart } from "../context/CartContext";
+import { useInventory } from "../context/InventoryContext";
+import OutlineIcon from "../components/OutlineIcon";
+import { useSellerSettings } from "../context/SellerSettingsContext";
 
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
+  const [quantity, setQuantity] = useState(1);
+  const { addToCart } = useCart();
+  const { getAvailable } = useInventory();
   const product =
     products.find((p) => p.id === id) ??
     products.find((p) => p.id === "strawberries");
   const { isFavorite, toggleFavorite } = useFavorites();
   const saved = isFavorite(product.id);
-  const seller = Object.values(sellers).find((s) => s.name === product.shop);
+  const available = getAvailable(product.id);
+  const soldOut = available === 0;
+  const seller = sellers[product.sellerId] ?? Object.values(sellers).find((s) => s.name === product.shop);
+  const { getSellerProfile } = useSellerSettings();
+  const sellerProfile = getSellerProfile(seller?.id);
+  const vacationMode = sellerProfile?.vacationMode ?? false;
   const { getPaymentMethods } = usePaymentMethods();
   const sellerPaymentMethods = getPaymentMethods(seller?.id);
   const { promotionsForProduct } = usePromotions();
@@ -98,7 +110,9 @@ export default function ProductDetail() {
               product.shop
             )}
           </div>
+          {vacationMode && <div className="rounded-lg border border-[#D9D9D9] bg-[#F5FFF6] p-3 text-[14px] text-[#4F4F4F]">This store is temporarily not accepting orders.{sellerProfile.vacationMessage && <div className="mt-1 text-[13px] text-[#828282]">{sellerProfile.vacationMessage}</div>}</div>}
           <PaymentMethodsList paymentSettings={sellerPaymentMethods} />
+          <FulfillmentInfo paymentSettings={sellerPaymentMethods} />
           <button
             onClick={() => navigate(`/product/${product.id}/reviews`)}
             className="flex items-center gap-2 w-fit"
@@ -113,24 +127,25 @@ export default function ProductDetail() {
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <label className="text-[16px]">Product</label>
-            <div className="h-10 flex items-center justify-between rounded-lg border border-[#D9D9D9] px-4">
-              <span className="text-[16px]">Value</span>
-              <Chevron />
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
+            <span className="text-[14px] text-[#757575]">Available: {available}</span>
             <label className="text-[16px]">Quantity</label>
             <div className="h-10 flex items-center justify-between rounded-lg border border-[#D9D9D9] px-4">
-              <span className="text-[16px]">Value</span>
-              <Chevron />
+              <button type="button" aria-label="Decrease quantity" onClick={() => setQuantity((value) => Math.max(1, value - 1))} disabled={soldOut || quantity === 1} className="text-[20px] disabled:opacity-40">−</button>
+              <span className="text-[16px]">{quantity}</span>
+              <button type="button" aria-label="Increase quantity" onClick={() => setQuantity((value) => Math.min(available, value + 1))} disabled={soldOut || quantity >= available} className="text-[20px] text-[#498467] disabled:opacity-40">+</button>
             </div>
           </div>
         </div>
 
-        <button className="w-full rounded-lg bg-[#498467] text-[#F5F5F5] text-[16px] py-3 border border-[#B2B2B2]">
-          Add to Cart
-        </button>
+        {soldOut ? (
+          <div className="w-full rounded-lg bg-[#E6E6E6] text-[#757575] text-center text-[16px] py-3">Sold Out</div>
+        ) : vacationMode ? (
+          <div className="w-full rounded-lg bg-[#E6E6E6] text-[#757575] text-center text-[16px] py-3">Orders Paused</div>
+        ) : (
+          <button type="button" onClick={() => addToCart(product, quantity)} className="w-full rounded-lg bg-[#498467] text-[#F5F5F5] text-[16px] py-3 border border-[#B2B2B2]">
+            Add to Cart
+          </button>
+        )}
 
         <div className="rounded-lg border border-[#D9D9D9] p-4 flex flex-col gap-2">
           <button
@@ -240,27 +255,29 @@ export default function ProductDetail() {
 }
 
 function PaymentMethodsList({ paymentSettings }) {
-  const { methods, eTransferEmail } = paymentSettings;
+  const { methods } = paymentSettings;
   return (
     <div className="rounded-lg bg-[#F5FFF6] p-3">
       <div className="text-[12px] font-medium text-[#498467]">Accepted Payment Methods</div>
-      {methods.includes("cash") && <div className="mt-1 text-[13px] text-[#4F4F4F]">Cash · Pay at pickup</div>}
-      {methods.includes("etransfer") && <div className="mt-1 text-[13px] text-[#4F4F4F]">E-Transfer · {eTransferEmail}</div>}
-      <div className="mt-1 text-[12px] text-[#828282]">Credit/Debit (Coming Soon)</div>
+      {methods.includes("cash") && <div className="mt-1 text-[13px] text-[#4F4F4F]">• Cash</div>}
+      {methods.includes("etransfer") && <div className="mt-1 text-[13px] text-[#4F4F4F]">• E-Transfer</div>}
+      {methods.length > 0 && <div className="mt-1 text-[13px] text-[#4F4F4F]">• Pay at Pickup</div>}
     </div>
   );
 }
 
-function Chevron() {
+function FulfillmentInfo({ paymentSettings }) {
+  const methods = paymentSettings.fulfillmentMethods ?? [];
+  const label = methods.includes("pickup") && methods.includes("delivery")
+    ? "Pickup & Delivery Available"
+    : methods.includes("delivery")
+      ? "Delivery Available"
+      : "Pickup Only";
+
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <path
-        d="M4 6l4 4 4-4"
-        stroke="#1E1E1E"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <div className="rounded-lg bg-[#F5FFF6] p-3">
+      <div className="text-[12px] font-medium text-[#498467]">Fulfillment</div>
+      <div className="mt-1 flex items-center gap-1 text-[13px] text-[#4F4F4F]"><OutlineIcon name="home" size={15} className="text-[#498467]" /> {label}</div>
+    </div>
   );
 }

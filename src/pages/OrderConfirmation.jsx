@@ -1,8 +1,9 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Header from "../components/Header";
 import { useCart } from "../context/CartContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
+import { useInventory } from "../context/InventoryContext";
 
 function PaymentMethodsList({ paymentSettings }) {
   const { methods, eTransferEmail } = paymentSettings;
@@ -21,6 +22,8 @@ export default function OrderConfirmation() {
   const [isAnimated, setIsAnimated] = useState(false);
   const { state } = useLocation();
   const { items } = useCart();
+  const { reduceAvailable } = useInventory();
+  const inventoryReduced = useRef(false);
   const { getPaymentMethods, fulfillmentMethod } = usePaymentMethods();
   const orderItems = state?.sellerId ? items.filter((item) => (item.sellerId ?? "sarahs-backyard") === state.sellerId) : items;
   const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -43,7 +46,11 @@ export default function OrderConfirmation() {
   useEffect(() => {
     // Trigger animation after component mounts
     setIsAnimated(true);
-  }, []);
+    if (!inventoryReduced.current && orderItems.length > 0) {
+      reduceAvailable(orderItems);
+      inventoryReduced.current = true;
+    }
+  }, [orderItems, reduceAvailable]);
 
   return (
     <div className="flex h-full flex-col">

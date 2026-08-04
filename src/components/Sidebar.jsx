@@ -37,7 +37,7 @@ export default function Sidebar({ isOpen, onClose, mode = "seller" }) {
           </div>
           <h2 className="mb-6 text-xl font-semibold">Menu</h2>
           <nav className="flex flex-col gap-2">
-            {items.map(([label, path]) => <button key={label} onClick={() => handleMenuClick(() => navigate(path))} className="rounded-lg px-4 py-3 text-left transition-colors duration-200 hover:bg-[#498467] hover:text-white">{label}</button>)}
+            {items.map(([label, path]) => <button key={label} onClick={() => handleMenuClick(() => navigate(path, mode === "seller" ? { state: { fromSellerMenu: true } } : undefined))} className="rounded-lg px-4 py-3 text-left transition-colors duration-200 hover:bg-[#498467] hover:text-white">{label}</button>)}
             {mode === "buyer" && canSeller && <button onClick={() => handleMenuClick(() => { setProfileMode("seller"); navigate("/shop"); })} className="rounded-lg px-4 py-3 text-left transition-colors duration-200 hover:bg-[#498467] hover:text-white">Switch to Seller Profile</button>}
             <button onClick={() => handleMenuClick(() => { signOut(); navigate("/signin"); })} className="rounded-lg px-4 py-3 text-left transition-colors duration-200 hover:bg-[#498467] hover:text-white">Logout</button>
           </nav>

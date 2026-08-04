@@ -12,8 +12,12 @@ import { RegrowProvider } from "./context/RegrowContext";
 import { ProfileModeProvider } from "./context/ProfileModeContext";
 import { AdvertisingProvider } from "./context/AdvertisingContext";
 import { CartProvider } from "./context/CartContext";
+import { InventoryProvider } from "./context/InventoryContext";
 import { PaymentMethodsProvider } from "./context/PaymentMethodsContext";
 import { DeliveryAddressProvider } from "./context/DeliveryAddressContext";
+import { SellerSettingsProvider } from "./context/SellerSettingsContext";
+import { BuyerSettingsProvider } from "./context/BuyerSettingsContext";
+import { BuyerTrustProvider } from "./context/BuyerTrustContext";
 import Feed, { Notifications } from "./pages/Feed";
 import Search from "./pages/Search";
 import Category from "./pages/Category";
@@ -66,7 +70,11 @@ export default function App() {
         <ReviewProvider>
         <AdvertisingProvider>
         <CartProvider>
+        <InventoryProvider>
         <PaymentMethodsProvider>
+        <SellerSettingsProvider>
+        <BuyerSettingsProvider>
+        <BuyerTrustProvider>
         <DeliveryAddressProvider>
         <Routes>
         <Route path="/signin" element={<PhoneFrame hideTabBar statusBarBackground="bg-[#E6DCCF]" backgroundColor="bg-[#E6DCCF]"><SignIn /></PhoneFrame>} />
@@ -266,7 +274,11 @@ export default function App() {
         />
       </Routes>
         </DeliveryAddressProvider>
+        </BuyerTrustProvider>
+        </BuyerSettingsProvider>
+        </SellerSettingsProvider>
         </PaymentMethodsProvider>
+        </InventoryProvider>
         </CartProvider>
         </AdvertisingProvider>
         </ReviewProvider>

@@ -14,6 +14,7 @@ export default function CreateListing() {
     title: "",
     category: "",
     price: "",
+    quantityAvailable: "25",
     description: "",
     location: "",
     availableForTrade: false,
@@ -75,6 +76,20 @@ export default function CreateListing() {
               placeholder="0.00"
               step="0.01"
               min="0"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-[14px] font-medium mb-2">Quantity Available</label>
+            <input
+              type="number"
+              value={formData.quantityAvailable}
+              onChange={(e) => setFormData({ ...formData, quantityAvailable: e.target.value })}
+              className="w-full px-4 py-3 rounded-lg border border-[#E6E6E6] focus:outline-none focus:border-[#498467]"
+              placeholder="25"
+              min="0"
+              step="1"
               required
             />
           </div>

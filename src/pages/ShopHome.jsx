@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import Sidebar from "../components/Sidebar";
@@ -14,16 +14,28 @@ import { usePromotions } from "../context/PromotionContext";
 import { useRegrow } from "../context/RegrowContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { getSellerStatus } from "../data/communityStatus";
+import OutlineIcon from "../components/OutlineIcon";
+import { useSellerSettings } from "../context/SellerSettingsContext";
 
 export default function ShopHome() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
+  const routeLocation = useLocation();
   const navigate = useNavigate();
-  const [isEditing, setIsEditing] = useState(false);
-  const [storeName, setStoreName] = useState("Sarah's Backyard");
-  const [location, setLocation] = useState("Kensington, Calgary");
-  const [description, setDescription] = useState("I've grown lots of fruits and vegetables in my backyard and would love to share them with the community! All produce is grown with 100% organic soil and seeds.");
-  
+
+  useEffect(() => {
+    if (routeLocation.state?.openSellerMenu) {
+      openSidebar();
+      navigate(routeLocation.pathname, { replace: true, state: null });
+    }
+  }, [routeLocation, openSidebar, navigate]);
   const seller = sellers["sarahs-backyard"];
+  const { getSellerProfile, updateSellerProfile } = useSellerSettings();
+  const sellerProfile = getSellerProfile(seller.id);
+  const [isEditing, setIsEditing] = useState(false);
+  const [storeName, setStoreName] = useState(sellerProfile.name);
+  const [location, setLocation] = useState(sellerProfile.location);
+  const [description, setDescription] = useState(sellerProfile.description);
+  
   const { getPaymentMethods, updatePaymentMethods, updateFulfillment } = usePaymentMethods();
   const [paymentMethods, setPaymentMethods] = useState(() => getPaymentMethods(seller.id).methods);
   const [fulfillmentMethods, setFulfillmentMethods] = useState(() => getPaymentMethods(seller.id).fulfillmentMethods);
@@ -72,6 +84,7 @@ export default function ShopHome() {
   };
 
   const handleSaveStore = () => {
+    updateSellerProfile(seller.id, { name: storeName, location, description });
     updatePaymentMethods(seller.id, paymentMethods);
     updateFulfillment(seller.id, fulfillmentMethods, deliveryFee, deliveryRadius, pickupLocation, pickupNotes);
     setIsEditing(false);
@@ -148,7 +161,7 @@ export default function ShopHome() {
             {/* Banner */}
             <div className="h-[136px] relative">
               <img
-                src={seller.banner}
+                src={sellerProfile.banner}
                 alt={`${storeName} banner`}
                 className="w-full h-full object-cover"
               />
@@ -159,7 +172,7 @@ export default function ShopHome() {
               <div className="bg-white rounded-lg p-4 shadow-sm">
                 <div className="flex items-start gap-3">
                   <img
-                    src={seller.avatar}
+                    src={sellerProfile.avatar}
                     alt={storeName}
                     className="w-16 h-16 rounded-full object-cover border-2 border-white shadow"
                   />
@@ -173,7 +186,7 @@ export default function ShopHome() {
                     ) : (
                       <h1 className="text-[20px] font-semibold">{storeName}</h1>
                     )}
-                    <p className="mt-1 text-[13px] font-medium text-[#498467]">{sellerStatus.icon} {sellerStatus.name}</p>
+                    <p className="mt-1 flex items-center gap-1 text-[13px] font-medium text-[#498467]"><OutlineIcon name={sellerStatus.icon} size={15} /> {sellerStatus.name}</p>
                     {isEditing ? (
                       <input
                         value={location}

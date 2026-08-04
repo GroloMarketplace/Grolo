@@ -4,7 +4,8 @@ import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { ActivityCard } from "./BuyerProfile";
 import PromotionBadge from "../components/PromotionBadge";
-import { communityPosts, followingPosts, products, sellers, messages } from "../data/mockData";
+import { communityPosts, followingPosts, sellers, messages } from "../data/mockData";
+import { useListings } from "../context/ListingContext";
 import { useFollow } from "../context/FollowContext";
 import { useReviews } from "../context/ReviewContext";
 import {
@@ -30,13 +31,14 @@ export default function SellerProfile() {
   const { getPaymentMethods } = usePaymentMethods();
   const { sellerOrders } = useOrders();
   const { getSellerProfile } = useSellerSettings();
+  const { listings } = useListings();
   const seller = sellers[sellerId] || sellers["sarahs-backyard"];
   const sellerProfile = getSellerProfile(seller.id);
   const sellerPaymentMethods = getPaymentMethods(seller.id);
   const sellerEvents = upcomingEvents(seller.id);
   const sellerPromotions = promotionsForSeller(seller.id);
   const { average, count } = sellerRating(seller.id);
-  const sellerProducts = products.filter((p) => p.sellerId === seller.id || p.shop === seller.name);
+  const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === seller.name);
   const sellerOrdersForStatus = sellerOrders(seller.id);
   const sellerStatus = getSellerStatus({
     ordersFulfilled: sellerOrdersForStatus.filter((order) => order.status === "Completed").length,

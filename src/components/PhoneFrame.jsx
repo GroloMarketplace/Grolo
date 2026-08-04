@@ -16,7 +16,7 @@ export default function PhoneFrame({ children, hideTabBar, backgroundColor = "bg
         className={`relative w-full max-w-[375px] h-[812px] ${backgroundColor} overflow-hidden shadow-xl flex flex-col no-scroll-x`}
       >
         <StatusBar backgroundColor={backgroundColor} />
-        <div className="flex-1 overflow-x-hidden pb-20 relative">
+        <div className={`flex-1 overflow-x-hidden relative ${hideTabBar ? "" : "pb-20"}`}>
           <MobileScreenLayout>
             {children}
           </MobileScreenLayout>

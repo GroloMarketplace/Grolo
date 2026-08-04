@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import SearchBar from "../components/SearchBar";
-import { categories, products, sellers } from "../data/mockData";
+import { categories, sellers } from "../data/mockData";
+import { useListings } from "../context/ListingContext";
 
 function getCategoryName(value) {
   try {
@@ -17,11 +18,12 @@ export default function Category() {
   const { categoryName } = useParams();
   const navigate = useNavigate();
   const category = getCategoryName(categoryName);
+  const { listings } = useListings();
   const [query, setQuery] = useState("");
   const categoryExists = categories.some((item) => item.name === category);
   const categoryProducts = useMemo(
-    () => products.filter((product) => product.category?.toLowerCase() === category.toLowerCase()),
-    [category],
+    () => listings.filter((product) => product.category?.toLowerCase() === category.toLowerCase()),
+    [category, listings],
   );
   const filteredProducts = categoryProducts.filter((product) => {
     const searchableText = `${product.name} ${product.shop}`.toLowerCase();

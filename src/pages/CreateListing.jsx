@@ -2,13 +2,16 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
-import MobileScreenLayout from "../components/MobileScreenLayout";
 import PhotoManager from "../components/PhotoManager";
 import { useSidebar } from "../hooks/useSidebar";
+import { useListings } from "../context/ListingContext";
+import { useInventory } from "../context/InventoryContext";
 
 export default function CreateListing() {
   const navigate = useNavigate();
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
+  const { listings, addListing } = useListings();
+  const { updateAvailable } = useInventory();
   const [photos, setPhotos] = useState([]);
   const [formData, setFormData] = useState({
     title: "",
@@ -23,9 +26,32 @@ export default function CreateListing() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Handle form submission logic here
-    console.log("Listing created:", { ...formData, images: photos, image: photos[0] });
-    navigate("/shop");
+    const listing = {
+      id: `${formData.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`,
+      name: formData.title,
+      category: formData.category,
+      price: Number(formData.price),
+      quantityAvailable: Number(formData.quantityAvailable),
+      description: formData.description,
+      location: formData.location,
+      shop: "Sarah's Backyard",
+      sellerId: "sarahs-backyard",
+      status: "Active",
+      image: photos[0] ?? "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=800&q=80",
+      images: photos.length ? photos : ["https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=800&q=80"],
+      availableForTrade: formData.availableForTrade,
+      desiredTradeItems: formData.desiredTradeItems,
+      views: 0,
+      favorites: 0,
+      messages: 0,
+      rating: 0,
+      reviewCount: 0,
+    };
+    addListing(listing);
+    updateAvailable(listing.id, listing.quantityAvailable);
+    console.log("Listing Created:", listing.name);
+    console.log("Listings Count:", listings.length + 1);
+    navigate("/shop", { state: { listingCreated: listing.id, activeTab: "Listings" } });
   };
 
   return (
@@ -35,8 +61,8 @@ export default function CreateListing() {
         onMenu={openSidebar}
         onBack={() => navigate("/shop")}
       />
-      <MobileScreenLayout>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6 px-4 py-6">
+      <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar pb-24">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6 px-4 py-6 pb-8">
           <div>
             <label className="block text-[14px] font-medium mb-2">Listing Title</label>
             <input
@@ -152,7 +178,7 @@ export default function CreateListing() {
             Publish Listing
           </button>
         </form>
-      </MobileScreenLayout>
+      </div>
       <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
     </>
   );

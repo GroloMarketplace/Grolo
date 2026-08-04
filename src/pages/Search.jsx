@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 import CarouselRow from "../components/CarouselRow";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -8,6 +8,9 @@ import {
   featuredCommunitySpotlights,
   products,
   sellers,
+  events,
+  communityPosts,
+  followingPosts,
 } from "../data/mockData";
 import PromotionBadge from "../components/PromotionBadge";
 import { useFavorites } from "../hooks/useFavorites";
@@ -17,6 +20,7 @@ import { useOrders } from "../context/OrderContext";
 import { useAdvertising } from "../context/AdvertisingContext";
 import MapView from "../components/MapView";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
+import { useListings } from "../context/ListingContext";
 
 const TABS = ["Local", "Map", "History", "My Orders"];
 
@@ -28,10 +32,22 @@ const ORDER_SECTIONS = [
 
 export default function Search() {
   const navigate = useNavigate();
+  const { listings } = useListings();
+  const location = useLocation();
   const scrollRef = useRef(null);
-  const savedSearchState = readNavigationState("search", { tab: "Local", query: "", scrollTop: 0 });
+  const savedSearchState = location.state?.resetSearch
+    ? { tab: "Local", query: "", scrollTop: 0 }
+    : readNavigationState("search", { tab: "Local", query: "", scrollTop: 0 });
   const [tab, setTab] = useState(savedSearchState.tab);
   const [query, setQuery] = useState(savedSearchState.query);
+
+  useEffect(() => {
+    if (!location.state?.resetSearch) return;
+    setTab("Local");
+    setQuery("");
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.state?.resetSearch]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = savedSearchState.scrollTop;
@@ -66,7 +82,7 @@ export default function Search() {
           <SearchBar value={query} onChange={(event) => setQuery(event.target.value)} />
         </div>
 
-        {tab === "Local" && (
+        {tab === "Local" && query.trim() ? <SearchResults products={listings} query={query} navigate={navigate} /> : tab === "Local" && (
           <>
             <CommunitySpotlightCarousel />
             <CategoryRow />
@@ -87,6 +103,30 @@ export default function Search() {
       </div>
     </MobileScreenLayout>
   );
+}
+
+function SearchResults({ products, query, navigate }) {
+  const normalizedQuery = query.trim().toLowerCase();
+  const matches = (value) => String(value ?? "").toLowerCase().includes(normalizedQuery);
+  const productResults = products.filter((product) => matches(`${product.name} ${product.description} ${product.shop}`));
+  const storeResults = Object.values(sellers).filter((seller) => matches(`${seller.name} ${seller.description} ${seller.location}`));
+  const eventResults = events.filter((event) => matches(`${event.title} ${event.description} ${event.type} ${event.location}`));
+  const postResults = [...followingPosts, ...communityPosts].filter((post, index, posts) => posts.findIndex((item) => item.id === post.id) === index && matches(`${post.body} ${post.name} ${post.classification}`));
+  const tradeResults = products.filter((product) => product.availableForTrade && matches(`${product.name} ${product.tradeAvailableFor} ${product.desiredTradeItems}`));
+  const groups = [
+    { title: "Products", items: productResults, render: (product) => <ResultRow key={product.id} title={product.name} subtitle={product.shop} onClick={() => navigate(`/product/${product.id}`)} /> },
+    { title: "Stores", items: storeResults, render: (seller) => <ResultRow key={seller.id} title={seller.name} subtitle={seller.location} onClick={() => navigate(`/seller/${seller.id}`)} /> },
+    { title: "Events", items: eventResults, render: (event) => <ResultRow key={event.id} title={event.title} subtitle={event.location} onClick={() => navigate(`/event/${event.id}`)} /> },
+    { title: "Posts", items: postResults, render: (post) => <ResultRow key={post.id} title={post.body} subtitle={post.name} onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })} /> },
+    { title: "Trades", items: tradeResults, render: (product) => <ResultRow key={`trade-${product.id}`} title={`Looking to trade ${product.name}`} subtitle={`For ${product.desiredTradeItems || product.tradeAvailable}`} onClick={() => navigate(`/product/${product.id}`)} /> },
+  ];
+  const hasResults = groups.some((group) => group.items.length > 0);
+
+  return <div className="flex flex-col gap-5 px-4 py-5"><div><h2 className="text-[20px] font-semibold">Search Results</h2><p className="mt-1 text-[13px] text-[#828282]">Results for “{query.trim()}”</p></div>{hasResults ? groups.filter((group) => group.items.length > 0).map((group) => <section key={group.title}><h3 className="mb-2 text-[15px] font-semibold">{group.title}</h3><div className="flex flex-col gap-2">{group.items.map(group.render)}</div></section>) : <div className="rounded-lg border border-[#E6E6E6] px-4 py-8 text-center text-[14px] text-[#828282]">No results found</div>}</div>;
+}
+
+function ResultRow({ title, subtitle, onClick }) {
+  return <button type="button" onClick={onClick} className="flex w-full items-center justify-between rounded-lg border border-[#E6E6E6] p-3 text-left hover:bg-[#F5FFF6]"><div className="min-w-0"><div className="truncate text-[14px] font-medium">{title}</div>{subtitle && <div className="mt-1 truncate text-[12px] text-[#828282]">{subtitle}</div>}</div><span className="ml-3 text-[20px] text-[#498467]">›</span></button>;
 }
 
 function History() {

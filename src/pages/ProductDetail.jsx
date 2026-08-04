@@ -6,15 +6,15 @@ import CarouselRow from "../components/CarouselRow";
 import StarRating from "../components/StarRating";
 import ImageGallery from "../components/ImageGallery";
 import PromotionBadge from "../components/PromotionBadge";
-import { products, sellers } from "../data/mockData";
+import { sellers } from "../data/mockData";
 import { usePromotions } from "../context/PromotionContext";
 import { useFavorites } from "../hooks/useFavorites";
 import { useReviews } from "../context/ReviewContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { useCart } from "../context/CartContext";
-import { useInventory } from "../context/InventoryContext";
 import OutlineIcon from "../components/OutlineIcon";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import { useListings } from "../context/ListingContext";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -22,14 +22,13 @@ export default function ProductDetail() {
   const [open, setOpen] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
-  const { getAvailable } = useInventory();
-  const product =
-    products.find((p) => p.id === id) ??
-    products.find((p) => p.id === "strawberries");
+  const { listings } = useListings();
+  const product = listings.find((p) => p.id === id) ?? listings.find((p) => p.id === "strawberries");
   const { isFavorite, toggleFavorite } = useFavorites();
   const saved = isFavorite(product.id);
-  const available = getAvailable(product.id);
+  const available = Math.max(0, Number(product.quantityAvailable) || 0);
   const soldOut = available === 0;
+  const tradePreferences = product.desiredTradeItems?.trim() ?? "";
   const seller = sellers[product.sellerId] ?? Object.values(sellers).find((s) => s.name === product.shop);
   const { getSellerProfile } = useSellerSettings();
   const sellerProfile = getSellerProfile(seller?.id);
@@ -42,9 +41,33 @@ export default function ProductDetail() {
   const { average, count } = productRating(product.id);
   const productReviewList = reviewsForProduct(product.id);
 
+  const handleProposeTrade = () => {
+    if (!seller) return;
+    const tradeThreadId = `trade-${product.id}-${Date.now()}`;
+    const tradeDraft = tradePreferences
+      ? `Hi ${seller.name}! I'd like to make a trade for your listing: ${product.name}.\n\nI noticed you're looking for:\n${tradePreferences}\n\nLet me know if you're interested.`
+      : `Hi ${seller.name}! I'd like to discuss a trade for your listing.`;
+    navigate(`/messages/${tradeThreadId}`, {
+      state: {
+        draft: tradeDraft,
+        listingId: product.id,
+        tradeThread: true,
+      },
+    });
+  };
+
   useEffect(() => {
     console.info("Route opened", window.location.pathname, "Component: ProductDetail");
-  }, [id]);
+    console.info("Product Detail inventory", {
+      listingId: product.id,
+      quantityAvailable: product.quantityAvailable,
+      displayedAvailable: available,
+    });
+  }, [id, product.id, product.quantityAvailable, available]);
+
+  useEffect(() => {
+    setQuantity((current) => Math.min(current, Math.max(1, available)));
+  }, [available]);
 
   return (
     <MobileScreenLayout>
@@ -147,6 +170,26 @@ export default function ProductDetail() {
           </button>
         )}
 
+        {product.availableForTrade && seller && (
+          <div className="rounded-lg border border-[#D9D9D9] bg-white p-4 flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-[16px] font-semibold text-[#498467]">
+              <OutlineIcon name="sprout" size={18} className="text-[#498467]" />
+              <span>Open to Trade</span>
+            </div>
+            <div className="text-[14px] text-[#4F4F4F]">
+              <div className="font-medium">Looking For:</div>
+              <div className="mt-1 whitespace-pre-wrap">{tradePreferences || "Open to offers"}</div>
+            </div>
+            <button
+              type="button"
+              onClick={handleProposeTrade}
+              className="w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]"
+            >
+              Propose Trade
+            </button>
+          </div>
+        )}
+
         <div className="rounded-lg border border-[#D9D9D9] p-4 flex flex-col gap-2">
           <button
             className="flex items-center justify-between w-full"
@@ -247,7 +290,7 @@ export default function ProductDetail() {
 
       <CarouselRow
         title="Products for you"
-        products={products.filter((p) => p.id !== product.id)}
+        products={listings.filter((p) => p.id !== product.id)}
       />
       </div>
     </MobileScreenLayout>

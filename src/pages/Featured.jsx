@@ -7,7 +7,8 @@ import PromotionBadge from "../components/PromotionBadge";
 import { formatEventDate, formatEventTime } from "../context/EventContext";
 import { useFollow } from "../context/FollowContext";
 import { useAdvertising } from "../context/AdvertisingContext";
-import { events, products, promotions, sellers } from "../data/mockData";
+import { useListings } from "../context/ListingContext";
+import { events, promotions, sellers } from "../data/mockData";
 
 const FILTERS = ["All", "Listings", "Events", "Stores", "Promotions"];
 const SORT_OPTIONS = ["Featured", "Trending", "Newest"];
@@ -21,12 +22,13 @@ const STORE_CATEGORIES = {
 export default function Featured() {
   const navigate = useNavigate();
   const { ads } = useAdvertising();
+  const { listings } = useListings();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
   const [sort, setSort] = useState("Featured");
   const promotionByProduct = useMemo(
-    () => new Map(products.map((product) => [product.id, promotions.find((promotion) => promotion.productIds.includes(product.id))])),
-    [],
+    () => new Map(listings.map((product) => [product.id, promotions.find((promotion) => promotion.productIds.includes(product.id))])),
+    [listings],
   );
   const paidStoreIds = new Set(
     ads
@@ -40,10 +42,10 @@ export default function Featured() {
   const feed = useMemo(
     () => [
       ...featuredStores.map((store) => ({ type: "store", item: store })),
-      ...products.map((product) => ({ type: "listing", item: product, promotion: promotionByProduct.get(product.id) })),
+      ...listings.map((product) => ({ type: "listing", item: product, promotion: promotionByProduct.get(product.id) })),
       ...events.slice(0, 6).map((event) => ({ type: "event", item: event })),
     ],
-    [featuredStores, promotionByProduct],
+    [featuredStores, listings, promotionByProduct],
   );
   const filteredFeed = feed
     .filter((entry) => filter === "All" || (filter === "Listings" && entry.type === "listing") || (filter === "Events" && entry.type === "event") || (filter === "Stores" && entry.type === "store") || (filter === "Promotions" && entry.promotion))

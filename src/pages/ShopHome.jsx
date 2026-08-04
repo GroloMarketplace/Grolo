@@ -5,7 +5,8 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import Sidebar from "../components/Sidebar";
 import ProfileSwitcher from "../components/ProfileSwitcher";
 import { useSidebar } from "../hooks/useSidebar";
-import { communityPosts, followingPosts, products, sellers } from "../data/mockData";
+import { communityPosts, followingPosts, sellers } from "../data/mockData";
+import { useListings } from "../context/ListingContext";
 import SellerListingCard from "../components/SellerListingCard";
 import PromotionBadge from "../components/PromotionBadge";
 import { useOrders } from "../context/OrderContext";
@@ -31,6 +32,7 @@ export default function ShopHome() {
   const seller = sellers["sarahs-backyard"];
   const { getSellerProfile, updateSellerProfile } = useSellerSettings();
   const sellerProfile = getSellerProfile(seller.id);
+  const { listings, removeListing } = useListings();
   const [isEditing, setIsEditing] = useState(false);
   const [storeName, setStoreName] = useState(sellerProfile.name);
   const [location, setLocation] = useState(sellerProfile.location);
@@ -53,9 +55,7 @@ export default function ShopHome() {
     { label: "Preparing", count: storeOrders.filter((o) => o.status === "Preparing").length },
     { label: "Ready", count: storeOrders.filter((o) => o.status === "Ready for Pickup").length },
   ];
-  const [sellerProducts, setSellerProducts] = useState(
-    products.filter((p) => p.sellerId === "sarahs-backyard" || p.shop === storeName)
-  );
+  const sellerProducts = listings.filter((p) => p.sellerId === "sarahs-backyard" || p.shop === storeName);
   const sellerPosts = [...followingPosts, ...communityPosts].filter(
     (post, index, posts) =>
       post.sellerId === seller.id && posts.findIndex((item) => item.id === post.id) === index,
@@ -64,6 +64,10 @@ export default function ShopHome() {
   const [managedEvents, setManagedEvents] = useState(() => upcomingEvents("sarahs-backyard"));
   const [activeTab, setActiveTab] = useState(0);
   const contentRef = useRef(null);
+
+  useEffect(() => {
+    if (routeLocation.state?.activeTab === "Listings") setActiveTab(0);
+  }, [routeLocation.state?.activeTab]);
   const tabs = ["Listings", "Posts", "Events", "Regrows"];
   const sellerPromotions = promotionsForSeller(seller.id);
   const sellerStatus = getSellerStatus({
@@ -76,7 +80,7 @@ export default function ShopHome() {
   });
 
   const handleDeleteListing = (productId) => {
-    setSellerProducts(sellerProducts.filter((p) => p.id !== productId));
+    removeListing(productId);
   };
 
   const handleEditStore = () => {

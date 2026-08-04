@@ -5,23 +5,42 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import PhotoManager from "../components/PhotoManager";
 import { products } from "../data/mockData";
 import { useInventory } from "../context/InventoryContext";
+import { useListings } from "../context/ListingContext";
 
 export default function EditListing() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const product = products.find((p) => p.id === id) || products[0];
+  const { listings, updateListing } = useListings();
+  const product = listings.find((listing) => listing.id === id) || products[0];
 
   const [title, setTitle] = useState(product.name);
   const [price, setPrice] = useState(product.price);
   const [description, setDescription] = useState(product.description || "");
   const [category, setCategory] = useState(product.category || "Produce");
+  const [availableForTrade, setAvailableForTrade] = useState(product.availableForTrade ?? false);
+  const [desiredTradeItems, setDesiredTradeItems] = useState(product.desiredTradeItems ?? "");
   const [location, setLocation] = useState(product.location || "Kensington, Calgary");
   const [photos, setPhotos] = useState(product.images ?? [product.image]);
   const [quantityAvailable, setQuantityAvailable] = useState(product.quantityAvailable ?? 0);
   const { updateAvailable } = useInventory();
 
   const handleSave = () => {
-    updateAvailable(product.id, quantityAvailable);
+    const normalizedQuantity = Number.isInteger(Number(quantityAvailable)) && Number(quantityAvailable) >= 0
+      ? Number(quantityAvailable)
+      : 0;
+    updateListing(product.id, {
+      name: title,
+      price: Number(price),
+      quantityAvailable: normalizedQuantity,
+      description,
+      category,
+      availableForTrade,
+      desiredTradeItems: availableForTrade ? desiredTradeItems : "",
+      location,
+      images: photos,
+      image: photos[0],
+    });
+    updateAvailable(product.id, normalizedQuantity);
     // Handle saving the listing
     console.log("Saving listing:", {
       title,
@@ -109,6 +128,31 @@ export default function EditListing() {
             <option value="Crafts">Crafts</option>
             <option value="Other">Other</option>
           </select>
+        </div>
+
+        {/* Trade */}
+        <div className="rounded-lg border border-[#E6E6E6] p-3 mb-4">
+          <label className="flex items-center gap-3 text-[14px] font-medium">
+            <input
+              type="checkbox"
+              checked={availableForTrade}
+              onChange={(e) => setAvailableForTrade(e.target.checked)}
+              className="h-4 w-4 accent-[#498467]"
+            />
+            Open to Trade
+          </label>
+          {availableForTrade && (
+            <div className="mt-3">
+              <label className="mb-2 block text-[14px] font-medium">Preferred Trade Items (optional)</label>
+              <input
+                type="text"
+                value={desiredTradeItems}
+                onChange={(e) => setDesiredTradeItems(e.target.value)}
+                className="w-full rounded-lg border border-[#E6E6E6] px-4 py-3 text-[14px] outline-none focus:border-[#498467]"
+                placeholder="e.g. Tomatoes, herbs, honey"
+              />
+            </div>
+          )}
         </div>
 
         {/* Location */}

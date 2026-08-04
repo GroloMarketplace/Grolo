@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { writeNavigationState } from "../hooks/navigationState";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useCart } from "../context/CartContext";
 
@@ -98,7 +99,8 @@ export default function TabBar() {
         {tabs.map((tab) => (
           <NavLink
             key={tab.to}
-            to={tab.to === "/shop" ? profilePath : tab.to === "/" ? { pathname: "/", state: { tab: "Your Community" } } : tab.to}
+            to={tab.to === "/shop" ? profilePath : tab.to === "/" ? { pathname: "/", state: { tab: "Your Community" } } : tab.to === "/search" ? { pathname: "/search", state: { resetSearch: true } } : tab.to}
+            onClick={tab.to === "/search" ? () => writeNavigationState("search", { tab: "Local", query: "", scrollTop: 0 }) : undefined}
             end={tab.to === "/"}
             className="flex-1 flex items-center justify-center"
           >

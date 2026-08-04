@@ -10,6 +10,7 @@ export default function SellerListingCard({ product, onDelete }) {
   const promotion = promotionsForProduct(product.id)[0];
   const { getAvailable } = useInventory();
   const available = getAvailable(product.id);
+  const displayStatus = available === 0 ? "Sold" : status;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [status, setStatus] = useState(product.status || "Active");
 
@@ -47,8 +48,8 @@ export default function SellerListingCard({ product, onDelete }) {
       <div className="flex flex-col gap-3 w-[148px] shrink-0 relative">
         {/* Status Badge */}
         <div className="absolute top-2 right-2 z-10">
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusColors[status]}`}>
-            {status}
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusColors[displayStatus]}`}>
+            {displayStatus}
           </span>
         </div>
         <PromotionBadge promotion={promotion} className="absolute left-2 top-2 z-10" />

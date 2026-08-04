@@ -7,6 +7,32 @@ import {
 } from "../data/mockData";
 
 const OrderContext = createContext(null);
+const ORDER_STORAGE_KEY = "grolo-orders";
+const INVENTORY_STORAGE_KEY = "grolo-inventory";
+const INVENTORY_EVENT = "grolo-inventory-updated";
+
+function restorePersistedInventory(items) {
+  try {
+    const savedInventory = window.localStorage.getItem(INVENTORY_STORAGE_KEY);
+    const inventory = savedInventory ? JSON.parse(savedInventory) : {};
+    items.forEach((item) => {
+      const productId = item.productId ?? item.id;
+      inventory[productId] = (inventory[productId] ?? 0) + (Number(item.quantity) || 0);
+    });
+    window.localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(inventory));
+    window.dispatchEvent(new CustomEvent(INVENTORY_EVENT, { detail: inventory }));
+  } catch {
+  }
+}
+
+function loadOrders() {
+  try {
+    const savedOrders = window.localStorage.getItem(ORDER_STORAGE_KEY);
+    return savedOrders ? JSON.parse(savedOrders) : mockOrders;
+  } catch {
+    return mockOrders;
+  }
+}
 
 const NEXT_STATUS = {
   "Order Placed": ["Preparing"],
@@ -15,7 +41,14 @@ const NEXT_STATUS = {
 };
 
 export function OrderProvider({ children }) {
-  const [orders, setOrders] = useState(mockOrders);
+  const [orders, setOrders] = useState(loadOrders);
+
+  const saveOrders = (nextOrders) => {
+    try {
+      window.localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(nextOrders));
+    } catch {
+    }
+  };
   const [orderNotifications, setOrderNotifications] = useState([]);
   const [sellerOrderNotifications, setSellerOrderNotifications] = useState([]);
 
@@ -39,11 +72,12 @@ export function OrderProvider({ children }) {
   );
 
   const updateOrderStatus = useCallback((orderId, status) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status } : o)),
-    );
-
     const order = orders.find((o) => o.id === orderId);
+    if (!order || order.status === "Cancelled" || !NEXT_STATUS[order.status]?.includes(status)) return false;
+    const nextOrders = orders.map((item) => item.id === orderId ? { ...item, status } : item);
+    setOrders(nextOrders);
+    saveOrders(nextOrders);
+
     const product = products.find((p) => p.id === order?.productId);
     if (!order || !product) return;
 
@@ -64,35 +98,45 @@ export function OrderProvider({ children }) {
   }, [orders]);
 
   const cancelOrder = useCallback((orderId, fallbackOrder) => {
-    const order = orders.find((item) => item.id === orderId) ?? fallbackOrder;
+    const order = orders.find((item) => String(item.id) === String(orderId) || String(item.id).replace(/^ORD-/, "") === String(orderId)) ?? fallbackOrder;
+    const resolvedOrderId = order?.id ?? orderId;
     const product = products.find((item) => item.id === order?.productId);
-    const sellerId = order?.sellerId ?? product?.sellerId;
-    if (!order || !product || !sellerId || !["Order Placed", "Seller Notified"].includes(order.status)) return false;
+    const sellerId = order?.sellerId ?? product?.sellerId ?? "sarahs-backyard";
+    if (!order || order.status === "Cancelled") return false;
 
-    const seller = sellers[sellerId];
-    setOrders((prev) => prev.some((item) => item.id === orderId)
-      ? prev.map((item) => (item.id === orderId ? { ...item, status: "Cancelled" } : item))
-      : [...prev, { ...order, status: "Cancelled" }]);
+    const seller = sellers[sellerId] ?? sellers["sarahs-backyard"];
+    console.info("Order cancellation", {
+      orderId: resolvedOrderId,
+      previousStatus: order.status,
+      newStatus: "Cancelled",
+    });
+    const cancelledOrder = { ...order, status: "Cancelled", inventoryRestored: true };
+    if (!order.inventoryRestored) restorePersistedInventory([order]);
+    const nextOrders = orders.some((item) => item.id === resolvedOrderId)
+      ? orders.map((item) => item.id === resolvedOrderId ? cancelledOrder : item)
+      : [...orders, cancelledOrder];
+    setOrders(nextOrders);
+    saveOrders(nextOrders);
     setOrderNotifications((prev) => [
       {
-        id: `order-${orderId}-cancelled-${Date.now()}`,
-        name: seller?.name ?? product.shop,
+        id: `order-${resolvedOrderId}-cancelled-${Date.now()}`,
+        name: seller?.name ?? product?.shop ?? "Store",
         avatar: seller?.avatar,
         time: "now",
         action: `${order.id} • Your order was cancelled`,
-        thumb: product.image,
+        thumb: product?.image,
         type: "order",
-        orderId,
+        orderId: resolvedOrderId,
       },
       ...prev,
     ]);
     setSellerOrderNotifications((prev) => [
       {
-        id: `seller-order-${orderId}-cancelled-${Date.now()}`,
+        id: `seller-order-${resolvedOrderId}-cancelled-${Date.now()}`,
         sellerId,
-        orderId,
+        orderId: resolvedOrderId,
         time: "now",
-        action: `${order.id} was cancelled by the buyer`,
+        action: `${order.id.replace(/^ORD-/, "#")} was cancelled by the buyer.`,
         type: "order",
       },
       ...prev,

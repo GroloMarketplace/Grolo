@@ -5,6 +5,7 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import { products, sellers, orders as mockOrders } from "../data/mockData";
 import { useOrders } from "../context/OrderContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
+import { useMessages } from "../context/MessageContext";
 import MapOptionsSheet from "../components/MapOptionsSheet";
 import OutlineIcon from "../components/OutlineIcon";
 
@@ -39,10 +40,15 @@ export default function OrderTracking() {
   const { state } = useLocation();
   const { orders, cancelOrder } = useOrders();
   const { getPaymentMethods } = usePaymentMethods();
+  const { createOrderConversation } = useMessages();
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showMapSheet, setShowMapSheet] = useState(false);
-  const matchesRouteId = (item) => item.id === id || item.id.replace(/^ORD-/, "") === id;
-  const order = orders.find(matchesRouteId) ?? state?.order ?? mockOrders.find(matchesRouteId) ?? mockOrders[0];
+  const [cancellationSuccess, setCancellationSuccess] = useState(false);
+  const [statusOverride, setStatusOverride] = useState(null);
+  const [orderOverride, setOrderOverride] = useState(null);
+  const matchesRouteId = (item) => String(item.id) === id || String(item.id).replace(/^ORD-/, "") === id;
+  const contextOrder = orders.find(matchesRouteId) ?? state?.order ?? mockOrders.find(matchesRouteId) ?? mockOrders[0];
+  const order = orderOverride ?? contextOrder;
   const product = products.find((item) => item.id === order?.productId);
   const sellerId = order?.sellerId ?? product?.sellerId ?? "sarahs-backyard";
   const seller = sellers[sellerId] ?? sellers["sarahs-backyard"];
@@ -50,9 +56,10 @@ export default function OrderTracking() {
   const fulfillmentMethod = order?.fulfillmentMethod ?? "pickup";
   const isDelivery = fulfillmentMethod === "delivery";
   const steps = isDelivery ? DELIVERY_STEPS : PICKUP_STEPS;
-  const isCancelled = order?.status === "Cancelled";
-  const canCancel = ["Order Placed", "Seller Notified"].includes(order?.status);
-  const currentIndex = isCancelled ? -1 : Math.min(STATUS_INDEX[order?.status] ?? 0, steps.length - 1);
+  const currentStatus = statusOverride ?? order?.status;
+  const isCancelled = currentStatus === "Cancelled";
+  const canCancel = ["Order Placed", "Seller Notified"].includes(currentStatus);
+  const currentIndex = isCancelled ? -1 : Math.min(STATUS_INDEX[currentStatus] ?? 0, steps.length - 1);
   const isReadyForPickup = !isCancelled && !isDelivery && currentIndex >= 3;
   const needsChangeSection = !isCancelled && !canCancel && !isReadyForPickup;
 
@@ -60,19 +67,59 @@ export default function OrderTracking() {
     console.info("Route opened", window.location.pathname, "Component: OrderTracking");
   }, [id]);
 
+  useEffect(() => {
+    console.info("Order Details status rendered", {
+      orderId: order?.id ?? id,
+      status: currentStatus,
+    });
+  }, [currentStatus, id, order?.id]);
+
   const confirmCancellation = () => {
-    cancelOrder(order?.id ?? id, order);
+    const currentOrderId = order?.id ?? id;
+    const previousStatus = currentStatus;
+    console.info("Order ID", currentOrderId);
+    console.info("Previous Status", previousStatus);
+    const cancelled = cancelOrder(currentOrderId, order);
+    console.info("New Status", cancelled ? "Cancelled" : previousStatus);
+    if (cancelled) {
+      setOrderOverride((currentOrder) => ({ ...(currentOrder ?? order), status: "Cancelled" }));
+      setStatusOverride("Cancelled");
+      setCancellationSuccess(true);
+    }
     setShowCancelModal(false);
+  };
+
+  const handleMessageSeller = () => {
+    const { id: conversationId, draft, conversation } = createOrderConversation({
+      order,
+      product,
+      seller,
+      fulfillmentMethod: isDelivery ? "delivery" : "pickup",
+    });
+    navigate(`/messages/${conversationId}`, {
+      state: {
+        draft,
+        orderConversation: true,
+        orderId: order.id,
+        pendingConversation: conversation,
+      },
+    });
   };
 
   return (
     <MobileScreenLayout>
       <Header title="Order Details" onBack={() => navigate(-1)} />
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-5">
+        <div className={`mb-4 rounded-lg p-3 text-[14px] font-medium ${isCancelled ? "bg-[#FFF1F0] text-[#B42318]" : "bg-[#F5F5F5] text-[#4F4F4F]"}`}>
+          Current Status: {currentStatus}
+        </div>
         <section className="rounded-lg border border-[#E6E6E6] p-4">
           <div className="flex items-center justify-between gap-3">
             <h1 className="text-[18px] font-semibold">Order Summary</h1>
-            <span className="text-[12px] text-[#828282]">{order?.id ?? id}</span>
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-[12px] text-[#828282]">{order?.id ?? id}</span>
+              <span className="text-[12px] font-medium text-[#4F4F4F]">Current Status: {currentStatus}</span>
+            </div>
           </div>
           <div className="mt-4 flex flex-col gap-2 text-[14px]">
             <SummaryRow label="Store Name" value={seller.name} />
@@ -82,7 +129,7 @@ export default function OrderTracking() {
           </div>
         </section>
 
-        <section className="mt-6">
+        {!isCancelled && <section className="mt-6">
           <h2 className="text-[18px] font-semibold">Order Progress</h2>
           <div className="mt-4">
             {steps.map(([label, description], index) => {
@@ -104,7 +151,7 @@ export default function OrderTracking() {
               );
             })}
           </div>
-        </section>
+        </section>}
 
         {needsChangeSection && (
           <section className="mt-1 border-t border-[#E6E6E6] pt-4">
@@ -113,10 +160,12 @@ export default function OrderTracking() {
           </section>
         )}
 
+        {cancellationSuccess && <div className="rounded-lg bg-[#F5FFF6] p-3 text-[14px] font-medium text-[#02542D]">✅ Order cancelled successfully</div>}
+
         {isCancelled && (
           <section className="mt-1 border-t border-[#E6E6E6] pt-4">
             <div className="text-[16px] font-semibold text-[#B42318]">❌ Cancelled</div>
-            <p className="mt-1 text-[13px] text-[#828282]">Your order has been cancelled.</p>
+            <p className="mt-1 text-[13px] text-[#828282]">This order has been cancelled.</p>
           </section>
         )}
 
@@ -131,10 +180,19 @@ export default function OrderTracking() {
 
         <div className="mt-6 flex flex-col items-center gap-4 pb-4">
           <div className="flex w-full gap-3">
-            <button type="button" onClick={() => navigate(`/messages/${seller.id}`)} className="flex-1 rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467]">Message Seller</button>
-            <button type="button" onClick={() => navigate(`/seller/${seller.id}`)} className="flex-1 rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">View Store <span aria-hidden="true">›</span></button>
+            {isCancelled ? (
+              <>
+                <button type="button" onClick={() => navigate(`/seller/${seller.id}`)} className="flex-1 rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467]">View Store <span aria-hidden="true">›</span></button>
+                <button type="button" onClick={() => navigate("/")} className="flex-1 rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">Continue Shopping</button>
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={handleMessageSeller} className="flex-1 rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467]">Message Seller</button>
+                <button type="button" onClick={() => navigate(`/seller/${seller.id}`)} className="flex-1 rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">View Store <span aria-hidden="true">›</span></button>
+              </>
+            )}
           </div>
-          {canCancel && (
+          {!isCancelled && canCancel && (
             <span
               role="button"
               tabIndex={0}

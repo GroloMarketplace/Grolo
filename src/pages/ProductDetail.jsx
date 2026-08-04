@@ -15,6 +15,8 @@ import { useCart } from "../context/CartContext";
 import OutlineIcon from "../components/OutlineIcon";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useListings } from "../context/ListingContext";
+import { useMessages } from "../context/MessageContext";
+import { useInventory } from "../context/InventoryContext";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -23,10 +25,12 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
   const { listings } = useListings();
+  const { createTradeConversation } = useMessages();
+  const { getAvailable } = useInventory();
   const product = listings.find((p) => p.id === id) ?? listings.find((p) => p.id === "strawberries");
   const { isFavorite, toggleFavorite } = useFavorites();
   const saved = isFavorite(product.id);
-  const available = Math.max(0, Number(product.quantityAvailable) || 0);
+  const available = Math.max(0, Number(getAvailable(product.id)) || 0);
   const soldOut = available === 0;
   const tradePreferences = product.desiredTradeItems?.trim() ?? "";
   const seller = sellers[product.sellerId] ?? Object.values(sellers).find((s) => s.name === product.shop);
@@ -43,15 +47,13 @@ export default function ProductDetail() {
 
   const handleProposeTrade = () => {
     if (!seller) return;
-    const tradeThreadId = `trade-${product.id}-${Date.now()}`;
-    const tradeDraft = tradePreferences
-      ? `Hi ${seller.name}! I'd like to make a trade for your listing: ${product.name}.\n\nI noticed you're looking for:\n${tradePreferences}\n\nLet me know if you're interested.`
-      : `Hi ${seller.name}! I'd like to discuss a trade for your listing.`;
+    const { id: tradeThreadId, draft: tradeDraft, conversation } = createTradeConversation({ listing: product, seller });
     navigate(`/messages/${tradeThreadId}`, {
       state: {
         draft: tradeDraft,
         listingId: product.id,
         tradeThread: true,
+        pendingConversation: conversation,
       },
     });
   };
@@ -60,7 +62,7 @@ export default function ProductDetail() {
     console.info("Route opened", window.location.pathname, "Component: ProductDetail");
     console.info("Product Detail inventory", {
       listingId: product.id,
-      quantityAvailable: product.quantityAvailable,
+      quantityAvailable: available,
       displayedAvailable: available,
     });
   }, [id, product.id, product.quantityAvailable, available]);
@@ -148,17 +150,17 @@ export default function ProductDetail() {
           </button>
         </div>
 
-        <div className="flex flex-col gap-4">
+        {!soldOut && <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <span className="text-[14px] text-[#757575]">Available: {available}</span>
             <label className="text-[16px]">Quantity</label>
             <div className="h-10 flex items-center justify-between rounded-lg border border-[#D9D9D9] px-4">
-              <button type="button" aria-label="Decrease quantity" onClick={() => setQuantity((value) => Math.max(1, value - 1))} disabled={soldOut || quantity === 1} className="text-[20px] disabled:opacity-40">−</button>
+              <button type="button" aria-label="Decrease quantity" onClick={() => setQuantity((value) => Math.max(1, value - 1))} disabled={quantity === 1} className="text-[20px] disabled:opacity-40">−</button>
               <span className="text-[16px]">{quantity}</span>
-              <button type="button" aria-label="Increase quantity" onClick={() => setQuantity((value) => Math.min(available, value + 1))} disabled={soldOut || quantity >= available} className="text-[20px] text-[#498467] disabled:opacity-40">+</button>
+              <button type="button" aria-label="Increase quantity" onClick={() => setQuantity((value) => Math.min(available, value + 1))} disabled={quantity >= available} className="text-[20px] text-[#498467] disabled:opacity-40">+</button>
             </div>
           </div>
-        </div>
+        </div>}
 
         {soldOut ? (
           <div className="w-full rounded-lg bg-[#E6E6E6] text-[#757575] text-center text-[16px] py-3">Sold Out</div>

@@ -15,7 +15,8 @@ const SECTIONS = [
   { title: "New Orders", statuses: ["Order Placed"] },
   { title: "Preparing", statuses: ["Preparing"] },
   { title: "Ready for Pickup", statuses: ["Ready for Pickup"] },
-  { title: "Completed Orders", statuses: ["Completed", "Cancelled"] },
+  { title: "Completed Orders", statuses: ["Completed"] },
+  { title: "Cancelled Orders", statuses: ["Cancelled"] },
 ];
 
 export default function ShopOrders() {

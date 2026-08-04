@@ -1,23 +1,30 @@
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { chatMessages, sellers, messages } from "../data/mockData";
+import { sellers } from "../data/mockData";
 import { useListings } from "../context/ListingContext";
+import { useMessages } from "../context/MessageContext";
 
 export default function Chat() {
   const location = useLocation();
   const navigate = useNavigate();
   const { id } = useParams();
   const [text, setText] = useState("");
-  const [sentMessages, setSentMessages] = useState([]);
   const [selectedTradeItem, setSelectedTradeItem] = useState(null);
   const inputRef = useRef(null);
   const { listings } = useListings();
-  const conversation = messages.find((message) => message.id === id);
-  const listing = location.state?.listingId
-    ? listings.find((item) => item.id === location.state.listingId)
+  const { messages, appendMessage } = useMessages();
+  const pendingConversation = location.state?.pendingConversation;
+  const conversation = messages.find((message) => message.id === id) ?? pendingConversation;
+  const orderContext = conversation?.orderContext;
+  const listingId = location.state?.listingId ?? conversation?.listingId ?? orderContext?.productId;
+  const listing = listingId
+    ? listings.find((item) => item.id === listingId)
     : null;
   const seller = Object.values(sellers).find((s) => s.id === (conversation?.sellerId ?? listing?.sellerId ?? id)) || sellers["pennies-produce"];
-  const isTradeThread = location.state?.tradeThread === true;
+  const isOrderThread = location.state?.orderConversation === true || conversation?.conversationType === "order";
+  const isTradeThread = location.state?.tradeThread === true
+    || conversation?.conversationType === "trading"
+    || conversation?.tradeThread === true;
   const tradeOptions = listing?.desiredTradeItems
     ?.split(",")
     .map((item) => item.trim())
@@ -35,13 +42,14 @@ export default function Chat() {
 
   const handleSend = () => {
     const messageText = text.trim();
-    if (!messageText) return;
-    setSentMessages((current) => [...current, {
+    if (!messageText || !conversation) return;
+    const message = {
       id: `${id}-${Date.now()}`,
       from: "me",
       text: messageText,
       timestamp: "Just now",
-    }]);
+    };
+    appendMessage(id, message, pendingConversation);
     setText("");
     setSelectedTradeItem(null);
   };
@@ -57,6 +65,16 @@ export default function Chat() {
       setText("Hi! I was looking at your store and had a question about your listings.");
     }
   }, [isNewConversation, location.state?.draft]);
+
+  useEffect(() => {
+    if (isTradeThread) {
+      console.info("Messages loaded when thread opens", {
+        conversationId: id,
+        messageIds: conversation?.messages?.map((message) => message.id) ?? [],
+        messageCount: conversation?.messages?.length ?? 0,
+      });
+    }
+  }, [conversation?.messages, id, isTradeThread]);
 
   return (
     <div className="flex flex-col h-full">
@@ -81,7 +99,28 @@ export default function Chat() {
       </div>
 
       <div className="min-h-0 flex-1 flex flex-col gap-3 p-4 overflow-y-auto no-scrollbar">
-        {listing ? (
+        {isOrderThread && orderContext ? (
+          <button
+            onClick={() => navigate(`/product/${orderContext.productId}`)}
+            className="flex gap-3 p-3 rounded-lg border border-[#E6E6E6] bg-white hover:bg-[#F5F5F5] transition-colors cursor-pointer text-left"
+          >
+            <img
+              src={orderContext.productImage}
+              alt={orderContext.productName}
+              className="w-20 h-20 rounded-lg object-cover shrink-0"
+            />
+            <div className="flex-1 flex flex-col justify-center min-w-0 gap-0.5">
+              <h4 className="text-[16px] font-semibold truncate">{orderContext.productName}</h4>
+              <p className="text-[14px] text-[#828282] truncate">{orderContext.storeName}</p>
+              <p className="text-[13px] text-[#4F4F4F]">Order {orderContext.orderNumber}</p>
+              <p className="text-[13px] text-[#4F4F4F]">Qty: {orderContext.quantity}</p>
+              <div className="flex flex-wrap gap-x-2 text-[12px] text-[#498467]">
+                <span>{orderContext.fulfillmentMethod === "delivery" ? "Delivery" : "Pickup"}</span>
+                <span>{orderContext.status}</span>
+              </div>
+            </div>
+          </button>
+        ) : listing ? (
           <button
             onClick={() => navigate(`/product/${listing.id}`)}
             className="flex gap-3 p-3 rounded-lg border border-[#E6E6E6] bg-white hover:bg-[#F5F5F5] transition-colors cursor-pointer text-left"
@@ -93,10 +132,10 @@ export default function Chat() {
             />
             <div className="flex-1 flex flex-col justify-center min-w-0">
               <h4 className="text-[16px] font-semibold truncate">{listing.name}</h4>
-              <p className="text-[14px] text-[#828282] truncate">{listing.shop}</p>
+              <p className="text-[14px] text-[#828282] truncate">{seller.name}</p>
               <p className="text-[16px] font-semibold text-[#498467]">${Number(listing.price).toFixed(2)}</p>
               <div className="flex flex-wrap gap-x-2 text-[12px] text-[#498467]">
-                {listing.quantityAvailable != null && <span>{listing.quantityAvailable} available</span>}
+                {listing.quantityAvailable != null && <span>Available: {listing.quantityAvailable}</span>}
                 {listing.availableForTrade && <span>Open to Trade</span>}
               </div>
             </div>
@@ -119,33 +158,22 @@ export default function Chat() {
           </button>
         )}
 
-        {!isNewConversation && !isTradeThread && chatMessages.map((m) => (
+        {(conversation?.messages ?? []).map((message) => (
           <div
-            key={m.id}
-            className={`flex ${m.from === "me" ? "justify-end" : "justify-start"}`}
+            key={message.id}
+            className={`flex ${message.from === "me" ? "justify-end" : "justify-start"}`}
           >
             <div className="flex flex-col items-end">
               <div
                 className={`max-w-[70%] px-4 py-2 rounded-2xl text-[14px] font-medium ${
-                  m.from === "me"
+                  message.from === "me"
                     ? "bg-[#498467] text-white rounded-br-md"
                     : "bg-[#E9E9EB] text-black rounded-bl-md"
                 }`}
               >
-                {m.text}
-              </div>
-              <span className="text-[11px] text-[#828282] mt-1">{m.timestamp}</span>
-            </div>
-          </div>
-        ))}
-
-        {sentMessages.map((message) => (
-          <div key={message.id} className="flex justify-end">
-            <div className="flex flex-col items-end">
-              <div className="max-w-[70%] rounded-2xl rounded-br-md bg-[#498467] px-4 py-2 text-[14px] font-medium text-white">
                 {message.text}
               </div>
-              <span className="mt-1 text-[11px] text-[#828282]">{message.timestamp}</span>
+              <span className="text-[11px] text-[#828282] mt-1">{message.timestamp}</span>
             </div>
           </div>
         ))}
@@ -185,7 +213,7 @@ export default function Chat() {
             placeholder="Message..."
             className="flex-1 text-[14px] text-[#828282] outline-none"
           />
-          <button type="button" onClick={isTradeThread ? handleSend : undefined} aria-label="Send message" className="text-[#498467]">
+          <button type="button" onClick={handleSend} aria-label="Send message" className="text-[#498467]">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path
                 d="M3 20V4l19 8-19 8Z"

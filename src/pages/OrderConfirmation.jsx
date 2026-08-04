@@ -21,11 +21,15 @@ export default function OrderConfirmation() {
   const navigate = useNavigate();
   const [isAnimated, setIsAnimated] = useState(false);
   const { state } = useLocation();
-  const { items } = useCart();
-  const { reduceAvailable } = useInventory();
+  const { items, removeItems } = useCart();
+  const { reduceAvailable, getAvailable } = useInventory();
   const inventoryReduced = useRef(false);
+  const cartItemsRemoved = useRef(false);
   const { getPaymentMethods, fulfillmentMethod } = usePaymentMethods();
-  const orderItems = state?.sellerId ? items.filter((item) => (item.sellerId ?? "sarahs-backyard") === state.sellerId) : items;
+  const orderItemsRef = useRef(null);
+  const orderItems = orderItemsRef.current ?? (orderItemsRef.current = (state?.sellerId
+    ? items.filter((item) => (item.sellerId ?? "sarahs-backyard") === state.sellerId)
+    : items).filter((item) => getAvailable(item.productId ?? item.id) > 0 && item.quantity <= getAvailable(item.productId ?? item.id)));
   const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const paymentSettings = getPaymentMethods(state?.sellerId ?? orderItems[0]?.sellerId ?? "sarahs-backyard");
   const requestedFulfillment = state?.fulfillmentMethod ?? fulfillmentMethod;
@@ -50,7 +54,11 @@ export default function OrderConfirmation() {
       reduceAvailable(orderItems);
       inventoryReduced.current = true;
     }
-  }, [orderItems, reduceAvailable]);
+    if (!cartItemsRemoved.current && orderItems.length > 0) {
+      removeItems(orderItems);
+      cartItemsRemoved.current = true;
+    }
+  }, [orderItems, reduceAvailable, removeItems]);
 
   return (
     <div className="flex h-full flex-col">
@@ -111,7 +119,8 @@ export default function OrderConfirmation() {
             order: {
               id: orderNumber,
               sellerId: state?.sellerId ?? orderItems[0]?.sellerId ?? "sarahs-backyard",
-              productId: orderItems[0]?.id,
+              productId: orderItems[0]?.productId ?? orderItems[0]?.id,
+              quantity: orderItems.reduce((sum, item) => sum + item.quantity, 0),
               status: "Order Placed",
               total,
               fulfillmentMethod: selectedFulfillment,

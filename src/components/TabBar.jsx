@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { writeNavigationState } from "../hooks/navigationState";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useCart } from "../context/CartContext";
+import { useInventory } from "../context/InventoryContext";
 
 const tabs = [
   {
@@ -90,7 +91,13 @@ const tabs = [
 
 export default function TabBar() {
   const { profileMode } = useProfileMode();
-  const { totalQuantity } = useCart();
+  const { items } = useCart();
+  const { getAvailable } = useInventory();
+  const totalQuantity = items.reduce((sum, item) => (
+    getAvailable(item.productId ?? item.id) > 0 && item.quantity <= getAvailable(item.productId ?? item.id)
+      ? sum + item.quantity
+      : sum
+  ), 0);
   const profilePath = profileMode === "buyer" ? "/profile" : "/shop";
 
   return (

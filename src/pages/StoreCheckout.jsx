@@ -9,6 +9,7 @@ import MapOptionsSheet from "../components/MapOptionsSheet";
 import { sellers } from "../data/mockData";
 import OutlineIcon from "../components/OutlineIcon";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import { useInventory } from "../context/InventoryContext";
 
 export default function StoreCheckout() {
   const navigate = useNavigate();
@@ -17,7 +18,10 @@ export default function StoreCheckout() {
   const { getPaymentMethods } = usePaymentMethods();
   const { address } = useDeliveryAddress();
   const { getSellerProfile } = useSellerSettings();
-  const storeItems = items.filter((item) => (item.sellerId ?? "sarahs-backyard") === sellerId);
+  const { getAvailable } = useInventory();
+  const allStoreItems = items.filter((item) => (item.sellerId ?? "sarahs-backyard") === sellerId);
+  const inventoryAvailable = allStoreItems.length > 0 && allStoreItems.every((item) => getAvailable(item.productId ?? item.id) > 0 && item.quantity <= getAvailable(item.productId ?? item.id));
+  const storeItems = allStoreItems.filter((item) => getAvailable(item.productId ?? item.id) > 0 && item.quantity <= getAvailable(item.productId ?? item.id));
   const seller = sellers[sellerId] ?? sellers["sarahs-backyard"];
   const settings = getPaymentMethods(seller.id);
   const vacationMode = getSellerProfile(seller.id)?.vacationMode;
@@ -37,7 +41,7 @@ export default function StoreCheckout() {
         {selected === "pickup" ? <PickupLocation settings={settings} onMap={() => setShowMapSheet(true)} /> : <DeliveryInformation settings={settings} address={address} onAddress={() => navigate("/delivery-address")} />}
         <section><h2 className="mb-3 text-[18px] font-semibold">Store items</h2><div className="flex flex-col gap-3">{storeItems.map((item) => <div key={item.id} className="flex gap-3 rounded-lg border border-[#E6E6E6] p-3"><img src={item.image} alt={item.name} className="h-16 w-16 rounded-lg object-cover" /><div className="flex-1"><div className="text-[14px] font-medium">{item.name}</div><div className="text-[12px] text-[#828282]">Quantity: {item.quantity}</div></div><div className="text-[14px]">${(item.price * item.quantity).toFixed(2)}</div></div>)}</div></section>
         <div className="flex flex-col gap-2 border-t border-[#E6E6E6] pt-4"><Row label="Subtotal" value={`$${subtotal.toFixed(2)}`} /><Row label="Fulfillment Method" value={selected === "delivery" ? "Delivery" : "Pickup"} />{selected === "delivery" && <>{address && <DeliveryAddressSummary address={address} />}<Row label="Delivery Fee" value={`$${deliveryFee.toFixed(2)}`} /></>}<Row label="Total" value={`$${(subtotal + deliveryFee).toFixed(2)}`} /></div>
-        {vacationMode ? <div className="w-full rounded-lg bg-[#E6E6E6] py-3.5 text-center text-[16px] font-medium text-[#828282]">Orders Paused</div> : <button type="button" onClick={() => { if (selected === "delivery" && !address) { navigate("/delivery-address"); return; } navigate("/order-confirmation", { state: { sellerId, fulfillmentMethod: selected } }); }} className="w-full rounded-lg bg-[#498467] py-3.5 text-[16px] font-medium text-white">Place Order</button>}
+        {vacationMode ? <div className="w-full rounded-lg bg-[#E6E6E6] py-3.5 text-center text-[16px] font-medium text-[#828282]">Orders Paused</div> : !inventoryAvailable ? <div className="w-full rounded-lg bg-[#E6E6E6] py-3.5 text-center text-[16px] font-medium text-[#828282]">Sold Out</div> : <button type="button" onClick={() => { if (selected === "delivery" && !address) { navigate("/delivery-address"); return; } navigate("/order-confirmation", { state: { sellerId, fulfillmentMethod: selected } }); }} className="w-full rounded-lg bg-[#498467] py-3.5 text-[16px] font-medium text-white">Place Order</button>}
       </div></div>
       {showMapSheet && <MapOptionsSheet address={settings.pickupLocation} onClose={() => setShowMapSheet(false)} />}
     </MobileScreenLayout>

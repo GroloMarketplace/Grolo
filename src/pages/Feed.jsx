@@ -353,9 +353,31 @@ function renderCommunityItem(item, onComment, onMenu, onShare) {
 }
 
 function ListingFeedCard({ product, onMenu, onShare }) {
+  const navigate = useNavigate();
   const savedItem = { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName: product.shop, image: product.image, description: product.name };
   const menuContent = { id: `listing:${product.id}`, type: "listing", title: product.name, name: product.name, sellerId: product.sellerId, productId: product.id, sharePath: `/product/${product.id}`, savedItem };
-  return <div className="rounded-lg border border-[#E6E6E6] p-3"><div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><img src={product.image} alt={product.name} className="h-8 w-8 rounded-full object-cover" /><span className="text-[14px] font-semibold text-[#498467]">{product.shop}</span></div><MoreButton onClick={() => onMenu(menuContent)} /></div><VacationBadge sellerId={product.sellerId} /><img src={product.image} alt={product.name} className="mt-3 aspect-square w-full rounded object-cover" /><h3 className="mt-2 text-[16px] font-semibold">{product.name}</h3><p className="text-[14px] text-[#498467]">${product.price.toFixed(2)}</p><div className="mt-3 flex justify-end gap-4"><SaveButton savedItem={savedItem} /><ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>;
+  const openProduct = () => {
+    console.info("Home Feed listing clicked", { listingId: product.id, storeId: product.sellerId });
+    navigate(`/product/${product.id}`, { state: { sellerId: product.sellerId } });
+  };
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={openProduct}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") openProduct();
+      }}
+      className="cursor-pointer rounded-lg border border-[#E6E6E6] p-3"
+    >
+      <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><img src={product.image} alt={product.name} className="h-8 w-8 rounded-full object-cover" /><span className="text-[14px] font-semibold text-[#498467]">{product.shop}</span></div><MoreButton onClick={() => onMenu(menuContent)} /></div>
+      <VacationBadge sellerId={product.sellerId} />
+      <img src={product.image} alt={product.name} className="mt-3 aspect-square w-full rounded object-cover" />
+      <h3 className="mt-2 text-[16px] font-semibold">{product.name}</h3>
+      <p className="text-[14px] text-[#498467]">${product.price.toFixed(2)}</p>
+      <div className="mt-3 flex justify-end gap-4"><SaveButton savedItem={savedItem} /><ShareButton onClick={() => onShare(menuContent, undefined)} /></div>
+    </div>
+  );
 }
 
 function PromotionFeedCard({ promotion, product, onMenu, onShare }) {
@@ -365,7 +387,7 @@ function PromotionFeedCard({ promotion, product, onMenu, onShare }) {
 }
 
 function ShareButton({ onClick }) {
-  return <button type="button" aria-label="Share" onClick={onClick} className="flex items-center gap-1 text-[12px] text-[#498467]"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M18.33 1.67 9.17 10.83M9.17 10.83 1.67 7.5l16.66-5.83-5.83 16.66-3.33-7.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>Share</button>;
+  return <button type="button" aria-label="Share" onClick={(event) => { event.stopPropagation(); onClick(event); }} className="flex items-center gap-1 text-[12px] text-[#498467]"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M18.33 1.67 9.17 10.83M9.17 10.83 1.67 7.5l16.66-5.83-5.83 16.66-3.33-7.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>Share</button>;
 }
 
 function SaveButton({ savedItem }) {
@@ -376,7 +398,7 @@ function SaveButton({ savedItem }) {
       type="button"
       aria-label={saved ? "Remove from Saved Items" : "Save product"}
       aria-pressed={saved}
-      onClick={() => toggleSaved([savedItem])}
+      onClick={(event) => { event.stopPropagation(); toggleSaved([savedItem]); }}
       className={`flex items-center gap-1 text-[12px] ${saved ? "text-[#498467]" : "text-[#4F4F4F]"}`}
     >
       <OutlineIcon name="heart" size={16} fill={saved ? "currentColor" : "none"} />
@@ -394,7 +416,7 @@ function VacationBadge({ sellerId }) {
 
 function MoreButton({ onClick }) {
   return (
-    <button type="button" aria-label="More options" onClick={onClick} className="p-1">
+    <button type="button" aria-label="More options" onClick={(event) => { event.stopPropagation(); onClick(event); }} className="p-1">
       <svg width="15" height="3" viewBox="0 0 15 3" fill="none"><path d="M1.5 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" fill="black" /></svg>
     </button>
   );

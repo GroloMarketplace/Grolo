@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import SearchBar from "../components/SearchBar";
-import { products, sellers } from "../data/mockData";
+import { sellers } from "../data/mockData";
+import { useListings } from "../context/ListingContext";
+import { useMessages } from "../context/MessageContext";
 
 const TRADE_DIRECTIONS = ["Available For", "Looking For"];
 const TRADE_TYPES = ["Products", "Services"];
@@ -13,7 +15,9 @@ export default function Trading() {
   const [query, setQuery] = useState("");
   const [tradeDirection, setTradeDirection] = useState("Available For");
   const [tradeType, setTradeType] = useState("Products");
-  const tradeListings = products
+  const { listings } = useListings();
+  const { createTradeConversation } = useMessages();
+  const tradeListings = listings
     .filter((product) => product.availableForTrade)
     .filter((product) => {
       const searchableText = tradeDirection === "Available For"
@@ -68,7 +72,7 @@ export default function Trading() {
             <div className="rounded-lg border border-[#E6E6E6] px-4 py-8 text-center text-[14px] text-[#828282]">No listings are available for trade yet.</div>
           ) : (
             <div className="flex flex-col gap-4">
-              {tradeListings.map((product) => <TradeListingCard key={product.id} product={product} navigate={navigate} />)}
+              {tradeListings.map((product) => <TradeListingCard key={product.id} product={product} navigate={navigate} createTradeConversation={createTradeConversation} />)}
             </div>
           )}
         </div>
@@ -77,8 +81,21 @@ export default function Trading() {
   );
 }
 
-function TradeListingCard({ product, navigate }) {
+function TradeListingCard({ product, navigate, createTradeConversation }) {
   const seller = sellers[product.sellerId];
+
+  const handleProposeTrade = () => {
+    if (!seller) return;
+    const { id, draft, conversation } = createTradeConversation({ listing: product, seller });
+    navigate(`/messages/${id}`, {
+      state: {
+        draft,
+        listingId: product.id,
+        tradeThread: true,
+        pendingConversation: conversation,
+      },
+    });
+  };
   return (
     <article className="overflow-hidden rounded-lg border border-[#E6E6E6]">
       <button type="button" onClick={() => navigate(`/product/${product.id}`)} className="block w-full text-left">
@@ -94,7 +111,7 @@ function TradeListingCard({ product, navigate }) {
         </div>
       </button>
       <div className="px-3 pb-3">
-        <button type="button" onClick={() => navigate(`/messages/${product.sellerId}`)} className="w-full rounded-lg bg-[#498467] py-2.5 text-[14px] font-medium text-white">Propose Trade</button>
+        <button type="button" onClick={handleProposeTrade} className="w-full rounded-lg bg-[#498467] py-2.5 text-[14px] font-medium text-white">Propose Trade</button>
       </div>
     </article>
   );

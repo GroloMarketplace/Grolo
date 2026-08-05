@@ -16,6 +16,7 @@ export default function Cart() {
   const { items: savedForLaterItems, addItems, removeItems: removeSavedForLater } = useSavedForLater();
   const { listings } = useListings();
   const [undoItem, setUndoItem] = useState(null);
+  const [moveDebug, setMoveDebug] = useState(null);
   const undoTimeout = useRef(null);
   const scrollRef = useRef(null);
   const savedCartState = readNavigationState("cart", { scrollTop: 0 });
@@ -43,48 +44,43 @@ export default function Cart() {
     window.clearTimeout(undoTimeout.current);
   };
   const { getAvailable } = useInventory();
-  const getListingId = (item) => item.productId
-    ?? item.listingId
-    ?? listings.find((listing) => listing.id === item.id || listing.name === item.name)?.id
-    ?? item.id;
+  const getProduct = (item) => listings.find((listing) => (
+    listing.id === item.productId
+      || listing.id === item.listingId
+      || listing.id === item.id
+      || listing.name === item.name
+  ));
+  const getListingId = (item) => item.listingId ?? getProduct(item)?.id ?? item.productId ?? item.id;
+  const getProductId = (item) => getProduct(item)?.id ?? item.productId ?? item.listingId ?? item.id;
   const getRealInventory = (item) => {
-    const productId = getListingId(item);
-    return { available: Math.max(0, Number(getAvailable(productId)) || 0), source: "InventoryContext.getAvailable" };
+    const productId = getProductId(item);
+    return Math.max(0, Number(getAvailable(productId)) || 0);
+  };
+  const getProductPath = (item) => `/product/${getProductId(item)}`;
+  const openProduct = (item) => {
+    const listingId = getListingId(item);
+    navigate(getProductPath(item), { state: { listingId, productId: getProductId(item) } });
   };
   const moveToCart = (item) => {
-    const productId = getListingId(item);
-    const { available, source } = getRealInventory(item);
-    const decision = available > 0 ? "Move to Active Cart Items" : "Keep in Temporarily Sold Out";
-    console.info("Move to Cart inventory check", {
-      productName: item.name,
-      listingId: productId,
-      quantityAvailable: available,
-      inventorySource: source,
-      decision,
-    });
-    if (available <= 0) {
-      restoreItems([item]);
-    } else {
-      addToCart(item, Math.min(item.quantity, available), available);
+    const product = getProduct(item);
+    const productId = getProductId(item);
+    const available = getRealInventory(item);
+    const quantity = Math.min(Math.max(1, Number(item.quantity) || 1), available);
+    const moved = available > 0 && Boolean(product);
+    setMoveDebug({ productName: item.name, inventory: available, action: moved ? "Moved to Active Cart" : "Not moved", section: moved ? "Active Cart Items" : "Saved For Later" });
+    if (moved) {
+      addToCart({ ...product, productId }, quantity, available);
+      removeSavedForLater([item]);
     }
-    removeSavedForLater([item]);
   };
   const { getSellerProfile } = useSellerSettings();
   const inventoryStatus = items.map((item) => {
-    const { available, source } = getRealInventory(item);
-    const inStock = available > 0;
-    console.info("Cart inventory check", {
-      productName: item.name,
-      quantityAvailable: available,
-      quantityInCart: item.quantity,
-      inventorySource: source,
-      inStock,
-    });
-    return { item, available, inStock };
+    const available = getRealInventory(item);
+    return { item, available, inStock: available > 0 };
   });
   const activeItems = inventoryStatus.filter(({ inStock }) => inStock).map(({ item }) => item);
   const soldOutItems = inventoryStatus.filter(({ inStock }) => !inStock).map(({ item, available }) => ({ item, available }));
-  const savedForLaterStatus = savedForLaterItems.map((item) => ({ item, available: getRealInventory(item).available }));
+  const savedForLaterStatus = savedForLaterItems.map((item) => ({ item, available: getRealInventory(item) }));
   const savedForLaterActiveItems = savedForLaterStatus.filter(({ available }) => available > 0).map(({ item }) => item);
   const savedForLaterSoldOutItems = savedForLaterStatus.filter(({ available }) => available <= 0);
   const activeTotalQuantity = activeItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -96,18 +92,6 @@ export default function Cart() {
     groups[sellerId].push(item);
     return groups;
   }, {}));
-
-  useEffect(() => {
-    inventoryStatus.forEach(({ item, available, inStock }) => {
-      console.info("Move to Cart destination", {
-        productName: item.name,
-        listingId: item.productId ?? item.id,
-        quantityAvailable: available,
-        decision: inStock ? "Move to Active Cart Items" : "Keep in Temporarily Sold Out",
-        destinationSection: inStock ? "Active Cart Items" : "Temporarily Sold Out",
-      });
-    });
-  }, [items, getAvailable]);
 
   return (
     <MobileScreenLayout>
@@ -122,6 +106,15 @@ export default function Cart() {
         </div>
       </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
+        {moveDebug && (
+          <div className="mx-4 mt-4 rounded-lg border border-[#F0C36D] bg-[#FFF8E7] p-3 text-[12px] text-[#4F4F4F]" role="status">
+            <div className="font-semibold">Move To Cart Clicked</div>
+            <div>Product: {moveDebug.productName}</div>
+            <div>Inventory: {moveDebug.inventory}</div>
+            <div>Action: {moveDebug.action}</div>
+            <div>Current Section: {moveDebug.section}</div>
+          </div>
+        )}
         <CartSection title="Active Cart Items">
           {Object.entries(activeItems.reduce((groups, item) => {
             const sellerId = item.sellerId ?? "sarahs-backyard";
@@ -131,13 +124,13 @@ export default function Cart() {
           }, {})).map(([sellerId, storeItems]) => (
             <div key={sellerId} className="rounded-lg border border-[#E6E6E6] p-3">
               <div className="flex items-center justify-between gap-2">
-                <button type="button" onClick={() => navigate(`/seller/${sellerId}`)} className="text-left text-[14px] font-normal text-[#498467]">{sellers[sellerId]?.name ?? "Local Store"}</button>
+                <button type="button" onClick={() => navigate(`/seller/${sellerId}`)} className="text-left text-[14px] font-normal text-[#1E1E1E]">{sellers[sellerId]?.name ?? "Local Store"}</button>
                 {getSellerProfile(sellerId)?.vacationMode && <span className="text-[11px] font-medium text-[#4F4F4F]">Temporarily Closed</span>}
                 <button type="button" onClick={() => navigate(`/seller/${sellerId}`)} className="text-[14px] font-normal text-[#498467]">View Store <span aria-hidden="true" className="text-[16px] text-[#498467]">›</span></button>
               </div>
               {getSellerProfile(sellerId)?.vacationMode && <div className="mt-3 rounded-lg bg-[#F5FFF6] p-3 text-[13px] text-[#4F4F4F]">This store is temporarily not accepting orders.</div>}
               <div className="mt-3 text-[12px] font-medium">ITEMS</div>
-              <div className="mt-3 flex flex-col gap-4">{storeItems.map((item) => <CartItem key={item.id} item={item} updateQuantity={updateQuantity} removeItem={() => removeCartItem(item)} saveForLater={() => { addItems([item]); removeCartItems([item]); }} available={getRealInventory(item).available} sectionName="Active Cart Items" navigate={navigate} />)}</div>
+              <div className="mt-3 flex flex-col gap-4">{storeItems.map((item) => <CartItem key={item.id} item={item} updateQuantity={updateQuantity} removeItem={() => removeCartItem(item)} saveForLater={() => { addItems([item]); removeCartItems([item]); }} available={getRealInventory(item)} onProductClick={() => openProduct(item)} />)}</div>
             </div>
           ))}
         </CartSection>
@@ -145,16 +138,15 @@ export default function Cart() {
           <CartSection title="Temporarily Sold Out">
             {soldOutItems.map(({ item }) => (
               <SwipeToDelete key={item.id} onDelete={() => removeCartItem(item)} className="rounded-lg border border-[#E6E6E6]">
-                <div className="flex gap-3 p-3" role="link" tabIndex="0" onClick={(event) => { if (!event.target.closest("button")) navigate(`/product/${item.productId ?? item.id}`); }} onKeyDown={(event) => { if ((event.key === "Enter" || event.key === " ") && !event.target.closest("button")) navigate(`/product/${item.productId ?? item.id}`); }}>
+                <div className="flex gap-3 p-3" role="link" tabIndex="0" onClick={(event) => { if (!event.target.closest("button")) openProduct(item); }} onKeyDown={(event) => { if ((event.key === "Enter" || event.key === " ") && !event.target.closest("button")) openProduct(item); }}>
                   <img src={item.image} alt={item.name} className="h-20 w-20 rounded-lg object-cover" />
                   <div className="flex-1">
                     <div className="text-[14px] font-medium">{item.name}</div>
                     <p className="mt-1 text-[13px] text-[#828282]">This item is currently unavailable.</p>
-                    <div className="mt-1 text-[12px] text-[#828282]">Listing Inventory: {getRealInventory(item).available}</div>
-                    <div className="mt-1 text-[12px] text-[#828282]">Current Section: Temporarily Sold Out</div>
+                    <div className="mt-1 text-[12px] text-[#828282]">Listing Inventory: {getRealInventory(item)}</div>
                     <div className="mt-3 flex gap-3">
                       <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); removeCartItem(item); }} className="text-[12px] font-medium text-[#B42318]">Remove Item</button>
-                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); navigate(`/product/${item.productId ?? item.id}`); }} className="text-[12px] font-medium text-[#498467]">View Listing</button>
+                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); openProduct(item); }} className="text-[12px] font-medium text-[#498467]">View Listing</button>
                     </div>
                   </div>
                 </div>
@@ -167,9 +159,8 @@ export default function Cart() {
                 available={available}
                 onMove={() => {}}
                 onRemove={() => removeSavedForLater([item])}
-                onViewListing={() => navigate(`/product/${item.productId ?? item.id}`)}
-                navigate={navigate}
-                sectionName="Temporarily Sold Out"
+                onViewListing={() => openProduct(item)}
+                openProduct={openProduct}
               />
             ))}
           </CartSection>
@@ -179,12 +170,11 @@ export default function Cart() {
             <SavedForLaterCard
               key={item.id}
               item={item}
-              available={getRealInventory(item).available}
+              available={getRealInventory(item)}
               onMove={() => moveToCart(item)}
               onRemove={() => removeSavedForLater([item])}
-              onViewListing={() => navigate(`/product/${item.productId ?? item.id}`)}
-              navigate={navigate}
-              sectionName="Saved For Later"
+              onViewListing={() => openProduct(item)}
+              openProduct={openProduct}
             />
           )) : <p className="rounded-lg border border-[#E6E6E6] p-3 text-[13px] text-[#828282]">Items you move here will appear here.</p>}
         </CartSection>
@@ -208,18 +198,16 @@ function CartSection({ title, children }) {
   );
 }
 
-function SavedForLaterCard({ item, available, onMove, onRemove, onViewListing, navigate, sectionName }) {
+function SavedForLaterCard({ item, available, onMove, onRemove, onViewListing, openProduct }) {
   const canMoveToCart = available > 0;
-  const productPath = `/product/${item.productId ?? item.id}`;
 
   return (
-    <div role="link" tabIndex="0" className="flex cursor-pointer gap-3 rounded-lg border border-[#E6E6E6] p-3" onClick={(event) => { if (!event.target.closest("button")) navigate(productPath); }} onKeyDown={(event) => { if ((event.key === "Enter" || event.key === " ") && !event.target.closest("button")) navigate(productPath); }}>
+    <div role="link" tabIndex="0" className="flex cursor-pointer gap-3 rounded-lg border border-[#E6E6E6] p-3" onClick={(event) => { if (!event.target.closest("button")) openProduct(item); }} onKeyDown={(event) => { if ((event.key === "Enter" || event.key === " ") && !event.target.closest("button")) openProduct(item); }}>
       <img src={item.image} alt={item.name} className="h-20 w-20 rounded-lg object-cover" />
       <div className="min-w-0 flex-1">
-        <div className="text-[14px] font-medium">{item.name}</div>
+        <button type="button" onClick={(event) => { event.stopPropagation(); openProduct(item); }} className="block text-left text-[14px] font-medium text-[#498467]">{item.name}</button>
         <div className="mt-1 text-[13px] text-[#828282]">${item.price.toFixed(2)}</div>
         <div className="mt-1 text-[12px] text-[#828282]">Listing Inventory: {available}</div>
-        <div className="mt-1 text-[12px] text-[#828282]">Current Section: {sectionName}</div>
         {!canMoveToCart && <p className="mt-2 text-[12px] text-[#828282]">Still Sold Out</p>}
         <div className="mt-3 flex flex-wrap gap-3">
           {canMoveToCart ? (
@@ -234,16 +222,15 @@ function SavedForLaterCard({ item, available, onMove, onRemove, onViewListing, n
   );
 }
 
-function CartItem({ item, updateQuantity, removeItem, saveForLater, available, sectionName, navigate }) {
+function CartItem({ item, updateQuantity, removeItem, saveForLater, available, onProductClick }) {
   return (
     <SwipeToDelete onDelete={removeItem}>
-      <div role="link" tabIndex="0" className="flex gap-3 cursor-pointer" onClick={(event) => { if (!event.target.closest("button")) navigate(`/product/${item.productId ?? item.id}`); }} onKeyDown={(event) => { if ((event.key === "Enter" || event.key === " ") && !event.target.closest("button")) navigate(`/product/${item.productId ?? item.id}`); }}>
-        <img src={item.image} alt={item.name} className="h-[84px] w-[84px] rounded-lg object-cover" />
+      <div role="link" tabIndex="0" className="flex gap-3 cursor-pointer" onClick={(event) => { if (!event.target.closest("button")) onProductClick("card"); }} onKeyDown={(event) => { if ((event.key === "Enter" || event.key === " ") && !event.target.closest("button")) onProductClick("card"); }}>
+        <img src={item.image} alt={item.name} onClick={() => onProductClick("image")} className="h-[84px] w-[84px] cursor-pointer rounded-lg object-cover" />
         <div className="min-w-0 flex-1">
-          <div className="text-[12px] text-black/50">{item.description}</div>
-          <div className="text-[14px]">{item.name}</div>
+          <button type="button" onClick={(event) => { event.stopPropagation(); onProductClick("description"); }} className="block text-left text-[12px] text-black/50">{item.description}</button>
+          <button type="button" onClick={(event) => { event.stopPropagation(); onProductClick("title"); }} className="block text-left text-[14px] font-medium text-[#498467]">{item.name}</button>
           <div className="mt-1 text-[12px] text-[#828282]">Listing Inventory: {available}</div>
-          <div className="mt-1 text-[12px] text-[#828282]">Current Section: {sectionName}</div>
           <div className="mt-2 flex items-center gap-2">
             <span className="text-[12px] text-black/50">Quantity</span>
             <button type="button" aria-label={`Decrease quantity of ${item.name}`} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, -1, Number(available)); }} disabled={item.quantity <= 1} className="flex h-7 w-7 items-center justify-center rounded border border-[#E6E6E6] text-[16px] disabled:opacity-40">−</button>
@@ -255,7 +242,7 @@ function CartItem({ item, updateQuantity, removeItem, saveForLater, available, s
           </div>
           <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); saveForLater(); }} className="mt-2 text-[12px] font-medium text-[#498467]">Save for Later</button>
         </div>
-        <div className="shrink-0 text-[14px]">${item.price.toFixed(2)}</div>
+        <button type="button" onClick={(event) => { event.stopPropagation(); onProductClick("price"); }} className="shrink-0 text-[14px]">${item.price.toFixed(2)}</button>
       </div>
     </SwipeToDelete>
   );
@@ -271,7 +258,6 @@ function SwipeToDelete({ children, onDelete, className = "" }) {
   const handlePointerDown = (event) => {
     startX.current = event.clientX;
     startOffset.current = offset;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
   const handlePointerMove = (event) => {

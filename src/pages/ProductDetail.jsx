@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -21,6 +21,7 @@ import { useInventory } from "../context/InventoryContext";
 
 export default function ProductDetail() {
   const { id } = useParams();
+  const { state } = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -28,7 +29,11 @@ export default function ProductDetail() {
   const { listings } = useListings();
   const { createTradeConversation } = useMessages();
   const { getAvailable } = useInventory();
-  const product = listings.find((p) => p.id === id) ?? listings.find((p) => p.id === "strawberries");
+  const listingId = state?.listingId ?? id;
+  const productId = state?.productId ?? listingId;
+  const product = listings.find((p) => p.id === productId)
+    ?? listings.find((p) => p.id === listingId)
+    ?? { id: productId, name: "Listing unavailable", price: 0, image: "", images: [], sellerId: "", shop: "" };
   const { isFavorite, toggleFavorite } = useFavorites();
   const saved = isFavorite(product.id);
   const available = Math.max(0, Number(getAvailable(product.id)) || 0);
@@ -71,6 +76,15 @@ export default function ProductDetail() {
   useEffect(() => {
     setQuantity((current) => Math.min(current, Math.max(1, available)));
   }, [available]);
+
+  if (!listings.some((listing) => listing.id === productId || listing.id === listingId)) {
+    return (
+      <MobileScreenLayout>
+        <Header onBack={() => navigate(-1)} />
+        <div className="p-6 text-center text-[14px] text-[#757575]">Listing unavailable.</div>
+      </MobileScreenLayout>
+    );
+  }
 
   return (
     <MobileScreenLayout>

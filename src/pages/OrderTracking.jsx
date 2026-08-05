@@ -44,11 +44,9 @@ export default function OrderTracking() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showMapSheet, setShowMapSheet] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
-  const [statusOverride, setStatusOverride] = useState(null);
-  const [orderOverride, setOrderOverride] = useState(null);
   const matchesRouteId = (item) => String(item.id) === id || String(item.id).replace(/^ORD-/, "") === id;
   const contextOrder = orders.find(matchesRouteId) ?? state?.order ?? mockOrders.find(matchesRouteId) ?? mockOrders[0];
-  const order = orderOverride ?? contextOrder;
+  const order = contextOrder;
   const product = products.find((item) => item.id === order?.productId);
   const sellerId = order?.sellerId ?? product?.sellerId ?? "sarahs-backyard";
   const seller = sellers[sellerId] ?? sellers["sarahs-backyard"];
@@ -56,7 +54,7 @@ export default function OrderTracking() {
   const fulfillmentMethod = order?.fulfillmentMethod ?? "pickup";
   const isDelivery = fulfillmentMethod === "delivery";
   const steps = isDelivery ? DELIVERY_STEPS : PICKUP_STEPS;
-  const currentStatus = statusOverride ?? order?.status;
+  const currentStatus = order?.status;
   const isCancelled = currentStatus === "Cancelled";
   const canCancel = ["Order Placed", "Seller Notified"].includes(currentStatus);
   const currentIndex = isCancelled ? -1 : Math.min(STATUS_INDEX[currentStatus] ?? 0, steps.length - 1);
@@ -81,11 +79,7 @@ export default function OrderTracking() {
     console.info("Previous Status", previousStatus);
     const cancelled = cancelOrder(currentOrderId, order);
     console.info("New Status", cancelled ? "Cancelled" : previousStatus);
-    if (cancelled) {
-      setOrderOverride((currentOrder) => ({ ...(currentOrder ?? order), status: "Cancelled" }));
-      setStatusOverride("Cancelled");
-      setCancellationSuccess(true);
-    }
+    if (cancelled) setCancellationSuccess(true);
     setShowCancelModal(false);
   };
 

@@ -98,7 +98,10 @@ export function OrderProvider({ children }) {
   }, [orders]);
 
   const cancelOrder = useCallback((orderId, fallbackOrder) => {
-    const order = orders.find((item) => String(item.id) === String(orderId) || String(item.id).replace(/^ORD-/, "") === String(orderId)) ?? fallbackOrder;
+    const matchesOrderId = (item) => String(item.id) === String(orderId)
+      || String(item.id).replace(/^ORD-/, "") === String(orderId).replace(/^ORD-/, "");
+    const orderIndex = orders.findIndex(matchesOrderId);
+    const order = orderIndex >= 0 ? orders[orderIndex] : fallbackOrder;
     const resolvedOrderId = order?.id ?? orderId;
     const product = products.find((item) => item.id === order?.productId);
     const sellerId = order?.sellerId ?? product?.sellerId ?? "sarahs-backyard";
@@ -110,10 +113,10 @@ export function OrderProvider({ children }) {
       previousStatus: order.status,
       newStatus: "Cancelled",
     });
-    const cancelledOrder = { ...order, status: "Cancelled", inventoryRestored: true };
+    const cancelledOrder = { ...order, buyer: order.buyer ?? currentUser.username, status: "Cancelled", inventoryRestored: true };
     if (!order.inventoryRestored) restorePersistedInventory([order]);
-    const nextOrders = orders.some((item) => item.id === resolvedOrderId)
-      ? orders.map((item) => item.id === resolvedOrderId ? cancelledOrder : item)
+    const nextOrders = orderIndex >= 0
+      ? orders.map((item, index) => index === orderIndex ? cancelledOrder : item)
       : [...orders, cancelledOrder];
     setOrders(nextOrders);
     saveOrders(nextOrders);

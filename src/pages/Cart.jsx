@@ -9,6 +9,7 @@ import { useListings } from "../context/ListingContext";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import OutlineIcon from "../components/OutlineIcon";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
+import { groupCartItemsByStore } from "../utils/cartGrouping";
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -86,12 +87,13 @@ export default function Cart() {
   const activeTotalQuantity = activeItems.reduce((sum, item) => sum + item.quantity, 0);
   const activeSubtotal = activeItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const canCheckout = activeItems.length > 0;
-  const storeGroups = Object.values(activeItems.reduce((groups, item) => {
-    const sellerId = item.sellerId ?? "sarahs-backyard";
-    if (!groups[sellerId]) groups[sellerId] = [];
-    groups[sellerId].push(item);
-    return groups;
-  }, {}));
+  const storeGroups = groupCartItemsByStore(activeItems, listings);
+  const storeNames = storeGroups.map(([sellerId]) => sellers[sellerId]?.name ?? sellerId);
+  const storeNamesKey = storeNames.join(",");
+
+  useEffect(() => {
+    console.info("Cart Stores:", storeNamesKey ? storeNamesKey.split(",") : []);
+  }, [storeNamesKey]);
 
   return (
     <MobileScreenLayout>
@@ -116,12 +118,7 @@ export default function Cart() {
           </div>
         )}
         <CartSection title="Active Cart Items">
-          {Object.entries(activeItems.reduce((groups, item) => {
-            const sellerId = item.sellerId ?? "sarahs-backyard";
-            if (!groups[sellerId]) groups[sellerId] = [];
-            groups[sellerId].push(item);
-            return groups;
-          }, {})).map(([sellerId, storeItems]) => (
+          {storeGroups.map(([sellerId, storeItems]) => (
             <div key={sellerId} className="rounded-lg border border-[#E6E6E6] p-3">
               <div className="flex items-center justify-between gap-2">
                 <button type="button" onClick={() => navigate(`/seller/${sellerId}`)} className="text-left text-[14px] font-normal text-[#1E1E1E]">{sellers[sellerId]?.name ?? "Local Store"}</button>

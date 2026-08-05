@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -5,22 +6,23 @@ import { useCart } from "../context/CartContext";
 import { sellers } from "../data/mockData";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useInventory } from "../context/InventoryContext";
+import { useListings } from "../context/ListingContext";
+import { getCartItemProductId, groupCartItemsByStore } from "../utils/cartGrouping";
 
 export default function Checkout() {
   const navigate = useNavigate();
   const { items } = useCart();
   const { getSellerProfile } = useSellerSettings();
   const { getAvailable } = useInventory();
-  const activeItems = items.filter((item) => {
-    const available = getAvailable(item.productId ?? item.id);
-    return available > 0 && item.quantity <= available;
-  });
-  const groups = Object.entries(activeItems.reduce((result, item) => {
-    const sellerId = item.sellerId ?? "sarahs-backyard";
-    if (!result[sellerId]) result[sellerId] = [];
-    result[sellerId].push(item);
-    return result;
-  }, {}));
+  const { listings } = useListings();
+  const activeItems = items.filter((item) => getAvailable(getCartItemProductId(item, listings)) > 0);
+  const groups = groupCartItemsByStore(activeItems, listings);
+  const storeNames = groups.map(([sellerId]) => sellers[sellerId]?.name ?? sellerId);
+  const storeNamesKey = storeNames.join(",");
+
+  useEffect(() => {
+    console.info("Checkout Stores:", storeNamesKey ? storeNamesKey.split(",") : []);
+  }, [storeNamesKey]);
 
   return (
     <MobileScreenLayout>

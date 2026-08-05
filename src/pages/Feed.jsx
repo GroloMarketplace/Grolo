@@ -433,7 +433,7 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
         <div className="flex min-w-0 items-center gap-2">
           <button type="button" onClick={openStore} className="flex min-w-0 items-center gap-2 text-left">
             <img src={seller?.avatar ?? product.image} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
-            <span className="truncate text-[14px] font-semibold text-[#498467]">🏆 {seller?.name ?? product.shop} <span className="font-normal text-[#B56576]">in {generalLocation}</span></span>
+            <span className="truncate text-[14px] font-semibold text-[#498467]">{seller?.name ?? product.shop} <span className="font-normal text-[#B56576]">in {generalLocation}</span></span>
           </button>
           <FoundingMemberBadge sellerId={product.sellerId} iconOnly />
         </div>

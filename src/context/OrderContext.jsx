@@ -36,12 +36,15 @@ function loadOrders() {
 
 const NEXT_STATUS = {
   "Order Placed": ["Preparing"],
+  "Seller Notified": ["In Progress"],
   Preparing: ["Ready for Pickup"],
+  "In Progress": ["Ready for Pickup"],
   "Ready for Pickup": ["Completed"],
 };
 
 export function OrderProvider({ children }) {
   const [orders, setOrders] = useState(loadOrders);
+  const [lastCreatedOrder, setLastCreatedOrder] = useState(null);
 
   const saveOrders = (nextOrders) => {
     try {
@@ -61,7 +64,7 @@ export function OrderProvider({ children }) {
     (sellerId) =>
       orders.filter((o) => {
         const product = products.find((p) => p.id === o.productId);
-        return product?.sellerId === sellerId;
+        return (o.sellerId ?? product?.sellerId) === sellerId;
       }),
     [orders],
   );
@@ -70,6 +73,29 @@ export function OrderProvider({ children }) {
     (status) => NEXT_STATUS[status] ?? [],
     [],
   );
+
+  const createOrders = useCallback((orderItems, orderDetails = {}) => {
+    const nextOrders = orderItems.map((item, index) => ({
+      id: index === 0 && orderDetails.orderId ? orderDetails.orderId : `ORD-${Math.random().toString(36).slice(2, 11).toUpperCase()}`,
+      sellerId: item.sellerId ?? products.find((product) => product.id === item.productId)?.sellerId,
+      productId: item.productId ?? item.id,
+      quantity: item.quantity,
+      total: item.price * item.quantity + (index === 0 ? Number(orderDetails.deliveryFee) || 0 : 0),
+      status: "Seller Notified",
+      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      buyer: currentUser.username,
+      buyerAvatar: currentUser.avatar,
+      fulfillmentMethod: orderDetails.fulfillmentMethod ?? "pickup",
+    }));
+    setOrders((current) => {
+      const mergedOrders = [...current, ...nextOrders];
+      saveOrders(mergedOrders);
+      return mergedOrders;
+    });
+    setLastCreatedOrder(nextOrders[0] ?? null);
+    console.info("Seller orders created", nextOrders.map((order) => ({ orderId: order.id, status: order.status, sellerId: order.sellerId })));
+    return nextOrders;
+  }, []);
 
   const updateOrderStatus = useCallback((orderId, status) => {
     const order = orders.find((o) => o.id === orderId);
@@ -151,6 +177,8 @@ export function OrderProvider({ children }) {
     orders,
     buyerOrders,
     sellerOrders,
+    createOrders,
+    lastCreatedOrder,
     nextStatuses,
     updateOrderStatus,
     cancelOrder,

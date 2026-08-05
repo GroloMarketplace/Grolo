@@ -26,9 +26,10 @@ import ReviewSummary from "../components/ReviewSummary";
 const TABS = ["Local", "Map", "History", "My Orders"];
 
 const ORDER_SECTIONS = [
-  { title: "Active Orders", statuses: ["Order Placed", "Preparing"] },
+  { title: "Active Orders", statuses: ["Order Placed", "Preparing", "In Progress", "Seller Notified"] },
   { title: "Ready for Pickup", statuses: ["Ready for Pickup"] },
-  { title: "Completed Orders", statuses: ["Completed", "Cancelled"] },
+  { title: "Completed Orders", statuses: ["Completed"] },
+  { title: "Cancelled Orders", statuses: ["Cancelled"] },
 ];
 
 export default function Search() {
@@ -458,12 +459,26 @@ function CategoryRow({ onCategory }) {
 function MyOrders() {
   const navigate = useNavigate();
   const { hasReviewedProduct } = useReviews();
-  const { buyerOrders } = useOrders();
+  const { buyerOrders, lastCreatedOrder } = useOrders();
+  const orders = buyerOrders();
+  const activeOrders = orders.filter((order) => ["Order Placed", "Preparing", "In Progress", "Seller Notified"].includes(order.status));
 
   return (
     <div className="py-2">
+      <div className="mx-4 mb-3 rounded-lg border border-[#F0C36D] bg-[#FFF8E7] p-3 text-[12px] text-[#4F4F4F]" role="status">
+        <div className="font-semibold">My Orders Runtime Debug</div>
+        <div>Total Orders Loaded: {orders.length}</div>
+        <div>Active Orders Count: {activeOrders.length}</div>
+        <div className="mt-1">Loaded Orders:</div>
+        {orders.map((order) => {
+          const product = products.find((item) => item.id === order.productId);
+          return <div key={order.id}>{order.id} — {product?.name ?? order.productId} — {order.status} — {order.date ?? "Unknown"}</div>;
+        })}
+        <div className="mt-1">Last Created Order</div>
+        {lastCreatedOrder ? <><div>Order ID: {lastCreatedOrder.id}</div><div>Product: {products.find((item) => item.id === lastCreatedOrder.productId)?.name ?? lastCreatedOrder.productId}</div><div>Status: {lastCreatedOrder.status}</div><div>Exists in My Orders: {orders.some((order) => order.id === lastCreatedOrder.id) ? "YES" : "NO"}</div></> : <div>No order created in this session</div>}
+      </div>
       {ORDER_SECTIONS.map((section) => {
-        const sectionOrders = buyerOrders().filter((o) =>
+        const sectionOrders = orders.filter((o) =>
           section.statuses.includes(o.status),
         );
 
@@ -485,6 +500,7 @@ function MyOrders() {
                   const product = products.find((p) => p.id === order.productId);
                   if (!product) return null;
                   const completed = order.status === "Completed";
+                  const cancelled = order.status === "Cancelled";
                   const reviewed = hasReviewedProduct(order.productId);
 
                   const orderRouteId = order.id.replace(/^ORD-/, "");
@@ -531,12 +547,14 @@ function MyOrders() {
                         </div>
                         <span
                           className={`text-[12px] font-medium px-2 py-1 rounded-full whitespace-nowrap ${
-                            completed
-                              ? "bg-[#CFF7D3] text-[#02542D]"
-                              : "bg-[#F5F5F5] text-[#828282]"
+                            cancelled
+                              ? "bg-[#FFF1F0] text-[#B42318]"
+                              : completed
+                                ? "bg-[#CFF7D3] text-[#02542D]"
+                                : "bg-[#F5F5F5] text-[#828282]"
                           }`}
                         >
-                          {order.status}
+                          {cancelled ? "❌ Cancelled" : order.status}
                         </span>
                       </div>
 

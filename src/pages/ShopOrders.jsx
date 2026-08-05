@@ -12,8 +12,8 @@ import { useBuyerTrust } from "../context/BuyerTrustContext";
 const STORE_ID = "sarahs-backyard";
 
 const SECTIONS = [
-  { title: "New Orders", statuses: ["Order Placed"] },
-  { title: "Preparing", statuses: ["Preparing"] },
+  { title: "New Orders", statuses: ["Seller Notified", "Order Placed"] },
+  { title: "Preparing", statuses: ["In Progress", "Preparing"] },
   { title: "Ready for Pickup", statuses: ["Ready for Pickup"] },
   { title: "Completed Orders", statuses: ["Completed"] },
   { title: "Cancelled Orders", statuses: ["Cancelled"] },
@@ -21,12 +21,14 @@ const SECTIONS = [
 
 export default function ShopOrders() {
   const navigate = useNavigate();
-  const { sellerOrders, nextStatuses, updateOrderStatus } = useOrders();
+  const { buyerOrders, sellerOrders, nextStatuses, updateOrderStatus } = useOrders();
   const { hasReviewedOrder, getBuyerTrust } = useBuyerTrust();
   const [reviewOrder, setReviewOrder] = useState(null);
   const scrollRef = useRef(null);
   const savedOrderState = readNavigationState("store-orders", { scrollTop: 0 });
   const storeOrders = sellerOrders(STORE_ID);
+  const buyerCancelledCount = buyerOrders().filter((order) => order.status === "Cancelled").length;
+  const sellerCancelledOrders = storeOrders.filter((order) => order.status === "Cancelled");
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = savedOrderState.scrollTop;
@@ -43,6 +45,12 @@ export default function ShopOrders() {
     <MobileScreenLayout>
       <Header title="Store Orders" onBack={() => navigate("/shop", { state: { openSellerMenu: true } })} />
       <div ref={scrollRef} className="overflow-y-auto flex-1 no-scrollbar">
+        <div className="mx-4 mt-4 rounded-lg border border-[#F0C36D] bg-[#FFF8E7] p-3 text-[12px] text-[#4F4F4F]" role="status">
+          <div className="font-semibold">Store Orders Debug</div>
+          <div>Cancelled Orders Count — Buyer: {buyerCancelledCount}</div>
+          <div>Cancelled Orders Count — Seller: {sellerCancelledOrders.length}</div>
+          {sellerCancelledOrders.map((order) => <div key={order.id}>Cancelled seller order: {order.id} — Status: {order.status}</div>)}
+        </div>
         {SECTIONS.map((section) => {
           const sectionOrders = storeOrders.filter((o) =>
             section.statuses.includes(o.status),
@@ -80,12 +88,14 @@ export default function ShopOrders() {
                           </span>
                           <span
                             className={`text-[12px] font-medium px-2 py-1 rounded-full whitespace-nowrap ${
-                              order.status === "Completed"
-                                ? "bg-[#CFF7D3] text-[#02542D]"
-                                : "bg-[#F5F5F5] text-[#828282]"
+                              order.status === "Cancelled"
+                                ? "bg-[#FFF1F0] text-[#B42318]"
+                                : order.status === "Completed"
+                                  ? "bg-[#CFF7D3] text-[#02542D]"
+                                  : "bg-[#F5F5F5] text-[#828282]"
                             }`}
                           >
-                            {order.status}
+                            {order.status === "Cancelled" ? "❌ Cancelled" : order.status}
                           </span>
                         </div>
 

@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import { useCart } from "../context/CartContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { useInventory } from "../context/InventoryContext";
+import { useOrders } from "../context/OrderContext";
 
 function PaymentMethodsList({ paymentSettings }) {
   const { methods, eTransferEmail } = paymentSettings;
@@ -22,21 +23,25 @@ export default function OrderConfirmation() {
   const [isAnimated, setIsAnimated] = useState(false);
   const { state } = useLocation();
   const { items, removeItems } = useCart();
-  const { reduceAvailable, getAvailable } = useInventory();
+  const { reduceAvailable } = useInventory();
   const inventoryReduced = useRef(false);
   const cartItemsRemoved = useRef(false);
+  const orderCreated = useRef(false);
   const { getPaymentMethods, fulfillmentMethod } = usePaymentMethods();
+  const { createOrders } = useOrders();
   const orderItemsRef = useRef(null);
+  const orderNumberRef = useRef(null);
   const orderItems = orderItemsRef.current ?? (orderItemsRef.current = (state?.sellerId
     ? items.filter((item) => (item.sellerId ?? "sarahs-backyard") === state.sellerId)
-    : items).filter((item) => getAvailable(item.productId ?? item.id) > 0 && item.quantity <= getAvailable(item.productId ?? item.id)));
+    : items).filter((item) => Number(item.quantity) > 0));
   const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const paymentSettings = getPaymentMethods(state?.sellerId ?? orderItems[0]?.sellerId ?? "sarahs-backyard");
   const requestedFulfillment = state?.fulfillmentMethod ?? fulfillmentMethod;
   const selectedFulfillment = paymentSettings.fulfillmentMethods.includes(requestedFulfillment) ? requestedFulfillment : paymentSettings.fulfillmentMethods[0] ?? "pickup";
   const deliveryFee = selectedFulfillment === "delivery" ? paymentSettings.deliveryFee : 0;
   const total = subtotal + deliveryFee;
-  const orderNumber = `ORD-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+  if (!orderNumberRef.current) orderNumberRef.current = `ORD-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+  const orderNumber = orderNumberRef.current;
   
   // Calculate estimated delivery date (3-4 days from now)
   const deliveryDate = new Date();
@@ -58,7 +63,15 @@ export default function OrderConfirmation() {
       removeItems(orderItems);
       cartItemsRemoved.current = true;
     }
-  }, [orderItems, reduceAvailable, removeItems]);
+    if (orderItems.length > 0 && !orderCreated.current) {
+      createOrders(orderItems, {
+        orderId: orderNumber,
+        fulfillmentMethod: selectedFulfillment,
+        deliveryFee,
+      });
+      orderCreated.current = true;
+    }
+  }, [orderItems, reduceAvailable, removeItems, createOrders, orderNumber, selectedFulfillment, deliveryFee]);
 
   return (
     <div className="flex h-full flex-col">
@@ -121,7 +134,7 @@ export default function OrderConfirmation() {
               sellerId: state?.sellerId ?? orderItems[0]?.sellerId ?? "sarahs-backyard",
               productId: orderItems[0]?.productId ?? orderItems[0]?.id,
               quantity: orderItems.reduce((sum, item) => sum + item.quantity, 0),
-              status: "Order Placed",
+              status: "Seller Notified",
               total,
               fulfillmentMethod: selectedFulfillment,
             },

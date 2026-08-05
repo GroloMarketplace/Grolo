@@ -4,6 +4,7 @@ import {
   formatEventDate,
   formatEventTime,
 } from "../context/EventContext";
+import { EventAttendanceCount } from "./EventRsvp";
 import { sellers } from "../data/mockData";
 
 const BADGE_STYLES = {
@@ -47,6 +48,7 @@ export default function EventCard({ event, showStore }) {
           {formatEventDate(event.date)} • {formatEventTime(event.startTime)} –{" "}
           {formatEventTime(event.endTime)}
         </span>
+        <EventAttendanceCount eventId={event.id} />
         <span className="text-[12px] text-[#828282]">{event.location}</span>
         <p className="text-[14px] mt-1 leading-[140%] line-clamp-2">
           {event.description}

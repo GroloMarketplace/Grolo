@@ -1,15 +1,30 @@
 import { useNavigate } from "react-router-dom";
+import { useEffect, useRef } from "react";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { impactBadges, impactStats, impactTimeline } from "../data/communityImpact";
+import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 
 export default function CommunityImpact() {
   const navigate = useNavigate();
+  const scrollRef = useRef(null);
+  const savedImpactState = readNavigationState("community-impact", { scrollTop: 0 });
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = savedImpactState.scrollTop;
+    const scrollElement = scrollRef.current;
+    const saveState = () => writeNavigationState("community-impact", { scrollTop: scrollElement?.scrollTop ?? 0 });
+    scrollElement?.addEventListener("scroll", saveState, { passive: true });
+    return () => {
+      saveState();
+      scrollElement?.removeEventListener("scroll", saveState);
+    };
+  }, []);
 
   return (
     <MobileScreenLayout>
       <Header title="Community Impact" onBack={() => navigate(-1)} />
-      <div className="overflow-y-auto flex-1 no-scrollbar px-4 py-6">
+      <div ref={scrollRef} className="overflow-y-auto flex-1 no-scrollbar px-4 py-6">
         <div className="rounded-lg bg-[#498467] p-5 text-white">
           <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/15">
             <SproutIcon />

@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 import { sellers } from "../data/mockData";
 import { useMessages } from "../context/MessageContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 
 const TAB_NAMES = ["All", "Selling", "Buying", "Trading", "Orders"];
 
@@ -15,15 +16,34 @@ function isTradeConversation(conversation) {
 }
 
 export default function Messages() {
-  const [tab, setTab] = useState("All");
   const navigate = useNavigate();
+  const scrollRef = useRef(null);
+  const savedMessagesState = readNavigationState("messages", { tab: "All", scrollTop: 0 });
+  const [tab, setTab] = useState(savedMessagesState.tab);
+  const tabRef = useRef(tab);
+  const saveMessagesState = (nextTab = tabRef.current) => writeNavigationState("messages", { tab: nextTab, scrollTop: scrollRef.current?.scrollTop ?? 0 });
   const { messages } = useMessages();
   const { profileMode } = useProfileMode();
   const tabNames = profileMode === "buyer" ? TAB_NAMES.filter((tabName) => tabName !== "Selling") : TAB_NAMES;
 
   useEffect(() => {
-    if (profileMode === "buyer" && tab === "Selling") setTab("All");
+    if (profileMode === "buyer" && tab === "Selling") {
+      tabRef.current = "All";
+      setTab("All");
+      saveMessagesState("All");
+    }
   }, [profileMode, tab]);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = savedMessagesState.scrollTop;
+    const scrollElement = scrollRef.current;
+    const saveState = () => saveMessagesState();
+    scrollElement?.addEventListener("scroll", saveState, { passive: true });
+    return () => {
+      saveState();
+      scrollElement?.removeEventListener("scroll", saveState);
+    };
+  }, []);
 
   const filteredMessages = tab === "All"
     ? messages
@@ -48,7 +68,7 @@ export default function Messages() {
         {tabNames.map((tabName) => (
           <button
             key={tabName}
-            onClick={() => setTab(tabName)}
+            onClick={() => { tabRef.current = tabName; setTab(tabName); saveMessagesState(tabName); }}
             className={`px-3 py-1.5 rounded-md text-[14px] font-medium border relative ${
               tab === tabName
                 ? "bg-[#498467] text-white border-[#498467]"
@@ -65,7 +85,7 @@ export default function Messages() {
         ))}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-0 pb-24 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-0 pb-24 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex flex-col">
         {filteredMessages.length === 0 ? (
           <div className="flex items-center justify-center px-4 py-12">

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -11,6 +11,7 @@ import { useListings } from "../context/ListingContext";
 import { events, promotions, sellers } from "../data/mockData";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import ReviewSummary from "../components/ReviewSummary";
 
 const FILTERS = ["All", "Listings", "Events", "Stores", "Promotions"];
 const SORT_OPTIONS = ["Featured", "Trending", "Newest"];
@@ -25,16 +26,32 @@ export default function Featured() {
   const navigate = useNavigate();
   const { ads } = useAdvertising();
   const { listings } = useListings();
-  const [query, setQuery] = useState("");
-  const openProduct = (productId) => {
+  const scrollRef = useRef(null);
+  const savedFeaturedState = readNavigationState("featured", { query: "", filter: "All", sort: "Featured", scrollTop: 0 });
+  const [query, setQuery] = useState(savedFeaturedState.query);
+  const [filter, setFilter] = useState(savedFeaturedState.filter);
+  const [sort, setSort] = useState(savedFeaturedState.sort);
+  const queryRef = useRef(query);
+  const filterRef = useRef(filter);
+  const sortRef = useRef(sort);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = savedFeaturedState.scrollTop;
+    const scrollElement = scrollRef.current;
+    const saveState = () => writeNavigationState("featured", { query: queryRef.current, filter: filterRef.current, sort: sortRef.current, scrollTop: scrollElement?.scrollTop ?? 0 });
+    scrollElement?.addEventListener("scroll", saveState, { passive: true });
+    return () => {
+      saveState();
+      scrollElement?.removeEventListener("scroll", saveState);
+    };
+  }, []);
+  const openProduct = (productId, destination = `/product/${productId}`) => {
     const searchState = readNavigationState("search", {});
     if (searchState.currentRoute === "featured") {
       writeNavigationState("search", { ...searchState, currentProductId: productId });
     }
-    navigate(`/product/${productId}`);
+    navigate(destination);
   };
-  const [filter, setFilter] = useState("All");
-  const [sort, setSort] = useState("Featured");
   const promotionByProduct = useMemo(
     () => new Map(listings.map((product) => [product.id, promotions.find((promotion) => promotion.productIds.includes(product.id))])),
     [listings],
@@ -76,19 +93,19 @@ export default function Featured() {
   return (
     <MobileScreenLayout>
       <Header title="Grown Local" onBack={() => navigate(-1)} />
-      <div className="flex-1 overflow-y-auto no-scrollbar">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar">
         <div className="border-b border-black/5 py-3">
           <SearchBar
             placeholder="Search featured products, stores, and events"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => { queryRef.current = event.target.value; setQuery(event.target.value); }}
           />
           <div className="mt-3 flex gap-2 overflow-x-auto px-4 no-scrollbar">
             {FILTERS.map((option) => (
               <button
                 key={option}
                 type="button"
-                onClick={() => setFilter(option)}
+                onClick={() => { filterRef.current = option; setFilter(option); }}
                 className={`shrink-0 rounded-full px-3 py-1.5 text-[12px] font-medium ${filter === option ? "bg-[#498467] text-white" : "bg-[#F5F5F5] text-[#828282]"}`}
               >
                 {option}
@@ -101,7 +118,7 @@ export default function Featured() {
           <h2 className="text-[18px] font-semibold">Featured</h2>
           <label className="flex items-center gap-1.5 text-[12px] text-[#828282]">
             Sort by
-            <select value={sort} onChange={(event) => setSort(event.target.value)} className="rounded-md border border-[#E6E6E6] bg-white px-2 py-1 text-[12px] text-black outline-none">
+            <select value={sort} onChange={(event) => { sortRef.current = event.target.value; setSort(event.target.value); }} className="rounded-md border border-[#E6E6E6] bg-white px-2 py-1 text-[12px] text-black outline-none">
               {SORT_OPTIONS.map((option) => <option key={option}>{option}</option>)}
             </select>
           </label>
@@ -128,6 +145,7 @@ function FeaturedFeedCard({ entry, onProduct }) {
 }
 
 function FeaturedListingCard({ product, promotion, onProduct }) {
+  const openReviews = () => onProduct(product.id, `/product/${product.id}/reviews`);
   return (
     <article className="rounded-lg border border-[#E6E6E6] p-3">
       <Link to={`/product/${product.id}`} onClick={(event) => { if (onProduct) { event.preventDefault(); onProduct(product.id); } }} className="block">
@@ -142,12 +160,8 @@ function FeaturedListingCard({ product, promotion, onProduct }) {
           </div>
           <span className="shrink-0 text-[16px] font-semibold">${product.price.toFixed(2)}</span>
         </div>
-        <div className="mt-1 flex items-center gap-1 text-[12px] text-[#828282]">
-          <span className="text-[#498467]">★</span>
-          <span>{product.rating?.toFixed(1) ?? "New"}</span>
-          {product.reviewCount && <span>({product.reviewCount})</span>}
-        </div>
       </Link>
+      <ReviewSummary product={product} onClick={openReviews} />
     </article>
   );
 }

@@ -153,7 +153,7 @@ export default function ProductDetail() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <span className="text-[14px] text-[#757575]">Available: {available}</span>
+          <span className="text-[14px] text-[#757575]">Listing Inventory: {available}</span>
           {!soldOut && <div className="flex flex-col gap-2">
             <label className="text-[16px]">Quantity</label>
             <div className="h-10 flex items-center justify-between rounded-lg border border-[#D9D9D9] px-4">

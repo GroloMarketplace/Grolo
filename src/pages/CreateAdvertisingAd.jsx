@@ -7,6 +7,7 @@ import { events, products, promotions } from "../data/mockData";
 
 const SELLER_ID = "sarahs-backyard";
 const AD_TYPES = ["Store", "Product", "Event", "Promotion"];
+const BADGE_LABELS = ["New Listing", "Top Seller", "Featured", "Trending", "Community Spotlight"];
 
 function fieldClassName() {
   return "w-full rounded-lg border border-[#E6E6E6] px-3 py-2.5 text-[14px] outline-none focus:border-[#498467]";
@@ -33,6 +34,7 @@ export default function CreateAdvertisingAd() {
     destinationRoute: `/seller/${SELLER_ID}`,
     startsAt: new Date().toISOString().slice(0, 10),
     endsAt: "",
+    badgeLabel: "Featured",
   });
 
   const destinations = useMemo(() => {
@@ -106,6 +108,12 @@ export default function CreateAdvertisingAd() {
             <select value={formData.type} onChange={(event) => handleTypeChange(event.target.value)} className={fieldClassName()}>
               {AD_TYPES.map((type) => <option key={type}>{type}</option>)}
             </select>
+          </FormField>
+          <FormField label="Image badge">
+            <select value={formData.badgeLabel ?? "Featured"} onChange={(event) => updateField("badgeLabel", event.target.value)} className={fieldClassName()}>
+              {BADGE_LABELS.map((label) => <option key={label}>{label}</option>)}
+            </select>
+            <p className="mt-1 text-[12px] text-[#828282]">Paid placements may show this badge on listing images.</p>
           </FormField>
           <FormField label="Select destination">
             <select

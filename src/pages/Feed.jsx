@@ -7,6 +7,7 @@ import PromotionBadge from "../components/PromotionBadge";
 import ContentActionSheet from "../components/ContentActionSheet";
 import ShareSheet from "../components/ShareSheet";
 import { usePromotions } from "../context/PromotionContext";
+import { useAdvertising } from "../context/AdvertisingContext";
 import { useSavedItems } from "../context/SavedContext";
 import { useRegrow } from "../context/RegrowContext";
 import {
@@ -28,19 +29,24 @@ import {
 import { displayPostClassification } from "../data/postClassifications";
 import OutlineIcon from "../components/OutlineIcon";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import ReviewSummary from "../components/ReviewSummary";
+import { EventAttendanceCount } from "../components/EventRsvp";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 
 const TABS = ["Following", "Your Community"];
+const COMMUNITY_FILTERS = ["For You", "Posts", "Events", "Listings", "Promotions", "Regrows"];
 
 export default function Feed() {
   const location = useLocation();
   const navigate = useNavigate();
   const scrollContainerRef = useRef(null);
   const mainTabContentRef = useRef(null);
-  const savedFeedState = readNavigationState("feed", { tab: "Your Community", scrollTop: 0 });
+  const savedFeedState = readNavigationState("feed", { tab: "Your Community", communityFilter: "For You", scrollTop: 0 });
   const initialTabRef = useRef(TABS.includes(location.state?.tab) ? location.state.tab : savedFeedState.tab);
+  const communityFilterRef = useRef(COMMUNITY_FILTERS.includes(savedFeedState.communityFilter) ? savedFeedState.communityFilter : "For You");
   const [tab, setTab] = useState(initialTabRef.current);
+  const [communityFilter, setCommunityFilter] = useState(communityFilterRef.current);
   const [actionContent, setActionContent] = useState(null);
   const [shareContent, setShareContent] = useState(null);
   const [hiddenContentIds, setHiddenContentIds] = useState(() => new Set());
@@ -58,13 +64,34 @@ export default function Feed() {
     const initialIndex = TABS.indexOf(initialTabRef.current);
     if (initialIndex > 0 && mainTabContentRef.current) mainTabContentRef.current.scrollLeft = initialIndex * mainTabContentRef.current.clientWidth;
     const scrollElement = scrollContainerRef.current;
-    const saveState = () => writeNavigationState("feed", { tab: initialTabRef.current, scrollTop: scrollElement?.scrollTop ?? 0 });
+    const saveState = () => writeNavigationState("feed", { tab: initialTabRef.current, communityFilter: communityFilterRef.current, scrollTop: scrollElement?.scrollTop ?? 0 });
     scrollElement?.addEventListener("scroll", saveState, { passive: true });
     return () => {
       saveState();
       scrollElement?.removeEventListener("scroll", saveState);
     };
   }, []);
+
+  const saveFeedNavigationState = () => {
+    writeNavigationState("feed", {
+      tab: initialTabRef.current,
+      communityFilter: communityFilterRef.current,
+      scrollTop: scrollContainerRef.current?.scrollTop ?? 0,
+    });
+  };
+
+  const openFeedDetail = (path, state = {}) => {
+    saveFeedNavigationState();
+    navigate(path, {
+      state: {
+        ...state,
+        feedOrigin: {
+          tab: initialTabRef.current,
+          communityFilter: communityFilterRef.current,
+        },
+      },
+    });
+  };
 
   const openComments = (content) => {
     sessionStorage.setItem(
@@ -74,11 +101,18 @@ export default function Feed() {
     navigate("/comments", { state: { content } });
   };
 
+  const handleCommunityFilterChange = (nextFilter) => {
+    if (!COMMUNITY_FILTERS.includes(nextFilter)) return;
+    communityFilterRef.current = nextFilter;
+    setCommunityFilter(nextFilter);
+    saveFeedNavigationState();
+  };
+
   const handleTabChange = (nextTab) => {
     const nextIndex = TABS.indexOf(nextTab);
     setTab(nextTab);
     initialTabRef.current = nextTab;
-    writeNavigationState("feed", { tab: nextTab, scrollTop: scrollContainerRef.current?.scrollTop ?? 0 });
+    writeNavigationState("feed", { tab: nextTab, communityFilter: communityFilterRef.current, scrollTop: scrollContainerRef.current?.scrollTop ?? 0 });
     if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
     mainTabContentRef.current?.scrollTo({
       left: nextIndex * mainTabContentRef.current.clientWidth,
@@ -91,7 +125,7 @@ export default function Feed() {
     if (index >= 0 && index < TABS.length && TABS[index] !== tab) {
       setTab(TABS[index]);
       initialTabRef.current = TABS[index];
-      writeNavigationState("feed", { tab: TABS[index], scrollTop: scrollContainerRef.current?.scrollTop ?? 0 });
+      writeNavigationState("feed", { tab: TABS[index], communityFilter: communityFilterRef.current, scrollTop: scrollContainerRef.current?.scrollTop ?? 0 });
     }
   };
 
@@ -198,7 +232,16 @@ export default function Feed() {
               />
             </div>
             <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start">
-              <CommunityFeed key={`community-${feedVersion}`} onComment={openComments} onMenu={setActionContent} onShare={openShare} hiddenContentIds={hiddenContentIds} />
+              <CommunityFeed
+                key={`community-${feedVersion}`}
+                filter={communityFilter}
+                onFilterChange={handleCommunityFilterChange}
+                onOpenDetail={openFeedDetail}
+                onComment={openComments}
+                onMenu={setActionContent}
+                onShare={openShare}
+                hiddenContentIds={hiddenContentIds}
+              />
             </div>
 
           </div>
@@ -241,7 +284,7 @@ function FollowingFeed({ followedSellers, hiddenContentIds, onComment, onMenu, o
       {items.length === 0 ? (
         <div className="text-center py-12"><p className="text-[14px] text-[#828282]">{followedSellers.length === 0 ? "Follow stores to see their posts here" : "No content from followed stores yet"}</p></div>
       ) : (
-        items.map((item) => renderCommunityItem(item, onComment, onMenu, onShare))
+        items.map((item) => renderCommunityItem(item, null, onComment, onMenu, onShare))
       )}
     </div>
   );
@@ -257,21 +300,18 @@ function getFollowedItems({ posts, events, listings, promotions, hiddenContentId
   return items.filter((item) => !hiddenContentIds.has(item.id));
 }
 
-const COMMUNITY_FILTERS = ["For You", "Posts", "Events", "Listings", "Promotions"];
-
-function CommunityFeed({ onComment, onMenu, onShare, hiddenContentIds }) {
+function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu, onShare, hiddenContentIds }) {
   const { upcomingEvents } = useEvents();
   const { activePromotions } = usePromotions();
   const { followedSellers } = useFollow();
   const { isSaved } = useSavedItems();
   const { isRegrown } = useRegrow();
-  const [filter, setFilter] = useState("For You");
   const [touchStart, setTouchStart] = useState(null);
   const events = upcomingEvents();
   const currentPromotions = activePromotions();
   const items = getCommunityItems(filter, { events, currentPromotions, followedSellers, isSaved, isRegrown, hiddenContentIds });
 
-  const changeFilter = (nextFilter) => setFilter(nextFilter);
+  const changeFilter = (nextFilter) => onFilterChange(nextFilter);
   const handlePointerEnd = (event) => {
     if (touchStart === null) return;
     const distance = event.clientX - touchStart;
@@ -314,7 +354,7 @@ function CommunityFeed({ onComment, onMenu, onShare, hiddenContentIds }) {
       </div>
       <div className="flex flex-col gap-4 px-4 py-3">
         <CommunityImpactCard />
-        {items.map((item) => renderCommunityItem(item, onComment, onMenu, onShare))}
+        {items.map((item) => renderCommunityItem(item, onOpenDetail, onComment, onMenu, onShare))}
       </div>
     </div>
   );
@@ -334,7 +374,9 @@ function getCommunityItems(filter, { events, currentPromotions, followedSellers,
   const visibleItems = allItems.filter((item) => !hiddenContentIds.has(item.id));
   const filtered = filter === "For You"
     ? visibleItems
-    : visibleItems.filter((item) => item.type === filter.slice(0, -1).toLowerCase());
+    : filter === "Regrows"
+      ? visibleItems.filter((item) => isRegrown(item.id))
+      : visibleItems.filter((item) => item.type === filter.slice(0, -1).toLowerCase());
 
   return filtered.sort((a, b) => relevanceScore(b, { followedSellers, isSaved, isRegrown }) - relevanceScore(a, { followedSellers, isSaved, isRegrown }));
 }
@@ -346,45 +388,79 @@ function relevanceScore(item, { followedSellers, isSaved, isRegrown }) {
   return (followedSellers.includes(sellerId) ? 30 : 0) + (isSaved(contentId) ? 24 : 0) + (isRegrown(contentId) ? 18 : 0) + postScore + (item.type === "promotion" ? 16 : 0) + (item.type === "event" ? 10 : 0);
 }
 
-function renderCommunityItem(item, onComment, onMenu, onShare) {
-  if (item.type === "post") return <Post key={item.id} post={item.post} stacked onComment={onComment} onMenu={onMenu} onShare={onShare} />;
-  if (item.type === "event") return <EventPost key={item.id} event={item.event} onComment={onComment} onMenu={onMenu} onShare={onShare} />;
-  if (item.type === "listing") return <ListingFeedCard key={item.id} product={item.product} onMenu={onMenu} onShare={onShare} />;
-  return <PromotionFeedCard key={item.id} promotion={item.promotion} product={item.product} onMenu={onMenu} onShare={onShare} />;
+function renderCommunityItem(item, onOpenDetail, onComment, onMenu, onShare) {
+  if (item.type === "post") return <Post key={item.id} post={item.post} stacked onOpenDetail={onOpenDetail} onComment={onComment} onMenu={onMenu} onShare={onShare} />;
+  if (item.type === "event") return <EventPost key={item.id} event={item.event} onOpenDetail={onOpenDetail} onComment={onComment} onMenu={onMenu} onShare={onShare} />;
+  if (item.type === "listing") return <ListingFeedCard key={item.id} product={item.product} onOpenDetail={onOpenDetail} onMenu={onMenu} onShare={onShare} />;
+  return <PromotionFeedCard key={item.id} promotion={item.promotion} product={item.product} onOpenDetail={onOpenDetail} onMenu={onMenu} onShare={onShare} />;
 }
 
-function ListingFeedCard({ product, onMenu, onShare }) {
+function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
   const navigate = useNavigate();
+  const { ads } = useAdvertising();
+  const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
+  const seller = sellers[product.sellerId];
+  const paidAd = ads.find((ad) =>
+    (ad.status === "Active" || ad.paid === true)
+      && ad.destinationId === product.id
+      && (ad.type === "Product" || ad.type === "Promotion"),
+  );
   const savedItem = { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName: product.shop, image: product.image, description: product.name };
   const menuContent = { id: `listing:${product.id}`, type: "listing", title: product.name, name: product.name, sellerId: product.sellerId, productId: product.id, sharePath: `/product/${product.id}`, savedItem };
   const openProduct = () => {
     console.info("Home Feed listing clicked", { listingId: product.id, storeId: product.sellerId });
-    navigate(`/product/${product.id}`, { state: { sellerId: product.sellerId } });
+    openDetail(`/product/${product.id}`, { sellerId: product.sellerId });
   };
+  const openReviews = () => openDetail(`/product/${product.id}/reviews`, { sellerId: product.sellerId });
+  const openStore = (event) => {
+    event.stopPropagation();
+    navigate(`/seller/${product.sellerId}`);
+  };
+  const generalLocation = seller?.location?.split(",")[0] ?? product.location?.split(",")[0] ?? "Local community";
+
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={openProduct}
       onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
         if (event.key === "Enter" || event.key === " ") openProduct();
       }}
       className="cursor-pointer rounded-lg border border-[#E6E6E6] p-3"
     >
-      <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><img src={product.image} alt={product.name} className="h-8 w-8 rounded-full object-cover" /><span className="text-[14px] font-semibold text-[#498467]">{product.shop}</span><FoundingMemberBadge sellerId={product.sellerId} iconOnly /></div><MoreButton onClick={() => onMenu(menuContent)} /></div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <button type="button" onClick={openStore} className="flex min-w-0 items-center gap-2 text-left">
+            <img src={seller?.avatar ?? product.image} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+            <span className="truncate text-[14px] font-semibold text-[#498467]">🏆 {seller?.name ?? product.shop} <span className="font-normal text-[#B56576]">in {generalLocation}</span></span>
+          </button>
+          <FoundingMemberBadge sellerId={product.sellerId} iconOnly />
+        </div>
+        <MoreButton onClick={() => onMenu(menuContent)} />
+      </div>
+      <p className="text-[12px] text-[#828282]">{product.postedAt ?? "Recently posted"}</p>
       <VacationBadge sellerId={product.sellerId} />
-      <img src={product.image} alt={product.name} className="mt-3 aspect-square w-full rounded object-cover" />
-      <h3 className="mt-2 text-[16px] font-semibold">{product.name}</h3>
-      <p className="text-[14px] text-[#498467]">${product.price.toFixed(2)}</p>
+      <button type="button" onClick={openProduct} className="relative mt-3 block w-full text-left">
+        <img src={product.image} alt={product.name} className="aspect-square w-full rounded object-cover" />
+        {paidAd && <span className="absolute right-2 top-2 rounded-full bg-[#CFF7D3] px-2 py-1 text-[12px] font-medium text-[#02542D] shadow-sm">{paidAd.badgeLabel ?? paidAd.label ?? paidAd.placementLabel ?? "Featured"}</span>}
+      </button>
+      <button type="button" onClick={openProduct} className="mt-2 block text-left">
+        <h3 className="text-[16px] font-semibold">{product.name}</h3>
+        <p className="text-[14px] text-[#498467]">${product.price.toFixed(2)}</p>
+      </button>
+      <ReviewSummary product={product} onClick={openReviews} />
       <div className="mt-3 flex justify-end gap-4"><SaveButton savedItem={savedItem} /><ShareButton onClick={() => onShare(menuContent, undefined)} /></div>
     </div>
   );
 }
 
-function PromotionFeedCard({ promotion, product, onMenu, onShare }) {
+function PromotionFeedCard({ promotion, product, onOpenDetail, onMenu, onShare }) {
+  const navigate = useNavigate();
+  const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
   const savedItem = product ? { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName: product.shop, image: product.image, description: product.name } : null;
   const menuContent = { id: `promotion:${promotion.id}`, type: "promotion", title: promotion.title, name: promotion.title, sellerId: promotion.sellerId, productId: product?.id, sharePath: product ? `/product/${product.id}` : "/", savedItem: { id: `promotion:${promotion.id}`, type: "promotion", sourceId: promotion.id, name: promotion.title, storeName: product?.shop, image: product?.image, description: promotion.title, promotion, productId: product?.id } };
-  return <div className="rounded-lg border border-[#E6E6E6] p-3"><div className="flex items-center justify-between gap-2"><PromotionBadge promotion={promotion} /><MoreButton onClick={() => onMenu(menuContent)} /></div><VacationBadge sellerId={promotion.sellerId} />{product && <img src={product.image} alt={product.name} className="mt-3 aspect-square w-full rounded object-cover" />}<h3 className="mt-2 text-[16px] font-semibold">{promotion.title}</h3><p className="text-[14px] text-[#498467]">{product?.shop}</p><div className="mt-3 flex justify-end gap-4">{savedItem && <SaveButton savedItem={savedItem} />}<ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>;
+  return <div className="rounded-lg border border-[#E6E6E6] p-3"><div className="flex items-center justify-between gap-2"><PromotionBadge promotion={promotion} /><MoreButton onClick={() => onMenu(menuContent)} /></div><VacationBadge sellerId={promotion.sellerId} />{product && <button type="button" onClick={() => openDetail(`/product/${product.id}`, { sellerId: product.sellerId })} className="mt-3 block w-full"><img src={product.image} alt={product.name} className="aspect-square w-full rounded object-cover" /></button>}<h3 className="mt-2 text-[16px] font-semibold">{promotion.title}</h3><p className="text-[14px] text-[#498467]">{product?.shop}</p><div className="mt-3 flex justify-end gap-4">{savedItem && <SaveButton savedItem={savedItem} />}<ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>;
 }
 
 function ShareButton({ onClick }) {
@@ -423,8 +499,9 @@ function MoreButton({ onClick }) {
   );
 }
 
-function EventPost({ event, onComment, onMenu, onShare }) {
+function EventPost({ event, onOpenDetail, onComment, onMenu, onShare }) {
   const navigate = useNavigate();
+  const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
   const { isSaved, toggleSaved } = useSavedItems();
   const { isRegrown, toggleRegrow } = useRegrow();
   const seller = sellers[event.sellerId];
@@ -434,7 +511,7 @@ function EventPost({ event, onComment, onMenu, onShare }) {
   );
   const [shares, setShares] = useState(event.shares ?? 0);
 
-  const openEvent = () => navigate(`/event/${event.id}`);
+  const openEvent = () => openDetail(`/event/${event.id}`);
   const openSeller = () => seller && navigate(`/seller/${seller.id}`);
   const savedEvent = {
     id: `event:${event.id}`,
@@ -486,6 +563,7 @@ function EventPost({ event, onComment, onMenu, onShare }) {
             <span className="text-[12px] text-[#828282]">
               {formatEventDate(event.date)}
             </span>
+            <EventAttendanceCount eventId={event.id} />
           </div>
         </div>
         <MoreButton onClick={() => onMenu(menuContent)} />
@@ -550,8 +628,9 @@ function EventMeta({ label, value }) {
   );
 }
 
-function Post({ post, stacked, onComment, onMenu, onShare }) {
+function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
   const navigate = useNavigate();
+  const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
   const { promotionsForProduct } = usePromotions();
   const { isSaved, toggleSaved } = useSavedItems();
   const { isRegrown, toggleRegrow } = useRegrow();
@@ -614,7 +693,7 @@ function Post({ post, stacked, onComment, onMenu, onShare }) {
 
   const handleImageClick = () => {
     if (post.productId) {
-      navigate(`/product/${post.productId}`);
+      openDetail(`/product/${post.productId}`);
     }
   };
 

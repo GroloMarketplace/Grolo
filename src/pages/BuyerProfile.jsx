@@ -13,6 +13,7 @@ import OutlineIcon from "../components/OutlineIcon";
 import { useSavedItems } from "../context/SavedContext";
 import { useBuyerTrust } from "../context/BuyerTrustContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
+import { EventAttendanceCount } from "../components/EventRsvp";
 
 const BUYER = {
   username: "remi",
@@ -236,7 +237,7 @@ function PostPreview({ post, text }) {
 }
 
 function EventPreview({ event }) {
-  return <><img src={event.image} alt={event.title} className="mt-3 aspect-square w-full rounded-lg object-cover" /><h3 className="mt-2 text-[15px] font-semibold">{event.title}</h3><p className="mt-1 text-[13px] text-[#828282]">{formatEventDate(event.date)} · {formatEventTime(event.startTime)} · {event.location}</p></>;
+  return <><img src={event.image} alt={event.title} className="mt-3 aspect-square w-full rounded-lg object-cover" /><h3 className="mt-2 text-[15px] font-semibold">{event.title}</h3><p className="mt-1 text-[13px] text-[#828282]">{formatEventDate(event.date)} · {formatEventTime(event.startTime)} · {event.location}</p><EventAttendanceCount eventId={event.id} className="mt-1 block" /></>;
 }
 
 function ListingPreview({ listing }) {

@@ -5,7 +5,12 @@ const STORAGE_KEY = "grolo-saved-items";
 
 function readSavedItems() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? [];
+    const savedItems = JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? [];
+    const legacyFavoriteIds = JSON.parse(localStorage.getItem("my-shop-favorites")) ?? [];
+    const legacyItems = legacyFavoriteIds
+      .filter((listingId) => !savedItems.some((item) => item.id === `listing:${listingId}` || item.sourceId === listingId))
+      .map((listingId) => ({ id: `listing:${listingId}`, type: "listing", sourceId: listingId }));
+    return [...savedItems, ...legacyItems];
   } catch {
     return [];
   }

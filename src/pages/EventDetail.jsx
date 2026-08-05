@@ -7,6 +7,7 @@ import {
   formatEventTime,
   useEvents,
 } from "../context/EventContext";
+import EventRsvp from "../components/EventRsvp";
 
 export default function EventDetail() {
   const { eventId } = useParams();
@@ -80,6 +81,8 @@ export default function EventDetail() {
             <h2 className="text-[16px] font-semibold">About this event</h2>
             <p className="text-[14px] leading-[140%]">{event.description}</p>
           </div>
+
+          <EventRsvp eventId={event.id} />
 
           {seller && (
             <button

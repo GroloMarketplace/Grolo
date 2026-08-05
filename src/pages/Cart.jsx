@@ -8,6 +8,7 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useListings } from "../context/ListingContext";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import OutlineIcon from "../components/OutlineIcon";
+import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -16,6 +17,19 @@ export default function Cart() {
   const { listings } = useListings();
   const [undoItem, setUndoItem] = useState(null);
   const undoTimeout = useRef(null);
+  const scrollRef = useRef(null);
+  const savedCartState = readNavigationState("cart", { scrollTop: 0 });
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = savedCartState.scrollTop;
+    const scrollElement = scrollRef.current;
+    const saveState = () => writeNavigationState("cart", { scrollTop: scrollElement?.scrollTop ?? 0 });
+    scrollElement?.addEventListener("scroll", saveState, { passive: true });
+    return () => {
+      saveState();
+      scrollElement?.removeEventListener("scroll", saveState);
+    };
+  }, []);
   const removeCartItem = (item) => {
     removeCartItems([item]);
     setUndoItem(item);
@@ -28,22 +42,17 @@ export default function Cart() {
     setUndoItem(null);
     window.clearTimeout(undoTimeout.current);
   };
-  const { getAvailable, updateAvailable } = useInventory();
+  const { getAvailable } = useInventory();
+  const getListingId = (item) => item.productId
+    ?? item.listingId
+    ?? listings.find((listing) => listing.id === item.id || listing.name === item.name)?.id
+    ?? item.id;
   const getRealInventory = (item) => {
-    const productId = item.productId ?? item.id;
-    const listing = listings.find((current) => current.id === productId);
-    const listingAvailable = Number(listing?.quantityAvailable);
-    const itemAvailable = Number(item.quantityAvailable);
-    if (Number.isFinite(listingAvailable)) {
-      return { available: Math.max(0, listingAvailable), source: "ListingContext.quantityAvailable" };
-    }
-    if (Number.isFinite(itemAvailable)) {
-      return { available: Math.max(0, itemAvailable), source: "Saved item quantityAvailable" };
-    }
-    return { available: Math.max(0, getAvailable(productId)), source: "InventoryContext.getAvailable" };
+    const productId = getListingId(item);
+    return { available: Math.max(0, Number(getAvailable(productId)) || 0), source: "InventoryContext.getAvailable" };
   };
   const moveToCart = (item) => {
-    const productId = item.productId ?? item.id;
+    const productId = getListingId(item);
     const { available, source } = getRealInventory(item);
     const decision = available > 0 ? "Move to Active Cart Items" : "Keep in Temporarily Sold Out";
     console.info("Move to Cart inventory check", {
@@ -53,7 +62,6 @@ export default function Cart() {
       inventorySource: source,
       decision,
     });
-    updateAvailable(productId, available);
     if (available <= 0) {
       restoreItems([item]);
     } else {
@@ -64,7 +72,7 @@ export default function Cart() {
   const { getSellerProfile } = useSellerSettings();
   const inventoryStatus = items.map((item) => {
     const { available, source } = getRealInventory(item);
-    const inStock = available > 0 && item.quantity <= available;
+    const inStock = available > 0;
     console.info("Cart inventory check", {
       productName: item.name,
       quantityAvailable: available,
@@ -76,6 +84,9 @@ export default function Cart() {
   });
   const activeItems = inventoryStatus.filter(({ inStock }) => inStock).map(({ item }) => item);
   const soldOutItems = inventoryStatus.filter(({ inStock }) => !inStock).map(({ item, available }) => ({ item, available }));
+  const savedForLaterStatus = savedForLaterItems.map((item) => ({ item, available: getRealInventory(item).available }));
+  const savedForLaterActiveItems = savedForLaterStatus.filter(({ available }) => available > 0).map(({ item }) => item);
+  const savedForLaterSoldOutItems = savedForLaterStatus.filter(({ available }) => available <= 0);
   const activeTotalQuantity = activeItems.reduce((sum, item) => sum + item.quantity, 0);
   const activeSubtotal = activeItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const canCheckout = activeItems.length > 0;
@@ -96,7 +107,7 @@ export default function Cart() {
         destinationSection: inStock ? "Active Cart Items" : "Temporarily Sold Out",
       });
     });
-  }, [items, listings, getAvailable]);
+  }, [items, getAvailable]);
 
   return (
     <MobileScreenLayout>
@@ -110,7 +121,7 @@ export default function Cart() {
           {canCheckout ? <Link to="/checkout" className="block w-full rounded-lg bg-[#498467] py-3.5 text-center text-[16px] font-medium text-white">Proceed to Checkout</Link> : <div className="w-full rounded-lg bg-[#E6E6E6] py-3.5 text-center text-[16px] font-medium text-[#757575]">Checkout unavailable</div>}
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
         <CartSection title="Active Cart Items">
           {Object.entries(activeItems.reduce((groups, item) => {
             const sellerId = item.sellerId ?? "sarahs-backyard";
@@ -120,7 +131,7 @@ export default function Cart() {
           }, {})).map(([sellerId, storeItems]) => (
             <div key={sellerId} className="rounded-lg border border-[#E6E6E6] p-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[14px] font-normal text-[#498467]">{sellers[sellerId]?.name ?? "Local Store"}</span>
+                <button type="button" onClick={() => navigate(`/seller/${sellerId}`)} className="text-left text-[14px] font-normal text-[#498467]">{sellers[sellerId]?.name ?? "Local Store"}</button>
                 {getSellerProfile(sellerId)?.vacationMode && <span className="text-[11px] font-medium text-[#4F4F4F]">Temporarily Closed</span>}
                 <button type="button" onClick={() => navigate(`/seller/${sellerId}`)} className="text-[14px] font-normal text-[#498467]">View Store <span aria-hidden="true" className="text-[16px] text-[#498467]">›</span></button>
               </div>
@@ -130,7 +141,7 @@ export default function Cart() {
             </div>
           ))}
         </CartSection>
-        {soldOutItems.length > 0 && (
+        {(soldOutItems.length > 0 || savedForLaterSoldOutItems.length > 0) && (
           <CartSection title="Temporarily Sold Out">
             {soldOutItems.map(({ item }) => (
               <SwipeToDelete key={item.id} onDelete={() => removeCartItem(item)} className="rounded-lg border border-[#E6E6E6]">
@@ -139,7 +150,7 @@ export default function Cart() {
                   <div className="flex-1">
                     <div className="text-[14px] font-medium">{item.name}</div>
                     <p className="mt-1 text-[13px] text-[#828282]">This item is currently unavailable.</p>
-                    <div className="mt-1 text-[12px] text-[#828282]">Inventory: {getRealInventory(item).available}</div>
+                    <div className="mt-1 text-[12px] text-[#828282]">Listing Inventory: {getRealInventory(item).available}</div>
                     <div className="mt-1 text-[12px] text-[#828282]">Current Section: Temporarily Sold Out</div>
                     <div className="mt-3 flex gap-3">
                       <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); removeCartItem(item); }} className="text-[12px] font-medium text-[#B42318]">Remove Item</button>
@@ -149,10 +160,22 @@ export default function Cart() {
                 </div>
               </SwipeToDelete>
             ))}
+            {savedForLaterSoldOutItems.map(({ item, available }) => (
+              <SavedForLaterCard
+                key={`sold-out-${item.id}`}
+                item={item}
+                available={available}
+                onMove={() => {}}
+                onRemove={() => removeSavedForLater([item])}
+                onViewListing={() => navigate(`/product/${item.productId ?? item.id}`)}
+                navigate={navigate}
+                sectionName="Temporarily Sold Out"
+              />
+            ))}
           </CartSection>
         )}
         <CartSection title="Saved For Later">
-          {savedForLaterItems.length ? savedForLaterItems.map((item) => (
+          {savedForLaterActiveItems.length ? savedForLaterActiveItems.map((item) => (
             <SavedForLaterCard
               key={item.id}
               item={item}
@@ -161,6 +184,7 @@ export default function Cart() {
               onRemove={() => removeSavedForLater([item])}
               onViewListing={() => navigate(`/product/${item.productId ?? item.id}`)}
               navigate={navigate}
+              sectionName="Saved For Later"
             />
           )) : <p className="rounded-lg border border-[#E6E6E6] p-3 text-[13px] text-[#828282]">Items you move here will appear here.</p>}
         </CartSection>
@@ -184,7 +208,7 @@ function CartSection({ title, children }) {
   );
 }
 
-function SavedForLaterCard({ item, available, onMove, onRemove, onViewListing, navigate }) {
+function SavedForLaterCard({ item, available, onMove, onRemove, onViewListing, navigate, sectionName }) {
   const canMoveToCart = available > 0;
   const productPath = `/product/${item.productId ?? item.id}`;
 
@@ -194,8 +218,8 @@ function SavedForLaterCard({ item, available, onMove, onRemove, onViewListing, n
       <div className="min-w-0 flex-1">
         <div className="text-[14px] font-medium">{item.name}</div>
         <div className="mt-1 text-[13px] text-[#828282]">${item.price.toFixed(2)}</div>
-        <div className="mt-1 text-[12px] text-[#828282]">Inventory: {available}</div>
-        <div className="mt-1 text-[12px] text-[#828282]">Current Section: Saved For Later</div>
+        <div className="mt-1 text-[12px] text-[#828282]">Listing Inventory: {available}</div>
+        <div className="mt-1 text-[12px] text-[#828282]">Current Section: {sectionName}</div>
         {!canMoveToCart && <p className="mt-2 text-[12px] text-[#828282]">Still Sold Out</p>}
         <div className="mt-3 flex flex-wrap gap-3">
           {canMoveToCart ? (
@@ -218,13 +242,13 @@ function CartItem({ item, updateQuantity, removeItem, saveForLater, available, s
         <div className="min-w-0 flex-1">
           <div className="text-[12px] text-black/50">{item.description}</div>
           <div className="text-[14px]">{item.name}</div>
-          <div className="mt-1 text-[12px] text-[#828282]">Inventory: {available}</div>
+          <div className="mt-1 text-[12px] text-[#828282]">Listing Inventory: {available}</div>
           <div className="mt-1 text-[12px] text-[#828282]">Current Section: {sectionName}</div>
           <div className="mt-2 flex items-center gap-2">
             <span className="text-[12px] text-black/50">Quantity</span>
-            <button type="button" aria-label={`Decrease quantity of ${item.name}`} onClick={() => updateQuantity(item.id, -1)} disabled={item.quantity === 1} className="flex h-7 w-7 items-center justify-center rounded border border-[#E6E6E6] text-[16px] disabled:opacity-40">−</button>
+            <button type="button" aria-label={`Decrease quantity of ${item.name}`} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, -1, Number(available)); }} disabled={item.quantity <= 1} className="flex h-7 w-7 items-center justify-center rounded border border-[#E6E6E6] text-[16px] disabled:opacity-40">−</button>
             <span className="min-w-5 text-center text-[14px]">{item.quantity}</span>
-            <button type="button" aria-label={`Increase quantity of ${item.name}`} onClick={() => updateQuantity(item.id, 1, available)} disabled={item.quantity >= available} className="flex h-7 w-7 items-center justify-center rounded border border-[#498467] text-[#498467]">+</button>
+            <button type="button" aria-label={`Increase quantity of ${item.name}`} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, 1, Number(available)); }} disabled={item.quantity >= Number(available)} className="flex h-7 w-7 items-center justify-center rounded border border-[#498467] text-[#498467] disabled:opacity-40">+</button>
             <button type="button" aria-label={`Remove ${item.name} from cart`} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); removeItem(); }} className="ml-1 flex h-7 w-7 items-center justify-center text-[#B42318]" title="Remove item">
               <OutlineIcon name="trash" size={18} />
             </button>

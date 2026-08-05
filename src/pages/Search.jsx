@@ -21,6 +21,7 @@ import { useAdvertising } from "../context/AdvertisingContext";
 import MapView from "../components/MapView";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useListings } from "../context/ListingContext";
+import ReviewSummary from "../components/ReviewSummary";
 
 const TABS = ["Local", "Map", "History", "My Orders"];
 
@@ -40,18 +41,31 @@ export default function Search() {
     : readNavigationState("search", { tab: "Local", query: "", scrollTop: 0 });
   const [tab, setTab] = useState(savedSearchState.tab);
   const [query, setQuery] = useState(savedSearchState.query);
-  const rememberProduct = (productId) => {
+  const tabRef = useRef(tab);
+  const queryRef = useRef(query);
+  const rememberProduct = (productId, destination = `/product/${productId}`) => {
     writeNavigationState("search", {
       tab,
       query,
       scrollTop: scrollRef.current?.scrollTop ?? 0,
       currentProductId: productId,
     });
-    navigate(`/product/${productId}`);
+    navigate(destination);
+  };
+
+  const returnToSearchHome = () => {
+    tabRef.current = "Local";
+    queryRef.current = "";
+    setTab("Local");
+    setQuery("");
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    writeNavigationState("search", { tab: "Local", query: "", scrollTop: 0 });
   };
 
   useEffect(() => {
     if (!location.state?.resetSearch) return;
+    tabRef.current = "Local";
+    queryRef.current = "";
     setTab("Local");
     setQuery("");
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -61,14 +75,14 @@ export default function Search() {
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = savedSearchState.scrollTop;
-    const saveState = () => writeNavigationState("search", { tab, query, scrollTop: scrollRef.current?.scrollTop ?? 0 });
+    const saveState = () => writeNavigationState("search", { tab: tabRef.current, query: queryRef.current, scrollTop: scrollRef.current?.scrollTop ?? 0 });
     const scrollElement = scrollRef.current;
     scrollElement?.addEventListener("scroll", saveState, { passive: true });
     return () => {
       saveState();
       scrollElement?.removeEventListener("scroll", saveState);
     };
-  }, [tab, query]);
+  }, []);
 
   return (
     <MobileScreenLayout>
@@ -76,7 +90,7 @@ export default function Search() {
         {TABS.map((t) => (
           <button
             key={t}
-            onClick={() => { setTab(t); writeNavigationState("search", { tab: t, query, scrollTop: scrollRef.current?.scrollTop ?? 0 }); }}
+            onClick={() => { tabRef.current = t; setTab(t); writeNavigationState("search", { tab: t, query: queryRef.current, scrollTop: scrollRef.current?.scrollTop ?? 0 }); }}
             className={`text-[14px] font-semibold tracking-[-0.28px] relative ${
               tab === t ? "text-[#498467]" : "text-black/40"
             }`}
@@ -89,10 +103,10 @@ export default function Search() {
 
       <div ref={scrollRef} className="overflow-y-auto flex-1 no-scrollbar">
         <div className="bg-white py-3 border-b border-black/5">
-          <SearchBar value={query} onChange={(event) => setQuery(event.target.value)} />
+          <SearchBar value={query} onChange={(event) => { queryRef.current = event.target.value; setQuery(event.target.value); }} />
         </div>
 
-        {tab === "Local" && query.trim() ? <SearchResults products={listings} query={query} navigate={navigate} onProduct={rememberProduct} /> : tab === "Local" && (
+        {tab === "Local" && query.trim() ? <SearchResults products={listings} query={query} navigate={navigate} onProduct={rememberProduct} onBack={returnToSearchHome} /> : tab === "Local" && (
           <>
             <CommunitySpotlightCarousel />
             <CategoryRow onCategory={(path) => { writeNavigationState("search", { tab, query, scrollTop: scrollRef.current?.scrollTop ?? 0, currentRoutePath: path }); navigate(path, { state: { fromSearch: true } }); }} />
@@ -116,7 +130,7 @@ export default function Search() {
   );
 }
 
-function SearchResults({ products, query, navigate, onProduct }) {
+function SearchResults({ products, query, navigate, onProduct, onBack }) {
   const normalizedQuery = query.trim().toLowerCase();
   const matches = (value) => String(value ?? "").toLowerCase().includes(normalizedQuery);
   const productResults = products.filter((product) => matches(`${product.name} ${product.description} ${product.shop}`));
@@ -125,7 +139,7 @@ function SearchResults({ products, query, navigate, onProduct }) {
   const postResults = [...followingPosts, ...communityPosts].filter((post, index, posts) => posts.findIndex((item) => item.id === post.id) === index && matches(`${post.body} ${post.name} ${post.classification}`));
   const tradeResults = products.filter((product) => product.availableForTrade && matches(`${product.name} ${product.tradeAvailableFor} ${product.desiredTradeItems}`));
   const groups = [
-    { title: "Products", items: productResults, render: (product) => <ResultRow key={product.id} title={product.name} subtitle={product.shop} onClick={() => onProduct(product.id)} /> },
+    { title: "Products", items: productResults, render: (product) => <ProductSearchRow key={product.id} product={product} onProduct={onProduct} /> },
     { title: "Stores", items: storeResults, render: (seller) => <ResultRow key={seller.id} title={seller.name} subtitle={seller.location} onClick={() => navigate(`/seller/${seller.id}`)} /> },
     { title: "Events", items: eventResults, render: (event) => <ResultRow key={event.id} title={event.title} subtitle={event.location} onClick={() => navigate(`/event/${event.id}`)} /> },
     { title: "Posts", items: postResults, render: (post) => <ResultRow key={post.id} title={post.body} subtitle={post.name} onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })} /> },
@@ -133,7 +147,21 @@ function SearchResults({ products, query, navigate, onProduct }) {
   ];
   const hasResults = groups.some((group) => group.items.length > 0);
 
-  return <div className="flex flex-col gap-5 px-4 py-5"><div><h2 className="text-[20px] font-semibold">Search Results</h2><p className="mt-1 text-[13px] text-[#828282]">Results for “{query.trim()}”</p></div>{hasResults ? groups.filter((group) => group.items.length > 0).map((group) => <section key={group.title}><h3 className="mb-2 text-[15px] font-semibold">{group.title}</h3><div className="flex flex-col gap-2">{group.items.map(group.render)}</div></section>) : <div className="rounded-lg border border-[#E6E6E6] px-4 py-8 text-center text-[14px] text-[#828282]">No results found</div>}</div>;
+  return <div className="flex flex-col gap-5 px-4 py-5"><button type="button" onClick={onBack} className="w-fit text-[14px] font-medium text-[#498467]">← Back</button><div><h2 className="text-[20px] font-semibold">Search Results</h2><p className="mt-1 text-[13px] text-[#828282]">Results for “{query.trim()}”</p></div>{hasResults ? groups.filter((group) => group.items.length > 0).map((group) => <section key={group.title}><h3 className="mb-2 text-[15px] font-semibold">{group.title}</h3><div className="flex flex-col gap-2">{group.items.map(group.render)}</div></section>) : <div className="rounded-lg border border-[#E6E6E6] px-4 py-8 text-center text-[14px] text-[#828282]">No results found</div>}</div>;
+}
+
+function ProductSearchRow({ product, onProduct }) {
+  const openReviews = () => onProduct(product.id, `/product/${product.id}/reviews`);
+  return (
+    <div className="flex w-full items-center justify-between rounded-lg border border-[#E6E6E6] p-3 text-left">
+      <button type="button" onClick={() => onProduct(product.id)} className="min-w-0 flex-1 text-left">
+        <div className="truncate text-[14px] font-medium">{product.name}</div>
+        <div className="mt-1 text-[12px] text-[#828282]">{product.shop}</div>
+        <div className="mt-1 text-[14px] font-semibold text-[#498467]">${product.price.toFixed(2)}</div>
+      </button>
+      <ReviewSummary product={product} onClick={openReviews} />
+    </div>
+  );
 }
 
 function ResultRow({ title, subtitle, onClick }) {

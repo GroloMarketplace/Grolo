@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import Header from "../components/Header";
@@ -26,7 +26,21 @@ export default function Category() {
   };
   const category = getCategoryName(categoryName);
   const { listings } = useListings();
-  const [query, setQuery] = useState("");
+  const scrollRef = useRef(null);
+  const savedCategoryState = readNavigationState(`category-${category}`, { query: "", scrollTop: 0 });
+  const [query, setQuery] = useState(savedCategoryState.query);
+  const queryRef = useRef(query);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = savedCategoryState.scrollTop;
+    const scrollElement = scrollRef.current;
+    const saveState = () => writeNavigationState(`category-${category}`, { query: queryRef.current, scrollTop: scrollElement?.scrollTop ?? 0 });
+    scrollElement?.addEventListener("scroll", saveState, { passive: true });
+    return () => {
+      saveState();
+      scrollElement?.removeEventListener("scroll", saveState);
+    };
+  }, [category]);
   const categoryExists = categories.some((item) => item.name === category);
   const categoryProducts = useMemo(
     () => listings.filter((product) => product.category?.toLowerCase() === category.toLowerCase()),
@@ -40,12 +54,12 @@ export default function Category() {
   return (
     <MobileScreenLayout>
       <Header title={categoryExists ? category : "Category"} onBack={() => navigate(-1)} />
-      <div className="flex-1 overflow-y-auto no-scrollbar">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar">
         <div className="border-b border-black/5 py-3">
           <SearchBar
             placeholder={`Search within ${category}`}
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => { queryRef.current = event.target.value; setQuery(event.target.value); }}
           />
         </div>
 

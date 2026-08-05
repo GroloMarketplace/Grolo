@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import PromotionBadge from "./PromotionBadge";
 import { usePromotions } from "../context/PromotionContext";
 import { useInventory } from "../context/InventoryContext";
+import ReviewSummary from "./ReviewSummary";
 
 export default function SellerListingCard({ product, onDelete }) {
   const navigate = useNavigate();
@@ -77,6 +78,7 @@ export default function SellerListingCard({ product, onDelete }) {
           <div className="text-[16px] font-medium text-black">
             ${product.price.toFixed(2)}
           </div>
+          <ReviewSummary product={product} />
           <div className="text-[12px] text-[#828282]">{available} Available</div>
         </div>
 

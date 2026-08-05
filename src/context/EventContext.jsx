@@ -4,6 +4,15 @@ import { events as mockEvents, sellers } from "../data/mockData";
 const EventContext = createContext(null);
 
 const STORE_ID = "sarahs-backyard";
+const RSVP_STORAGE_KEY = "grolo-event-rsvps";
+
+function readRsvps() {
+  try {
+    return JSON.parse(localStorage.getItem(RSVP_STORAGE_KEY)) ?? [];
+  } catch {
+    return [];
+  }
+}
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -31,6 +40,22 @@ export function formatEventTime(time) {
 
 export function EventProvider({ children }) {
   const [events, setEvents] = useState(mockEvents);
+  const [rsvpEventIds, setRsvpEventIds] = useState(() => readRsvps());
+
+  const isAttending = useCallback((eventId) => rsvpEventIds.includes(eventId), [rsvpEventIds]);
+  const getAttendeeCount = useCallback((eventId) => {
+    const event = events.find((current) => current.id === eventId);
+    return (event?.attendeeCount ?? 0) + (isAttending(eventId) ? 1 : 0);
+  }, [events, isAttending]);
+  const toggleAttendance = useCallback((eventId) => {
+    setRsvpEventIds((current) => {
+      const next = current.includes(eventId)
+        ? current.filter((id) => id !== eventId)
+        : [...current, eventId];
+      localStorage.setItem(RSVP_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
 
   const upcomingEvents = useCallback(
     (sellerId) =>
@@ -62,6 +87,7 @@ export function EventProvider({ children }) {
         comments: 0,
         reposts: 0,
         shares: 0,
+        attendeeCount: 0,
         ...event,
         id: `event-${Date.now()}`,
         sellerId: STORE_ID,
@@ -82,6 +108,9 @@ export function EventProvider({ children }) {
     getEvent,
     addEvent,
     eventSeller,
+    isAttending,
+    getAttendeeCount,
+    toggleAttendance,
     storeId: STORE_ID,
   };
 

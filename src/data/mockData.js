@@ -8,6 +8,7 @@ export const products = [
     shop: "Pennie's Produce",
     sellerId: "pennies-produce",
     status: "Active",
+    postedAt: "2 hrs ago",
     views: 156,
     favorites: 23,
     messages: 8,
@@ -34,6 +35,7 @@ export const products = [
     shop: "Dustin's Donut Store",
     sellerId: "dustins-donuts",
     status: "Active",
+    postedAt: "Yesterday",
     views: 342,
     favorites: 45,
     messages: 12,
@@ -57,6 +59,7 @@ export const products = [
     shop: "Brandy's Crafts",
     sellerId: "brandys-crafts",
     status: "Sold",
+    postedAt: "Sat, Aug 8",
     views: 89,
     favorites: 18,
     messages: 5,
@@ -78,6 +81,7 @@ export const products = [
     shop: "Sarah's Backyard",
     sellerId: "sarahs-backyard",
     status: "Active",
+    postedAt: "2 hrs ago",
     views: 267,
     favorites: 34,
     messages: 15,
@@ -442,6 +446,7 @@ export const events = [
     comments: 12,
     reposts: 9,
     shares: 6,
+    attendeeCount: 24,
   },
   {
     id: "backyard-berry-tasting",
@@ -460,6 +465,7 @@ export const events = [
     comments: 7,
     reposts: 4,
     shares: 3,
+    attendeeCount: 24,
   },
   {
     id: "weekend-pickup-day",
@@ -478,6 +484,7 @@ export const events = [
     comments: 3,
     reposts: 2,
     shares: 2,
+    attendeeCount: 24,
   },
   {
     id: "summer-harvest-sale",
@@ -496,6 +503,7 @@ export const events = [
     comments: 15,
     reposts: 11,
     shares: 8,
+    attendeeCount: 24,
   },
   {
     id: "donut-decorating-workshop",
@@ -514,6 +522,7 @@ export const events = [
     comments: 14,
     reposts: 7,
     shares: 5,
+    attendeeCount: 24,
   },
   {
     id: "marda-loop-popup",
@@ -532,6 +541,7 @@ export const events = [
     comments: 6,
     reposts: 5,
     shares: 4,
+    attendeeCount: 24,
   },
   {
     id: "crochet-basics-workshop",
@@ -550,6 +560,7 @@ export const events = [
     comments: 9,
     reposts: 3,
     shares: 2,
+    attendeeCount: 24,
   },
 ];
 

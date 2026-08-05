@@ -38,7 +38,8 @@ export function CartProvider({ children }) {
     setItems((current) => {
       const nextItems = current.map((item) => {
         if (item.id !== itemId) return item;
-        const max = Number.isFinite(available) ? available : Infinity;
+        const normalizedAvailable = Number(available);
+        const max = Number.isFinite(normalizedAvailable) ? normalizedAvailable : Infinity;
         return { ...item, quantity: Math.min(max, Math.max(1, item.quantity + delta)) };
       });
       persistCart(nextItems);

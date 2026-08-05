@@ -1,25 +1,39 @@
 import { useNavigate } from "react-router-dom";
+import { useEffect, useRef } from "react";
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import PromotionBadge from "../components/PromotionBadge";
 import { useSidebar } from "../hooks/useSidebar";
-import { useFavorites } from "../hooks/useFavorites";
 import { products } from "../data/mockData";
 import { useSavedItems } from "../context/SavedContext";
+import ReviewSummary from "../components/ReviewSummary";
+import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 
 export default function Saved() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
   const { savedItems } = useSavedItems();
-  const { favoriteIds } = useFavorites();
   const navigate = useNavigate();
+  const scrollRef = useRef(null);
+  const savedPageState = readNavigationState("saved", { scrollTop: 0 });
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = savedPageState.scrollTop;
+    const scrollElement = scrollRef.current;
+    const saveState = () => writeNavigationState("saved", { scrollTop: scrollElement?.scrollTop ?? 0 });
+    scrollElement?.addEventListener("scroll", saveState, { passive: true });
+    return () => {
+      saveState();
+      scrollElement?.removeEventListener("scroll", saveState);
+    };
+  }, []);
+
   const savedPosts = savedItems.filter((item) => item.type === "post");
   const savedEvents = savedItems.filter((item) => item.type === "event");
   const savedPromotions = savedItems.filter((item) => item.type === "promotion");
-  const savedListingIds = new Set([
-    ...favoriteIds,
-    ...savedItems.filter((item) => item.type === "listing").map((item) => item.sourceId),
-  ]);
+  const savedListingIds = new Set(savedItems
+    .filter((item) => item.type === "listing")
+    .map((item) => item.sourceId ?? item.id.replace(/^listing:/, "")));
   const savedListings = products.filter((product) => savedListingIds.has(product.id));
   const hasSavedItems = savedPosts.length || savedEvents.length || savedListings.length || savedPromotions.length;
 
@@ -27,7 +41,7 @@ export default function Saved() {
     <>
       <Header title="Saved Items" onMenu={openSidebar} />
       <MobileScreenLayout>
-        <div className="overflow-y-auto flex-1 no-scrollbar px-4 py-6">
+        <div ref={scrollRef} className="overflow-y-auto flex-1 no-scrollbar px-4 py-6">
           {!hasSavedItems ? (
             <EmptyState />
           ) : (
@@ -55,19 +69,24 @@ export default function Saved() {
 
               <SavedSection title="Saved Listings" items={savedListings} emptyText="Listings you save will appear here">
                 {savedListings.map((product) => (
-                  <button
+                  <div
                     key={product.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => navigate(`/product/${product.id}`)}
-                    className="flex w-full gap-3 rounded-lg border border-[#E6E6E6] p-3 text-left hover:bg-[#F5FFF6] transition-colors"
+                    onKeyDown={(event) => {
+                      if ((event.key === "Enter" || event.key === " ") && event.target === event.currentTarget) navigate(`/product/${product.id}`);
+                    }}
+                    className="flex w-full cursor-pointer gap-3 rounded-lg border border-[#E6E6E6] p-3 text-left transition-colors hover:bg-[#F5FFF6]"
                   >
                     <img src={product.image} alt={product.name} className="h-20 w-20 rounded-lg object-cover" />
                     <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
                       <span className="text-[12px] text-[#828282]">{product.shop}</span>
                       <span className="text-[16px] font-semibold">{product.name}</span>
                       <span className="text-[16px] font-semibold text-[#498467]">${product.price.toFixed(2)}</span>
+                      <ReviewSummary product={product} />
                     </div>
-                  </button>
+                  </div>
                 ))}
               </SavedSection>
 
@@ -100,11 +119,17 @@ function SavedSection({ title, items, emptyText, children }) {
 }
 
 function SavedContentCard({ item, event, promotion, onClick }) {
+  const product = item.productId ? products.find((listing) => listing.id === item.productId) : null;
+
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="flex w-full gap-3 rounded-lg border border-[#E6E6E6] p-3 text-left hover:bg-[#F5FFF6] transition-colors"
+      onKeyDown={(event) => {
+        if ((event.key === "Enter" || event.key === " ") && event.target === event.currentTarget) onClick();
+      }}
+      className="flex w-full cursor-pointer gap-3 rounded-lg border border-[#E6E6E6] p-3 text-left transition-colors hover:bg-[#F5FFF6]"
     >
       <div className="relative shrink-0">
         <img src={item.image} alt="" className="h-20 w-20 rounded-lg object-cover" />
@@ -117,13 +142,14 @@ function SavedContentCard({ item, event, promotion, onClick }) {
         </div>
         <span className="text-[15px] font-semibold">{item.name}</span>
         <span className="line-clamp-2 text-[13px] leading-[130%] text-[#828282]">{item.description}</span>
+        {promotion && product && <><span className="text-[14px] font-semibold text-[#498467]">${product.price.toFixed(2)}</span><ReviewSummary product={product} /></>}
         {event && item.event && (
           <span className="text-[12px] text-[#498467]">
             {item.event.location} · {item.event.date}
           </span>
         )}
       </div>
-    </button>
+    </div>
   );
 }
 

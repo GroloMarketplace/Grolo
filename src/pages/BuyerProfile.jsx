@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -6,45 +6,68 @@ import ProfileSwitcher from "../components/ProfileSwitcher";
 import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../hooks/useSidebar";
 import { communityPosts, events, followingPosts, products, promotions } from "../data/mockData";
-import { formatEventDate, formatEventTime } from "../context/EventContext";
-import { impactBadges, impactStats, impactTimeline } from "../data/communityImpact";
+import { formatEventDate, formatEventTime, useEvents } from "../context/EventContext";
+import { useFollow } from "../context/FollowContext";
+import { useReviews } from "../context/ReviewContext";
+import { getBuyerImpactMetrics } from "../utils/buyerImpact";
+import { impactTimeline } from "../data/communityImpact";
 import { getBuyerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
 import { useSavedItems } from "../context/SavedContext";
 import { useBuyerTrust } from "../context/BuyerTrustContext";
+import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useOrders } from "../context/OrderContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { EventAttendanceCount } from "../components/EventRsvp";
 
 const BUYER = {
   username: "remi",
-  location: "Kensington, Calgary",
   bio: "Discovering local makers, businesses, and community moments around Calgary.",
   banner: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80",
-  avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
 };
 
 export default function BuyerProfile() {
   const navigate = useNavigate();
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
+  const { settings } = useBuyerSettings();
+  const { events: liveEvents, attendingEventIds } = useEvents();
+  const { followedSellers } = useFollow();
+  const { buyerOrders } = useOrders();
+  const { reviewsWrittenCount } = useReviews();
+  const impactMetrics = getBuyerImpactMetrics({ orders: buyerOrders(), events: liveEvents, attendingEventIds, followedSellers, reviewsWritten: reviewsWrittenCount });
+  const buyerProfile = { ...BUYER, username: settings.displayName, bio: settings.bio, avatar: settings.avatar };
+  const publicLocation = settings.showLocationPublicly && settings.location.trim() ? `${settings.location.trim()}, Calgary` : "";
   const { savedItems } = useSavedItems();
   const savedProductCount = savedItems.filter((item) => item.type === "listing").length;
-  const savedProfileState = readNavigationState("buyer-profile", { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 });
+  const [savedProfileState] = useState(() => readNavigationState("buyer-profile", { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 }));
   const [editing, setEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState(savedProfileState.activeTab);
+  const [activeTab, setActiveTab] = useState(() => Math.min(Math.max(savedProfileState.activeTab, 0), 1));
   const pageScrollRef = useRef(null);
   const tabContentRef = useRef(null);
+  const restoredInitialLayout = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!restoredInitialLayout.current && pageScrollRef.current) {
+      pageScrollRef.current.scrollTop = savedProfileState.scrollTop;
+      restoredInitialLayout.current = true;
+    }
+    if (tabContentRef.current) {
+      tabContentRef.current.scrollLeft = activeTab * tabContentRef.current.clientWidth;
+      writeNavigationState("buyer-profile", {
+        activeTab,
+        scrollTop: pageScrollRef.current?.scrollTop ?? 0,
+        tabScrollLeft: tabContentRef.current.scrollLeft,
+      });
+    }
+  }, [activeTab, savedProfileState.scrollTop]);
 
   useEffect(() => {
-    if (pageScrollRef.current) pageScrollRef.current.scrollTop = savedProfileState.scrollTop;
-    if (tabContentRef.current) tabContentRef.current.scrollLeft = savedProfileState.tabScrollLeft;
     const saveState = () => writeNavigationState("buyer-profile", { activeTab, scrollTop: pageScrollRef.current?.scrollTop ?? 0, tabScrollLeft: tabContentRef.current?.scrollLeft ?? 0 });
     const pageScroll = pageScrollRef.current;
     const tabScroll = tabContentRef.current;
     pageScroll?.addEventListener("scroll", saveState, { passive: true });
     tabScroll?.addEventListener("scroll", saveState, { passive: true });
     return () => {
-      saveState();
       pageScroll?.removeEventListener("scroll", saveState);
       tabScroll?.removeEventListener("scroll", saveState);
     };
@@ -53,10 +76,11 @@ export default function BuyerProfile() {
 
   const handleTabChange = (index) => {
     setActiveTab(index);
-    writeNavigationState("buyer-profile", { activeTab: index, scrollTop: pageScrollRef.current?.scrollTop ?? 0, tabScrollLeft: index * (tabContentRef.current?.clientWidth ?? 0) });
+    const tabScrollLeft = index * (tabContentRef.current?.clientWidth ?? 0);
+    writeNavigationState("buyer-profile", { activeTab: index, scrollTop: pageScrollRef.current?.scrollTop ?? 0, tabScrollLeft });
     tabContentRef.current?.scrollTo({
-      left: index * tabContentRef.current.clientWidth,
-      behavior: "smooth",
+      left: tabScrollLeft,
+      behavior: "auto",
     });
   };
 
@@ -79,20 +103,20 @@ export default function BuyerProfile() {
         <div className="relative z-10 -mt-8 px-4">
           <div className="rounded-lg bg-white p-4 shadow-sm">
             <div className="flex items-start gap-3">
-              <img src={BUYER.avatar} alt={BUYER.username} className="h-16 w-16 rounded-full border-2 border-white object-cover shadow" />
+              <img src={buyerProfile.avatar} alt={buyerProfile.username} className="h-16 w-16 rounded-full border-2 border-white object-cover shadow" />
               <div className="flex-1">
-                {editing ? <input defaultValue={BUYER.username} className="w-full border-b border-[#E6E6E6] text-[20px] font-semibold outline-none" /> : <h1 className="text-[20px] font-semibold">{BUYER.username}</h1>}
-                <CommunityStatusBadge />
-                <p className="text-[14px] text-[#828282]">{BUYER.location}</p>
+                {editing ? <input defaultValue={buyerProfile.username} className="w-full border-b border-[#E6E6E6] text-[20px] font-semibold outline-none" /> : <h1 className="text-[20px] font-semibold">{buyerProfile.username}</h1>}
+                <CommunityStatusBadge metrics={impactMetrics} />
+                {publicLocation && <p className="text-[14px] text-[#828282]">{publicLocation}</p>}
               </div>
             </div>
-            <p className="mt-3 text-[14px] leading-[140%]">{BUYER.bio}</p>
+            <p className="mt-3 text-[14px] leading-[140%]">{buyerProfile.bio}</p>
             <button type="button" onClick={() => setEditing((current) => !current)} className="mt-4 w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">{editing ? "Save Profile" : "Edit Profile"}</button>
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <BuyerStat label="Stores Followed" value="12" />
+              <BuyerStat label="Stores Followed" value={impactMetrics.storesFollowed} />
               <button type="button" onClick={() => navigate("/saved")} className="text-left"><BuyerStat label="Saved Items" value={savedProductCount} /></button>
-              <BuyerStat label="Reviews Written" value="18" />
-              <BuyerStat label="Events Attended" value="6" />
+              <BuyerStat label="Reviews Written" value={impactMetrics.reviewsWritten} />
+              <BuyerStat label="Events Attended" value={impactMetrics.eventsAttended} />
             </div>
           </div>
 
@@ -118,10 +142,10 @@ export default function BuyerProfile() {
             <div ref={tabContentRef} onScroll={handleTabScroll} className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar">
               <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4">
                 <div className="flex w-full min-w-0 flex-col gap-4">
-                  {activity.map((item) => <ActivityCard key={item.id} activity={item} navigate={navigate} />)}
+                  {activity.map((item) => <ActivityCard key={item.id} activity={item} navigate={navigate} profile={buyerProfile} />)}
                 </div>
               </div>
-              <CommunityImpactTab />
+              <CommunityImpactTab metrics={impactMetrics} />
             </div>
           </div>
         </div>
@@ -150,8 +174,8 @@ function buildActivity() {
   ];
 }
 
-function CommunityStatusBadge() {
-  const status = getBuyerStatus();
+function CommunityStatusBadge({ metrics }) {
+  const status = getBuyerStatus(metrics);
   return <p className="mt-1 flex items-center gap-1 text-[13px] font-medium text-[#498467]"><OutlineIcon name={status.icon} size={15} /> {status.name}</p>;
 }
 
@@ -167,8 +191,21 @@ function CommunityStatusCard({ status }) {
   return <section className="mt-4 rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4"><div className="text-[12px] font-medium uppercase tracking-[0.4px] text-[#498467]">Community Status</div><div className="mt-2 flex items-center gap-2 text-[20px] font-semibold"><OutlineIcon name={status.icon} size={22} className="text-[#498467]" /> {status.name}</div><div className="mt-3 flex items-center justify-between text-[12px] text-[#828282]"><span>Progress to Next Level</span><span>{status.total} / {status.nextThreshold} actions</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-[#DDEBDF]"><div className="h-full rounded-full bg-[#498467]" style={{ width: `${status.progress}%` }} /></div></section>;
 }
 
-function CommunityImpactTab() {
-  const status = getBuyerStatus();
+function CommunityImpactTab({ metrics }) {
+  const status = getBuyerStatus(metrics);
+  const impactStats = [
+    { label: "Local businesses supported", value: metrics.businessesSupported },
+    { label: "Local purchases made", value: metrics.purchasesMade },
+    { label: "Events attended", value: metrics.eventsAttended },
+    { label: "Stores followed", value: metrics.storesFollowed },
+    { label: "Reviews written", value: metrics.reviewsWritten },
+  ];
+  const impactBadges = [
+    { name: "Local Supporter", progress: `${metrics.purchasesMade} / 5 purchases completed`, value: metrics.purchasesMade, goal: 5 },
+    { name: "Market Explorer", progress: `${metrics.businessesSupported} / 5 local businesses visited`, value: metrics.businessesSupported, goal: 5 },
+    { name: "Trusted Reviewer", progress: `${metrics.reviewsWritten} / 25 reviews written`, value: metrics.reviewsWritten, goal: 25 },
+    { name: "Community Champion", progress: `${status.total} community actions completed`, value: status.total, goal: 50 },
+  ];
   return (
     <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4">
       <div className="rounded-lg bg-[#498467] p-5 text-white">
@@ -211,7 +248,7 @@ function CommunityImpactTab() {
   );
 }
 
-export function ActivityCard({ activity, navigate }) {
+export function ActivityCard({ activity, navigate, profile }) {
   const openActivity = () => {
     if (activity.type === "event") navigate(`/event/${activity.event.id}`);
     else if (activity.type === "listing" || activity.type === "promotion") navigate(`/product/${activity.listing.id}`);
@@ -222,7 +259,7 @@ export function ActivityCard({ activity, navigate }) {
     <button type="button" onClick={openActivity} className={`w-full rounded-lg border border-[#E6E6E6] p-3 text-left transition-colors hover:bg-[#F5FFF6]`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <img src={BUYER.avatar} alt={BUYER.username} className="h-8 w-8 rounded-full object-cover" />
+          <img src={profile?.avatar ?? activity.post?.avatar ?? activity.event?.avatar} alt={profile?.username ?? activity.post?.name ?? activity.event?.title} className="h-8 w-8 rounded-full object-cover" />
           <div>
             <p className="text-[14px] font-semibold">{activity.label}</p>
             <p className="text-[12px] text-[#828282]">{activity.timestamp}</p>

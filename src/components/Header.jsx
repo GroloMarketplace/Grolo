@@ -1,7 +1,14 @@
 import { useNavigate } from "react-router-dom";
+import { useBuyerSettings } from "../context/BuyerSettingsContext";
+import { useProfileMode } from "../context/ProfileModeContext";
+import { useSellerSettings } from "../context/SellerSettingsContext";
 
 export default function Header({ title, titleContent, onBack, onMenu, right, postButton }) {
   const navigate = useNavigate();
+  const { settings: buyerSettings } = useBuyerSettings();
+  const { profileMode } = useProfileMode();
+  const { getSellerProfile } = useSellerSettings();
+  const avatar = profileMode === "seller" ? getSellerProfile("sarahs-backyard").avatar : buyerSettings.avatar;
 
   return (
     <div className="h-14 flex items-center justify-between px-4 border-b border-[#E6E6E6]">
@@ -47,7 +54,7 @@ export default function Header({ title, titleContent, onBack, onMenu, right, pos
         {right ?? (
           <button type="button" onClick={() => navigate("/account-settings")} aria-label="Open Account Settings" className="rounded-full">
             <img
-              src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80"
+              src={avatar}
               alt="Profile"
               className="w-6 h-6 rounded-full object-cover"
             />

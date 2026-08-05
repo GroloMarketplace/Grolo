@@ -12,10 +12,9 @@ import { useSavedItems } from "../context/SavedContext";
 import { useRegrow } from "../context/RegrowContext";
 import {
   followingPosts,
-  communityPosts,
+  products,
   notificationsHighlights,
   notificationsFollowers,
-  products,
   sellers,
 } from "../data/mockData";
 import { useFollow } from "../context/FollowContext";
@@ -33,6 +32,9 @@ import ReviewSummary from "../components/ReviewSummary";
 import { EventAttendanceCount } from "../components/EventRsvp";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import { useListings } from "../context/ListingContext";
+import { usePosts } from "../context/PostContext";
+import { useBuyerSettings } from "../context/BuyerSettingsContext";
 
 const TABS = ["Following", "Your Community"];
 const COMMUNITY_FILTERS = ["For You", "Posts", "Events", "Listings", "Promotions", "Regrows"];
@@ -44,7 +46,11 @@ export default function Feed() {
   const mainTabContentRef = useRef(null);
   const savedFeedState = readNavigationState("feed", { tab: "Your Community", communityFilter: "For You", scrollTop: 0 });
   const initialTabRef = useRef(TABS.includes(location.state?.tab) ? location.state.tab : savedFeedState.tab);
-  const communityFilterRef = useRef(COMMUNITY_FILTERS.includes(savedFeedState.communityFilter) ? savedFeedState.communityFilter : "For You");
+  const communityFilterRef = useRef(COMMUNITY_FILTERS.includes(location.state?.communityFilter)
+    ? location.state.communityFilter
+    : COMMUNITY_FILTERS.includes(savedFeedState.communityFilter)
+      ? savedFeedState.communityFilter
+      : "For You");
   const [tab, setTab] = useState(initialTabRef.current);
   const [communityFilter, setCommunityFilter] = useState(communityFilterRef.current);
   const [actionContent, setActionContent] = useState(null);
@@ -272,12 +278,17 @@ export default function Feed() {
 
 function FollowingFeed({ followedSellers, hiddenContentIds, onComment, onMenu, onShare }) {
   const { upcomingEvents } = useEvents();
+  const { listings } = useListings();
+  const { posts } = usePosts();
   const { activePromotions } = usePromotions();
   const events = upcomingEvents().filter((event) => followedSellers.includes(event.sellerId));
-  const posts = followingPosts.filter((post) => followedSellers.includes(post.sellerId));
-  const listings = products.filter((product) => followedSellers.includes(product.sellerId));
+  const followedPosts = [...followingPosts, ...posts].filter((post) => followedSellers.includes(post.sellerId));
+  const followedListings = listings.filter((product) => followedSellers.includes(product.sellerId));
+  const listingsForPromotions = listings;
+  const postsForItems = followedPosts;
+  const listingsForItems = followedListings;
   const promotions = activePromotions().filter((promotion) => followedSellers.includes(promotion.sellerId));
-  const items = getFollowedItems({ posts, events, listings, promotions, hiddenContentIds });
+  const items = getFollowedItems({ posts: postsForItems, events, listings: listingsForItems, promotions, allListings: listingsForPromotions, hiddenContentIds });
 
   return (
     <div className="flex flex-col gap-8 px-4 py-6">
@@ -290,26 +301,26 @@ function FollowingFeed({ followedSellers, hiddenContentIds, onComment, onMenu, o
   );
 }
 
-function getFollowedItems({ posts, events, listings, promotions, hiddenContentIds }) {
+function getFollowedItems({ posts, events, listings, promotions, allListings, hiddenContentIds }) {
   const items = [
     ...posts.map((post) => ({ type: "post", id: `post:${post.id}`, post })),
     ...events.map((event) => ({ type: "event", id: `event:${event.id}`, event })),
     ...listings.map((product) => ({ type: "listing", id: `listing:${product.id}`, product })),
-    ...promotions.map((promotion) => ({ type: "promotion", id: `promotion:${promotion.id}`, promotion, product: products.find((product) => promotion.productIds?.includes(product.id)) })),
+    ...promotions.map((promotion) => ({ type: "promotion", id: `promotion:${promotion.id}`, promotion, product: allListings.find((product) => promotion.productIds?.includes(product.id)) })),
   ];
   return items.filter((item) => !hiddenContentIds.has(item.id));
 }
 
 function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu, onShare, hiddenContentIds }) {
   const { upcomingEvents } = useEvents();
+  const { listings } = useListings();
+  const { posts } = usePosts();
   const { activePromotions } = usePromotions();
-  const { followedSellers } = useFollow();
-  const { isSaved } = useSavedItems();
   const { isRegrown } = useRegrow();
   const [touchStart, setTouchStart] = useState(null);
   const events = upcomingEvents();
   const currentPromotions = activePromotions();
-  const items = getCommunityItems(filter, { events, currentPromotions, followedSellers, isSaved, isRegrown, hiddenContentIds });
+  const items = getCommunityItems(filter, { events, listings, posts, currentPromotions, isRegrown, hiddenContentIds });
 
   const changeFilter = (nextFilter) => onFilterChange(nextFilter);
   const handlePointerEnd = (event) => {
@@ -318,7 +329,7 @@ function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu
     const currentIndex = COMMUNITY_FILTERS.indexOf(filter);
     if (Math.abs(distance) > 40) {
       const nextIndex = distance < 0 ? Math.min(currentIndex + 1, COMMUNITY_FILTERS.length - 1) : Math.max(currentIndex - 1, 0);
-      setFilter(COMMUNITY_FILTERS[nextIndex]);
+      onFilterChange(COMMUNITY_FILTERS[nextIndex]);
     }
     setTouchStart(null);
   };
@@ -352,6 +363,11 @@ function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu
           </button>
         ))}
       </div>
+      <div className="mx-4 mt-3 rounded-lg border border-dashed border-[#498467] bg-[#F5FFF6] px-3 py-2 text-[11px] text-[#498467]" data-testid="feed-debug-counts">
+        <div>Posts Loaded: {posts.length}</div>
+        <div>Events Loaded: {events.length}</div>
+        <div>Listings Loaded: {listings.length}</div>
+      </div>
       <div className="flex flex-col gap-4 px-4 py-3">
         <CommunityImpactCard />
         {items.map((item) => renderCommunityItem(item, onOpenDetail, onComment, onMenu, onShare))}
@@ -360,15 +376,15 @@ function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu
   );
 }
 
-function getCommunityItems(filter, { events, currentPromotions, followedSellers, isSaved, isRegrown, hiddenContentIds }) {
-  const listingItems = products.map((product) => ({ type: "listing", id: `listing:${product.id}`, product }));
-  const postItems = communityPosts.map((post) => ({ type: "post", id: `post:${post.id}`, post }));
+function getCommunityItems(filter, { events, listings, posts, currentPromotions, isRegrown, hiddenContentIds }) {
+  const listingItems = listings.map((product) => ({ type: "listing", id: `listing:${product.id}`, product }));
+  const postItems = posts.map((post) => ({ type: "post", id: `post:${post.id}`, post }));
   const eventItems = events.map((event) => ({ type: "event", id: `event:${event.id}`, event }));
   const promotionItems = currentPromotions.map((promotion) => ({
     type: "promotion",
     id: `promotion:${promotion.id}`,
     promotion,
-    product: products.find((product) => promotion.productIds?.includes(product.id)),
+    product: listings.find((product) => promotion.productIds?.includes(product.id)),
   }));
   const allItems = [...postItems, ...eventItems, ...listingItems, ...promotionItems];
   const visibleItems = allItems.filter((item) => !hiddenContentIds.has(item.id));
@@ -378,15 +394,13 @@ function getCommunityItems(filter, { events, currentPromotions, followedSellers,
       ? visibleItems.filter((item) => isRegrown(item.id))
       : visibleItems.filter((item) => item.type === filter.slice(0, -1).toLowerCase());
 
-  return filtered.sort((a, b) => relevanceScore(b, { followedSellers, isSaved, isRegrown }) - relevanceScore(a, { followedSellers, isSaved, isRegrown }));
+  return filtered.sort((a, b) => contentTimestamp(b) - contentTimestamp(a));
 }
 
-function relevanceScore(item, { followedSellers, isSaved, isRegrown }) {
-  const sellerId = item.post?.sellerId ?? item.event?.sellerId ?? item.product?.sellerId ?? item.promotion?.sellerId;
-  const contentId = item.type === "post" ? `post:${item.post.id}` : `${item.type}:${item.event?.id ?? item.product?.id ?? item.promotion?.id}`;
-  const postScore = item.post ? (item.post.likes ?? 0) + (item.post.comments ?? 0) * 2 : 0;
-  return (followedSellers.includes(sellerId) ? 30 : 0) + (isSaved(contentId) ? 24 : 0) + (isRegrown(contentId) ? 18 : 0) + postScore + (item.type === "promotion" ? 16 : 0) + (item.type === "event" ? 10 : 0);
+function contentTimestamp(item) {
+  return item.post?.createdAt ?? item.event?.createdAt ?? item.product?.createdAt ?? item.promotion?.createdAt ?? 0;
 }
+
 
 function renderCommunityItem(item, onOpenDetail, onComment, onMenu, onShare) {
   if (item.type === "post") return <Post key={item.id} post={item.post} stacked onOpenDetail={onOpenDetail} onComment={onComment} onMenu={onMenu} onShare={onShare} />;
@@ -634,6 +648,8 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
   const { promotionsForProduct } = usePromotions();
   const { isSaved, toggleSaved } = useSavedItems();
   const { isRegrown, toggleRegrow } = useRegrow();
+  const { settings: buyerProfile } = useBuyerSettings();
+  const postAvatar = post.authorId === buyerProfile.displayName ? buyerProfile.avatar : post.avatar;
   const [reposts, setReposts] = useState(
     (post.shares ?? 0) + (isRegrown(`post:${post.id}`) ? 1 : 0),
   );
@@ -649,7 +665,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
     sourceId: post.id,
     name: post.body,
     storeName: post.name,
-    storeImage: post.avatar,
+    storeImage: postAvatar,
     image: post.image,
     description: post.body,
     feedTab: stacked ? "Your Community" : "Following",
@@ -662,7 +678,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
         sourceId: promotion.id,
         name: promotion.title,
         storeName: post.name,
-        storeImage: post.avatar,
+        storeImage: postAvatar,
         image: post.image,
         description: promotion.title,
         promotion,
@@ -700,7 +716,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
   const avatar = (
     <button onClick={handleSellerClick} className="shrink-0">
       <img
-        src={post.avatar}
+        src={postAvatar}
         alt={post.name}
         className="w-8 h-8 rounded-full object-cover hover:opacity-80 transition-opacity"
       />

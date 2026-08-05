@@ -9,6 +9,7 @@ import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import ProfileAvatar from "../components/ProfileAvatar";
 import { getConversationProfile } from "../utils/conversationProfile";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { getOrderStatusClass, getOrderStatusLabel } from "../utils/orderStatus";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 
@@ -31,6 +32,7 @@ export default function Messages() {
   const { orders } = useOrders();
   const { profileMode } = useProfileMode();
   const { getSellerProfile } = useSellerSettings();
+  const { settings: buyerProfile } = useBuyerSettings();
   const tabNames = profileMode === "buyer" ? TAB_NAMES.filter((tabName) => tabName !== "Selling") : TAB_NAMES;
 
   useEffect(() => {
@@ -102,7 +104,7 @@ export default function Messages() {
           filteredMessages.map((m) => {
             const latestMessage = m.messages?.[m.messages.length - 1];
             const messageSeller = Object.values(sellers).find((seller) => seller.name === m.name);
-            const conversationProfile = getConversationProfile(m, getSellerProfile);
+            const conversationProfile = getConversationProfile(m, getSellerProfile, buyerProfile);
             const isOrderConversation = m.conversationType === "order" || Boolean(m.orderId || m.orderContext?.orderId);
             const liveOrder = isOrderConversation ? orders.find((order) => order.id === (m.orderId ?? m.orderContext?.orderId)) : null;
             const orderNumber = liveOrder?.id ?? m.orderContext?.orderNumber ?? m.orderId;

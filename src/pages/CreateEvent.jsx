@@ -24,7 +24,7 @@ export default function CreateEvent() {
   const handleSubmit = (e) => {
     e.preventDefault();
     addEvent(formData);
-    navigate("/my-shop/events");
+    navigate("/", { state: { tab: "Your Community", communityFilter: "Events", eventCreated: true } });
   };
 
   return (

@@ -3,10 +3,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { formatEventDate, formatEventTime } from "../context/EventContext";
+import { useBuyerSettings } from "../context/BuyerSettingsContext";
 
 const CURRENT_USER = {
   username: "you",
-  avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
 };
 
 const MOCK_COMMENTS = [
@@ -31,6 +31,7 @@ const MOCK_COMMENTS = [
 export default function Comments() {
   const navigate = useNavigate();
   const { state } = useLocation();
+  const { settings } = useBuyerSettings();
   const content = state?.content ?? fallbackContent;
   const [comments, setComments] = useState(() =>
     state?.highlightedComment
@@ -56,6 +57,7 @@ export default function Comments() {
       {
         id: `comment-${Date.now()}`,
         ...CURRENT_USER,
+        avatar: settings.avatar,
         timestamp: "now",
         text,
         likes: 0,
@@ -69,7 +71,7 @@ export default function Comments() {
     <MobileScreenLayout>
       <Header title="Comments" onBack={() => navigate(-1)} />
       <div className="overflow-y-auto flex-1 no-scrollbar px-4 py-5">
-        <OriginalContent content={content} />
+        <OriginalContent content={content} profile={settings} />
         <div className="mt-6 border-t border-[#E6E6E6] pt-5">
           <h2 className="text-[18px] font-semibold">Comments</h2>
           <div className="mt-4 flex flex-col gap-5">
@@ -87,7 +89,7 @@ export default function Comments() {
         </div>
       </div>
       <form onSubmit={handleSubmit} className="flex shrink-0 items-center gap-2 border-t border-[#E6E6E6] bg-white px-4 py-3">
-        <img src={CURRENT_USER.avatar} alt="Your profile" className="h-8 w-8 rounded-full object-cover" />
+        <img src={settings.avatar} alt="Your profile" className="h-8 w-8 rounded-full object-cover" />
         <input
           ref={replyInputRef}
           value={commentText}
@@ -101,7 +103,7 @@ export default function Comments() {
   );
 }
 
-function OriginalContent({ content }) {
+function OriginalContent({ content, profile }) {
   if (content.type === "event") {
     const { event, seller } = content;
     return (
@@ -128,7 +130,7 @@ function OriginalContent({ content }) {
   return (
     <section className="rounded-lg border border-[#E6E6E6] p-3">
       <div className="flex items-center gap-2">
-        <img src={post.avatar} alt={post.name} className="h-8 w-8 rounded-full object-cover" />
+        <img src={post.sellerId === "sarahs-backyard" || !post.avatar ? profile.avatar : post.avatar} alt={post.name} className="h-8 w-8 rounded-full object-cover" />
         <div>
           <div className="text-[14px] font-semibold text-[#498467]">{post.name}</div>
           <div className="text-[12px] text-[#828282]">{post.time}</div>
@@ -183,7 +185,7 @@ const fallbackContent = {
   post: {
     name: "Grolo Community",
     time: "now",
-    avatar: CURRENT_USER.avatar,
+    avatar: "",
     image: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80",
     body: "Welcome to the Grolo community.",
   },

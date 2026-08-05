@@ -51,7 +51,7 @@ export default function CreateListing() {
     updateAvailable(listing.id, listing.quantityAvailable);
     console.log("Listing Created:", listing.name);
     console.log("Listings Count:", listings.length + 1);
-    navigate("/shop", { state: { listingCreated: listing.id, activeTab: "Listings" } });
+    navigate("/", { state: { tab: "Your Community", communityFilter: "Listings", listingCreated: listing.id } });
   };
 
   return (

@@ -26,6 +26,7 @@ function supportsSwipeBack(pathname) {
     || pathname.startsWith("/product/")
     || pathname.startsWith("/listing/")
     || pathname.startsWith("/seller/")
+    || pathname.startsWith("/promotions/")
     || pathname.startsWith("/category/")
     || pathname === "/featured"
     || pathname === "/trading"

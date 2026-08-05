@@ -7,13 +7,15 @@ import { useInventory } from "../context/InventoryContext";
 import { useOrders } from "../context/OrderContext";
 import { products, sellers } from "../data/mockData";
 
-function PaymentMethodsList({ paymentSettings }) {
+function PaymentInstructions({ paymentSettings, total, orderNumber }) {
   const { methods, eTransferEmail } = paymentSettings;
   return (
     <div className="mt-3 border-t border-black/10 pt-3">
-      <div className="text-[12px] font-medium text-[#498467]">Payment methods accepted</div>
+      <div className="text-[12px] font-medium text-[#498467]">Payment Instructions</div>
+      {methods.includes("etransfer") && <div className="mt-1 text-[13px] text-black/70"><span className="font-medium">E-Transfer Email:</span> {eTransferEmail}</div>}
       {methods.includes("cash") && <div className="mt-1 text-[13px] text-black/70">Cash · Pay at pickup</div>}
-      {methods.includes("etransfer") && <div className="mt-1 text-[13px] text-black/70">E-Transfer · {eTransferEmail}</div>}
+      <div className="mt-1 text-[13px] text-black/70"><span className="font-medium">Order Total:</span> ${total.toFixed(2)}</div>
+      <div className="mt-1 text-[13px] text-black/70"><span className="font-medium">Order Number:</span> {orderNumber}</div>
       <div className="mt-1 text-[12px] text-[#828282]">Credit/Debit (Coming Soon)</div>
     </div>
   );
@@ -128,7 +130,7 @@ export default function OrderConfirmation() {
             <span className="text-[14px] text-black/70">Total Owed</span>
             <span className="text-[14px] font-medium">${total.toFixed(2)}</span>
           </div>
-          <PaymentMethodsList paymentSettings={paymentSettings} />
+          <PaymentInstructions paymentSettings={paymentSettings} total={total} orderNumber={orderNumber} />
         </div>
 
         <Link

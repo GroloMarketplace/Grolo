@@ -69,5 +69,5 @@ function useStoreFulfillment(initial) {
   const [value, setValue] = useState(initial[0] ?? "pickup");
   return [value, setValue];
 }
-function PaymentMethods({ settings }) { return <div className="rounded-lg bg-[#F5FFF6] p-3 text-[13px]">{settings.methods.includes("cash") && <div>Cash · Pay at pickup</div>}{settings.methods.includes("etransfer") && <div className="mt-1">E-Transfer · {settings.eTransferEmail}</div>}<div className="mt-1 text-[12px] text-[#828282]">Credit/Debit (Coming Soon)</div></div>; }
+function PaymentMethods({ settings }) { return <div className="rounded-lg bg-[#F5FFF6] p-3 text-[13px]">{settings.methods.includes("cash") && <div>Cash · Pay at pickup</div>}{settings.methods.includes("etransfer") && <div className="mt-1">E-Transfer Available</div>}<div className="mt-1 text-[12px] text-[#828282]">Credit/Debit (Coming Soon)</div></div>; }
 function Row({ label, value }) { return <div className="flex justify-between text-[14px]"><span>{label}</span><span>{value}</span></div>; }

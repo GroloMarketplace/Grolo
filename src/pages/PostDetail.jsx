@@ -6,6 +6,7 @@ import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import ShareSheet from "../components/ShareSheet";
 import { communityPosts, sellers } from "../data/mockData";
 import { useRegrow } from "../context/RegrowContext";
+import { useBuyerSettings } from "../context/BuyerSettingsContext";
 
 export default function PostDetail() {
   const navigate = useNavigate();
@@ -13,6 +14,8 @@ export default function PostDetail() {
   const { state } = useLocation();
   const post = communityPosts.find((item) => String(item.id) === id);
   const { isRegrown, toggleRegrow } = useRegrow();
+  const { settings: buyerProfile } = useBuyerSettings();
+  const postAvatar = post?.authorId === buyerProfile.displayName ? buyerProfile.avatar : post?.avatar ?? seller?.avatar;
   const [likes, setLikes] = useState(post?.likes ?? 0);
   const [liked, setLiked] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
@@ -29,7 +32,7 @@ export default function PostDetail() {
       <Header title="Post Detail" onBack={() => navigate(-1)} />
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-5">
         <div className="flex items-center gap-3">
-          <img src={post.avatar ?? seller?.avatar} alt={post.name} className="h-10 w-10 rounded-full object-cover" />
+          <img src={postAvatar} alt={post.name} className="h-10 w-10 rounded-full object-cover" />
           <div className="min-w-0 flex-1"><div className="flex items-center gap-1"><span className="truncate text-[16px] font-semibold text-[#498467]">{post.name}</span><FoundingMemberBadge sellerId={post.sellerId} iconOnly /></div><div className="text-[12px] text-[#828282]">{post.location ?? seller?.location ?? "Local community"} · {post.time}</div></div>
         </div>
         {post.image && <img src={post.image} alt="" className="mt-5 aspect-square w-full rounded-lg object-cover" />}

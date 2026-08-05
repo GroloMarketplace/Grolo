@@ -7,6 +7,7 @@ import { useOrders } from "../context/OrderContext";
 import ProfileAvatar from "../components/ProfileAvatar";
 import { getConversationProfile } from "../utils/conversationProfile";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { getOrderStatusClass, getOrderStatusLabel } from "../utils/orderStatus";
 
 export default function Chat() {
@@ -20,6 +21,7 @@ export default function Chat() {
   const { messages, appendMessage } = useMessages();
   const { orders } = useOrders();
   const { getSellerProfile } = useSellerSettings();
+  const { settings: buyerProfile } = useBuyerSettings();
   const pendingConversation = location.state?.pendingConversation;
   const conversation = messages.find((message) => message.id === id) ?? pendingConversation;
   const orderContext = conversation?.orderContext;
@@ -32,7 +34,7 @@ export default function Chat() {
     ? listings.find((item) => item.id === listingId)
     : null;
   const seller = Object.values(sellers).find((s) => s.id === (conversation?.sellerId ?? listing?.sellerId ?? id)) || sellers["pennies-produce"];
-  const conversationProfile = getConversationProfile({ ...conversation, sellerId: conversation?.sellerId ?? seller.id, name: conversation?.name ?? seller.name }, getSellerProfile);
+  const conversationProfile = getConversationProfile({ ...conversation, sellerId: conversation?.sellerId ?? seller.id, name: conversation?.name ?? seller.name }, getSellerProfile, buyerProfile);
   const isOrderThread = location.state?.orderConversation === true || conversation?.conversationType === "order";
   const isTradeThread = location.state?.tradeThread === true
     || conversation?.conversationType === "trading"

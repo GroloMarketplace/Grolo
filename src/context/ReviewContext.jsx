@@ -105,6 +105,7 @@ export function ReviewProvider({ children }) {
   const value = {
     reviews: allReviews,
     submittedReviews,
+    reviewsWrittenCount: submittedReviews.length,
     reviewsForProduct,
     reviewsForSeller,
     productRating,

@@ -2,11 +2,34 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import { impactBadges, impactStats, impactTimeline } from "../data/communityImpact";
+import { impactTimeline } from "../data/communityImpact";
+import { useEvents } from "../context/EventContext";
+import { useFollow } from "../context/FollowContext";
+import { useOrders } from "../context/OrderContext";
+import { useReviews } from "../context/ReviewContext";
+import { getBuyerImpactMetrics } from "../utils/buyerImpact";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 
 export default function CommunityImpact() {
   const navigate = useNavigate();
+  const { events, attendingEventIds } = useEvents();
+  const { followedSellers } = useFollow();
+  const { buyerOrders } = useOrders();
+  const { reviewsWrittenCount } = useReviews();
+  const metrics = getBuyerImpactMetrics({ orders: buyerOrders(), events, attendingEventIds, followedSellers, reviewsWritten: reviewsWrittenCount });
+  const impactStats = [
+    { label: "Local businesses supported", value: metrics.businessesSupported, icon: "store" },
+    { label: "Local purchases made", value: metrics.purchasesMade, icon: "bag" },
+    { label: "Events attended", value: metrics.eventsAttended, icon: "calendar" },
+    { label: "Stores followed", value: metrics.storesFollowed, icon: "heart" },
+    { label: "Reviews written", value: metrics.reviewsWritten, icon: "star" },
+  ];
+  const impactBadges = [
+    { name: "Local Supporter", progress: `${metrics.purchasesMade} / 5 purchases completed`, value: metrics.purchasesMade, goal: 5 },
+    { name: "Market Explorer", progress: `${metrics.businessesSupported} / 5 local businesses visited`, value: metrics.businessesSupported, goal: 5 },
+    { name: "Trusted Reviewer", progress: `${metrics.reviewsWritten} / 25 reviews written`, value: metrics.reviewsWritten, goal: 25 },
+    { name: "Community Champion", progress: `${Object.values(metrics).reduce((sum, value) => sum + value, 0)} community actions completed`, value: Object.values(metrics).reduce((sum, value) => sum + value, 0), goal: 50 },
+  ];
   const scrollRef = useRef(null);
   const savedImpactState = readNavigationState("community-impact", { scrollTop: 0 });
 

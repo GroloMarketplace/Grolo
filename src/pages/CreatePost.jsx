@@ -3,17 +3,37 @@ import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { POST_CLASSIFICATIONS } from "../data/postClassifications";
+import { usePosts } from "../context/PostContext";
+import { useBuyerSettings } from "../context/BuyerSettingsContext";
 
 export default function CreatePost() {
   const navigate = useNavigate();
+  const { addPost } = usePosts();
+  const { settings: buyerProfile } = useBuyerSettings();
   const [content, setContent] = useState("");
   const [classification, setClassification] = useState("");
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedProduct] = useState(null);
 
   const handlePublish = () => {
     // Handle post publishing logic
-    console.log("Publishing post:", { content, classification, selectedProduct });
-    navigate("/my-shop");
+    const post = addPost({
+      name: "Sarah's Backyard",
+      sellerId: "sarahs-backyard",
+      authorId: buyerProfile.displayName,
+      productId: selectedProduct?.id ?? null,
+      group: "Your Community",
+      classification,
+      time: "Just now",
+      avatar: buyerProfile.avatar,
+      image: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80",
+      body: content,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      sends: 0,
+    });
+    console.log("Post Created:", post.id);
+    navigate("/", { state: { tab: "Your Community", communityFilter: "Posts" } });
   };
 
   return (

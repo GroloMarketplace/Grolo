@@ -22,6 +22,7 @@ import { SellerSettingsProvider } from "./context/SellerSettingsContext";
 import { BuyerSettingsProvider } from "./context/BuyerSettingsContext";
 import { BuyerTrustProvider } from "./context/BuyerTrustContext";
 import { ListingProvider } from "./context/ListingContext";
+import { PostProvider } from "./context/PostContext";
 import Feed, { Notifications } from "./pages/Feed";
 import Search from "./pages/Search";
 import Category from "./pages/Category";
@@ -52,6 +53,7 @@ import ShopOrders from "./pages/ShopOrders";
 import ShopEvents from "./pages/ShopEvents";
 import CreateEvent from "./pages/CreateEvent";
 import CreatePromotion from "./pages/CreatePromotion";
+import Promotions from "./pages/Promotions";
 import CommunityImpact from "./pages/CommunityImpact";
 import Comments from "./pages/Comments";
 import EventDetail from "./pages/EventDetail";
@@ -84,6 +86,7 @@ export default function App() {
         <BuyerSettingsProvider>
         <BuyerTrustProvider>
         <ListingProvider>
+        <PostProvider>
         <DeliveryAddressProvider>
         <Routes>
         <Route path="/signin" element={<PhoneFrame hideTabBar statusBarBackground="bg-[#E6DCCF]" backgroundColor="bg-[#E6DCCF]"><SignIn /></PhoneFrame>} />
@@ -136,6 +139,7 @@ export default function App() {
             </PhoneFrame>
           }
         />
+        <Route path="/promotions/:sellerId" element={<PhoneFrame><Promotions /></PhoneFrame>} />
         <Route
           path="/create-promotion"
           element={
@@ -284,6 +288,7 @@ export default function App() {
         />
       </Routes>
         </DeliveryAddressProvider>
+        </PostProvider>
         </ListingProvider>
         </BuyerTrustProvider>
         </BuyerSettingsProvider>

@@ -123,6 +123,8 @@ export default function OrderTracking() {
           </div>
         </section>
 
+        <PaymentInstructions settings={settings} order={order} />
+
         {!isCancelled && <section className="mt-6">
           <h2 className="text-[18px] font-semibold">Order Progress</h2>
           <div className="mt-4">
@@ -215,6 +217,20 @@ export default function OrderTracking() {
         </div>
       )}
     </MobileScreenLayout>
+  );
+}
+
+function PaymentInstructions({ settings, order }) {
+  return (
+    <section className="mt-4 rounded-lg bg-[#F5FFF6] p-4">
+      <h2 className="text-[18px] font-semibold">Payment Instructions</h2>
+      <div className="mt-3 flex flex-col gap-1 text-[14px] text-[#4F4F4F]">
+        {settings.methods.includes("etransfer") && <div><span className="font-medium">E-Transfer Email:</span> {settings.eTransferEmail}</div>}
+        {settings.methods.includes("cash") && <div>Cash · Pay at pickup</div>}
+        <div><span className="font-medium">Order Total:</span> ${Number(order?.total ?? 0).toFixed(2)}</div>
+        <div><span className="font-medium">Order Number:</span> {order?.id}</div>
+      </div>
+    </section>
   );
 }
 

@@ -39,7 +39,10 @@ export function formatEventTime(time) {
 }
 
 export function EventProvider({ children }) {
-  const [events, setEvents] = useState(mockEvents);
+  const [events, setEvents] = useState(() => mockEvents.map((event, index) => ({
+    ...event,
+    createdAt: event.createdAt ?? new Date(0).getTime() + (mockEvents.length - index),
+  })));
   const [rsvpEventIds, setRsvpEventIds] = useState(() => readRsvps());
 
   const isAttending = useCallback((eventId) => rsvpEventIds.includes(eventId), [rsvpEventIds]);
@@ -90,6 +93,7 @@ export function EventProvider({ children }) {
         attendeeCount: 0,
         ...event,
         id: `event-${Date.now()}`,
+        createdAt: event.createdAt ?? Date.now(),
         sellerId: STORE_ID,
         image:
           event.image ||
@@ -110,6 +114,7 @@ export function EventProvider({ children }) {
     eventSeller,
     isAttending,
     getAttendeeCount,
+    attendingEventIds: rsvpEventIds,
     toggleAttendance,
     storeId: STORE_ID,
   };

@@ -122,7 +122,7 @@ function SellerAccountSettings() {
                 Store Description
                 <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder={defaultDescription} rows={4} className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-3 text-[14px] font-normal outline-none focus:border-[#498467]" />
               </label>
-              <Field label="Store Location" value={location} onChange={setLocation} />
+              <Field label="Neighbourhood" value={location} onChange={setLocation} />
             </Section>
 
             <Section title="Seller Status">

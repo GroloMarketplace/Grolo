@@ -8,7 +8,7 @@ import { useSidebar } from "../hooks/useSidebar";
 import { communityPosts, followingPosts, sellers } from "../data/mockData";
 import { useListings } from "../context/ListingContext";
 import SellerListingCard from "../components/SellerListingCard";
-import PromotionBadge from "../components/PromotionBadge";
+import PromotionsBanner from "../components/PromotionsBanner";
 import { useOrders } from "../context/OrderContext";
 import { formatEventDate, formatEventTime, useEvents } from "../context/EventContext";
 import { usePromotions } from "../context/PromotionContext";
@@ -386,7 +386,7 @@ export default function ShopHome() {
                   onScroll={handleContentScroll}
                   className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
                 >
-                <ShopListingsTab products={activeSellerProducts} outOfStockProducts={outOfStockSellerProducts} promotions={sellerPromotions} navigate={navigate} onDelete={handleDeleteListing} />
+                <ShopListingsTab products={activeSellerProducts} outOfStockProducts={outOfStockSellerProducts} promotions={sellerPromotions} navigate={navigate} onDelete={handleDeleteListing} onOpenPromotions={() => navigate(`/promotions/${seller.id}`)} />
                 <ShopPostsTab posts={managedPosts} onEdit={handleEditPost} onDelete={handleDeletePost} onCreate={handleCreatePost} />
                 <ShopEventsTab events={managedEvents} navigate={navigate} onEdit={handleEditEvent} onDelete={handleDeleteEvent} />
                   <ShopRegrowsTab products={sellerProducts} posts={managedPosts} events={managedEvents} promotions={sellerPromotions} isRegrown={isRegrown} />
@@ -419,7 +419,7 @@ function ShopEmptyTab({ children }) {
   return <div className="py-10 text-center text-[14px] text-[#828282]">{children}</div>;
 }
 
-function ShopListingsTab({ products, outOfStockProducts, promotions, navigate, onDelete }) {
+function ShopListingsTab({ products, outOfStockProducts, promotions, navigate, onDelete, onOpenPromotions }) {
   return (
     <ShopTabPanel>
       <div className="mb-3 flex items-center justify-between">
@@ -429,9 +429,9 @@ function ShopListingsTab({ products, outOfStockProducts, promotions, navigate, o
           <button type="button" onClick={() => navigate("/create-listing")} className="text-[14px] font-medium text-[#498467]">+ New Listing</button>
         </div>
       </div>
+      {promotions.length > 0 && <PromotionsBanner count={promotions.length} onClick={onOpenPromotions} />}
       {products.length === 0 ? <ShopEmptyTab>No active listings</ShopEmptyTab> : <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{products.map((product) => <SellerListingCard key={product.id} product={product} onDelete={onDelete} />)}</div>}
       {outOfStockProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Out of Stock</h2><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{outOfStockProducts.map((product) => <SellerListingCard key={product.id} product={product} onDelete={onDelete} />)}</div></section>}
-      {promotions.length > 0 && <div className="mt-4 flex flex-col gap-2">{promotions.map((promotion) => <div key={promotion.id} className="rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-3"><PromotionBadge promotion={promotion} /><p className="mt-1 text-[14px] font-semibold">{promotion.title}</p></div>)}</div>}
     </ShopTabPanel>
   );
 }

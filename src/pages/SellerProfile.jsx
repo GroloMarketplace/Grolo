@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { ActivityCard } from "./BuyerProfile";
 import PromotionBadge from "../components/PromotionBadge";
+import PromotionsBanner from "../components/PromotionsBanner";
 import { communityPosts, followingPosts, sellers, messages } from "../data/mockData";
 import { useListings } from "../context/ListingContext";
 import { useFollow } from "../context/FollowContext";
@@ -213,10 +214,10 @@ export default function SellerProfile() {
               onScroll={handleContentScroll}
               className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
             >
-            <ListingsTab products={sellerProducts} promotions={sellerPromotions} navigate={navigate} getAvailable={getAvailable} />
-            <PostsTab posts={sellerPosts} navigate={navigate} />
-            <EventsTab events={sellerEvents} navigate={navigate} />
-              <RegrowsTab posts={sellerRegrows} navigate={navigate} />
+            <ListingsTab products={sellerProducts} promotions={sellerPromotions} navigate={navigate} getAvailable={getAvailable} onOpenPromotions={() => navigate(`/promotions/${seller.id}`)} />
+            <PostsTab posts={sellerPosts} navigate={navigate} profile={sellerProfile} />
+            <EventsTab events={sellerEvents} navigate={navigate} profile={sellerProfile} />
+              <RegrowsTab posts={sellerRegrows} navigate={navigate} profile={sellerProfile} />
             </div>
           </div>
         </div>
@@ -237,12 +238,12 @@ function FulfillmentAvailability({ methods }) {
 }
 
 function PaymentMethodsList({ paymentSettings }) {
-  const { methods, eTransferEmail } = paymentSettings;
+  const { methods } = paymentSettings;
   return (
     <div className="mt-3 rounded-lg bg-[#F5FFF6] p-3">
       <div className="text-[12px] font-medium text-[#498467]">Accepted Payment Methods</div>
       {methods.includes("cash") && <div className="mt-1 text-[13px] text-[#4F4F4F]">Cash · Pay at pickup</div>}
-      {methods.includes("etransfer") && <div className="mt-1 text-[13px] text-[#4F4F4F]">E-Transfer · {eTransferEmail}</div>}
+      {methods.includes("etransfer") && <div className="mt-1 text-[13px] text-[#4F4F4F]">E-Transfer Available</div>}
       <div className="mt-1 text-[12px] text-[#828282]">Credit/Debit (Coming Soon)</div>
     </div>
   );
@@ -256,23 +257,13 @@ function EmptyTab({ children }) {
   return <div className="py-10 text-center text-[14px] text-[#828282]">{children}</div>;
 }
 
-function ListingsTab({ products, promotions, navigate, getAvailable }) {
+function ListingsTab({ products, promotions, navigate, getAvailable, onOpenPromotions }) {
   const activeProducts = products.filter((product) => getAvailable(product.id) > 0);
   const outOfStockProducts = products.filter((product) => getAvailable(product.id) <= 0);
 
   return (
     <TabPanel>
-      {promotions.length > 0 && (
-        <div className="mb-4 flex flex-col gap-2">
-          {promotions.map((promotion) => (
-            <div key={promotion.id} className="rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-3 flex flex-col gap-1">
-              <PromotionBadge promotion={promotion} />
-              <span className="text-[14px] font-semibold">{promotion.title}</span>
-              <span className="text-[12px] text-[#828282]">Available on {promotion.productIds.length} listing{promotion.productIds.length === 1 ? "" : "s"}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      {promotions.length > 0 && <PromotionsBanner count={promotions.length} onClick={onOpenPromotions} />}
       <ListingSection title="Listings" products={activeProducts} promotions={promotions} navigate={navigate} />
       {outOfStockProducts.length > 0 && (
         <section className="mt-6 border-t border-black/5 pt-4">
@@ -322,15 +313,15 @@ function ListingSection({ title, products, promotions, navigate }) {
   );
 }
 
-function PostsTab({ posts, navigate }) {
+function PostsTab({ posts, navigate, profile }) {
   return (
     <TabPanel>
-      {posts.length === 0 ? <EmptyTab>No posts yet</EmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{posts.map((post) => <ActivityCard key={post.id} activity={{ id: post.id, type: "post", label: post.name, timestamp: post.time, post }} navigate={navigate} />)}</div>}
+      {posts.length === 0 ? <EmptyTab>No posts yet</EmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{posts.map((post) => <ActivityCard key={post.id} activity={{ id: post.id, type: "post", label: post.name, timestamp: post.time, post }} navigate={navigate} profile={profile} />)}</div>}
     </TabPanel>
   );
 }
 
-function EventsTab({ events, navigate }) {
+function EventsTab({ events, navigate, profile }) {
   return (
     <TabPanel>
       {events.length === 0 ? (
@@ -348,6 +339,7 @@ function EventsTab({ events, navigate }) {
                 event,
               }}
               navigate={navigate}
+              profile={profile}
             />
           ))}
         </div>
@@ -356,10 +348,10 @@ function EventsTab({ events, navigate }) {
   );
 }
 
-function RegrowsTab({ posts, navigate }) {
+function RegrowsTab({ posts, navigate, profile }) {
   return (
     <TabPanel>
-      {posts.length === 0 ? <EmptyTab>No regrows yet</EmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{posts.map((post) => <ActivityCard key={post.id} activity={{ id: post.id, type: "post", label: `🌱 Regrew a community post`, timestamp: post.time, post }} navigate={navigate} />)}</div>}
+      {posts.length === 0 ? <EmptyTab>No regrows yet</EmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{posts.map((post) => <ActivityCard key={post.id} activity={{ id: post.id, type: "post", label: `🌱 Regrew a community post`, timestamp: post.time, post }} navigate={navigate} profile={profile} />)}</div>}
     </TabPanel>
   );
 }

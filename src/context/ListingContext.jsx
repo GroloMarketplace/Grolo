@@ -4,11 +4,15 @@ import { products as initialProducts } from "../data/mockData";
 const ListingContext = createContext(null);
 
 export function ListingProvider({ children }) {
-  const [listings, setListings] = useState(() => initialProducts.map((product) => ({ ...product })));
+  const [listings, setListings] = useState(() => initialProducts.map((product, index) => ({
+    ...product,
+    createdAt: product.createdAt ?? new Date(0).getTime() + (initialProducts.length - index),
+  })));
 
   const addListing = (listing) => {
-    setListings((current) => [...current, listing]);
-    return listing;
+    const createdListing = { ...listing, createdAt: listing.createdAt ?? Date.now() };
+    setListings((current) => [createdListing, ...current]);
+    return createdListing;
   };
 
   const updateListing = (listingId, updates) => {

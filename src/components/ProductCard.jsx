@@ -2,8 +2,9 @@ import { Link } from "react-router-dom";
 import PromotionBadge from "./PromotionBadge";
 import { usePromotions } from "../context/PromotionContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import FoundingMemberBadge from "./FoundingMemberBadge";
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, onClick }) {
   const { promotionsForProduct } = usePromotions();
   const promotion = promotionsForProduct(product.id)[0];
   const { getSellerProfile } = useSellerSettings();
@@ -12,6 +13,11 @@ export default function ProductCard({ product }) {
   return (
     <Link
       to={`/product/${product.id}`}
+      onClick={(event) => {
+        if (!onClick) return;
+        event.preventDefault();
+        onClick(product.id);
+      }}
       className="flex flex-col gap-3 w-[148px] shrink-0"
     >
       <div className="relative">
@@ -27,6 +33,7 @@ export default function ProductCard({ product }) {
         <div className="text-[12px] text-black/50 line-clamp-2">
           {product.shop}
         </div>
+        <FoundingMemberBadge sellerId={product.sellerId} compact />
         <div className="text-[14px] text-black line-clamp-2">
           {product.name}
         </div>

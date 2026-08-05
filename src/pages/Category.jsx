@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import SearchBar from "../components/SearchBar";
@@ -17,6 +18,12 @@ function getCategoryName(value) {
 export default function Category() {
   const { categoryName } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const rememberProduct = (productId) => {
+    if (location.state?.fromSearch) {
+      writeNavigationState("search", { ...readNavigationState("search", {}), currentProductId: productId });
+    }
+  };
   const category = getCategoryName(categoryName);
   const { listings } = useListings();
   const [query, setQuery] = useState("");
@@ -43,17 +50,17 @@ export default function Category() {
         </div>
 
         <div className="flex flex-col gap-6 px-4 py-4">
-          <ProductSection title="Featured Products" products={filteredProducts} />
-          <ProductSection title="Trending in Category" products={filteredProducts.slice(0, 4)} />
-          <ProductSection title="New Arrivals" products={filteredProducts.slice().reverse().slice(0, 4)} />
-          <ProductSection title="Popular Near You" products={filteredProducts.slice(0, 4)} />
+          <ProductSection title="Featured Products" products={filteredProducts} onProduct={rememberProduct} />
+          <ProductSection title="Trending in Category" products={filteredProducts.slice(0, 4)} onProduct={rememberProduct} />
+          <ProductSection title="New Arrivals" products={filteredProducts.slice().reverse().slice(0, 4)} onProduct={rememberProduct} />
+          <ProductSection title="Popular Near You" products={filteredProducts.slice(0, 4)} onProduct={rememberProduct} />
         </div>
       </div>
     </MobileScreenLayout>
   );
 }
 
-function ProductSection({ title, products: sectionProducts }) {
+function ProductSection({ title, products: sectionProducts, onProduct }) {
   return (
     <section>
       <h2 className="mb-3 text-[18px] font-semibold tracking-[-0.36px]">{title}</h2>
@@ -64,7 +71,7 @@ function ProductSection({ title, products: sectionProducts }) {
       ) : (
         <div className="grid grid-cols-2 gap-3">
           {sectionProducts.map((product) => (
-            <CategoryProductCard key={`${title}-${product.id}`} product={product} />
+            <CategoryProductCard key={`${title}-${product.id}`} product={product} onProduct={onProduct} />
           ))}
         </div>
       )}
@@ -72,13 +79,13 @@ function ProductSection({ title, products: sectionProducts }) {
   );
 }
 
-function CategoryProductCard({ product }) {
+function CategoryProductCard({ product, onProduct }) {
   const navigate = useNavigate();
   const seller = sellers[product.sellerId];
 
   return (
     <article className="min-w-0">
-      <Link to={`/product/${product.id}`} className="block">
+      <Link to={`/product/${product.id}`} onClick={() => onProduct?.(product.id)} className="block">
         <img
           src={product.image}
           alt={product.name}
@@ -93,7 +100,7 @@ function CategoryProductCard({ product }) {
         >
           {seller?.name ?? product.shop}
         </button>
-        <Link to={`/product/${product.id}`} className="line-clamp-2 text-[14px] font-medium">
+        <Link to={`/product/${product.id}`} onClick={() => onProduct?.(product.id)} className="line-clamp-2 text-[14px] font-medium">
           {product.name}
         </Link>
         <div className="flex items-center gap-1 text-[12px] text-[#828282]">

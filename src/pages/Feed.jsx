@@ -27,6 +27,7 @@ import {
 } from "../context/EventContext";
 import { displayPostClassification } from "../data/postClassifications";
 import OutlineIcon from "../components/OutlineIcon";
+import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 
@@ -370,7 +371,7 @@ function ListingFeedCard({ product, onMenu, onShare }) {
       }}
       className="cursor-pointer rounded-lg border border-[#E6E6E6] p-3"
     >
-      <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><img src={product.image} alt={product.name} className="h-8 w-8 rounded-full object-cover" /><span className="text-[14px] font-semibold text-[#498467]">{product.shop}</span></div><MoreButton onClick={() => onMenu(menuContent)} /></div>
+      <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><img src={product.image} alt={product.name} className="h-8 w-8 rounded-full object-cover" /><span className="text-[14px] font-semibold text-[#498467]">{product.shop}</span><FoundingMemberBadge sellerId={product.sellerId} iconOnly /></div><MoreButton onClick={() => onMenu(menuContent)} /></div>
       <VacationBadge sellerId={product.sellerId} />
       <img src={product.image} alt={product.name} className="mt-3 aspect-square w-full rounded object-cover" />
       <h3 className="mt-2 text-[16px] font-semibold">{product.name}</h3>
@@ -472,37 +473,36 @@ function EventPost({ event, onComment, onMenu, onShare }) {
             />
           </button>
           <div className="flex flex-col">
-            <div className="flex items-baseline gap-1">
+            <div className="flex min-w-0 max-w-full items-center gap-1 overflow-hidden whitespace-nowrap">
               <button
                 onClick={openSeller}
-                className="text-[14px] font-semibold text-[#498467] hover:underline"
+                className="min-w-0 truncate text-left text-[14px] font-semibold text-[#498467] hover:underline"
               >
                 {seller?.name}
               </button>
-              <span className="text-[14px] text-[#B56576]">in {displayPostClassification("Event")}</span>
+              <FoundingMemberBadge sellerId={event.sellerId} iconOnly />
+              <span className="shrink-0 text-[14px] text-[#B56576]">in {displayPostClassification("Event")}</span>
             </div>
             <span className="text-[12px] text-[#828282]">
               {formatEventDate(event.date)}
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[12px] font-medium px-2 py-1 rounded-full bg-[#CFF7D3] text-[#02542D] whitespace-nowrap">
-            {eventStatus(event)}
-          </span>
-          <MoreButton onClick={() => onMenu(menuContent)} />
-        </div>
+        <MoreButton onClick={() => onMenu(menuContent)} />
       </div>
 
       <button
         onClick={openEvent}
-        className="w-full aspect-square overflow-hidden rounded"
+        className="relative w-full aspect-square overflow-hidden rounded"
       >
         <img
           src={event.image}
           alt={event.title}
           className="w-full h-full object-cover hover:opacity-90 transition-opacity"
         />
+        <span className="absolute right-2 top-2 rounded-full bg-[#CFF7D3] px-2 py-1 text-[12px] font-medium text-[#02542D] shadow-sm">
+          {eventStatus(event)}
+        </span>
       </button>
 
       <button onClick={openEvent} className="text-left">
@@ -630,14 +630,15 @@ function Post({ post, stacked, onComment, onMenu, onShare }) {
 
   const meta = (
     <div className="flex flex-col">
-      <div className="flex items-baseline gap-1">
+      <div className="flex min-w-0 max-w-full items-center gap-1 overflow-hidden whitespace-nowrap">
         <button
           onClick={handleSellerClick}
-          className="text-[14px] font-semibold text-[#498467] hover:underline"
+          className="min-w-0 truncate text-left text-[14px] font-semibold text-[#498467] hover:underline"
         >
           {post.name}
         </button>
-        <span className="text-[14px] text-[#B56576]">in {displayPostClassification(post.classification)}</span>
+        <FoundingMemberBadge sellerId={post.sellerId} iconOnly />
+        <span className="shrink-0 text-[14px] text-[#B56576]">in {displayPostClassification(post.classification)}</span>
       </div>
       <span className="text-[12px] text-[#828282]">{post.time}</span>
     </div>

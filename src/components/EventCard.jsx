@@ -21,19 +21,19 @@ export default function EventCard({ event, showStore }) {
       onClick={() => navigate(`/event/${event.id}`)}
       className="w-full text-left rounded-lg border border-[#E6E6E6] overflow-hidden"
     >
-      <img
-        src={event.image}
-        alt={event.title}
-        className="w-full h-[136px] object-cover"
-      />
+      <div className="relative">
+        <img
+          src={event.image}
+          alt={event.title}
+          className="w-full h-[136px] object-cover"
+        />
+        <span className={`absolute right-2 top-2 text-[12px] font-medium px-2 py-1 rounded-full whitespace-nowrap shadow-sm ${BADGE_STYLES[status]}`}>
+          {status}
+        </span>
+      </div>
       <div className="p-3 flex flex-col gap-1">
-        <div className="flex items-start justify-between gap-2">
-          <span className="text-[14px] font-semibold">{event.title}</span>
-          <span
-            className={`text-[12px] font-medium px-2 py-1 rounded-full whitespace-nowrap ${BADGE_STYLES[status]}`}
-          >
-            {status}
-          </span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="min-w-0 truncate text-[14px] font-semibold">{event.title}</span>
         </div>
         <span className="text-[12px] text-[#498467] font-medium">
           {event.type}

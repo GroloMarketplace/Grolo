@@ -1,5 +1,5 @@
-import { NavLink } from "react-router-dom";
-import { writeNavigationState } from "../hooks/navigationState";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useCart } from "../context/CartContext";
 import { useInventory } from "../context/InventoryContext";
@@ -90,6 +90,8 @@ const tabs = [
 ];
 
 export default function TabBar() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { profileMode } = useProfileMode();
   const { items } = useCart();
   const { getAvailable } = useInventory();
@@ -100,11 +102,33 @@ export default function TabBar() {
   ), 0);
   const profileType = profileMode === "seller" ? "seller" : "buyer";
   const profilePath = profileType === "seller" ? "/shop" : "/profile";
+  const isSearchRoute = location.pathname === "/search";
+  const savedSearchState = readNavigationState("search", {});
+  const searchPath = isSearchRoute
+    ? { pathname: "/search", state: { resetSearch: true } }
+    : savedSearchState.currentProductId
+      ? { pathname: `/product/${savedSearchState.currentProductId}`, state: { fromSearch: true } }
+      : savedSearchState.currentRoutePath
+        ? { pathname: savedSearchState.currentRoutePath, state: { fromSearch: true } }
+        : savedSearchState.currentRoute === "featured"
+          ? { pathname: "/featured", state: { fromSearch: true } }
+          : "/search";
   const handleProfileClick = () => {
     console.info("Profile icon clicked", {
       navigatingTo: profilePath,
       profileType,
     });
+  };
+  const handleSearchClick = (event) => {
+    if (isSearchRoute) {
+      writeNavigationState("search", { tab: "Local", query: "", scrollTop: 0 });
+      return;
+    }
+    if (!savedSearchState.currentProductId) return;
+    event.preventDefault();
+    const previousSearchPath = savedSearchState.currentRoutePath ?? (savedSearchState.currentRoute === "featured" ? "/featured" : "/search");
+    navigate(previousSearchPath, { replace: true, state: { fromSearch: true } });
+    navigate(`/product/${savedSearchState.currentProductId}`, { state: { fromSearch: true } });
   };
 
   return (
@@ -113,8 +137,8 @@ export default function TabBar() {
         {tabs.map((tab) => (
           <NavLink
             key={tab.to}
-            to={tab.to === "/shop" ? profilePath : tab.to === "/" ? { pathname: "/", state: { tab: "Your Community" } } : tab.to === "/search" ? { pathname: "/search", state: { resetSearch: true } } : tab.to}
-            onClick={tab.to === "/shop" ? handleProfileClick : tab.to === "/search" ? () => writeNavigationState("search", { tab: "Local", query: "", scrollTop: 0 }) : undefined}
+            to={tab.to === "/shop" ? profilePath : tab.to === "/" ? { pathname: "/", state: { tab: "Your Community" } } : tab.to === "/search" ? searchPath : tab.to}
+            onClick={tab.to === "/shop" ? handleProfileClick : tab.to === "/search" ? handleSearchClick : undefined}
             end={tab.to === "/"}
             className="flex-1 flex items-center justify-center"
           >

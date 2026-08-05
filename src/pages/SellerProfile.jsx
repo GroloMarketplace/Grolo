@@ -18,6 +18,8 @@ import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { useOrders } from "../context/OrderContext";
 import { getSellerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
+import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import { useFoundingMember } from "../context/FoundingMemberContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useInventory } from "../context/InventoryContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
@@ -34,8 +36,10 @@ export default function SellerProfile() {
   const { getSellerProfile } = useSellerSettings();
   const { listings } = useListings();
   const { getAvailable } = useInventory();
+  const { getFoundingMember } = useFoundingMember();
   const seller = sellers[sellerId] || sellers["sarahs-backyard"];
   const sellerProfile = getSellerProfile(seller.id);
+  const foundingMember = getFoundingMember(seller.id);
   const sellerPaymentMethods = getPaymentMethods(seller.id);
   const sellerEvents = upcomingEvents(seller.id);
   const sellerPromotions = promotionsForSeller(seller.id);
@@ -111,7 +115,7 @@ export default function SellerProfile() {
     <MobileScreenLayout>
       <Header onBack={() => navigate(-1)} />
       <div ref={pageScrollRef} className="overflow-y-auto flex-1 no-scrollbar">
-        {sellerProfile.vacationMode && <div className="mx-4 mt-4 rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-3"><div className="text-[14px] font-semibold text-[#02542D]">Store Temporarily Closed</div>{sellerProfile.vacationMessage && <p className="mt-1 text-[13px] text-[#4F4F4F]">{sellerProfile.vacationMessage}</p>}{sellerProfile.returnDate && <p className="mt-1 text-[12px] text-[#828282]">Returning {new Date(`${sellerProfile.returnDate}T00:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>}</div>}
+        {sellerProfile.vacationMode && <div className="mx-4 mt-4 mb-4 rounded-lg border border-[#F5A623] bg-[#FFF4E5] p-3"><div className="text-[14px] font-semibold text-[#8A4B08]">🟠 Store Temporarily Closed</div><p className="mt-1 text-[13px] text-[#8A4B08]">{sellerProfile.vacationMessage || "This seller is currently not accepting orders."}</p>{sellerProfile.returnDate && <p className="mt-1 text-[12px] text-[#8A4B08]">Returning {new Date(`${sellerProfile.returnDate}T00:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>}</div>}
         {/* Banner */}
         <div className="h-[136px] relative">
           <img
@@ -133,6 +137,7 @@ export default function SellerProfile() {
               <div className="flex-1">
                 <h1 className="text-[20px] font-semibold">{sellerProfile.name}</h1>
                 <SellerStatusBadge status={sellerStatus} />
+                {foundingMember && <FoundingMemberBadge sellerId={seller.id} />}
                 <p className="text-[14px] text-[#828282]">{sellerProfile.location}</p>
                 <FulfillmentAvailability methods={sellerPaymentMethods.fulfillmentMethods} />
               </div>

@@ -1,6 +1,6 @@
 import ProductCard from "./ProductCard";
 
-export default function CarouselRow({ title, products, onSeeAll }) {
+export default function CarouselRow({ title, products, onSeeAll, onProductClick }) {
   return (
     <div className="pt-2 pb-2">
       <div className="flex items-center gap-2 px-4 py-2">
@@ -23,7 +23,7 @@ export default function CarouselRow({ title, products, onSeeAll }) {
       </div>
       <div className="flex gap-3 px-4 overflow-x-auto no-scrollbar">
         {products.map((p) => (
-          <ProductCard key={p.id} product={p} />
+          <ProductCard key={p.id} product={p} onClick={onProductClick} />
         ))}
       </div>
     </div>

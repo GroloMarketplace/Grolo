@@ -9,6 +9,8 @@ import { useFollow } from "../context/FollowContext";
 import { useAdvertising } from "../context/AdvertisingContext";
 import { useListings } from "../context/ListingContext";
 import { events, promotions, sellers } from "../data/mockData";
+import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
+import FoundingMemberBadge from "../components/FoundingMemberBadge";
 
 const FILTERS = ["All", "Listings", "Events", "Stores", "Promotions"];
 const SORT_OPTIONS = ["Featured", "Trending", "Newest"];
@@ -24,6 +26,13 @@ export default function Featured() {
   const { ads } = useAdvertising();
   const { listings } = useListings();
   const [query, setQuery] = useState("");
+  const openProduct = (productId) => {
+    const searchState = readNavigationState("search", {});
+    if (searchState.currentRoute === "featured") {
+      writeNavigationState("search", { ...searchState, currentProductId: productId });
+    }
+    navigate(`/product/${productId}`);
+  };
   const [filter, setFilter] = useState("All");
   const [sort, setSort] = useState("Featured");
   const promotionByProduct = useMemo(
@@ -104,7 +113,7 @@ export default function Featured() {
               No featured content matches your search.
             </div>
           ) : filteredFeed.map((entry, index) => (
-            <FeaturedFeedCard key={`${entry.type}-${entry.item.id}-${index}`} entry={entry} />
+            <FeaturedFeedCard key={`${entry.type}-${entry.item.id}-${index}`} entry={entry} onProduct={openProduct} />
           ))}
         </div>
       </div>
@@ -112,16 +121,16 @@ export default function Featured() {
   );
 }
 
-function FeaturedFeedCard({ entry }) {
+function FeaturedFeedCard({ entry, onProduct }) {
   if (entry.type === "event") return <FeaturedEventCard event={entry.item} />;
   if (entry.type === "store") return <FeaturedStoreCard store={entry.item} />;
-  return <FeaturedListingCard product={entry.item} promotion={entry.promotion} />;
+  return <FeaturedListingCard product={entry.item} promotion={entry.promotion} onProduct={onProduct} />;
 }
 
-function FeaturedListingCard({ product, promotion }) {
+function FeaturedListingCard({ product, promotion, onProduct }) {
   return (
     <article className="rounded-lg border border-[#E6E6E6] p-3">
-      <Link to={`/product/${product.id}`} className="block">
+      <Link to={`/product/${product.id}`} onClick={(event) => { if (onProduct) { event.preventDefault(); onProduct(product.id); } }} className="block">
         <div className="relative">
           <img src={product.image} alt={product.name} className="h-[180px] w-full rounded-lg object-cover" />
           {promotion && <PromotionBadge promotion={promotion} className="absolute left-2 top-2" />}
@@ -129,7 +138,7 @@ function FeaturedListingCard({ product, promotion }) {
         <div className="mt-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="truncate text-[16px] font-semibold">{product.name}</h3>
-            <p className="text-[13px] text-[#498467]">{product.shop}</p>
+            <div className="flex flex-wrap items-center gap-2"><p className="text-[13px] text-[#498467]">{product.shop}</p><FoundingMemberBadge sellerId={product.sellerId} compact /></div>
           </div>
           <span className="shrink-0 text-[16px] font-semibold">${product.price.toFixed(2)}</span>
         </div>
@@ -170,7 +179,7 @@ function FeaturedStoreCard({ store }) {
       <button type="button" onClick={() => navigate(`/seller/${store.id}`)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <img src={store.avatar} alt={store.name} className="h-16 w-16 shrink-0 rounded-full object-cover" />
         <span className="min-w-0">
-          <span className="block truncate text-[16px] font-semibold">{store.name}</span>
+          <span className="flex flex-wrap items-center gap-2"><span className="truncate text-[16px] font-semibold">{store.name}</span><FoundingMemberBadge sellerId={store.id} compact /></span>
           <span className="block text-[13px] text-[#828282]">{STORE_CATEGORIES[store.id] ?? "Local store"}</span>
           <span className="mt-1 block text-[12px] text-[#828282]"><span className="text-[#498467]">★</span> {store.rating.toFixed(1)} ({store.reviewCount})</span>
         </span>

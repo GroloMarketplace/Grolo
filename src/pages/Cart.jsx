@@ -126,7 +126,7 @@ export default function Cart() {
               </div>
               {getSellerProfile(sellerId)?.vacationMode && <div className="mt-3 rounded-lg bg-[#F5FFF6] p-3 text-[13px] text-[#4F4F4F]">This store is temporarily not accepting orders.</div>}
               <div className="mt-3 text-[12px] font-medium">ITEMS</div>
-              <div className="mt-3 flex flex-col gap-4">{storeItems.map((item) => <CartItem key={item.id} item={item} updateQuantity={updateQuantity} removeItem={() => removeCartItem(item)} saveForLater={() => { addItems([item]); removeCartItems([item]); }} available={getRealInventory(item).available} sectionName="Active Cart Items" />)}</div>
+              <div className="mt-3 flex flex-col gap-4">{storeItems.map((item) => <CartItem key={item.id} item={item} updateQuantity={updateQuantity} removeItem={() => removeCartItem(item)} saveForLater={() => { addItems([item]); removeCartItems([item]); }} available={getRealInventory(item).available} sectionName="Active Cart Items" navigate={navigate} />)}</div>
             </div>
           ))}
         </CartSection>
@@ -134,7 +134,7 @@ export default function Cart() {
           <CartSection title="Temporarily Sold Out">
             {soldOutItems.map(({ item }) => (
               <SwipeToDelete key={item.id} onDelete={() => removeCartItem(item)} className="rounded-lg border border-[#E6E6E6]">
-                <div className="flex gap-3 p-3">
+                <div className="flex gap-3 p-3" role="link" tabIndex="0" onClick={(event) => { if (!event.target.closest("button")) navigate(`/product/${item.productId ?? item.id}`); }} onKeyDown={(event) => { if ((event.key === "Enter" || event.key === " ") && !event.target.closest("button")) navigate(`/product/${item.productId ?? item.id}`); }}>
                   <img src={item.image} alt={item.name} className="h-20 w-20 rounded-lg object-cover" />
                   <div className="flex-1">
                     <div className="text-[14px] font-medium">{item.name}</div>
@@ -160,6 +160,7 @@ export default function Cart() {
               onMove={() => moveToCart(item)}
               onRemove={() => removeSavedForLater([item])}
               onViewListing={() => navigate(`/product/${item.productId ?? item.id}`)}
+              navigate={navigate}
             />
           )) : <p className="rounded-lg border border-[#E6E6E6] p-3 text-[13px] text-[#828282]">Items you move here will appear here.</p>}
         </CartSection>
@@ -183,11 +184,12 @@ function CartSection({ title, children }) {
   );
 }
 
-function SavedForLaterCard({ item, available, onMove, onRemove, onViewListing }) {
+function SavedForLaterCard({ item, available, onMove, onRemove, onViewListing, navigate }) {
   const canMoveToCart = available > 0;
+  const productPath = `/product/${item.productId ?? item.id}`;
 
   return (
-    <div className="flex gap-3 rounded-lg border border-[#E6E6E6] p-3">
+    <div role="link" tabIndex="0" className="flex cursor-pointer gap-3 rounded-lg border border-[#E6E6E6] p-3" onClick={(event) => { if (!event.target.closest("button")) navigate(productPath); }} onKeyDown={(event) => { if ((event.key === "Enter" || event.key === " ") && !event.target.closest("button")) navigate(productPath); }}>
       <img src={item.image} alt={item.name} className="h-20 w-20 rounded-lg object-cover" />
       <div className="min-w-0 flex-1">
         <div className="text-[14px] font-medium">{item.name}</div>
@@ -208,10 +210,10 @@ function SavedForLaterCard({ item, available, onMove, onRemove, onViewListing })
   );
 }
 
-function CartItem({ item, updateQuantity, removeItem, saveForLater, available, sectionName }) {
+function CartItem({ item, updateQuantity, removeItem, saveForLater, available, sectionName, navigate }) {
   return (
     <SwipeToDelete onDelete={removeItem}>
-      <div className="flex gap-3">
+      <div role="link" tabIndex="0" className="flex gap-3 cursor-pointer" onClick={(event) => { if (!event.target.closest("button")) navigate(`/product/${item.productId ?? item.id}`); }} onKeyDown={(event) => { if ((event.key === "Enter" || event.key === " ") && !event.target.closest("button")) navigate(`/product/${item.productId ?? item.id}`); }}>
         <img src={item.image} alt={item.name} className="h-[84px] w-[84px] rounded-lg object-cover" />
         <div className="min-w-0 flex-1">
           <div className="text-[12px] text-black/50">{item.description}</div>

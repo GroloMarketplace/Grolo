@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 import { sellers } from "../data/mockData";
 import { useMessages } from "../context/MessageContext";
+import { useProfileMode } from "../context/ProfileModeContext";
+import FoundingMemberBadge from "../components/FoundingMemberBadge";
 
 const TAB_NAMES = ["All", "Selling", "Buying", "Trading", "Orders"];
 
@@ -16,6 +18,12 @@ export default function Messages() {
   const [tab, setTab] = useState("All");
   const navigate = useNavigate();
   const { messages } = useMessages();
+  const { profileMode } = useProfileMode();
+  const tabNames = profileMode === "buyer" ? TAB_NAMES.filter((tabName) => tabName !== "Selling") : TAB_NAMES;
+
+  useEffect(() => {
+    if (profileMode === "buyer" && tab === "Selling") setTab("All");
+  }, [profileMode, tab]);
 
   const filteredMessages = tab === "All"
     ? messages
@@ -37,7 +45,7 @@ export default function Messages() {
         <SearchBar />
       </div>
       <div className="shrink-0 flex gap-2 px-4 pb-3">
-        {TAB_NAMES.map((tabName) => (
+        {tabNames.map((tabName) => (
           <button
             key={tabName}
             onClick={() => setTab(tabName)}
@@ -66,6 +74,7 @@ export default function Messages() {
         ) : (
           filteredMessages.map((m) => {
             const latestMessage = m.messages?.[m.messages.length - 1];
+            const messageSeller = Object.values(sellers).find((seller) => seller.name === m.name);
             return (
               <div
                 key={m.id}
@@ -81,16 +90,17 @@ export default function Messages() {
                   className="w-8 h-8 rounded-full object-cover shrink-0"
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[14px]">
+                  <div className="flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap text-[14px]">
                     <Link
                       to={`/seller/${Object.values(sellers).find((s) => s.name === m.name)?.id || 'sarahs-backyard'}`}
                       onClick={(e) => e.stopPropagation()}
-                      className={`${m.unread ? "font-bold" : "font-semibold"} text-[#498467] hover:underline`}
+                      className={`min-w-0 truncate ${m.unread ? "font-bold" : "font-semibold"} text-[#498467] hover:underline`}
                     >
                       {m.name}
                     </Link>
-                    {m.conversationType === "order" && <span className="text-[#4F4F4F]"> • Order {m.orderContext?.orderNumber}</span>}
-                    <span className="text-[#B56576]"> in {m.location}</span>
+                    <FoundingMemberBadge sellerId={messageSeller?.id} iconOnly />
+                    {m.conversationType === "order" && <span className="shrink-0 text-[#4F4F4F]"> • Order {m.orderContext?.orderNumber}</span>}
+                    <span className="shrink-0 text-[#B56576]"> in {m.location}</span>
                   </div>
                   <p className="text-[14px] mt-1 line-clamp-1">{latestMessage?.text ?? ""}</p>
                 </div>

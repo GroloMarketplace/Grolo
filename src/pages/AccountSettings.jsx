@@ -12,6 +12,8 @@ import { useProfileMode } from "../context/ProfileModeContext";
 import { useSidebar } from "../hooks/useSidebar";
 import { getBuyerStatus, getSellerStatus, mockBuyerActions } from "../data/communityStatus";
 import { products, sellers } from "../data/mockData";
+import { useFoundingMember } from "../context/FoundingMemberContext";
+import FoundingMemberBadge from "../components/FoundingMemberBadge";
 
 const SELLER_ID = "sarahs-backyard";
 const seller = sellers[SELLER_ID];
@@ -50,6 +52,8 @@ function SellerAccountSettings() {
   const [saved, setSaved] = useState(false);
   const orders = sellerOrders(SELLER_ID);
   const sellerStatus = getSellerStatus();
+  const { getFoundingMember } = useFoundingMember();
+  const foundingMember = getFoundingMember(SELLER_ID);
   const snapshot = {
     followers: seller.followers,
     listings: products.filter((product) => product.sellerId === SELLER_ID).length,
@@ -128,6 +132,15 @@ function SellerAccountSettings() {
                 <button type="button" onClick={() => navigate("/profit")} className="ml-auto text-[12px] font-medium text-[#498467]">View Progress <span aria-hidden="true">›</span></button>
               </div>
             </Section>
+
+            {foundingMember && <Section title="Founder Benefits">
+              <div className="rounded-lg border border-[#E7C66A] bg-[#FFF8DD] p-3">
+                <FoundingMemberBadge sellerId={SELLER_ID} />
+                <div className="mt-2 text-[13px] font-medium text-[#5F4A00]">Member #{foundingMember.registrationNumber} of 100</div>
+                <div className="mt-1 text-[12px] text-[#6F5B1A]">Free Community Spotlight Advertising</div>
+                <div className="mt-1 text-[12px] text-[#6F5B1A]">Expires: {foundingMember.expiresAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+              </div>
+            </Section>}
 
             <Section title="Vacation Mode">
               <div className="flex items-center justify-between rounded-lg bg-[#F5FFF6] p-3"><div><div className="text-[14px] font-medium">Vacation Mode</div><div className="text-[12px] text-[#828282]">Pause new orders while keeping your store visible</div></div><button type="button" role="switch" aria-checked={vacationMode} onClick={() => setVacationMode((current) => !current)} className={`relative h-7 w-12 rounded-full transition-colors ${vacationMode ? "bg-[#498467]" : "bg-[#D9D9D9]"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${vacationMode ? "translate-x-6" : "translate-x-1"}`} /></button></div>

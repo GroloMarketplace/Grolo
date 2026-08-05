@@ -13,6 +13,7 @@ import { ProfileModeProvider } from "./context/ProfileModeContext";
 import { AdvertisingProvider } from "./context/AdvertisingContext";
 import { CartProvider } from "./context/CartContext";
 import { SavedForLaterProvider } from "./context/SavedForLaterContext";
+import { FoundingMemberProvider } from "./context/FoundingMemberContext";
 import { MessageProvider } from "./context/MessageContext";
 import { InventoryProvider } from "./context/InventoryContext";
 import { PaymentMethodsProvider } from "./context/PaymentMethodsContext";
@@ -72,6 +73,7 @@ export default function App() {
         <RegrowProvider>
         <ReviewProvider>
         <AdvertisingProvider>
+        <FoundingMemberProvider>
         <SavedForLaterProvider>
         <CartProvider>
         <MessageProvider>
@@ -289,6 +291,7 @@ export default function App() {
         </MessageProvider>
         </CartProvider>
         </SavedForLaterProvider>
+        </FoundingMemberProvider>
         </AdvertisingProvider>
         </ReviewProvider>
         </RegrowProvider>

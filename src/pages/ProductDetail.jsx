@@ -13,6 +13,7 @@ import { useReviews } from "../context/ReviewContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { useCart } from "../context/CartContext";
 import OutlineIcon from "../components/OutlineIcon";
+import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useListings } from "../context/ListingContext";
 import { useMessages } from "../context/MessageContext";
@@ -123,7 +124,7 @@ export default function ProductDetail() {
               </div>
             </div>
           </div>
-          <div className="text-[16px] text-[#757575]">
+          <div className="flex flex-wrap items-center gap-2 text-[16px] text-[#757575]">
             {seller ? (
               <button
                 onClick={() => navigate(`/seller/${seller.id}`)}
@@ -135,6 +136,7 @@ export default function ProductDetail() {
               product.shop
             )}
           </div>
+          <FoundingMemberBadge sellerId={seller?.id} />
           {vacationMode && <div className="rounded-lg border border-[#D9D9D9] bg-[#F5FFF6] p-3 text-[14px] text-[#4F4F4F]">This store is temporarily not accepting orders.{sellerProfile.vacationMessage && <div className="mt-1 text-[13px] text-[#828282]">{sellerProfile.vacationMessage}</div>}</div>}
           <PaymentMethodsList paymentSettings={sellerPaymentMethods} />
           <FulfillmentInfo paymentSettings={sellerPaymentMethods} />

@@ -16,6 +16,7 @@ import { useRegrow } from "../context/RegrowContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { getSellerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
+import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 
 export default function ShopHome() {
@@ -191,6 +192,7 @@ export default function ShopHome() {
                       <h1 className="text-[20px] font-semibold">{storeName}</h1>
                     )}
                     <p className="mt-1 flex items-center gap-1 text-[13px] font-medium text-[#498467]"><OutlineIcon name={sellerStatus.icon} size={15} /> {sellerStatus.name}</p>
+                    <FoundingMemberBadge sellerId={seller.id} />
                     {isEditing ? (
                       <input
                         value={location}

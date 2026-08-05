@@ -40,12 +40,22 @@ export default function Search() {
     : readNavigationState("search", { tab: "Local", query: "", scrollTop: 0 });
   const [tab, setTab] = useState(savedSearchState.tab);
   const [query, setQuery] = useState(savedSearchState.query);
+  const rememberProduct = (productId) => {
+    writeNavigationState("search", {
+      tab,
+      query,
+      scrollTop: scrollRef.current?.scrollTop ?? 0,
+      currentProductId: productId,
+    });
+    navigate(`/product/${productId}`);
+  };
 
   useEffect(() => {
     if (!location.state?.resetSearch) return;
     setTab("Local");
     setQuery("");
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    writeNavigationState("search", { tab: "Local", query: "", scrollTop: 0 });
     navigate(location.pathname, { replace: true, state: null });
   }, [location.state?.resetSearch]);
 
@@ -82,22 +92,23 @@ export default function Search() {
           <SearchBar value={query} onChange={(event) => setQuery(event.target.value)} />
         </div>
 
-        {tab === "Local" && query.trim() ? <SearchResults products={listings} query={query} navigate={navigate} /> : tab === "Local" && (
+        {tab === "Local" && query.trim() ? <SearchResults products={listings} query={query} navigate={navigate} onProduct={rememberProduct} /> : tab === "Local" && (
           <>
             <CommunitySpotlightCarousel />
-            <CategoryRow />
+            <CategoryRow onCategory={(path) => { writeNavigationState("search", { tab, query, scrollTop: scrollRef.current?.scrollTop ?? 0, currentRoutePath: path }); navigate(path, { state: { fromSearch: true } }); }} />
             <CarouselRow
               title="Featured"
               products={products}
-              onSeeAll={() => navigate("/featured")}
+              onSeeAll={() => { writeNavigationState("search", { tab, query, scrollTop: scrollRef.current?.scrollTop ?? 0, currentRoute: "featured" }); navigate("/featured"); }}
+              onProductClick={rememberProduct}
             />
-            <TradingSection products={products} navigate={navigate} />
+            <TradingSection products={products} navigate={navigate} onProduct={rememberProduct} />
           </>
         )}
 
         {tab === "Map" && <MapView />}
 
-        {tab === "History" && <History />}
+        {tab === "History" && <History onProduct={rememberProduct} />}
 
         {tab === "My Orders" && <MyOrders />}
       </div>
@@ -105,7 +116,7 @@ export default function Search() {
   );
 }
 
-function SearchResults({ products, query, navigate }) {
+function SearchResults({ products, query, navigate, onProduct }) {
   const normalizedQuery = query.trim().toLowerCase();
   const matches = (value) => String(value ?? "").toLowerCase().includes(normalizedQuery);
   const productResults = products.filter((product) => matches(`${product.name} ${product.description} ${product.shop}`));
@@ -114,11 +125,11 @@ function SearchResults({ products, query, navigate }) {
   const postResults = [...followingPosts, ...communityPosts].filter((post, index, posts) => posts.findIndex((item) => item.id === post.id) === index && matches(`${post.body} ${post.name} ${post.classification}`));
   const tradeResults = products.filter((product) => product.availableForTrade && matches(`${product.name} ${product.tradeAvailableFor} ${product.desiredTradeItems}`));
   const groups = [
-    { title: "Products", items: productResults, render: (product) => <ResultRow key={product.id} title={product.name} subtitle={product.shop} onClick={() => navigate(`/product/${product.id}`)} /> },
+    { title: "Products", items: productResults, render: (product) => <ResultRow key={product.id} title={product.name} subtitle={product.shop} onClick={() => onProduct(product.id)} /> },
     { title: "Stores", items: storeResults, render: (seller) => <ResultRow key={seller.id} title={seller.name} subtitle={seller.location} onClick={() => navigate(`/seller/${seller.id}`)} /> },
     { title: "Events", items: eventResults, render: (event) => <ResultRow key={event.id} title={event.title} subtitle={event.location} onClick={() => navigate(`/event/${event.id}`)} /> },
     { title: "Posts", items: postResults, render: (post) => <ResultRow key={post.id} title={post.body} subtitle={post.name} onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })} /> },
-    { title: "Trades", items: tradeResults, render: (product) => <ResultRow key={`trade-${product.id}`} title={`Looking to trade ${product.name}`} subtitle={`For ${product.desiredTradeItems || product.tradeAvailable}`} onClick={() => navigate(`/product/${product.id}`)} /> },
+    { title: "Trades", items: tradeResults, render: (product) => <ResultRow key={`trade-${product.id}`} title={`Looking to trade ${product.name}`} subtitle={`For ${product.desiredTradeItems || product.tradeAvailable}`} onClick={() => onProduct(product.id)} /> },
   ];
   const hasResults = groups.some((group) => group.items.length > 0);
 
@@ -129,7 +140,7 @@ function ResultRow({ title, subtitle, onClick }) {
   return <button type="button" onClick={onClick} className="flex w-full items-center justify-between rounded-lg border border-[#E6E6E6] p-3 text-left hover:bg-[#F5FFF6]"><div className="min-w-0"><div className="truncate text-[14px] font-medium">{title}</div>{subtitle && <div className="mt-1 truncate text-[12px] text-[#828282]">{subtitle}</div>}</div><span className="ml-3 text-[20px] text-[#498467]">›</span></button>;
 }
 
-function History() {
+function History({ onProduct }) {
   const navigate = useNavigate();
   const { savedItems } = useSavedItems();
   const { favoriteIds } = useFavorites();
@@ -145,7 +156,7 @@ function History() {
         <p className="text-[14px] text-[#828282]">No recent searches yet</p>
       </HistoryGroup>
       <HistoryGroup title="Recently Viewed">
-        <div className="-mx-4"><CarouselRow title="" products={products.slice(0, 4)} /></div>
+        <div className="-mx-4"><CarouselRow title="" products={products.slice(0, 4)} onProductClick={onProduct} /></div>
       </HistoryGroup>
       <HistoryGroup title="Saved Items">
         {!hasSavedItems ? (
@@ -162,7 +173,7 @@ function History() {
               <SavedHistoryCard key={item.id} item={item} onClick={() => navigate(`/event/${item.sourceId}`)} />
             ))}
             {savedListings.map((product) => (
-              <SavedHistoryCard key={product.id} item={{ ...product, storeName: product.shop, name: product.name }} onClick={() => navigate(`/product/${product.id}`)} listing />
+              <SavedHistoryCard key={product.id} item={{ ...product, storeName: product.shop, name: product.name }} onClick={() => onProduct(product.id)} listing />
             ))}
             {savedPromotions.map((item) => (
               <SavedHistoryCard key={item.id} item={item} onClick={() => item.productId && navigate(`/product/${item.productId}`)} promotion />
@@ -356,7 +367,7 @@ function CommunitySpotlightCarousel() {
   );
 }
 
-function TradingSection({ products: allProducts, navigate }) {
+function TradingSection({ products: allProducts, navigate, onProduct }) {
   const tradeProducts = allProducts.filter((product) => product.availableForTrade);
 
   return (
@@ -374,7 +385,7 @@ function TradingSection({ products: allProducts, navigate }) {
       </button>
       <div className="flex gap-3 overflow-x-auto px-4 no-scrollbar">
         {tradeProducts.slice(0, 4).map((product) => (
-          <button key={product.id} type="button" onClick={() => navigate("/trading")} className="w-[148px] shrink-0 text-left">
+          <button key={product.id} type="button" onClick={() => onProduct(product.id)} className="w-[148px] shrink-0 text-left">
             <img src={product.image} alt={product.name} className="h-[108px] w-[148px] rounded-lg object-cover" />
             <span className="mt-2 block line-clamp-1 text-[14px] font-medium">{product.name}</span>
             <span className="mt-0.5 block line-clamp-1 text-[12px] text-[#828282]">Looking for {product.desiredTradeItems}</span>
@@ -385,7 +396,7 @@ function TradingSection({ products: allProducts, navigate }) {
   );
 }
 
-function CategoryRow() {
+function CategoryRow({ onCategory }) {
   const navigate = useNavigate();
 
   return (
@@ -400,7 +411,7 @@ function CategoryRow() {
           <button
             key={category.name}
             type="button"
-            onClick={() => navigate(`/category/${encodeURIComponent(category.name)}`)}
+            onClick={() => onCategory?.(`/category/${encodeURIComponent(category.name)}`)}
             className="flex flex-col items-center gap-2 shrink-0"
           >
             <img

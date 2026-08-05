@@ -3,6 +3,11 @@ import { useState, useEffect, useRef } from "react";
 import { sellers } from "../data/mockData";
 import { useListings } from "../context/ListingContext";
 import { useMessages } from "../context/MessageContext";
+import { useOrders } from "../context/OrderContext";
+import ProfileAvatar from "../components/ProfileAvatar";
+import { getConversationProfile } from "../utils/conversationProfile";
+import { useSellerSettings } from "../context/SellerSettingsContext";
+import { getOrderStatusClass, getOrderStatusLabel } from "../utils/orderStatus";
 
 export default function Chat() {
   const location = useLocation();
@@ -13,14 +18,21 @@ export default function Chat() {
   const inputRef = useRef(null);
   const { listings } = useListings();
   const { messages, appendMessage } = useMessages();
+  const { orders } = useOrders();
+  const { getSellerProfile } = useSellerSettings();
   const pendingConversation = location.state?.pendingConversation;
   const conversation = messages.find((message) => message.id === id) ?? pendingConversation;
   const orderContext = conversation?.orderContext;
-  const listingId = location.state?.listingId ?? conversation?.listingId ?? orderContext?.productId;
+  const liveOrder = conversation?.conversationType === "order" || conversation?.orderId
+    ? orders.find((order) => order.id === (conversation?.orderId ?? orderContext?.orderId))
+    : null;
+  const currentOrderContext = liveOrder ? { ...orderContext, orderId: liveOrder.id, orderNumber: liveOrder.id.replace(/^ORD-/, "#"), status: liveOrder.status, productId: liveOrder.productId, quantity: liveOrder.quantity } : orderContext;
+  const listingId = location.state?.listingId ?? conversation?.listingId ?? currentOrderContext?.productId;
   const listing = listingId
     ? listings.find((item) => item.id === listingId)
     : null;
   const seller = Object.values(sellers).find((s) => s.id === (conversation?.sellerId ?? listing?.sellerId ?? id)) || sellers["pennies-produce"];
+  const conversationProfile = getConversationProfile({ ...conversation, sellerId: conversation?.sellerId ?? seller.id, name: conversation?.name ?? seller.name }, getSellerProfile);
   const isOrderThread = location.state?.orderConversation === true || conversation?.conversationType === "order";
   const isTradeThread = location.state?.tradeThread === true
     || conversation?.conversationType === "trading"
@@ -87,37 +99,30 @@ export default function Chat() {
             />
           </svg>
         </button>
-        <img
-          src={seller.avatar}
-          alt={seller.name}
-          className="w-8 h-8 rounded-full object-cover"
-        />
+        <ProfileAvatar profile={conversationProfile} size="w-8 h-8" />
         <div className="flex-1">
           <div className="text-[16px] font-semibold">{seller.name}</div>
-          <div className="text-[12px] text-black/50">Active 11m ago</div>
+          {isOrderThread && currentOrderContext ? <div className={`text-[12px] ${getOrderStatusClass(currentOrderContext.status)}`}>{getOrderStatusLabel(currentOrderContext.status)} · Order {currentOrderContext.orderNumber}</div> : <div className="text-[12px] text-black/50">Active 11m ago</div>}
         </div>
       </div>
 
       <div className="min-h-0 flex-1 flex flex-col gap-3 p-4 overflow-y-auto no-scrollbar">
-        {isOrderThread && orderContext ? (
+        {isOrderThread && currentOrderContext ? (
           <button
-            onClick={() => navigate(`/product/${orderContext.productId}`)}
+            onClick={() => navigate(`/product/${currentOrderContext.productId}`)}
             className="flex gap-3 p-3 rounded-lg border border-[#E6E6E6] bg-white hover:bg-[#F5F5F5] transition-colors cursor-pointer text-left"
           >
             <img
-              src={orderContext.productImage}
-              alt={orderContext.productName}
+              src={currentOrderContext.productImage}
+              alt={currentOrderContext.productName}
               className="w-20 h-20 rounded-lg object-cover shrink-0"
             />
             <div className="flex-1 flex flex-col justify-center min-w-0 gap-0.5">
-              <h4 className="text-[16px] font-semibold truncate">{orderContext.productName}</h4>
-              <p className="text-[14px] text-[#828282] truncate">{orderContext.storeName}</p>
-              <p className="text-[13px] text-[#4F4F4F]">Order {orderContext.orderNumber}</p>
-              <p className="text-[13px] text-[#4F4F4F]">Qty: {orderContext.quantity}</p>
-              <div className="flex flex-wrap gap-x-2 text-[12px] text-[#498467]">
-                <span>{orderContext.fulfillmentMethod === "delivery" ? "Delivery" : "Pickup"}</span>
-                <span>{orderContext.status}</span>
-              </div>
+              <h4 className="text-[16px] font-semibold truncate">{currentOrderContext.productName}</h4>
+              <p className="text-[14px] text-[#828282] truncate">{currentOrderContext.storeName}</p>
+              <p className="text-[13px] text-[#4F4F4F]">Order {currentOrderContext.orderNumber}</p>
+              <p className="text-[13px] text-[#4F4F4F]">Qty: {currentOrderContext.quantity}</p>
+              <div className="flex flex-wrap gap-x-2 text-[12px] text-[#498467]"><span>{currentOrderContext.fulfillmentMethod === "delivery" ? "Delivery" : "Pickup"}</span><span className={getOrderStatusClass(currentOrderContext.status)}>{getOrderStatusLabel(currentOrderContext.status)}</span></div>
             </div>
           </button>
         ) : listing ? (
@@ -163,9 +168,9 @@ export default function Chat() {
             key={message.id}
             className={`flex ${message.from === "me" ? "justify-end" : "justify-start"}`}
           >
-            <div className="flex flex-col items-end">
+            <div className={`flex w-full flex-col ${message.from === "me" ? "items-end" : "items-start"}`}>
               <div
-                className={`max-w-[70%] px-4 py-2 rounded-2xl text-[14px] font-medium ${
+                className={`w-fit max-w-[75%] whitespace-normal break-words px-4 py-2 rounded-2xl text-[14px] font-medium leading-5 ${
                   message.from === "me"
                     ? "bg-[#498467] text-white rounded-br-md"
                     : "bg-[#E9E9EB] text-black rounded-bl-md"

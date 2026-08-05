@@ -24,11 +24,29 @@ export default function ShopOrders() {
   const { buyerOrders, sellerOrders, nextStatuses, updateOrderStatus } = useOrders();
   const { hasReviewedOrder, getBuyerTrust } = useBuyerTrust();
   const [reviewOrder, setReviewOrder] = useState(null);
+  const [inProgressOrder, setInProgressOrder] = useState(null);
+  const [statusToast, setStatusToast] = useState("");
   const scrollRef = useRef(null);
   const savedOrderState = readNavigationState("store-orders", { scrollTop: 0 });
   const storeOrders = sellerOrders(STORE_ID);
   const buyerCancelledCount = buyerOrders().filter((order) => order.status === "Cancelled").length;
   const sellerCancelledOrders = storeOrders.filter((order) => order.status === "Cancelled");
+
+  const requestStatusChange = (order, status) => {
+    if (status === "In Progress") {
+      setInProgressOrder(order);
+      return;
+    }
+    updateOrderStatus(order.id, status);
+  };
+
+  const confirmInProgress = () => {
+    if (!inProgressOrder) return;
+    updateOrderStatus(inProgressOrder.id, "In Progress");
+    setInProgressOrder(null);
+    setStatusToast("✅ Order marked as In Progress. The buyer can no longer cancel this order.");
+    window.setTimeout(() => setStatusToast(""), 4000);
+  };
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = savedOrderState.scrollTop;
@@ -137,7 +155,7 @@ export default function ShopOrders() {
                             {nextStatuses(order.status).map((status) => (
                               <button
                                 key={status}
-                                onClick={() => updateOrderStatus(order.id, status)}
+                                onClick={() => requestStatusChange(order, status)}
                                 className="w-full bg-[#498467] text-white py-2.5 rounded-lg text-[14px] font-medium"
                               >
                                 Mark as {status}
@@ -154,9 +172,15 @@ export default function ShopOrders() {
           );
         })}
       </div>
+      {statusToast && <div className="absolute bottom-[76px] left-1/2 z-40 w-[calc(100%-2rem)] max-w-[343px] -translate-x-1/2 rounded-lg bg-[#02542D] p-3 text-center text-[14px] font-medium text-white shadow-lg" role="status">{statusToast}</div>}
+      {inProgressOrder && <InProgressConfirmation onKeepNew={() => setInProgressOrder(null)} onConfirm={confirmInProgress} />}
       {reviewOrder && <BuyerReviewForm order={reviewOrder} onClose={() => setReviewOrder(null)} />}
     </MobileScreenLayout>
   );
+}
+
+function InProgressConfirmation({ onKeepNew, onConfirm }) {
+  return <div className="absolute inset-0 z-50 flex items-end bg-black/30"><div className="w-full rounded-t-2xl bg-white p-5"><h2 className="text-[18px] font-semibold">Start Preparing Order?</h2><p className="mt-3 text-[14px] leading-6 text-[#4F4F4F]">Once this order is marked as In Progress:</p><ul className="mt-2 list-disc pl-5 text-[14px] leading-6 text-[#4F4F4F]"><li>The buyer can no longer cancel the order.</li><li>This confirms that preparation has begun.</li><li>The order will move to Preparing Orders.</li></ul><div className="mt-5 flex gap-3"><button type="button" onClick={onKeepNew} className="flex-1 rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467]">Keep as New Order</button><button type="button" onClick={onConfirm} className="flex-1 rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">Mark as In Progress</button></div></div></div>;
 }
 
 function BuyerReviewForm({ order, onClose }) {

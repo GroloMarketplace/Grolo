@@ -18,6 +18,7 @@ import { getSellerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import { useInventory } from "../context/InventoryContext";
 
 export default function ShopHome() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -50,6 +51,7 @@ export default function ShopHome() {
   const { upcomingEvents } = useEvents();
   const { promotionsForSeller } = usePromotions();
   const { isRegrown } = useRegrow();
+  const { getAvailable } = useInventory();
   const storeOrders = sellerOrders("sarahs-backyard");
   const newOrders = storeOrders.filter((order) => ["Seller Notified", "Order Placed"].includes(order.status));
   const orderCounts = [
@@ -58,6 +60,8 @@ export default function ShopHome() {
     { label: "Ready", count: storeOrders.filter((o) => o.status === "Ready for Pickup").length },
   ];
   const sellerProducts = listings.filter((p) => p.sellerId === "sarahs-backyard" || p.shop === storeName);
+  const activeSellerProducts = sellerProducts.filter((product) => getAvailable(product.id) > 0);
+  const outOfStockSellerProducts = sellerProducts.filter((product) => getAvailable(product.id) <= 0);
   const sellerPosts = [...followingPosts, ...communityPosts].filter(
     (post, index, posts) =>
       post.sellerId === seller.id && posts.findIndex((item) => item.id === post.id) === index,
@@ -382,7 +386,7 @@ export default function ShopHome() {
                   onScroll={handleContentScroll}
                   className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
                 >
-                <ShopListingsTab products={sellerProducts} promotions={sellerPromotions} navigate={navigate} onDelete={handleDeleteListing} />
+                <ShopListingsTab products={activeSellerProducts} outOfStockProducts={outOfStockSellerProducts} promotions={sellerPromotions} navigate={navigate} onDelete={handleDeleteListing} />
                 <ShopPostsTab posts={managedPosts} onEdit={handleEditPost} onDelete={handleDeletePost} onCreate={handleCreatePost} />
                 <ShopEventsTab events={managedEvents} navigate={navigate} onEdit={handleEditEvent} onDelete={handleDeleteEvent} />
                   <ShopRegrowsTab products={sellerProducts} posts={managedPosts} events={managedEvents} promotions={sellerPromotions} isRegrown={isRegrown} />
@@ -415,7 +419,7 @@ function ShopEmptyTab({ children }) {
   return <div className="py-10 text-center text-[14px] text-[#828282]">{children}</div>;
 }
 
-function ShopListingsTab({ products, promotions, navigate, onDelete }) {
+function ShopListingsTab({ products, outOfStockProducts, promotions, navigate, onDelete }) {
   return (
     <ShopTabPanel>
       <div className="mb-3 flex items-center justify-between">
@@ -426,6 +430,7 @@ function ShopListingsTab({ products, promotions, navigate, onDelete }) {
         </div>
       </div>
       {products.length === 0 ? <ShopEmptyTab>No active listings</ShopEmptyTab> : <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{products.map((product) => <SellerListingCard key={product.id} product={product} onDelete={onDelete} />)}</div>}
+      {outOfStockProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Out of Stock</h2><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{outOfStockProducts.map((product) => <SellerListingCard key={product.id} product={product} onDelete={onDelete} />)}</div></section>}
       {promotions.length > 0 && <div className="mt-4 flex flex-col gap-2">{promotions.map((promotion) => <div key={promotion.id} className="rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-3"><PromotionBadge promotion={promotion} /><p className="mt-1 text-[14px] font-semibold">{promotion.title}</p></div>)}</div>}
     </ShopTabPanel>
   );

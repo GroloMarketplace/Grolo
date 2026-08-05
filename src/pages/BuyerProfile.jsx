@@ -12,6 +12,7 @@ import { getBuyerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
 import { useSavedItems } from "../context/SavedContext";
 import { useBuyerTrust } from "../context/BuyerTrustContext";
+import { useOrders } from "../context/OrderContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { EventAttendanceCount } from "../components/EventRsvp";
 
@@ -156,8 +157,10 @@ function CommunityStatusBadge() {
 
 function TrustReputationCard() {
   const { getBuyerTrust } = useBuyerTrust();
+  const { buyerOrders } = useOrders();
   const trust = getBuyerTrust("you");
-  return <section className="mt-4 rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4"><div className="text-[12px] font-medium uppercase tracking-[0.4px] text-[#498467]">Trust & Reputation</div><div className="mt-2 flex items-center gap-2 text-[17px] font-semibold"><OutlineIcon name={trust.reliable ? "heart" : "sprout"} size={21} className="text-[#498467]" /> {trust.reliable ? "Reliable Buyer" : "Building Trust"}</div><div className="mt-3 grid grid-cols-3 gap-2 text-[11px] leading-[130%] text-[#828282]"><div><div className="text-[17px] font-semibold text-[#498467]">{trust.completedTransactions}</div>Completed Transactions</div><div><div className="text-[17px] font-semibold text-[#498467]">{trust.sellerRecommendations}</div>Seller Recommendations</div><div><div className="text-[17px] font-semibold text-[#498467]">{trust.wouldTransactAgain}</div>Would Transact Again</div></div></section>;
+  const completedOrders = buyerOrders().filter((order) => order.status === "Completed");
+  return <section className="mt-4 rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4"><div className="text-[12px] font-medium uppercase tracking-[0.4px] text-[#498467]">Trust & Reputation</div><div className="mt-2 flex items-center gap-2 text-[17px] font-semibold"><OutlineIcon name={trust.reliable ? "heart" : "sprout"} size={21} className="text-[#498467]" /> {trust.reliable ? "Reliable Buyer" : "Building Trust"}</div><div className="mt-3 grid grid-cols-3 gap-2 text-[11px] leading-[130%] text-[#828282]"><div><div className="text-[17px] font-semibold text-[#498467]">{trust.completedTransactions}</div>Completed Transactions</div><div><div className="text-[17px] font-semibold text-[#498467]">{trust.sellerRecommendations}</div>Seller Recommendations</div><div><div className="text-[17px] font-semibold text-[#498467]">{trust.wouldTransactAgain}</div>Would Transact Again</div></div><div className="mt-3 rounded border border-[#F0C36D] bg-[#FFF8E7] p-2 text-[11px] text-[#4F4F4F]" role="status">Completed Orders Found: {completedOrders.length}<br />Completed Transactions Displayed: {trust.completedTransactions}</div></section>;
 }
 
 function CommunityStatusCard({ status }) {

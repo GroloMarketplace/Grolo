@@ -3,8 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 import { sellers } from "../data/mockData";
 import { useMessages } from "../context/MessageContext";
+import { useOrders } from "../context/OrderContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import ProfileAvatar from "../components/ProfileAvatar";
+import { getConversationProfile } from "../utils/conversationProfile";
+import { useSellerSettings } from "../context/SellerSettingsContext";
+import { getOrderStatusClass, getOrderStatusLabel } from "../utils/orderStatus";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 
 const TAB_NAMES = ["All", "Selling", "Buying", "Trading", "Orders"];
@@ -23,7 +28,9 @@ export default function Messages() {
   const tabRef = useRef(tab);
   const saveMessagesState = (nextTab = tabRef.current) => writeNavigationState("messages", { tab: nextTab, scrollTop: scrollRef.current?.scrollTop ?? 0 });
   const { messages } = useMessages();
+  const { orders } = useOrders();
   const { profileMode } = useProfileMode();
+  const { getSellerProfile } = useSellerSettings();
   const tabNames = profileMode === "buyer" ? TAB_NAMES.filter((tabName) => tabName !== "Selling") : TAB_NAMES;
 
   useEffect(() => {
@@ -95,6 +102,11 @@ export default function Messages() {
           filteredMessages.map((m) => {
             const latestMessage = m.messages?.[m.messages.length - 1];
             const messageSeller = Object.values(sellers).find((seller) => seller.name === m.name);
+            const conversationProfile = getConversationProfile(m, getSellerProfile);
+            const isOrderConversation = m.conversationType === "order" || Boolean(m.orderId || m.orderContext?.orderId);
+            const liveOrder = isOrderConversation ? orders.find((order) => order.id === (m.orderId ?? m.orderContext?.orderId)) : null;
+            const orderNumber = liveOrder?.id ?? m.orderContext?.orderNumber ?? m.orderId;
+            const orderStatus = liveOrder?.status ?? m.orderContext?.status;
             return (
               <div
                 key={m.id}
@@ -104,11 +116,7 @@ export default function Messages() {
                 onClick={() => navigate(`/messages/${m.id}`)}
                 className="flex-1 min-w-0 flex gap-3 text-left"
               >
-                <img
-                  src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80"
-                  alt={m.name}
-                  className="w-8 h-8 rounded-full object-cover shrink-0"
-                />
+                <ProfileAvatar profile={conversationProfile} size="w-8 h-8" className="shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap text-[14px]">
                     <Link
@@ -119,10 +127,10 @@ export default function Messages() {
                       {m.name}
                     </Link>
                     <FoundingMemberBadge sellerId={messageSeller?.id} iconOnly />
-                    {m.conversationType === "order" && <span className="shrink-0 text-[#4F4F4F]"> • Order {m.orderContext?.orderNumber}</span>}
                     <span className="shrink-0 text-[#B56576]"> in {m.location}</span>
                   </div>
-                  <p className="text-[14px] mt-1 line-clamp-1">{latestMessage?.text ?? ""}</p>
+                  {isOrderConversation && <div className={`mt-1 flex min-w-0 items-center gap-1 text-[12px] ${getOrderStatusClass(orderStatus)}`}><span className="truncate">{orderStatus ? getOrderStatusLabel(orderStatus) : "Order"}</span><span aria-hidden="true">•</span><span className="shrink-0">Order #{String(orderNumber ?? "").replace(/^#/, "")}</span></div>}
+                  <p className="mt-1 line-clamp-1 text-[14px]">{latestMessage?.text ?? ""}</p>
                 </div>
               </button>
               <div className="flex flex-col items-end gap-1 shrink-0">

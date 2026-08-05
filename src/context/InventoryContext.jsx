@@ -55,7 +55,10 @@ export function InventoryProvider({ children }) {
     updateInventory((current) => ({ ...current, [productId]: normalized }));
   }, [updateInventory]);
 
-  const reduceAvailable = useCallback((items) => {
+  const reduceAvailable = useCallback((items, operationId) => {
+    const operationKey = operationId ? `grolo-inventory-reduction:${operationId}` : null;
+    if (operationKey && window.sessionStorage.getItem(operationKey) === "done") return;
+    if (operationKey) window.sessionStorage.setItem(operationKey, "done");
     updateInventory((current) => {
       const next = { ...current };
       items.forEach((item) => {

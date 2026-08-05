@@ -5,6 +5,7 @@ import { useCart } from "../context/CartContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { useInventory } from "../context/InventoryContext";
 import { useOrders } from "../context/OrderContext";
+import { products, sellers } from "../data/mockData";
 
 function PaymentMethodsList({ paymentSettings }) {
   const { methods, eTransferEmail } = paymentSettings;
@@ -23,7 +24,7 @@ export default function OrderConfirmation() {
   const [isAnimated, setIsAnimated] = useState(false);
   const { state } = useLocation();
   const { items, removeItems } = useCart();
-  const { reduceAvailable } = useInventory();
+  const { reduceAvailable, getAvailable } = useInventory();
   const inventoryReduced = useRef(false);
   const cartItemsRemoved = useRef(false);
   const orderCreated = useRef(false);
@@ -31,6 +32,7 @@ export default function OrderConfirmation() {
   const { createOrders } = useOrders();
   const orderItemsRef = useRef(null);
   const orderNumberRef = useRef(null);
+  const inventoryBeforeRef = useRef(null);
   const orderItems = orderItemsRef.current ?? (orderItemsRef.current = (state?.sellerId
     ? items.filter((item) => (item.sellerId ?? "sarahs-backyard") === state.sellerId)
     : items).filter((item) => Number(item.quantity) > 0));
@@ -56,7 +58,8 @@ export default function OrderConfirmation() {
     // Trigger animation after component mounts
     setIsAnimated(true);
     if (!inventoryReduced.current && orderItems.length > 0) {
-      reduceAvailable(orderItems);
+      inventoryBeforeRef.current = orderItems.map((item) => ({ productId: item.productId ?? item.id, value: getAvailable(item.productId ?? item.id) }));
+      reduceAvailable(orderItems, orderNumber);
       inventoryReduced.current = true;
     }
     if (!cartItemsRemoved.current && orderItems.length > 0) {
@@ -71,13 +74,15 @@ export default function OrderConfirmation() {
       });
       orderCreated.current = true;
     }
-  }, [orderItems, reduceAvailable, removeItems, createOrders, orderNumber, selectedFulfillment, deliveryFee]);
+  }, [orderItems, reduceAvailable, removeItems, createOrders, orderNumber, selectedFulfillment, deliveryFee, getAvailable]);
 
   return (
     <div className="flex h-full flex-col">
       <Header onBack={() => navigate(-1)} />
       <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto no-scrollbar px-6 pb-12 pt-20">
       <div className="w-full max-w-sm">
+        <div className="mb-4 rounded-lg border border-[#E6E6E6] bg-[#F5F5F5] p-3 text-[12px] text-[#4F4F4F]" role="status"><div className="font-semibold">Order Confirmation Loaded</div><div>Order ID: {orderNumber}</div><div>Product: {products.find((product) => product.id === orderItems[0]?.productId)?.name ?? orderItems[0]?.name ?? "No product data"}</div><div>Store: {sellers[state?.sellerId ?? orderItems[0]?.sellerId]?.name ?? orderItems[0]?.shop ?? "No store data"}</div><div>Order Status: Seller Notified</div></div>
+        {orderItems[0] && <div className="mb-4 rounded-lg border border-[#F0C36D] bg-[#FFF8E7] p-3 text-[12px] text-[#4F4F4F]" role="status"><div className="font-semibold">Checkout Inventory Debug</div><div>Before Checkout: {inventoryBeforeRef.current?.find((entry) => entry.productId === (orderItems[0].productId ?? orderItems[0].id))?.value ?? getAvailable(orderItems[0].productId ?? orderItems[0].id)}</div><div>Order Quantity: {orderItems[0].quantity}</div><div>Inventory Deduction: {orderItems[0].quantity}</div><div>Final Inventory: {getAvailable(orderItems[0].productId ?? orderItems[0].id)}</div></div>}
         <div className="flex justify-center mb-6">
           <div 
             className="w-20 h-20 rounded-full bg-[#498467] flex items-center justify-center transition-transform duration-500 ease-out"

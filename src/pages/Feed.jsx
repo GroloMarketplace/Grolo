@@ -692,10 +692,10 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
   };
 
   const handleImageClick = () => {
-    if (post.productId) {
-      openDetail(`/product/${post.productId}`);
-    }
+    openDetail(`/post/${post.id}`);
   };
+
+  const openPostDetail = () => openDetail(`/post/${post.id}`);
 
   const avatar = (
     <button onClick={handleSellerClick} className="shrink-0">
@@ -744,7 +744,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
       )}
 
       {product && <VacationBadge sellerId={product.sellerId} />}
-      <p className="text-[14px] leading-[140%]">{post.body}</p>
+      <button type="button" onClick={openPostDetail} className="text-left text-[14px] leading-[140%]">{post.body}</button>
 
       <EngagementRow
         likes={post.likes}

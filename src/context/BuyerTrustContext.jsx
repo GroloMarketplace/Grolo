@@ -1,8 +1,10 @@
 import { createContext, useContext, useMemo, useState } from "react";
+import { useOrders } from "./OrderContext";
 
 const BuyerTrustContext = createContext(null);
 
 export function BuyerTrustProvider({ children }) {
+  const { orders } = useOrders();
   const [reviews, setReviews] = useState([]);
 
   const addReview = ({ buyer, orderId, sellerId, criteria, notes }) => {
@@ -16,7 +18,7 @@ export function BuyerTrustProvider({ children }) {
   const getBuyerTrust = (buyer) => {
     const buyerReviews = reviewsForBuyer(buyer);
     return {
-      completedTransactions: buyerReviews.length,
+      completedTransactions: orders.filter((order) => order.buyer === buyer && order.status === "Completed").length,
       sellerRecommendations: buyerReviews.filter((review) => review.criteria.length > 0).length,
       wouldTransactAgain: buyerReviews.filter((review) => review.criteria.includes("Would Transact Again")).length,
       reliable: buyerReviews.length > 0 && buyerReviews.every((review) => review.criteria.includes("Would Transact Again")),
@@ -24,7 +26,7 @@ export function BuyerTrustProvider({ children }) {
   };
   const hasReviewedOrder = (orderId) => reviews.some((review) => review.orderId === orderId);
 
-  const value = useMemo(() => ({ reviews, addReview, reviewsForBuyer, getBuyerTrust, hasReviewedOrder }), [reviews]);
+  const value = useMemo(() => ({ reviews, addReview, reviewsForBuyer, getBuyerTrust, hasReviewedOrder }), [reviews, orders]);
   return <BuyerTrustContext.Provider value={value}>{children}</BuyerTrustContext.Provider>;
 }
 

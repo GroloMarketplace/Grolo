@@ -55,6 +55,7 @@ import CreatePromotion from "./pages/CreatePromotion";
 import CommunityImpact from "./pages/CommunityImpact";
 import Comments from "./pages/Comments";
 import EventDetail from "./pages/EventDetail";
+import PostDetail from "./pages/PostDetail";
 import Advertising from "./pages/Advertising";
 import CreateAdvertisingAd from "./pages/CreateAdvertisingAd";
 import Trading from "./pages/Trading";
@@ -114,6 +115,7 @@ export default function App() {
           }
         />
         <Route path="/event/:eventId" element={<PhoneFrame><EventDetail /></PhoneFrame>} />
+        <Route path="/post/:id" element={<PhoneFrame><PostDetail /></PhoneFrame>} />
         <Route
           path="/my-shop/events"
           element={

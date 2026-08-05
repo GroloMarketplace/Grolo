@@ -3,6 +3,8 @@ import { readNavigationState, writeNavigationState } from "../hooks/navigationSt
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useCart } from "../context/CartContext";
 import { useInventory } from "../context/InventoryContext";
+import { useListings } from "../context/ListingContext";
+import { getActiveCartTotalQuantity } from "../utils/cartGrouping";
 
 const tabs = [
   {
@@ -95,11 +97,8 @@ export default function TabBar() {
   const { profileMode } = useProfileMode();
   const { items } = useCart();
   const { getAvailable } = useInventory();
-  const totalQuantity = items.reduce((sum, item) => (
-    getAvailable(item.productId ?? item.id) > 0 && item.quantity <= getAvailable(item.productId ?? item.id)
-      ? sum + item.quantity
-      : sum
-  ), 0);
+  const { listings } = useListings();
+  const totalQuantity = getActiveCartTotalQuantity(items, listings, getAvailable);
   const profileType = profileMode === "seller" ? "seller" : "buyer";
   const profilePath = profileType === "seller" ? "/shop" : "/profile";
   const isSearchRoute = location.pathname === "/search";

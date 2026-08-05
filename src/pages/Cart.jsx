@@ -9,7 +9,7 @@ import { useListings } from "../context/ListingContext";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import OutlineIcon from "../components/OutlineIcon";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
-import { groupCartItemsByStore } from "../utils/cartGrouping";
+import { getActiveCartItems, groupCartItemsByStore } from "../utils/cartGrouping";
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -79,7 +79,7 @@ export default function Cart() {
     const available = getRealInventory(item);
     return { item, available, inStock: available > 0 };
   });
-  const activeItems = inventoryStatus.filter(({ inStock }) => inStock).map(({ item }) => item);
+  const activeItems = getActiveCartItems(items, listings, getAvailable);
   const soldOutItems = inventoryStatus.filter(({ inStock }) => !inStock).map(({ item, available }) => ({ item, available }));
   const savedForLaterStatus = savedForLaterItems.map((item) => ({ item, available: getRealInventory(item) }));
   const savedForLaterActiveItems = savedForLaterStatus.filter(({ available }) => available > 0).map(({ item }) => item);

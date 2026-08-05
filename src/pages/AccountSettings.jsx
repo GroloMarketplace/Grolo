@@ -137,8 +137,15 @@ function SellerAccountSettings() {
               <div className="rounded-lg border border-[#E7C66A] bg-[#FFF8DD] p-3">
                 <FoundingMemberBadge sellerId={SELLER_ID} />
                 <div className="mt-2 text-[13px] font-medium text-[#5F4A00]">Member #{foundingMember.registrationNumber} of 100</div>
-                <div className="mt-1 text-[12px] text-[#6F5B1A]">Free Community Spotlight Advertising</div>
-                <div className="mt-1 text-[12px] text-[#6F5B1A]">Expires: {foundingMember.expiresAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+                <div className="mt-2 text-[12px] font-medium text-[#5F4A00]">Benefits</div>
+                <div className="mt-1 flex flex-col gap-1 text-[12px] text-[#6F5B1A]">
+                  <div>✓ Complimentary Community Spotlight Advertising</div>
+                  <div className="pl-4 text-[11px] text-[#806D2A]">Expires: {foundingMember.expiresAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+                  <div>✓ Priority Placement in Featured Listings</div>
+                  <div className="pl-4 text-[11px] text-[#806D2A]">Also prioritized in Community Spotlight and Featured Store sections</div>
+                  <div>✓ Exclusive Founder Memorabilia</div>
+                  <div>✓ Lifetime Founding Member Status</div>
+                </div>
               </div>
             </Section>}
 

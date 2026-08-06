@@ -53,7 +53,6 @@ export default function ShopHome() {
   const { isRegrown } = useRegrow();
   const { getAvailable } = useInventory();
   const storeOrders = sellerOrders("sarahs-backyard");
-  const newOrders = storeOrders.filter((order) => ["Seller Notified", "Order Placed"].includes(order.status));
   const orderCounts = [
     { label: "New", count: storeOrders.filter((o) => ["Seller Notified", "Order Placed"].includes(o.status)).length },
     { label: "Preparing", count: storeOrders.filter((o) => ["In Progress", "Preparing"].includes(o.status)).length },
@@ -338,12 +337,6 @@ export default function ShopHome() {
                 >
                   Manage Orders
                 </button>
-              </div>
-              <div className="mb-3 rounded-lg border border-[#F0C36D] bg-[#FFF8E7] p-3 text-[12px] text-[#4F4F4F]" role="status">
-                <div className="font-semibold">Incoming Orders Debug</div>
-                <div>Total New Orders: {newOrders.length}</div>
-                <div>Orders contributing to count:</div>
-                {newOrders.map((order) => <div key={order.id}>- {order.id} — {order.status}</div>)}
               </div>
               <div className="flex gap-2">
                 {orderCounts.map((item) => (

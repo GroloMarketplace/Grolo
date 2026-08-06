@@ -426,8 +426,6 @@ function TradingSection({ products: allProducts, navigate, onProduct }) {
 }
 
 function CategoryRow({ onCategory }) {
-  const navigate = useNavigate();
-
   return (
     <div className="py-2">
       <div className="flex items-center gap-2 px-4 py-2">
@@ -459,24 +457,11 @@ function CategoryRow({ onCategory }) {
 function MyOrders() {
   const navigate = useNavigate();
   const { hasReviewedProduct } = useReviews();
-  const { buyerOrders, lastCreatedOrder } = useOrders();
+  const { buyerOrders } = useOrders();
   const orders = buyerOrders();
-  const activeOrders = orders.filter((order) => ["Order Placed", "Preparing", "In Progress", "Seller Notified"].includes(order.status));
 
   return (
     <div className="py-2">
-      <div className="mx-4 mb-3 rounded-lg border border-[#F0C36D] bg-[#FFF8E7] p-3 text-[12px] text-[#4F4F4F]" role="status">
-        <div className="font-semibold">My Orders Runtime Debug</div>
-        <div>Total Orders Loaded: {orders.length}</div>
-        <div>Active Orders Count: {activeOrders.length}</div>
-        <div className="mt-1">Loaded Orders:</div>
-        {orders.map((order) => {
-          const product = products.find((item) => item.id === order.productId);
-          return <div key={order.id}>{order.id} — {product?.name ?? order.productId} — {order.status} — {order.date ?? "Unknown"}</div>;
-        })}
-        <div className="mt-1">Last Created Order</div>
-        {lastCreatedOrder ? <><div>Order ID: {lastCreatedOrder.id}</div><div>Product: {products.find((item) => item.id === lastCreatedOrder.productId)?.name ?? lastCreatedOrder.productId}</div><div>Status: {lastCreatedOrder.status}</div><div>Exists in My Orders: {orders.some((order) => order.id === lastCreatedOrder.id) ? "YES" : "NO"}</div></> : <div>No order created in this session</div>}
-      </div>
       {ORDER_SECTIONS.map((section) => {
         const sectionOrders = orders.filter((o) =>
           section.statuses.includes(o.status),

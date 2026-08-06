@@ -142,7 +142,6 @@ function SellerAccountSettings() {
                   <div>✓ Complimentary Community Spotlight Advertising</div>
                   <div className="pl-4 text-[11px] text-[#806D2A]">Expires: {foundingMember.expiresAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
                   <div>✓ Priority Placement in Featured Listings</div>
-                  <div className="pl-4 text-[11px] text-[#806D2A]">Also prioritized in Community Spotlight and Featured Store sections</div>
                   <div>✓ Exclusive Founder Memorabilia</div>
                   <div>✓ Lifetime Founding Member Status</div>
                 </div>

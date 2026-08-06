@@ -363,11 +363,6 @@ function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu
           </button>
         ))}
       </div>
-      <div className="mx-4 mt-3 rounded-lg border border-dashed border-[#498467] bg-[#F5FFF6] px-3 py-2 text-[11px] text-[#498467]" data-testid="feed-debug-counts">
-        <div>Posts Loaded: {posts.length}</div>
-        <div>Events Loaded: {events.length}</div>
-        <div>Listings Loaded: {listings.length}</div>
-      </div>
       <div className="flex flex-col gap-4 px-4 py-3">
         <CommunityImpactCard />
         {items.map((item) => renderCommunityItem(item, onOpenDetail, onComment, onMenu, onShare))}
@@ -938,6 +933,7 @@ export function Notifications() {
     }
   };
   const { orderNotifications } = useOrders();
+  const { posts } = usePosts();
   const notificationLists = [
     [...orderNotifications, ...notificationsHighlights],
     notificationsFollowers,
@@ -953,15 +949,19 @@ export function Notifications() {
   };
 
   const handleViewClick = (notification) => {
-    const isCommentNotification = notification.quote && /comment/i.test(notification.action);
+    const isCommentLikeNotification = /liked your comment/i.test(notification.action);
+    const post = notification.postId === undefined
+      ? null
+      : posts.find((item) => String(item.id) === String(notification.postId));
 
-    if (isCommentNotification) {
+    if (isCommentLikeNotification && post && notification.commentId) {
       navigate("/comments", {
         state: {
-          commentId: notification.commentId ?? notification.id,
+          content: { type: "post", post },
+          commentId: notification.commentId,
           focusReply: true,
           highlightedComment: {
-            id: notification.commentId ?? notification.id,
+            id: notification.commentId,
             username: notification.name,
             avatar: notification.avatar,
             timestamp: notification.time,
@@ -970,6 +970,8 @@ export function Notifications() {
           },
         },
       });
+    } else if (notification.postId !== undefined) {
+      navigate(`/post/${notification.postId}`);
     } else if (notification.type === "order") {
       navigate("/orders");
     } else if (notification.type === "store" || notification.type === "follow" || notification.type === "profile") {
@@ -1024,6 +1026,7 @@ export function Notifications() {
           const thumbnail = n.thumb ?? productThumb;
           const isProfileNotification = ["store", "follow", "profile"].includes(n.type);
           const isCommentNotification = n.quote && /comment/i.test(n.action);
+          const isPostNotification = n.postId !== undefined;
 
           return (
             <div
@@ -1081,6 +1084,15 @@ export function Notifications() {
                     className="mt-1 text-[13px] font-medium text-[#498467]"
                   >
                     View Profile
+                  </button>
+                )}
+                {isPostNotification && !isCommentNotification && (
+                  <button
+                    type="button"
+                    onClick={() => handleViewClick(n)}
+                    className="mt-1 text-[13px] font-medium text-[#498467]"
+                  >
+                    View Post
                   </button>
                 )}
               </div>

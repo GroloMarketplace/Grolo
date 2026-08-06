@@ -1016,6 +1016,8 @@ export const notificationsHighlights = [
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
     type: "product",
     productId: "strawberries",
+    postId: communityPosts.find((post) => post.productId === "strawberries")?.id,
+    commentId: "comment-organic-certified",
   },
   {
     id: 4,
@@ -1039,6 +1041,8 @@ export const notificationsHighlights = [
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
     type: "product",
     productId: "organic-beets",
+    postId: communityPosts.find((post) => post.productId === "organic-beets")?.id,
+    commentId: "comment-are-these-organic",
   },
 ];
 

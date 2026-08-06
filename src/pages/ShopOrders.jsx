@@ -21,7 +21,7 @@ const SECTIONS = [
 
 export default function ShopOrders() {
   const navigate = useNavigate();
-  const { buyerOrders, sellerOrders, nextStatuses, updateOrderStatus } = useOrders();
+  const { sellerOrders, nextStatuses, updateOrderStatus } = useOrders();
   const { hasReviewedOrder, getBuyerTrust } = useBuyerTrust();
   const [reviewOrder, setReviewOrder] = useState(null);
   const [inProgressOrder, setInProgressOrder] = useState(null);
@@ -29,8 +29,6 @@ export default function ShopOrders() {
   const scrollRef = useRef(null);
   const savedOrderState = readNavigationState("store-orders", { scrollTop: 0 });
   const storeOrders = sellerOrders(STORE_ID);
-  const buyerCancelledCount = buyerOrders().filter((order) => order.status === "Cancelled").length;
-  const sellerCancelledOrders = storeOrders.filter((order) => order.status === "Cancelled");
 
   const requestStatusChange = (order, status) => {
     if (status === "In Progress") {
@@ -63,12 +61,6 @@ export default function ShopOrders() {
     <MobileScreenLayout>
       <Header title="Store Orders" onBack={() => navigate("/shop", { state: { openSellerMenu: true } })} />
       <div ref={scrollRef} className="overflow-y-auto flex-1 no-scrollbar">
-        <div className="mx-4 mt-4 rounded-lg border border-[#F0C36D] bg-[#FFF8E7] p-3 text-[12px] text-[#4F4F4F]" role="status">
-          <div className="font-semibold">Store Orders Debug</div>
-          <div>Cancelled Orders Count — Buyer: {buyerCancelledCount}</div>
-          <div>Cancelled Orders Count — Seller: {sellerCancelledOrders.length}</div>
-          {sellerCancelledOrders.map((order) => <div key={order.id}>Cancelled seller order: {order.id} — Status: {order.status}</div>)}
-        </div>
         {SECTIONS.map((section) => {
           const sectionOrders = storeOrders.filter((o) =>
             section.statuses.includes(o.status),

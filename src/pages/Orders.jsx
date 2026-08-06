@@ -19,11 +19,8 @@ export default function Orders() {
   const scrollRef = useRef(null);
   const savedOrdersState = readNavigationState("orders", { scrollTop: 0 });
   const { hasReviewedProduct } = useReviews();
-  const { buyerOrders, lastCreatedOrder } = useOrders();
+  const { buyerOrders } = useOrders();
   const orders = buyerOrders();
-  const cancelledOrders = orders.filter((order) => order.status === "Cancelled");
-  const completedOrders = orders.filter((order) => order.status === "Completed");
-  const dozenDonutsOrders = orders.filter((order) => order.productId === "dozen-donuts");
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = savedOrdersState.scrollTop;
@@ -40,21 +37,6 @@ export default function Orders() {
     <MobileScreenLayout>
       <Header title="My Orders" onBack={() => navigate(-1)} />
       <div ref={scrollRef} className="overflow-y-auto flex-1 no-scrollbar">
-        <div className="mx-4 mt-4 rounded-lg border border-[#F0C36D] bg-[#FFF8E7] p-3 text-[12px] text-[#4F4F4F]" role="status">
-          <div className="font-semibold">My Orders Debug</div>
-          <div>Active Orders Count: {orders.filter((order) => ["Order Placed", "Preparing", "In Progress", "Seller Notified"].includes(order.status)).length}</div>
-          <div>Cancelled Orders Count: {cancelledOrders.length}</div>
-          <div>Completed Orders Count: {completedOrders.length}</div>
-          <div className="mt-1">Last Created Order:</div>
-          {lastCreatedOrder ? <><div>Order ID: {lastCreatedOrder.id}</div><div>Product: {products.find((item) => item.id === lastCreatedOrder.productId)?.name ?? lastCreatedOrder.productId}</div><div>Status: {lastCreatedOrder.status}</div><div>Exists in My Orders: {orders.some((order) => order.id === lastCreatedOrder.id) ? "YES" : "NO"}</div></> : <div>No order created in this session</div>}
-          <div className="mt-1">Loaded Orders:</div>
-          {dozenDonutsOrders.length === 0 ? <div>Dozen Donuts: not found in buyer orders</div> : dozenDonutsOrders.map((order) => <div key={order.id}>Dozen Donuts — Order ID: {order.id} — Current Status: {order.status}</div>)}
-          <div className="mt-1">Loaded statuses:</div>
-          {orders.map((order) => {
-            const product = products.find((item) => item.id === order.productId);
-            return <div key={order.id}>{order.id} — {product?.name ?? order.productId} — Status: {order.status} — Created: {order.date ?? "Unknown"}</div>;
-          })}
-        </div>
         {ORDER_SECTIONS.map((section) => {
           const sectionOrders = orders.filter((order) => section.statuses.includes(order.status));
           return (

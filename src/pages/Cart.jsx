@@ -17,7 +17,6 @@ export default function Cart() {
   const { items: savedForLaterItems, addItems, removeItems: removeSavedForLater } = useSavedForLater();
   const { listings } = useListings();
   const [undoItem, setUndoItem] = useState(null);
-  const [moveDebug, setMoveDebug] = useState(null);
   const undoTimeout = useRef(null);
   const scrollRef = useRef(null);
   const savedCartState = readNavigationState("cart", { scrollTop: 0 });
@@ -68,7 +67,6 @@ export default function Cart() {
     const available = getRealInventory(item);
     const quantity = Math.min(Math.max(1, Number(item.quantity) || 1), available);
     const moved = available > 0 && Boolean(product);
-    setMoveDebug({ productName: item.name, inventory: available, action: moved ? "Moved to Active Cart" : "Not moved", section: moved ? "Active Cart Items" : "Saved For Later" });
     if (moved) {
       addToCart({ ...product, productId }, quantity, available);
       removeSavedForLater([item]);
@@ -108,15 +106,6 @@ export default function Cart() {
         </div>
       </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
-        {moveDebug && (
-          <div className="mx-4 mt-4 rounded-lg border border-[#F0C36D] bg-[#FFF8E7] p-3 text-[12px] text-[#4F4F4F]" role="status">
-            <div className="font-semibold">Move To Cart Clicked</div>
-            <div>Product: {moveDebug.productName}</div>
-            <div>Inventory: {moveDebug.inventory}</div>
-            <div>Action: {moveDebug.action}</div>
-            <div>Current Section: {moveDebug.section}</div>
-          </div>
-        )}
         <CartSection title="Active Cart Items">
           {storeGroups.map(([sellerId, storeItems]) => (
             <div key={sellerId} className="rounded-lg border border-[#E6E6E6] p-3">

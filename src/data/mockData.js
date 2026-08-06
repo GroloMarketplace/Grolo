@@ -565,6 +565,7 @@ export const events = [
 ];
 
 export const currentUser = {
+  id: "current-user",
   username: "you",
   avatar:
     "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
@@ -924,6 +925,58 @@ export const communityPosts = [
     shares: 89,
     sends: 45,
   },
+  {
+    id: 5,
+    name: "Pennie's Produce",
+    sellerId: "pennies-produce",
+    productId: "organic-beets",
+    group: "Local Produce",
+    classification: "Produce",
+    time: "5 hrs ago",
+    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    image: "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=800&q=80",
+    body: "New batch of organic beets harvested! Sweet and perfect for roasting. Come get them while they last.",
+    likes: 18,
+    comments: 5,
+    commentItems: [
+      {
+        id: "comment-are-these-organic",
+        username: "shadowlynx",
+        avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+        timestamp: "4d",
+        text: "Are these organic?",
+        likes: 0,
+      },
+    ],
+    shares: 2,
+    sends: 1,
+  },
+  {
+    id: 6,
+    name: "Sarah's Backyard",
+    sellerId: "sarahs-backyard",
+    productId: "strawberries",
+    group: "Local Produce",
+    classification: "Produce",
+    time: "2 hrs ago",
+    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
+    image: "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=800&q=80",
+    body: "Fresh organic tomatoes available now! Just harvested from my garden this morning. Limited quantities.",
+    likes: 24,
+    comments: 8,
+    commentItems: [
+      {
+        id: "comment-organic-certified",
+        username: "emberecho",
+        avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+        timestamp: "2d",
+        text: "It's 100% Organic Certified!",
+        likes: 0,
+      },
+    ],
+    shares: 3,
+    sends: 2,
+  },
 ];
 
 export const notificationsActivity = [
@@ -933,6 +986,9 @@ export const notificationsActivity = [
     action: "Started following you",
     time: "2 mins ago",
     avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
+    actorUserId: "user-sarahs-backyard",
+    actorUsername: "Sarah's Backyard",
+    notificationType: "followed_you",
     type: "follow",
   },
   {
@@ -951,6 +1007,9 @@ export const notificationsActivity = [
     quote: "Fresh organic tomatoes available now!",
     time: "1 hr ago",
     avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    actorUserId: "user-pennies-produce",
+    actorUsername: "Pennie's Produce",
+    notificationType: "comment",
     type: "comment",
   },
   {
@@ -967,6 +1026,9 @@ export const notificationsActivity = [
     action: "Shared your store",
     time: "3 hrs ago",
     avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80",
+    actorUserId: "user-michelles-candlewax",
+    actorUsername: "Michelle's Candlewax",
+    notificationType: "shared_store",
     type: "share",
   },
   {
@@ -987,6 +1049,9 @@ export const notificationsHighlights = [
     time: "1d",
     action: "Viewed your store",
     button: "View Profile",
+    actorUserId: "user-starryskies23",
+    actorUsername: "starryskies23",
+    notificationType: "viewed_store",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
     type: "store",
@@ -1011,13 +1076,31 @@ export const notificationsHighlights = [
     time: "2d",
     action: "Liked your comment",
     button: "View Listing",
+    actorUserId: "user-emberecho",
+    actorUsername: "emberecho",
     quote: "It's 100% Organic Certified!",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
     type: "product",
+    notificationType: "comment_like",
     productId: "strawberries",
-    postId: communityPosts.find((post) => post.productId === "strawberries")?.id,
+    postId: communityPosts.find((post) => post.commentItems?.some((comment) => comment.id === "comment-organic-certified"))?.id,
     commentId: "comment-organic-certified",
+  },
+  {
+    id: 6,
+    name: "nebulanomad",
+    time: "2d",
+    action: "Liked your post",
+    button: "View Post",
+    actorUserId: "user-nebulanomad",
+    actorUsername: "nebulanomad",
+    notificationType: "post_like",
+    avatar:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    thumb: "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=800&q=80",
+    type: "post",
+    postId: communityPosts.find((post) => post.name === "Sarah's Backyard" && post.productId === "strawberries")?.id,
   },
   {
     id: 4,
@@ -1025,6 +1108,9 @@ export const notificationsHighlights = [
     time: "3d",
     action: "Shared your store",
     button: "View Profile",
+    actorUserId: "user-lunavoyager",
+    actorUsername: "lunavoyager",
+    notificationType: "shared_store",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
     type: "store",
@@ -1036,10 +1122,13 @@ export const notificationsHighlights = [
     time: "4d",
     action: "Commented on your product",
     button: "View Listing",
+    actorUserId: "user-shadowlynx",
+    actorUsername: "shadowlynx",
     quote: "Are these organic?",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
     type: "product",
+    notificationType: "comment",
     productId: "organic-beets",
     postId: communityPosts.find((post) => post.productId === "organic-beets")?.id,
     commentId: "comment-are-these-organic",
@@ -1053,6 +1142,9 @@ export const notificationsFollowers = [
     time: "1d",
     action: "Started following you",
     button: "View Profile",
+    actorUserId: "user-starryskies23",
+    actorUsername: "starryskies23",
+    notificationType: "followed_you",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
     type: "follow",
@@ -1064,6 +1156,9 @@ export const notificationsFollowers = [
     time: "1d",
     action: "Started following you",
     button: "View Profile",
+    actorUserId: "user-lennie0298",
+    actorUsername: "lennie0298",
+    notificationType: "followed_you",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
     type: "follow",
@@ -1075,6 +1170,9 @@ export const notificationsFollowers = [
     time: "1d",
     action: "Started following you",
     button: "View Profile",
+    actorUserId: "user-nebulanomad",
+    actorUsername: "nebulanomad",
+    notificationType: "followed_you",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
     type: "follow",

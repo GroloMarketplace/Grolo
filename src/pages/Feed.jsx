@@ -13,11 +13,13 @@ import { useRegrow } from "../context/RegrowContext";
 import {
   followingPosts,
   products,
+  currentUser,
   notificationsHighlights,
   notificationsFollowers,
   sellers,
 } from "../data/mockData";
 import { useFollow } from "../context/FollowContext";
+import { useAuth } from "../context/AuthContext";
 import { useOrders } from "../context/OrderContext";
 import {
   eventStatus,
@@ -38,6 +40,11 @@ import { useBuyerSettings } from "../context/BuyerSettingsContext";
 
 const TABS = ["Following", "Your Community"];
 const COMMUNITY_FILTERS = ["For You", "Posts", "Events", "Listings", "Promotions", "Regrows"];
+
+function imageReferenceMatches(first, second) {
+  if (!first || !second) return true;
+  return first.split("?")[0] === second.split("?")[0];
+}
 
 export default function Feed() {
   const location = useLocation();
@@ -895,6 +902,8 @@ export function Notifications() {
   const savedNotificationState = readNavigationState("notifications", { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 });
   const [activeTab, setActiveTab] = useState(savedNotificationState.activeTab);
   const [likedComments, setLikedComments] = useState(() => new Set());
+  const { user: authUser } = useAuth();
+  const currentUserId = authUser?.id ?? currentUser.id;
   const fromTab = location.state?.fromTab === "Your Community" ? "Your Community" : "Following";
 
   useEffect(() => {
@@ -948,34 +957,70 @@ export function Notifications() {
     });
   };
 
+  const handleProfileClick = (notification) => {
+    console.log("Profile notification clicked");
+    console.log("Actor User ID:", notification.actorUserId);
+    console.log("Current User ID:", currentUserId);
+    console.log("Navigating to profile:", notification.actorUserId);
+    if (!notification.actorUserId) return;
+    navigate(`/profile/${encodeURIComponent(notification.actorUserId)}`, {
+      state: { actorUsername: notification.actorUsername, actorAvatar: notification.avatar },
+    });
+  };
+
   const handleViewClick = (notification) => {
-    const isCommentLikeNotification = /liked your comment/i.test(notification.action);
-    const post = notification.postId === undefined
+    const isCommentNotification = (
+      /comment|reply|mention/i.test(notification.notificationType ?? "")
+      || /comment|reply|mention/i.test(notification.action ?? "")
+    );
+    const loadedPost = notification.postId == null
       ? null
       : posts.find((item) => String(item.id) === String(notification.postId));
+    const productThumbnail = notification.productId
+      ? products.find((product) => product.id === notification.productId)?.image
+      : undefined;
+    const thumbnailReference = notification.thumbnailUrl ?? notification.thumb ?? productThumbnail;
+    console.log("Notification clicked:", notification.id);
+    console.log("Notification type:", notification.notificationType);
+    console.log("Stored post ID:", notification.postId);
+    console.log("Stored comment ID:", notification.commentId);
+    console.log("Thumbnail image reference:", thumbnailReference);
+    console.log("Loaded post ID:", loadedPost?.id);
+    console.log("Loaded post image reference:", loadedPost?.image);
 
-    if (isCommentLikeNotification && post && notification.commentId) {
-      navigate("/comments", {
+    if (notification.postId != null) {
+      if (!loadedPost) {
+        console.error("Notification post not found:", notification.postId);
+        return;
+      }
+      if (thumbnailReference && !imageReferenceMatches(loadedPost.image, thumbnailReference)) {
+        console.error("Notification thumbnail does not match opened post image", {
+          notificationId: notification.id,
+          postId: notification.postId,
+          thumbnailReference,
+          loadedPostImage: loadedPost.image,
+        });
+        return;
+      }
+      navigate(`/post/${notification.postId}`, {
         state: {
-          content: { type: "post", post },
-          commentId: notification.commentId,
-          focusReply: true,
-          highlightedComment: {
-            id: notification.commentId,
-            username: notification.name,
-            avatar: notification.avatar,
-            timestamp: notification.time,
-            text: notification.quote,
-            likes: 0,
-          },
+          notificationId: notification.id,
+          storedPostId: notification.postId,
+          notificationThumbnail: thumbnailReference,
+          ...(isCommentNotification ? {
+            commentId: notification.commentId,
+            notificationType: notification.notificationType,
+          } : {}),
         },
       });
-    } else if (notification.postId !== undefined) {
-      navigate(`/post/${notification.postId}`);
+    } else if (isCommentNotification) {
+      return;
     } else if (notification.type === "order") {
       navigate("/orders");
+    } else if (notification.actorUserId) {
+      handleProfileClick(notification);
     } else if (notification.type === "store" || notification.type === "follow" || notification.type === "profile") {
-      navigate(`/seller/${notification.sellerId}`);
+      return;
     } else if (notification.type === "event") {
       navigate(`/event/${notification.eventId}`);
     } else if (notification.type === "product") {
@@ -1024,8 +1069,11 @@ export function Notifications() {
             ? products.find((product) => product.id === n.productId)?.image
             : undefined;
           const thumbnail = n.thumb ?? productThumb;
-          const isProfileNotification = ["store", "follow", "profile"].includes(n.type);
-          const isCommentNotification = n.quote && /comment/i.test(n.action);
+          const isProfileNotification = Boolean(n.actorUserId);
+          const isCommentNotification = n.commentId != null && (
+            /comment|reply|mention/i.test(n.notificationType ?? "")
+            || /comment|reply|mention/i.test(n.action ?? "")
+          );
           const isPostNotification = n.postId !== undefined;
 
           return (
@@ -1080,13 +1128,13 @@ export function Notifications() {
                 {isProfileNotification && (
                   <button
                     type="button"
-                    onClick={() => handleViewClick(n)}
+                    onClick={() => handleProfileClick(n)}
                     className="mt-1 text-[13px] font-medium text-[#498467]"
                   >
                     View Profile
                   </button>
                 )}
-                {isPostNotification && !isCommentNotification && (
+                {isPostNotification && (!isCommentNotification || !n.quote) && (
                   <button
                     type="button"
                     onClick={() => handleViewClick(n)}

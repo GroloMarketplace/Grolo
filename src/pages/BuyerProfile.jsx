@@ -107,7 +107,7 @@ export default function BuyerProfile() {
               <div className="flex-1">
                 {editing ? <input defaultValue={buyerProfile.username} className="w-full border-b border-[#E6E6E6] text-[20px] font-semibold outline-none" /> : <h1 className="text-[20px] font-semibold">{buyerProfile.username}</h1>}
                 <CommunityStatusBadge metrics={impactMetrics} />
-                {publicLocation && <p className="text-[14px] text-[#828282]">{publicLocation}</p>}
+                {publicLocation && <p className="mt-0.5 flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{publicLocation}</p>}
               </div>
             </div>
             <p className="mt-3 text-[14px] leading-[140%]">{buyerProfile.bio}</p>
@@ -174,14 +174,14 @@ function buildActivity() {
   ];
 }
 
-function CommunityStatusBadge({ metrics }) {
+export function CommunityStatusBadge({ metrics }) {
   const status = getBuyerStatus(metrics);
   return <p className="mt-1 flex items-center gap-1 text-[13px] font-medium text-[#498467]"><OutlineIcon name={status.icon} size={15} /> {status.name}</p>;
 }
 
-function TrustReputationCard() {
+function TrustReputationCard({ buyerId = "you" }) {
   const { getBuyerTrust } = useBuyerTrust();
-  const trust = getBuyerTrust("you");
+  const trust = getBuyerTrust(buyerId);
   return <section className="mt-4 rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4"><div className="text-[12px] font-medium uppercase tracking-[0.4px] text-[#498467]">Trust & Reputation</div><div className="mt-2 flex items-center gap-2 text-[17px] font-semibold"><OutlineIcon name={trust.reliable ? "heart" : "sprout"} size={21} className="text-[#498467]" /> {trust.reliable ? "Reliable Buyer" : "Building Trust"}</div><div className="mt-3 grid grid-cols-3 gap-2 text-[11px] leading-[130%] text-[#828282]"><div><div className="text-[17px] font-semibold text-[#498467]">{trust.completedTransactions}</div>Completed Transactions</div><div><div className="text-[17px] font-semibold text-[#498467]">{trust.sellerRecommendations}</div>Seller Recommendations</div><div><div className="text-[17px] font-semibold text-[#498467]">{trust.wouldTransactAgain}</div>Would Transact Again</div></div></section>;
 }
 
@@ -189,7 +189,7 @@ function CommunityStatusCard({ status }) {
   return <section className="mt-4 rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4"><div className="text-[12px] font-medium uppercase tracking-[0.4px] text-[#498467]">Community Status</div><div className="mt-2 flex items-center gap-2 text-[20px] font-semibold"><OutlineIcon name={status.icon} size={22} className="text-[#498467]" /> {status.name}</div><div className="mt-3 flex items-center justify-between text-[12px] text-[#828282]"><span>Progress to Next Level</span><span>{status.total} / {status.nextThreshold} actions</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-[#DDEBDF]"><div className="h-full rounded-full bg-[#498467]" style={{ width: `${status.progress}%` }} /></div></section>;
 }
 
-function CommunityImpactTab({ metrics }) {
+export function CommunityImpactTab({ metrics, publicView = false, profileId = "you" }) {
   const status = getBuyerStatus(metrics);
   const impactStats = [
     { label: "Local businesses supported", value: metrics.businessesSupported },
@@ -207,8 +207,8 @@ function CommunityImpactTab({ metrics }) {
   return (
     <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4">
       <div className="rounded-lg bg-[#498467] p-5 text-white">
-        <h2 className="text-[20px] font-semibold">Your Community Impact</h2>
-        <p className="mt-1 text-[14px] leading-[140%] text-white/80">Because of you, local businesses continue to grow.</p>
+        <h2 className="text-[20px] font-semibold">{publicView ? "Community Impact" : "Your Community Impact"}</h2>
+        <p className="mt-1 text-[14px] leading-[140%] text-white/80">{publicView ? "Supported local businesses and strengthened the community." : "Because of you, local businesses continue to grow."}</p>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3">
         {impactStats.map((stat) => (
@@ -218,12 +218,12 @@ function CommunityImpactTab({ metrics }) {
           </div>
         ))}
       </div>
-      <TrustReputationCard />
+      <TrustReputationCard buyerId={profileId} />
       <CommunityStatusCard status={status} />
       <section className="mt-5">
         <h3 className="text-[18px] font-semibold">Impact timeline</h3>
         <div className="mt-3 flex flex-col">
-          {impactTimeline.map((item, index) => (
+          {(publicView ? impactTimeline.filter((item) => !/saved/i.test(item)) : impactTimeline).map((item, index) => (
             <div key={item} className="flex gap-3">
               <div className="flex flex-col items-center"><span className="mt-1 h-3 w-3 rounded-full bg-[#498467]" />{index < impactTimeline.length - 1 && <span className="h-full w-px bg-[#CFF7D3]" />}</div>
               <p className="pb-5 text-[14px] leading-[140%]">{item}</p>

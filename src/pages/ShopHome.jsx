@@ -204,7 +204,7 @@ export default function ShopHome() {
                         className="text-[14px] text-[#828282] w-full outline-none border-b border-[#E6E6E6] pb-1"
                       />
                     ) : (
-                      <p className="text-[14px] text-[#828282]">{location}</p>
+                      <p className="flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{location}</p>
                     )}
                   </div>
                 </div>

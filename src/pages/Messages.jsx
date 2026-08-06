@@ -7,6 +7,7 @@ import { useOrders } from "../context/OrderContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import ProfileAvatar from "../components/ProfileAvatar";
+import OutlineIcon from "../components/OutlineIcon";
 import { getConversationProfile } from "../utils/conversationProfile";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
@@ -129,7 +130,7 @@ export default function Messages() {
                       {m.name}
                     </Link>
                     <FoundingMemberBadge sellerId={messageSeller?.id} iconOnly />
-                    <span className="shrink-0 text-[#B56576]"> in {m.location}</span>
+                    <span className="flex shrink-0 items-center gap-1 text-[#B56576]"><OutlineIcon name="location" size={13} />{m.location}</span>
                   </div>
                   {isOrderConversation && <div className={`mt-1 flex min-w-0 items-center gap-1 text-[12px] ${getOrderStatusClass(orderStatus)}`}><span className="truncate">{orderStatus ? getOrderStatusLabel(orderStatus) : "Order"}</span><span aria-hidden="true">•</span><span className="shrink-0">Order #{String(orderNumber ?? "").replace(/^#/, "")}</span></div>}
                   <p className="mt-1 line-clamp-1 text-[14px]">{latestMessage?.text ?? ""}</p>

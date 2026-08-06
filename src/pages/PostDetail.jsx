@@ -1,27 +1,74 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import OutlineIcon from "../components/OutlineIcon";
 import ShareSheet from "../components/ShareSheet";
-import { communityPosts, sellers } from "../data/mockData";
+import { sellers } from "../data/mockData";
 import { useRegrow } from "../context/RegrowContext";
+import { usePosts } from "../context/PostContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
+
+function imageReferenceMatches(first, second) {
+  if (!first || !second) return true;
+  return first.split("?")[0] === second.split("?")[0];
+}
 
 export default function PostDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { state } = useLocation();
-  const post = communityPosts.find((item) => String(item.id) === id);
+  const { posts } = usePosts();
+  const post = posts.find((item) => String(item.id) === id);
   const { isRegrown, toggleRegrow } = useRegrow();
   const { settings: buyerProfile } = useBuyerSettings();
-  const postAvatar = post?.authorId === buyerProfile.displayName ? buyerProfile.avatar : post?.avatar ?? seller?.avatar;
   const [likes, setLikes] = useState(post?.likes ?? 0);
   const [liked, setLiked] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [showRegrowConfirm, setShowRegrowConfirm] = useState(false);
+  const [highlightedCommentId, setHighlightedCommentId] = useState(null);
+  const [commentMessage, setCommentMessage] = useState("");
+  const commentRef = useRef(null);
   const seller = post ? sellers[post.sellerId] ?? Object.values(sellers).find((item) => item.name === post.name) : null;
+  const postAvatar = post?.authorId === buyerProfile.displayName ? buyerProfile.avatar : post?.avatar ?? seller?.avatar;
+  const targetComment = post?.commentItems?.find((comment) => comment.id === state?.commentId);
   const regrown = post ? isRegrown(`post:${post.id}`) : false;
+
+  useEffect(() => {
+    if (!state?.notificationId) return;
+    console.log("Loaded post ID:", post?.id);
+    console.log("Loaded post image reference:", post?.image);
+    if (String(state.storedPostId) !== String(post?.id) || !imageReferenceMatches(state.notificationThumbnail, post?.image)) {
+      console.error("Notification post identity mismatch", {
+        notificationId: state.notificationId,
+        storedPostId: state.storedPostId,
+        loadedPostId: post?.id,
+        thumbnailReference: state.notificationThumbnail,
+        loadedPostImage: post?.image,
+      });
+    }
+  }, [state?.notificationId, state?.storedPostId, state?.notificationThumbnail, post?.id, post?.image]);
+
+  useEffect(() => {
+    if (!state?.commentId) return;
+    if (!targetComment) {
+      console.error("Notification comment does not belong to loaded post", {
+        notificationId: state.notificationId,
+        storedPostId: state.storedPostId,
+        loadedPostId: post?.id,
+        commentId: state.commentId,
+      });
+      setCommentMessage("This comment is no longer available.");
+      setHighlightedCommentId(null);
+      return;
+    }
+    setCommentMessage("");
+    setHighlightedCommentId(targetComment.id);
+    window.setTimeout(() => commentRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
+    const timeout = window.setTimeout(() => setHighlightedCommentId(null), 3500);
+    return () => window.clearTimeout(timeout);
+  }, [state?.commentId, state?.notificationId, state?.storedPostId, targetComment, post?.id]);
 
   if (!post) {
     return <MobileScreenLayout><Header title="Post" onBack={() => navigate(-1)} /><div className="p-6 text-center text-[14px] text-[#828282]">Post not found</div></MobileScreenLayout>;
@@ -38,6 +85,17 @@ export default function PostDetail() {
         {post.image && <img src={post.image} alt="" className="mt-5 aspect-square w-full rounded-lg object-cover" />}
         <p className="mt-5 whitespace-pre-wrap text-[16px] leading-7">{post.body}</p>
         <div className="mt-6 flex items-center justify-between border-y border-[#E6E6E6] py-3"><EngagementButton label={likes} active={liked} ariaLabel="Like post" onClick={() => { setLiked((value) => !value); setLikes((value) => value + (liked ? -1 : 1)); }}><LikeIcon active={liked} /></EngagementButton><EngagementButton label={post.comments ?? 0} ariaLabel="View comments" onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })}><CommentIcon /></EngagementButton><EngagementButton label={post.sends ?? post.shares ?? 0} ariaLabel="Share post" onClick={() => setShowShareSheet(true)}><ShareIcon /></EngagementButton><EngagementButton label={(post.regrows ?? 0) + (regrown ? 1 : 0)} active={regrown} ariaLabel="Regrow post" onClick={() => setShowRegrowConfirm(true)}><RegrowIcon active={regrown} /></EngagementButton></div>
+        {state?.commentId && (
+          <section className="mt-6 border-t border-[#E6E6E6] pt-5">
+            <h2 className="text-[18px] font-semibold">Comments</h2>
+            {commentMessage ? <p className="mt-3 rounded-lg bg-[#F5F5F5] p-3 text-[14px] text-[#828282]">{commentMessage}</p> : targetComment && (
+              <div ref={commentRef} className={`mt-4 flex gap-3 rounded-lg p-2 transition-colors ${highlightedCommentId === targetComment.id ? "bg-[#498467]/15" : ""}`}>
+                <img src={targetComment.avatar} alt={targetComment.username} className="h-8 w-8 shrink-0 rounded-full object-cover" />
+                <div className="min-w-0 flex-1"><div className="flex items-baseline gap-2"><span className="text-[14px] font-semibold">{targetComment.username}</span><span className="text-[12px] text-[#828282]">{targetComment.timestamp}</span></div><p className="mt-1 text-[14px] leading-[140%]">{targetComment.text}</p></div>
+              </div>
+            )}
+          </section>
+        )}
         <button type="button" onClick={() => navigate(`/seller/${post.sellerId}`, { state: { fromPost: true, feedOrigin: state?.feedOrigin } })} className="mt-5 w-full rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467]">View Store</button>
       </div>
       {showShareSheet && <ShareSheet content={{ type: "post", title: post.body, name: post.name, sharePath: `/post/${post.id}` }} onClose={() => setShowShareSheet(false)} onSuccess={() => setShowShareSheet(false)} />}

@@ -36,6 +36,7 @@ import OrderTracking from "./pages/OrderTracking";
 import Profit from "./pages/Profit";
 import ShopHome from "./pages/ShopHome";
 import BuyerProfile from "./pages/BuyerProfile";
+import PublicProfile from "./pages/PublicProfile";
 import ProductDetail from "./pages/ProductDetail";
 import SignIn from "./pages/SignIn";
 import AccountSettings from "./pages/AccountSettings";
@@ -95,6 +96,7 @@ export default function App() {
         <Route path="/shop" element={<PhoneFrame><ShopHome /></PhoneFrame>} />
         <Route path="/seller-profile" element={<PhoneFrame><ShopHome /></PhoneFrame>} />
         <Route path="/profile" element={<PhoneFrame><BuyerProfile /></PhoneFrame>} />
+        <Route path="/profile/:userId" element={<PhoneFrame><PublicProfile /></PhoneFrame>} />
         <Route path="/buyer-profile" element={<PhoneFrame><BuyerProfile /></PhoneFrame>} />
         <Route path="/my-shop/reviews" element={<PhoneFrame><StoreReviews /></PhoneFrame>} />
         <Route

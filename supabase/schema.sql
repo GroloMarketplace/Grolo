@@ -154,16 +154,26 @@ create policy "Participants can send messages"
 create table if not exists notifications (
   id uuid primary key default gen_random_uuid(),
   recipient_id uuid not null references profiles(id) on delete cascade,
+  actor_user_id text,
+  actor_username text,
   actor_name text,
   actor_avatar_url text,
   type text not null check (type in ('highlight', 'follower')),
   action text not null,
   quote text,
   thumbnail_url text,
+  post_id text,
+  comment_id text,
+  notification_type text,
   read boolean not null default false,
   created_at timestamptz not null default now()
 );
 
+alter table notifications add column if not exists actor_user_id text;
+alter table notifications add column if not exists actor_username text;
+alter table notifications add column if not exists post_id text;
+alter table notifications add column if not exists comment_id text;
+alter table notifications add column if not exists notification_type text;
 alter table notifications enable row level security;
 
 create policy "Users can view their own notifications"

@@ -139,7 +139,7 @@ export default function SellerProfile() {
                 <h1 className="text-[20px] font-semibold">{sellerProfile.name}</h1>
                 <SellerStatusBadge status={sellerStatus} />
                 {foundingMember && <FoundingMemberBadge sellerId={seller.id} />}
-                <p className="text-[14px] text-[#828282]">{sellerProfile.location}</p>
+                <p className="mt-0.5 flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{sellerProfile.location}</p>
                 <FulfillmentAvailability methods={sellerPaymentMethods.fulfillmentMethods} />
               </div>
             </div>

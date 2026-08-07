@@ -46,10 +46,12 @@ export default function ThreadedComments({
     onReplyChange?.(null);
   };
 
+  const displayComments = comments.map(flattenCommentReplies);
+
   return (
     <>
       <div className="flex flex-col gap-5">
-        {comments.length === 0 ? <p className="text-[14px] text-[#828282]">{emptyMessage}</p> : comments.map((comment) => (
+        {displayComments.length === 0 ? <p className="text-[14px] text-[#828282]">{emptyMessage}</p> : displayComments.map((comment) => (
           <CommentBranch
             key={comment.id}
             comment={comment}
@@ -88,32 +90,53 @@ function CommentBranch({ comment, depth, highlightedCommentId, commentRefs, onRe
   const highlighted = String(comment.id) === String(highlightedCommentId);
 
   return (
-    <div ref={(element) => { commentRefs.current[comment.id] = element; }} className={`${depth ? "ml-8 border-l border-[#E6E6E6] pl-3" : ""} relative rounded-lg p-2 ${highlighted ? "bg-[#498467]/15" : ""}`}>
-      <button type="button" aria-label={liked ? "Unlike comment" : "Like comment"} onClick={async () => {
-        const nextLiked = !liked;
-        setLiked(nextLiked);
-        setLikes((value) => value + (nextLiked ? 1 : -1));
-        try {
-          await onLike?.(comment, nextLiked);
-        } catch {
-          setLiked(liked);
-          setLikes((value) => value + (nextLiked ? -1 : 1));
-        }
-      }} className={`absolute right-2 top-2 flex min-h-8 min-w-8 flex-col items-center justify-center text-[19px] leading-none transition-transform active:scale-125 ${liked ? "text-[#498467]" : "text-[#828282]"}`}>
-        <HeartIcon filled={liked} />
-        {likes > 0 && <span className="mt-0.5 text-[11px] leading-none">{likes}</span>}
-      </button>
-      <div className="flex gap-3 pr-8">
-        <img src={comment.avatar} alt={comment.username} className="h-8 w-8 shrink-0 rounded-full object-cover" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2"><span className="text-[14px] font-semibold">{comment.username}</span><span className="text-[12px] text-[#828282]">{comment.timestamp}</span></div>
-          <p className="mt-1 text-[14px] leading-[140%]">{comment.text}</p>
-          <button type="button" onClick={() => onReply(comment)} className="mt-2 text-[12px] text-[#828282]">↩ Reply</button>
+    <div ref={(element) => { commentRefs.current[comment.id] = element; }} className={`w-full rounded-lg p-2 ${highlighted ? "bg-[#498467]/15" : ""}`}>
+      <div className="grid w-full grid-cols-[minmax(0,1fr)_2.5rem] gap-2">
+        <div className={`${depth ? "border-l border-[#E6E6E6] pl-3" : ""} flex min-w-0 gap-3`} style={depth ? { marginLeft: `${depth * 32}px` } : undefined}>
+          <img src={comment.avatar} alt={comment.username} className="h-8 w-8 shrink-0 rounded-full object-cover" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2"><span className="text-[14px] font-semibold">{comment.username}</span><span className="text-[12px] text-[#828282]">{comment.timestamp}</span></div>
+            <p className="mt-1 text-[14px] leading-[140%]">{comment.text}</p>
+            <button type="button" onClick={() => onReply(comment)} className="mt-2 text-[12px] text-[#828282]">↩ Reply</button>
+          </div>
+        </div>
+        <div className="flex justify-center">
+          <button type="button" aria-label={liked ? "Unlike comment" : "Like comment"} onClick={async () => {
+            const nextLiked = !liked;
+            setLiked(nextLiked);
+            setLikes((value) => value + (nextLiked ? 1 : -1));
+            try {
+              await onLike?.(comment, nextLiked);
+            } catch {
+              setLiked(liked);
+              setLikes((value) => value + (nextLiked ? -1 : 1));
+            }
+          }} className={`flex min-h-8 min-w-8 flex-col items-center justify-center text-[19px] leading-none transition-transform active:scale-125 ${liked ? "text-[#498467]" : "text-[#828282]"}`}>
+            <HeartIcon filled={liked} />
+            {likes > 0 && <span className="mt-0.5 text-[11px] leading-none">{likes}</span>}
+          </button>
         </div>
       </div>
-      {comment.replies?.map((reply) => <CommentBranch key={reply.id} comment={reply} depth={depth + 1} highlightedCommentId={highlightedCommentId} commentRefs={commentRefs} onReply={onReply} onLike={onLike} />)}
+      <div className="w-full">
+        {comment.replies?.map((reply) => <CommentBranch key={reply.id} comment={reply} depth={depth + 1} highlightedCommentId={highlightedCommentId} commentRefs={commentRefs} onReply={onReply} onLike={onLike} />)}
+      </div>
     </div>
   );
+}
+
+function flattenCommentReplies(comment) {
+  const replies = (comment.replies ?? []).flatMap((reply) => [
+    { ...reply, replies: [] },
+    ...flattenNestedReplies(reply.replies ?? []),
+  ]);
+  return { ...comment, replies };
+}
+
+function flattenNestedReplies(replies) {
+  return replies.flatMap((reply) => [
+    { ...reply, replies: [] },
+    ...flattenNestedReplies(reply.replies ?? []),
+  ]);
 }
 
 function findComment(comments, id) {

@@ -121,9 +121,15 @@ function findComment(comments, id) {
 
 function addReplyToComment(comments, parentId, reply) {
   return comments.map((comment) => {
-    if (String(comment.id) === String(parentId)) return { ...comment, replies: [...(comment.replies ?? []), reply] };
-    return comment.replies?.length ? { ...comment, replies: addReplyToComment(comment.replies, parentId, reply) } : comment;
+    if (String(comment.id) === String(parentId) || containsComment(comment.replies ?? [], parentId)) {
+      return { ...comment, replies: [...(comment.replies ?? []), reply] };
+    }
+    return comment;
   });
+}
+
+function containsComment(comments, id) {
+  return comments.some((comment) => String(comment.id) === String(id) || containsComment(comment.replies ?? [], id));
 }
 
 function EngagementButton({ children, label, onClick, ariaLabel, active }) {

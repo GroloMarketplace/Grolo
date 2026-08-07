@@ -1054,6 +1054,8 @@ export function Notifications() {
       return;
     } else if (notification.type === "order") {
       navigate("/orders");
+    } else if (notification.productId) {
+      navigate(`/product/${notification.productId}`);
     } else if (notification.actorUserId) {
       handleProfileClick(notification);
     } else if (notification.type === "store" || notification.type === "follow" || notification.type === "profile") {
@@ -1112,6 +1114,10 @@ export function Notifications() {
             || /comment|reply|mention/i.test(n.action ?? "")
           );
           const isPostNotification = n.postId !== undefined;
+          const isProductLikeNotification = Boolean(n.productId) && (
+            /liked your product/i.test(n.action ?? "")
+            || n.notificationType === "product_like"
+          );
 
           return (
             <div
@@ -1119,16 +1125,31 @@ export function Notifications() {
               className="flex items-start gap-3 border-b border-black/5 px-4 py-4"
             >
               <div className="relative shrink-0">
-                <img
-                  src={n.avatar}
-                  alt={n.name}
-                  className="h-12 w-12 rounded-full object-cover"
-                />
-                <span className="absolute left-0 top-8 h-1.5 w-1.5 rounded-full bg-[#498467]" />
+                <button
+                  type="button"
+                  onClick={() => handleProfileClick(n)}
+                  disabled={!n.actorUserId}
+                  aria-label={`View ${n.name} profile`}
+                  className="rounded-full disabled:cursor-default"
+                >
+                  <img
+                    src={n.avatar}
+                    alt={n.name}
+                    className="h-12 w-12 rounded-full object-cover transition-opacity hover:opacity-80"
+                  />
+                </button>
+                <span className="pointer-events-none absolute left-0 top-8 h-1.5 w-1.5 rounded-full bg-[#498467]" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-[14px] font-medium">{n.name}</span>
+                <div className="flex flex-wrap items-baseline gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleProfileClick(n)}
+                    disabled={!n.actorUserId}
+                    className="text-[14px] font-medium text-[#498467] hover:underline disabled:cursor-default disabled:no-underline"
+                  >
+                    {n.name}
+                  </button>
                   <span className="text-[14px] text-black/50">{n.time}</span>
                 </div>
                 <div className="mt-0.5 text-[14px] leading-5 text-black/60">{n.action}</div>
@@ -1175,7 +1196,7 @@ export function Notifications() {
                         View Profile
                       </button>
                     )}
-                    {isPostNotification && (
+                    {isPostNotification && !isProductLikeNotification && (
                       <button
                         type="button"
                         onClick={() => handleViewClick(n)}

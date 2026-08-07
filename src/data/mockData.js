@@ -1069,6 +1069,7 @@ export const notificationsHighlights = [
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
     type: "product",
     productId: "strawberries",
+    postId: communityPosts.find((post) => post.productId === "strawberries")?.id,
   },
   {
     id: 3,

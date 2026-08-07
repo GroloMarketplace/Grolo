@@ -7,6 +7,7 @@ import ShareSheet from "../components/ShareSheet";
 import ThreadedComments from "../components/ThreadedComments";
 import { sellers } from "../data/mockData";
 import { useRegrow } from "../context/RegrowContext";
+import { useEngagement } from "../context/EngagementContext";
 import { usePosts } from "../context/PostContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useAuth } from "../context/AuthContext";
@@ -24,16 +25,16 @@ export default function PostDetail() {
   const { posts } = usePosts();
   const post = posts.find((item) => String(item.id) === id);
   const { isRegrown, toggleRegrow } = useRegrow();
+  const { getPostEngagement, updatePost, togglePostLike, incrementPostShares, togglePostRegrow } = useEngagement();
   const { settings: buyerProfile } = useBuyerSettings();
   const { user: authUser } = useAuth();
-  const [likes, setLikes] = useState(post?.likes ?? 0);
-  const [liked, setLiked] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [showRegrowConfirm, setShowRegrowConfirm] = useState(false);
   const [comments, setComments] = useState(post?.commentItems ?? []);
   const replyInputRef = useRef(null);
   const seller = post ? sellers[post.sellerId] ?? Object.values(sellers).find((item) => item.name === post.name) : null;
   const postAvatar = post?.authorId === buyerProfile.displayName ? buyerProfile.avatar : post?.avatar ?? seller?.avatar;
+  const engagement = getPostEngagement(post);
   const regrown = post ? isRegrown(`post:${post.id}`) : false;
 
   useEffect(() => {
@@ -51,7 +52,19 @@ export default function PostDetail() {
 
   const handleSubmitReply = ({ text, parentComment }) => {
     const reply = { id: `${parentComment ? "reply" : "comment"}-${Date.now()}`, username: buyerProfile.displayName, avatar: buyerProfile.avatar, timestamp: "now", likes: 0, text };
-    setComments((current) => parentComment ? addReplyToComment(current, parentComment.id, reply) : [reply, ...current]);
+    setComments((current) => {
+      const next = parentComment ? addReplyToComment(current, parentComment.id, reply) : [reply, ...current];
+      updatePost(post.id, { comments: countComments(next) });
+      return next;
+    });
+  };
+
+  const handlePostLike = () => togglePostLike(post.id);
+  const handleShareSuccess = () => incrementPostShares(post.id);
+  const handlePostRegrow = () => {
+    togglePostRegrow(post.id);
+    toggleRegrow(`post:${post.id}`, regrown ? "🌱 Regrow removed" : "Post regrown");
+    setShowRegrowConfirm(false);
   };
 
   const handleCommentLike = async (comment, nextLiked) => {
@@ -83,7 +96,7 @@ export default function PostDetail() {
         </div>
         {post.image && <img src={post.image} alt="" className="mt-5 aspect-square w-full rounded-lg object-cover" />}
         <p className="mt-5 whitespace-pre-wrap text-[16px] leading-7">{post.body}</p>
-        <div className="mt-6 flex items-center justify-between border-y border-[#E6E6E6] py-3"><EngagementButton label={likes} active={liked} ariaLabel="Like post" onClick={() => { setLiked((value) => !value); setLikes((value) => value + (liked ? -1 : 1)); }}><LikeIcon active={liked} /></EngagementButton><EngagementButton label={post.comments ?? 0} ariaLabel="View comments" onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })}><CommentIcon /></EngagementButton><EngagementButton label={post.sends ?? post.shares ?? 0} ariaLabel="Share post" onClick={() => setShowShareSheet(true)}><ShareIcon /></EngagementButton><EngagementButton label={(post.regrows ?? 0) + (regrown ? 1 : 0)} active={regrown} ariaLabel="Regrow post" onClick={() => setShowRegrowConfirm(true)}><RegrowIcon active={regrown} /></EngagementButton></div>
+        <div className="mt-6 flex items-center justify-between border-y border-[#E6E6E6] py-3"><EngagementButton label={engagement.likes} active={engagement.liked} ariaLabel="Like post" onClick={handlePostLike}><LikeIcon active={engagement.liked} /></EngagementButton><EngagementButton label={engagement.comments} ariaLabel="View comments" onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })}><CommentIcon /></EngagementButton><EngagementButton label={engagement.shares} ariaLabel="Share post" onClick={() => setShowShareSheet(true)}><ShareIcon /></EngagementButton><EngagementButton label={engagement.regrows} active={regrown} ariaLabel="Regrow post" onClick={() => setShowRegrowConfirm(true)}><RegrowIcon active={regrown} /></EngagementButton></div>
         <section className="mt-6 border-t border-[#E6E6E6] pt-5">
           <h2 className="text-[18px] font-semibold">Comments</h2>
           {state?.commentId && !findComment(comments, state.commentId) ? <p className="mt-3 rounded-lg bg-[#F5F5F5] p-3 text-[14px] text-[#828282]">This comment is no longer available.</p> : (
@@ -104,10 +117,14 @@ export default function PostDetail() {
         <button type="button" onClick={() => navigate(`/seller/${post.sellerId}`, { state: { fromPost: true, feedOrigin: state?.feedOrigin } })} className="mt-5 w-full rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467]">View Store</button>
       </div>
 
-      {showShareSheet && <ShareSheet content={{ type: "post", title: post.body, name: post.name, sharePath: `/post/${post.id}` }} onClose={() => setShowShareSheet(false)} onSuccess={() => setShowShareSheet(false)} />}
-      {showRegrowConfirm && <div className="absolute inset-0 z-50 flex items-end bg-black/30"><div className="w-full rounded-t-2xl bg-white p-5"><h2 className="text-[18px] font-semibold">Confirm Regrow</h2><p className="mt-2 text-[14px] text-[#4F4F4F]">Share this post to the community feed?</p><div className="mt-5 flex gap-3"><button type="button" onClick={() => setShowRegrowConfirm(false)} className="flex-1 rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467]">Cancel</button><button type="button" onClick={() => { toggleRegrow(`post:${post.id}`, regrown ? "Regrow removed" : "Post regrown"); setShowRegrowConfirm(false); }} className="flex-1 rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">Regrow Post</button></div></div></div>}
+      {showShareSheet && <ShareSheet content={{ type: "post", title: post.body, name: post.name, sharePath: `/post/${post.id}` }} onClose={() => setShowShareSheet(false)} onSuccess={() => { handleShareSuccess(); setShowShareSheet(false); }} />}
+      {showRegrowConfirm && <div className="absolute inset-0 z-50 flex items-end bg-black/30"><div className="w-full rounded-t-2xl bg-white p-5"><h2 className="text-[18px] font-semibold">Confirm Regrow</h2><p className="mt-2 text-[14px] text-[#4F4F4F]">Share this post to the community feed?</p><div className="mt-5 flex gap-3"><button type="button" onClick={() => setShowRegrowConfirm(false)} className="flex-1 rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467]">Cancel</button><button type="button" onClick={handlePostRegrow} className="flex-1 rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">Regrow Post</button></div></div></div>}
     </MobileScreenLayout>
   );
+}
+
+function countComments(comments) {
+  return comments.reduce((count, comment) => count + 1 + countComments(comment.replies ?? []), 0);
 }
 
 function findComment(comments, id) {

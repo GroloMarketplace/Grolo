@@ -5,8 +5,7 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import ThreadedComments from "../components/ThreadedComments";
 import { formatEventDate, formatEventTime } from "../context/EventContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
-import { useAuth } from "../context/AuthContext";
-import { createComment } from "../lib/api/comments";
+import { useEngagement } from "../context/EngagementContext";
 
 const CURRENT_USER = {
   username: "you",
@@ -35,6 +34,7 @@ export default function Comments() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const { settings } = useBuyerSettings();
+  const { updatePost } = useEngagement();
   const content = state?.content ?? fallbackContent;
   const [comments, setComments] = useState(() => {
     const sourceComments = state?.content?.post?.commentItems ?? MOCK_COMMENTS;
@@ -53,9 +53,13 @@ export default function Comments() {
       text,
       likes: 0,
     };
-    setComments((current) => parentComment
-      ? addReplyToComment(current, parentComment.id, newReply)
-      : [newReply, ...current]);
+    setComments((current) => {
+      const next = parentComment
+        ? addReplyToComment(current, parentComment.id, newReply)
+        : [newReply, ...current];
+      if (content.type === "post" && content.post?.id != null) updatePost(content.post.id, { comments: countComments(next) });
+      return next;
+    });
   };
 
   return (
@@ -119,6 +123,10 @@ function OriginalContent({ content, profile }) {
       <p className="mt-3 text-[14px] leading-[140%]">{post.body}</p>
     </section>
   );
+}
+
+function countComments(comments) {
+  return comments.reduce((count, comment) => count + 1 + countComments(comment.replies ?? []), 0);
 }
 
 function addReplyToComment(comments, parentId, reply) {

@@ -10,6 +10,7 @@ import { usePromotions } from "../context/PromotionContext";
 import { useAdvertising } from "../context/AdvertisingContext";
 import { useSavedItems } from "../context/SavedContext";
 import { useRegrow } from "../context/RegrowContext";
+import { useEngagement } from "../context/EngagementContext";
 import {
   followingPosts,
   products,
@@ -649,19 +650,19 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
   const navigate = useNavigate();
   const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
   const { promotionsForProduct } = usePromotions();
-  const { isSaved, toggleSaved } = useSavedItems();
+  const { toggleSaved } = useSavedItems();
   const { isRegrown, toggleRegrow } = useRegrow();
+  const { getPostEngagement, togglePostLike, incrementPostShares, togglePostRegrow } = useEngagement();
   const { settings: buyerProfile } = useBuyerSettings();
+  const engagement = getPostEngagement(post);
   const postAvatar = post.authorId === buyerProfile.displayName ? buyerProfile.avatar : post.avatar;
-  const [reposts, setReposts] = useState(
-    (post.shares ?? 0) + (isRegrown(`post:${post.id}`) ? 1 : 0),
-  );
+  const reposts = engagement.regrows;
+  const likes = engagement.likes;
+  const comments = engagement.comments;
+  const shares = engagement.shares;
   const seller = Object.values(sellers).find((s) => s.name === post.name);
   const promotion = post.productId ? promotionsForProduct(post.productId)[0] : null;
   const product = post.productId ? products.find((item) => item.id === post.productId) : null;
-  const savedProduct = product
-    ? { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName: product.shop, image: product.image, description: product.name }
-    : null;
   const savedPost = {
     id: `post:${post.id}`,
     type: "post",
@@ -690,7 +691,10 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
     : null;
   const menuContent = { id: `post:${post.id}`, type: "post", title: post.body, name: post.body, sellerId: post.sellerId, productId: post.productId, sharePath: post.productId ? `/product/${post.productId}` : "/", savedItems: [savedPost, ...(savedPromotion ? [savedPromotion] : [])], commentContent: { type: "post", post } };
 
-  const handleSave = () => toggleSaved([savedPost, ...(savedPromotion ? [savedPromotion] : [])]);
+  const handleSave = () => {
+    togglePostLike(post.id);
+    toggleSaved([savedPost, ...(savedPromotion ? [savedPromotion] : [])]);
+  };
 
   const handleRepost = () => {
     const regrowId = `post:${post.id}`;
@@ -700,7 +704,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
       : post.productId
         ? "🛍 Product regrown successfully"
         : "🌱 Post regrown successfully";
-    setReposts((count) => count + (regrown ? -1 : 1));
+    togglePostRegrow(post.id);
     toggleRegrow(regrowId, regrown ? "🌱 Regrow removed" : message);
   };
 
@@ -766,17 +770,16 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
       <button type="button" onClick={openPostDetail} className="text-left text-[14px] leading-[140%]">{post.body}</button>
 
       <EngagementRow
-        likes={post.likes}
-        comments={post.comments}
+        likes={likes}
+        comments={comments}
         reposts={reposts}
-        shares={post.sends}
-        liked={isSaved(savedPost.id)}
-        reposted={isRegrown(`post:${post.id}`)}
+        shares={shares}
+        liked={engagement.liked}
+        reposted={engagement.regrows > 0}
         onLike={handleSave}
         onComment={() => onComment({ type: "post", post })}
         onRepost={handleRepost}
-        onShare={() => onShare(menuContent, () => {})}
-        saveAction={savedProduct ? <SaveButton savedItem={savedProduct} /> : null}
+        onShare={() => onShare(menuContent, () => incrementPostShares(post.id))}
       />
     </>
   );
@@ -821,7 +824,6 @@ function EngagementRow({
   onComment,
   onRepost,
   onShare,
-  saveAction,
 }) {
   return (
     <div className="flex items-center gap-11">
@@ -862,7 +864,6 @@ function EngagementRow({
           strokeLinejoin="round"
         />
       </IconCount>
-      {saveAction}
     </div>
   );
 }
@@ -993,13 +994,13 @@ export function Notifications() {
   };
 
   const handleProfileClick = (notification) => {
-    console.log("Profile notification clicked");
-    console.log("Actor User ID:", notification.actorUserId);
-    console.log("Current User ID:", currentUserId);
-    console.log("Navigating to profile:", notification.actorUserId);
-    if (!notification.actorUserId) return;
-    navigate(`/profile/${encodeURIComponent(notification.actorUserId)}`, {
-      state: { actorUsername: notification.actorUsername, actorAvatar: notification.avatar },
+    const actorUserId = notification.actorUserId ?? notification.actor_user_id;
+    if (!actorUserId) return;
+    navigate(`/profile/${encodeURIComponent(actorUserId)}`, {
+      state: {
+        actorUsername: notification.actorUsername ?? notification.actor_username ?? notification.name,
+        actorAvatar: notification.avatar ?? notification.actor_avatar_url,
+      },
     });
   };
 
@@ -1108,7 +1109,8 @@ export function Notifications() {
             ? products.find((product) => product.id === n.productId)?.image
             : undefined;
           const thumbnail = n.thumb ?? productThumb;
-          const isProfileNotification = Boolean(n.actorUserId);
+          const actorUserId = n.actorUserId ?? n.actor_user_id;
+          const isProfileNotification = Boolean(actorUserId);
           const isCommentNotification = n.commentId != null && (
             /comment|reply|mention/i.test(n.notificationType ?? "")
             || /comment|reply|mention/i.test(n.action ?? "")
@@ -1128,7 +1130,7 @@ export function Notifications() {
                 <button
                   type="button"
                   onClick={() => handleProfileClick(n)}
-                  disabled={!n.actorUserId}
+                  disabled={!actorUserId}
                   aria-label={`View ${n.name} profile`}
                   className="rounded-full disabled:cursor-default"
                 >
@@ -1145,7 +1147,7 @@ export function Notifications() {
                   <button
                     type="button"
                     onClick={() => handleProfileClick(n)}
-                    disabled={!n.actorUserId}
+                    disabled={!actorUserId}
                     className="text-[14px] font-medium text-[#498467] hover:underline disabled:cursor-default disabled:no-underline"
                   >
                     {n.name}

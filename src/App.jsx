@@ -23,6 +23,7 @@ import { BuyerSettingsProvider } from "./context/BuyerSettingsContext";
 import { BuyerTrustProvider } from "./context/BuyerTrustContext";
 import { ListingProvider } from "./context/ListingContext";
 import { PostProvider } from "./context/PostContext";
+import { EngagementProvider } from "./context/EngagementContext";
 import Feed, { Notifications } from "./pages/Feed";
 import Search from "./pages/Search";
 import Category from "./pages/Category";
@@ -87,6 +88,7 @@ export default function App() {
         <BuyerSettingsProvider>
         <BuyerTrustProvider>
         <ListingProvider>
+        <EngagementProvider>
         <PostProvider>
         <DeliveryAddressProvider>
         <Routes>
@@ -291,6 +293,7 @@ export default function App() {
       </Routes>
         </DeliveryAddressProvider>
         </PostProvider>
+        </EngagementProvider>
         </ListingProvider>
         </BuyerTrustProvider>
         </BuyerSettingsProvider>

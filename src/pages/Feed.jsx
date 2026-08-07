@@ -520,14 +520,14 @@ function MoreButton({ onClick }) {
 function EventPost({ event, onOpenDetail, onComment, onMenu, onShare }) {
   const navigate = useNavigate();
   const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
-  const { isSaved, toggleSaved } = useSavedItems();
+  const { toggleSaved } = useSavedItems();
   const { isRegrown, toggleRegrow } = useRegrow();
+  const { getEngagement, toggleLike, incrementShares, toggleRegrow: toggleEngagementRegrow } = useEngagement();
   const seller = sellers[event.sellerId];
-  const likes = event.likes ?? 0;
-  const [reposts, setReposts] = useState(
-    (event.reposts ?? 0) + (isRegrown(`event:${event.id}`) ? 1 : 0),
-  );
-  const [shares, setShares] = useState(event.shares ?? 0);
+  const engagement = getEngagement("event", event);
+  const likes = engagement.likes;
+  const reposts = engagement.regrows;
+  const shares = engagement.shares;
 
   const openEvent = () => openDetail(`/event/${event.id}`);
   const openSeller = () => seller && navigate(`/seller/${seller.id}`);
@@ -544,11 +544,14 @@ function EventPost({ event, onOpenDetail, onComment, onMenu, onShare }) {
   };
 
   const menuContent = { id: `event:${event.id}`, type: "event", title: event.title, name: event.title, sellerId: event.sellerId, eventId: event.id, sharePath: `/event/${event.id}`, savedItem: savedEvent, commentContent: { type: "event", event, seller } };
-  const handleSave = () => toggleSaved([savedEvent]);
+  const handleLike = () => {
+    toggleLike("event", event.id);
+    toggleSaved([savedEvent]);
+  };
 
   const handleRepost = () => {
     const regrown = isRegrown(`event:${event.id}`);
-    setReposts((count) => count + (regrown ? -1 : 1));
+    toggleEngagementRegrow("event", event.id);
     toggleRegrow(
       `event:${event.id}`,
       regrown ? "🌱 Regrow removed" : "🎉 Event regrown successfully",
@@ -621,15 +624,15 @@ function EventPost({ event, onOpenDetail, onComment, onMenu, onShare }) {
 
       <EngagementRow
         likes={likes}
-        comments={event.comments ?? 0}
+        comments={engagement.comments}
         reposts={reposts}
         shares={shares}
-        liked={isSaved(savedEvent.id)}
-        reposted={isRegrown(`event:${event.id}`)}
-        onLike={handleSave}
+        liked={engagement.liked}
+        reposted={engagement.regrown}
+        onLike={handleLike}
         onComment={() => onComment({ type: "event", event, seller })}
         onRepost={handleRepost}
-        onShare={() => onShare(menuContent, () => setShares((count) => count + 1))}
+        onShare={() => onShare(menuContent, () => incrementShares("event", event.id))}
       />
     </div>
   );
@@ -994,7 +997,7 @@ export function Notifications() {
   };
 
   const handleProfileClick = (notification) => {
-    const actorUserId = notification.actorUserId ?? notification.actor_user_id;
+    const actorUserId = notification.actorUserId ?? notification.actor_user_id ?? notification.actor_id ?? notification.user_id;
     if (!actorUserId) return;
     navigate(`/profile/${encodeURIComponent(actorUserId)}`, {
       state: {
@@ -1109,7 +1112,7 @@ export function Notifications() {
             ? products.find((product) => product.id === n.productId)?.image
             : undefined;
           const thumbnail = n.thumb ?? productThumb;
-          const actorUserId = n.actorUserId ?? n.actor_user_id;
+          const actorUserId = n.actorUserId ?? n.actor_user_id ?? n.actor_id ?? n.user_id;
           const isProfileNotification = Boolean(actorUserId);
           const isCommentNotification = n.commentId != null && (
             /comment|reply|mention/i.test(n.notificationType ?? "")

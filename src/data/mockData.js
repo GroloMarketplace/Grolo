@@ -998,6 +998,9 @@ export const notificationsActivity = [
     quote: "Bag of Strawberries",
     time: "15 mins ago",
     avatar: "https://images.unsplash.com/photo-1541823709867-1b206113eafd?w=100&q=80",
+    actorUserId: "user-daniels-donuts",
+    actorUsername: "Daniel's Donuts",
+    notificationType: "product_like",
     type: "like",
   },
   {
@@ -1038,6 +1041,9 @@ export const notificationsActivity = [
     quote: "Crochet Hat",
     time: "5 hrs ago",
     avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80",
+    actorUserId: "user-brandys-crafts",
+    actorUsername: "Brandy's Crafts",
+    notificationType: "product_like",
     type: "favorite",
   },
 ];
@@ -1067,6 +1073,9 @@ export const notificationsHighlights = [
       "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=100&q=80",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+    actorUserId: "user-nebulanomad",
+    actorUsername: "nebulanomad",
+    notificationType: "product_like",
     type: "product",
     productId: "strawberries",
     postId: communityPosts.find((post) => post.productId === "strawberries")?.id,
@@ -1185,6 +1194,9 @@ export const notificationsFollowers = [
     time: "2d",
     action: "Viewed your product",
     button: "View Listing",
+    actorUserId: "user-emberecho",
+    actorUsername: "emberecho",
+    notificationType: "viewed_product",
     quote: "Organic Fresh Basil",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
@@ -1197,6 +1209,9 @@ export const notificationsFollowers = [
     time: "4d",
     action: "Left a review",
     button: "View Listing",
+    actorUserId: "user-shadowlynx",
+    actorUsername: "shadowlynx",
+    notificationType: "review",
     quote: "Great communication and very fresh produce!",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",

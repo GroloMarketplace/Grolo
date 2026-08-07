@@ -9,8 +9,10 @@ function requireSupabase() {
 function normalizeNotification(notification) {
   return {
     ...notification,
-    actorUserId: notification.actor_user_id,
+    actorUserId: notification.actor_user_id ?? notification.actorUserId ?? notification.actor_id ?? notification.user_id,
     actorUsername: notification.actor_username ?? notification.actor_name,
+    name: notification.actor_username ?? notification.actor_name ?? notification.name,
+    avatar: notification.actor_avatar_url ?? notification.avatar,
     thumbnailUrl: notification.thumbnail_url,
     postId: notification.post_id,
     commentId: notification.comment_id,

@@ -24,6 +24,7 @@ import { useFoundingMember } from "../context/FoundingMemberContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useInventory } from "../context/InventoryContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
+import { formatListingPrice } from "../utils/listingDisplay";
 
 export default function SellerProfile() {
   const { sellerId } = useParams();
@@ -276,7 +277,7 @@ function ListingsTab({ products, promotions, navigate, getAvailable, onOpenPromo
                   <span className="absolute left-2 top-2 rounded-full bg-[#828282] px-2 py-0.5 text-[10px] font-semibold uppercase text-white">Sold Out</span>
                 </div>
                 <span className="mt-2 block text-[14px] font-medium">{product.name}</span>
-                <span className="mt-0.5 block text-[16px] font-semibold text-[#498467]">${product.price.toFixed(2)}</span>
+                <span className="mt-0.5 block text-[16px] font-semibold text-[#498467]">{formatListingPrice(product)}</span>
               </button>
             ))}
           </div>
@@ -303,7 +304,7 @@ function ListingSection({ title, products, promotions, navigate }) {
                   {promotion && <PromotionBadge promotion={promotion} className="absolute left-2 top-2" />}
                 </div>
                 <span className="mt-2 block text-[14px] font-medium">{product.name}</span>
-                <span className="mt-0.5 block text-[16px] font-semibold text-[#498467]">${product.price.toFixed(2)}</span>
+                <span className="mt-0.5 block text-[16px] font-semibold text-[#498467]">{formatListingPrice(product)}</span>
               </button>
             );
           })}

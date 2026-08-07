@@ -13,6 +13,7 @@ import {
   followingPosts,
 } from "../data/mockData";
 import PromotionBadge from "../components/PromotionBadge";
+import { formatListingPrice } from "../utils/listingDisplay";
 import { useFavorites } from "../hooks/useFavorites";
 import { useSavedItems } from "../context/SavedContext";
 import { useReviews } from "../context/ReviewContext";
@@ -158,7 +159,7 @@ function ProductSearchRow({ product, onProduct }) {
       <button type="button" onClick={() => onProduct(product.id)} className="min-w-0 flex-1 text-left">
         <div className="truncate text-[14px] font-medium">{product.name}</div>
         <div className="mt-1 text-[12px] text-[#828282]">{product.shop}</div>
-        <div className="mt-1 text-[14px] font-semibold text-[#498467]">${product.price.toFixed(2)}</div>
+        <div className="mt-1 text-[14px] font-semibold text-[#498467]">{formatListingPrice(product)}</div>
       </button>
       <ReviewSummary product={product} onClick={openReviews} />
     </div>
@@ -233,7 +234,7 @@ function SavedHistoryCard({ item, onClick, listing, promotion }) {
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
         <span className="text-[12px] text-[#828282]">{item.storeName || item.shop}</span>
         <span className="text-[14px] font-semibold">{item.name || item.title}</span>
-        <span className="line-clamp-2 text-[12px] leading-[130%] text-[#828282]">{listing ? `$${item.price.toFixed(2)}` : item.description}</span>
+        <span className="line-clamp-2 text-[12px] leading-[130%] text-[#828282]">{listing ? formatListingPrice(item) : item.description}</span>
       </div>
     </button>
   );

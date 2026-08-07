@@ -18,6 +18,7 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useListings } from "../context/ListingContext";
 import { useMessages } from "../context/MessageContext";
 import { useInventory } from "../context/InventoryContext";
+import { formatListingPrice } from "../utils/listingDisplay";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -37,7 +38,8 @@ export default function ProductDetail() {
   const { isFavorite, toggleFavorite } = useFavorites();
   const saved = isFavorite(product.id);
   const available = Math.max(0, Number(getAvailable(product.id)) || 0);
-  const soldOut = available === 0;
+  const isService = product.category === "Services";
+  const soldOut = !isService && available === 0;
   const tradePreferences = product.desiredTradeItems?.trim() ?? "";
   const seller = sellers[product.sellerId] ?? Object.values(sellers).find((s) => s.name === product.shop);
   const { getSellerProfile } = useSellerSettings();
@@ -131,10 +133,10 @@ export default function ProductDetail() {
                 </div>
               )}
               <div className="flex items-end">
-                <span className="text-[24px] font-bold">$</span>
-                <span className="text-[48px] font-bold leading-none">
-                  {Math.floor(product.price)}
-                </span>
+                {isService ? <span className="text-[24px] font-bold text-[#498467]">{formatListingPrice(product)}</span> : <>
+                  <span className="text-[24px] font-bold">$</span>
+                  <span className="text-[48px] font-bold leading-none">{Math.floor(Number(product.price) || 0)}</span>
+                </>}
               </div>
             </div>
           </div>
@@ -166,26 +168,29 @@ export default function ProductDetail() {
           </button>
         </div>
 
-        <div className="flex flex-col gap-4">
-          <span className="text-[14px] text-[#757575]">Listing Inventory: {available}</span>
-          {!soldOut && <div className="flex flex-col gap-2">
-            <label className="text-[16px]">Quantity</label>
-            <div className="h-10 flex items-center justify-between rounded-lg border border-[#D9D9D9] px-4">
-              <button type="button" aria-label="Decrease quantity" onClick={() => setQuantity((value) => Math.max(1, value - 1))} disabled={quantity === 1} className="text-[20px] disabled:opacity-40">−</button>
-              <span className="text-[16px]">{quantity}</span>
-              <button type="button" aria-label="Increase quantity" onClick={() => setQuantity((value) => Math.min(available, value + 1))} disabled={quantity >= available} className="text-[20px] text-[#498467] disabled:opacity-40">+</button>
-            </div>
-          </div>}
-        </div>
-
-        {soldOut ? (
-          <div className="w-full rounded-lg bg-[#E6E6E6] text-[#757575] text-center text-[16px] py-3">Sold Out</div>
-        ) : vacationMode ? (
-          <div className="w-full rounded-lg bg-[#E6E6E6] text-[#757575] text-center text-[16px] py-3">Orders Paused</div>
+        {isService ? (
+          <div className="flex flex-col gap-2 rounded-lg border border-[#E6E6E6] p-4 text-[14px] text-[#4F4F4F]">
+            <span><strong>Service Area:</strong> {product.serviceArea || product.location || "Contact provider"}</span>
+            <span><strong>Availability:</strong> {product.availability || "By appointment"}</span>
+            {product.yearsOfExperience && <span><strong>Experience:</strong> {product.yearsOfExperience}</span>}
+            <span><strong>Contact:</strong> {product.preferredContactMethod || "Message Through Grolo"}</span>
+            {product.responseTime && <span><strong>Response time:</strong> {product.responseTime}</span>}
+          </div>
         ) : (
-          <button type="button" onClick={() => addToCart(product, quantity)} className="w-full rounded-lg bg-[#498467] text-[#F5F5F5] text-[16px] py-3 border border-[#B2B2B2]">
-            Add to Cart
-          </button>
+          <>
+            <div className="flex flex-col gap-4">
+              <span className="text-[14px] text-[#757575]">Listing Inventory: {available}</span>
+              {!soldOut && <div className="flex flex-col gap-2">
+                <label className="text-[16px]">Quantity</label>
+                <div className="h-10 flex items-center justify-between rounded-lg border border-[#D9D9D9] px-4">
+                  <button type="button" aria-label="Decrease quantity" onClick={() => setQuantity((value) => Math.max(1, value - 1))} disabled={quantity === 1} className="text-[20px] disabled:opacity-40">−</button>
+                  <span className="text-[16px]">{quantity}</span>
+                  <button type="button" aria-label="Increase quantity" onClick={() => setQuantity((value) => Math.min(available, value + 1))} disabled={quantity >= available} className="text-[20px] text-[#498467] disabled:opacity-40">+</button>
+                </div>
+              </div>}
+            </div>
+            {soldOut ? <div className="w-full rounded-lg bg-[#E6E6E6] text-[#757575] text-center text-[16px] py-3">Sold Out</div> : vacationMode ? <div className="w-full rounded-lg bg-[#E6E6E6] text-[#757575] text-center text-[16px] py-3">Orders Paused</div> : <button type="button" onClick={() => addToCart(product, quantity)} className="w-full rounded-lg bg-[#498467] text-[#F5F5F5] text-[16px] py-3 border border-[#B2B2B2]">Add to Cart</button>}
+          </>
         )}
 
         {product.availableForTrade && seller && (

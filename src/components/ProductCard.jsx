@@ -3,6 +3,7 @@ import PromotionBadge from "./PromotionBadge";
 import { usePromotions } from "../context/PromotionContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import FoundingMemberBadge from "./FoundingMemberBadge";
+import { formatListingPrice } from "../utils/listingDisplay";
 
 export default function ProductCard({ product, onClick }) {
   const { promotionsForProduct } = usePromotions();
@@ -38,7 +39,7 @@ export default function ProductCard({ product, onClick }) {
           {product.name}
         </div>
         <div className="text-[16px] font-medium text-black">
-          ${product.price.toFixed(2)}
+          {formatListingPrice(product)}
         </div>
       </div>
     </Link>

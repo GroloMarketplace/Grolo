@@ -2,27 +2,46 @@ import { createContext, useContext, useMemo, useState } from "react";
 import { products as initialProducts } from "../data/mockData";
 
 const ListingContext = createContext(null);
+const STORAGE_KEY = "grolo-listings";
+
+function readListings() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export function ListingProvider({ children }) {
-  const [listings, setListings] = useState(() => initialProducts.map((product, index) => ({
+  const [listings, setListings] = useState(() => readListings() ?? initialProducts.map((product, index) => ({
     ...product,
     createdAt: product.createdAt ?? new Date(0).getTime() + (initialProducts.length - index),
   })));
 
   const addListing = (listing) => {
     const createdListing = { ...listing, createdAt: listing.createdAt ?? Date.now() };
-    setListings((current) => [createdListing, ...current]);
+    setListings((current) => {
+      const next = [createdListing, ...current];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
     return createdListing;
   };
 
   const updateListing = (listingId, updates) => {
-    setListings((current) => current.map((listing) => (
-      listing.id === listingId ? { ...listing, ...updates } : listing
-    )));
+    setListings((current) => {
+      const next = current.map((listing) => listing.id === listingId ? { ...listing, ...updates } : listing);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
   };
 
   const removeListing = (listingId) => {
-    setListings((current) => current.filter((listing) => listing.id !== listingId));
+    setListings((current) => {
+      const next = current.filter((listing) => listing.id !== listingId);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
   };
 
   const value = useMemo(() => ({ listings, addListing, updateListing, removeListing }), [listings]);

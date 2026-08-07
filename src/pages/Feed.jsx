@@ -29,6 +29,7 @@ import {
   useEvents,
 } from "../context/EventContext";
 import { displayPostClassification } from "../data/postClassifications";
+import { formatListingPrice } from "../utils/listingDisplay";
 import OutlineIcon from "../components/OutlineIcon";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import ReviewSummary from "../components/ReviewSummary";
@@ -465,7 +466,7 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
       </button>
       <button type="button" onClick={openProduct} className="mt-2 block text-left">
         <h3 className="text-[16px] font-semibold">{product.name}</h3>
-        <p className="text-[14px] text-[#498467]">${product.price.toFixed(2)}</p>
+        <p className="text-[14px] text-[#498467]">{formatListingPrice(product)}</p>
       </button>
       <ReviewSummary product={product} onClick={openReviews} />
       <div className="mt-3 flex justify-end gap-4"><SaveButton savedItem={savedItem} /><ShareButton onClick={() => onShare(menuContent, undefined)} /></div>

@@ -4,6 +4,7 @@ import PromotionBadge from "./PromotionBadge";
 import { usePromotions } from "../context/PromotionContext";
 import { useInventory } from "../context/InventoryContext";
 import ReviewSummary from "./ReviewSummary";
+import { formatListingPrice } from "../utils/listingDisplay";
 
 export default function SellerListingCard({ product, onDelete }) {
   const navigate = useNavigate();
@@ -76,7 +77,7 @@ export default function SellerListingCard({ product, onDelete }) {
             {product.name}
           </div>
           <div className="text-[16px] font-medium text-black">
-            ${product.price.toFixed(2)}
+            {formatListingPrice(product)}
           </div>
           <ReviewSummary product={product} />
           <div className="text-[12px] text-[#828282]">{available} Available</div>

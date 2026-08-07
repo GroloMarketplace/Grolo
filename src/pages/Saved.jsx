@@ -9,6 +9,7 @@ import { products } from "../data/mockData";
 import { useSavedItems } from "../context/SavedContext";
 import ReviewSummary from "../components/ReviewSummary";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
+import { formatListingPrice } from "../utils/listingDisplay";
 
 export default function Saved() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -83,7 +84,7 @@ export default function Saved() {
                     <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
                       <span className="text-[12px] text-[#828282]">{product.shop}</span>
                       <span className="text-[16px] font-semibold">{product.name}</span>
-                      <span className="text-[16px] font-semibold text-[#498467]">${product.price.toFixed(2)}</span>
+                      <span className="text-[16px] font-semibold text-[#498467]">{formatListingPrice(product)}</span>
                       <ReviewSummary product={product} />
                     </div>
                   </div>
@@ -142,7 +143,7 @@ function SavedContentCard({ item, event, promotion, onClick }) {
         </div>
         <span className="text-[15px] font-semibold">{item.name}</span>
         <span className="line-clamp-2 text-[13px] leading-[130%] text-[#828282]">{item.description}</span>
-        {promotion && product && <><span className="text-[14px] font-semibold text-[#498467]">${product.price.toFixed(2)}</span><ReviewSummary product={product} /></>}
+        {promotion && product && <><span className="text-[14px] font-semibold text-[#498467]">{formatListingPrice(product)}</span><ReviewSummary product={product} /></>}
         {event && item.event && (
           <span className="text-[12px] text-[#498467]">
             {item.event.location} · {item.event.date}

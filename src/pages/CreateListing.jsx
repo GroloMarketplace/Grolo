@@ -7,17 +7,46 @@ import { useSidebar } from "../hooks/useSidebar";
 import { useListings } from "../context/ListingContext";
 import { useInventory } from "../context/InventoryContext";
 
+function TextField({ label, type = "text", value, onChange, placeholder, required }) {
+  return (
+    <div>
+      <label className="mb-2 block text-[14px] font-medium">{label}</label>
+      <input type={type} value={value} onChange={onChange} placeholder={placeholder} required={required} min={type === "number" ? "0" : undefined} step={type === "number" ? "0.01" : undefined} className="w-full rounded-lg border border-[#E6E6E6] px-4 py-3 focus:border-[#498467] focus:outline-none" />
+    </div>
+  );
+}
+
+function SelectField({ label, value, onChange, options, required }) {
+  return (
+    <div>
+      <label className="mb-2 block text-[14px] font-medium">{label}</label>
+      <select value={value} onChange={onChange} required={required} className="w-full rounded-lg border border-[#E6E6E6] px-4 py-3 focus:border-[#498467] focus:outline-none">
+        <option value="">Select {label.toLowerCase()}</option>
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+    </div>
+  );
+}
+
 export default function CreateListing() {
   const navigate = useNavigate();
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
   const { listings, addListing } = useListings();
   const { updateAvailable } = useInventory();
   const [photos, setPhotos] = useState([]);
+  const [submitError, setSubmitError] = useState("");
   const [formData, setFormData] = useState({
     title: "",
     category: "",
     price: "",
+    pricingType: "",
     quantityAvailable: "25",
+    serviceType: "",
+    serviceArea: "",
+    availability: "",
+    yearsOfExperience: "",
+    preferredContactMethod: "Message Through Grolo",
+    responseTime: "",
     description: "",
     location: "",
     availableForTrade: false,
@@ -26,14 +55,25 @@ export default function CreateListing() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setSubmitError("");
+    const isService = formData.category === "Services";
+    try {
     const listing = {
       id: `${formData.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`,
       name: formData.title,
       category: formData.category,
-      price: Number(formData.price),
-      quantityAvailable: Number(formData.quantityAvailable),
+      price: isService ? formData.price : Number(formData.price),
+      ...(isService ? {
+        pricingType: formData.pricingType,
+        serviceType: formData.serviceType,
+        serviceArea: formData.serviceArea,
+        availability: formData.availability,
+        yearsOfExperience: formData.yearsOfExperience,
+        preferredContactMethod: formData.preferredContactMethod,
+        responseTime: formData.responseTime,
+      } : { quantityAvailable: Number(formData.quantityAvailable) }),
       description: formData.description,
-      location: formData.location,
+      location: isService ? formData.serviceArea : formData.location,
       shop: "Sarah's Backyard",
       sellerId: "sarahs-backyard",
       status: "Active",
@@ -48,11 +88,18 @@ export default function CreateListing() {
       reviewCount: 0,
     };
     addListing(listing);
-    updateAvailable(listing.id, listing.quantityAvailable);
+    if (!isService) updateAvailable(listing.id, listing.quantityAvailable);
     console.log("Listing Created:", listing.name);
     console.log("Listings Count:", listings.length + 1);
-    navigate("/", { state: { tab: "Your Community", communityFilter: "Listings", listingCreated: listing.id } });
+    navigate(`/product/${listing.id}`, { state: { listingCreated: listing.id } });
+    } catch (error) {
+      console.error("Unable to create listing", error);
+      setSubmitError("Unable to create listing. Please try again.");
+    }
   };
+
+  const isService = formData.category === "Services";
+  const updateField = (field) => (event) => setFormData({ ...formData, [field]: event.target.value });
 
   return (
     <>
@@ -63,6 +110,7 @@ export default function CreateListing() {
       />
       <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar pb-24">
         <form onSubmit={handleSubmit} className="flex flex-col gap-6 px-4 py-6 pb-8">
+          {submitError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-[14px] text-red-700">{submitError}</div>}
           <div>
             <label className="block text-[14px] font-medium mb-2">Listing Title</label>
             <input
@@ -79,7 +127,7 @@ export default function CreateListing() {
             <label className="block text-[14px] font-medium mb-2">Category</label>
             <select
               value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              onChange={updateField("category")}
               className="w-full px-4 py-3 rounded-lg border border-[#E6E6E6] focus:outline-none focus:border-[#498467]"
               required
             >
@@ -92,33 +140,23 @@ export default function CreateListing() {
             </select>
           </div>
 
-          <div>
-            <label className="block text-[14px] font-medium mb-2">Price</label>
-            <input
-              type="number"
-              value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-[#E6E6E6] focus:outline-none focus:border-[#498467]"
-              placeholder="0.00"
-              step="0.01"
-              min="0"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-[14px] font-medium mb-2">Quantity Available</label>
-            <input
-              type="number"
-              value={formData.quantityAvailable}
-              onChange={(e) => setFormData({ ...formData, quantityAvailable: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-[#E6E6E6] focus:outline-none focus:border-[#498467]"
-              placeholder="25"
-              min="0"
-              step="1"
-              required
-            />
-          </div>
+          {isService ? (
+            <>
+              <SelectField label="Service Type" value={formData.serviceType} onChange={updateField("serviceType")} options={["Home Services", "Lawn Care", "Snow Removal", "House Cleaning", "Pet Care", "Tutoring", "Photography", "Graphic Design", "Web Design", "Event Services", "Health & Wellness", "Trades & Repairs", "Other"]} required />
+              <SelectField label="Pricing Type" value={formData.pricingType} onChange={updateField("pricingType")} options={["Hourly Rate", "Fixed Price", "Starting At", "Free Quote", "Custom Pricing"]} required />
+              <TextField label="Price or Pricing Details" value={formData.price} onChange={updateField("price")} placeholder="e.g. $40 / Hour or Starting at $100" required />
+              <TextField label="Service Area" value={formData.serviceArea} onChange={updateField("serviceArea")} placeholder="e.g. Northwest Calgary, Alberta Wide, Remote / Online" required />
+              <SelectField label="Availability" value={formData.availability} onChange={updateField("availability")} options={["Weekdays", "Weekends", "Evenings", "By Appointment", "Flexible"]} required />
+              <TextField label="Years of Experience" value={formData.yearsOfExperience} onChange={updateField("yearsOfExperience")} placeholder="e.g. 5 Years" />
+              <SelectField label="Preferred Contact Method" value={formData.preferredContactMethod} onChange={updateField("preferredContactMethod")} options={["Message Through Grolo", "Email", "Phone", "Text Message"]} required />
+              <SelectField label="Typical Response Time" value={formData.responseTime} onChange={updateField("responseTime")} options={["Within 1 hour", "Within 24 hours", "Same day", "1-2 business days"]} />
+            </>
+          ) : (
+            <>
+              <TextField label="Price" type="number" value={formData.price} onChange={updateField("price")} placeholder="0.00" required />
+              <TextField label="Quantity Available" type="number" value={formData.quantityAvailable} onChange={updateField("quantityAvailable")} placeholder="25" required />
+            </>
+          )}
 
           <div>
             <label className="block text-[14px] font-medium mb-2">Description</label>
@@ -127,12 +165,12 @@ export default function CreateListing() {
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full px-4 py-3 rounded-lg border border-[#E6E6E6] focus:outline-none focus:border-[#498467] resize-none"
               rows="4"
-              placeholder="Describe your listing..."
+              placeholder={isService ? "What do you offer?\nWho do you serve?\nWhat makes your service unique?\nAny certifications or special training?" : "Describe your listing..."}
               required
             />
           </div>
 
-          <div>
+          {!isService && <div>
             <label className="block text-[14px] font-medium mb-2">Location</label>
             <input
               type="text"
@@ -142,7 +180,7 @@ export default function CreateListing() {
               placeholder="Enter location"
               required
             />
-          </div>
+          </div>}
 
           <div className="rounded-lg border border-[#E6E6E6] p-3">
             <label className="flex items-center gap-3 text-[14px] font-medium">
@@ -169,7 +207,7 @@ export default function CreateListing() {
             )}
           </div>
 
-          <PhotoManager photos={photos} onChange={setPhotos} />
+          <PhotoManager photos={photos} onChange={setPhotos} label={isService ? "Portfolio Photos" : "Photos"} />
 
           <button
             type="submit"

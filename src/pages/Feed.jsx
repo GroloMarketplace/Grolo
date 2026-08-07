@@ -33,6 +33,7 @@ import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import ReviewSummary from "../components/ReviewSummary";
 import { EventAttendanceCount } from "../components/EventRsvp";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
+import { toggleCommentLike as persistCommentLike } from "../lib/api/commentLikes";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useListings } from "../context/ListingContext";
 import { usePosts } from "../context/PostContext";
@@ -902,6 +903,7 @@ export function Notifications() {
   const savedNotificationState = readNavigationState("notifications", { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 });
   const [activeTab, setActiveTab] = useState(savedNotificationState.activeTab);
   const [likedComments, setLikedComments] = useState(() => new Set());
+  const [commentLikeCounts, setCommentLikeCounts] = useState({});
   const { user: authUser } = useAuth();
   const currentUserId = authUser?.id ?? currentUser.id;
   const fromTab = location.state?.fromTab === "Your Community" ? "Your Community" : "Following";
@@ -948,13 +950,46 @@ export function Notifications() {
     notificationsFollowers,
   ];
 
-  const toggleCommentLike = (notificationId) => {
+  const toggleCommentLike = async (notification) => {
+    const notificationId = notification.id;
+    const wasLiked = likedComments.has(notificationId);
+    const nextLiked = !wasLiked;
     setLikedComments((current) => {
       const next = new Set(current);
-      if (next.has(notificationId)) next.delete(notificationId);
-      else next.add(notificationId);
+      if (nextLiked) next.add(notificationId);
+      else next.delete(notificationId);
       return next;
     });
+    setCommentLikeCounts((current) => ({
+      ...current,
+      [notificationId]: Math.max(0, (current[notificationId] ?? notification.commentLikes ?? 0) + (nextLiked ? 1 : -1)),
+    }));
+
+    if (!authUser?.id) return;
+    try {
+      await persistCommentLike({
+        commentId: notification.commentId,
+        userId: authUser.id,
+        commentOwnerId: notification.commentOwnerId ?? currentUserId,
+        actorUsername: authUser.user_metadata?.username ?? authUser.email,
+        actorAvatarUrl: currentUser.avatar,
+        postId: notification.postId,
+        quote: notification.quote,
+        thumbnailUrl: notification.thumbnailUrl ?? notification.thumb,
+      });
+    } catch (error) {
+      setLikedComments((current) => {
+        const next = new Set(current);
+        if (wasLiked) next.add(notificationId);
+        else next.delete(notificationId);
+        return next;
+      });
+      setCommentLikeCounts((current) => ({
+        ...current,
+        [notificationId]: Math.max(0, (current[notificationId] ?? notification.commentLikes ?? 0) + (wasLiked ? 1 : -1)),
+      }));
+      console.error("Unable to update comment like", error);
+    }
   };
 
   const handleProfileClick = (notification) => {
@@ -1009,7 +1044,9 @@ export function Notifications() {
           notificationThumbnail: thumbnailReference,
           ...(isCommentNotification ? {
             commentId: notification.commentId,
+            replyId: notification.replyId,
             notificationType: notification.notificationType,
+            focusReply: true,
           } : {}),
         },
       });
@@ -1106,18 +1143,20 @@ export function Notifications() {
                       <span className="truncate text-[14px] text-[#828282]">{n.quote}</span>
                     </button>
                     {isCommentNotification && (
-                      <div className="mt-1.5 flex items-center gap-3 text-[12px]">
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
                         <button
                           type="button"
-                          onClick={() => toggleCommentLike(n.id)}
-                          className={likedComments.has(n.id) ? "text-[#498467]" : "text-black/60"}
+                          aria-label={likedComments.has(n.id) ? "Unlike comment" : "Like comment"}
+                          onClick={() => toggleCommentLike(n)}
+                          className={`flex min-h-8 items-center gap-1 px-1 text-[17px] transition-transform active:scale-125 ${likedComments.has(n.id) ? "text-[#498467]" : "text-black/60"}`}
                         >
-                          ♡ Like
+                          <span aria-hidden="true">{likedComments.has(n.id) ? "♥" : "♡"}</span>
+                          {(commentLikeCounts[n.id] ?? n.commentLikes ?? 0) > 0 && <span>{commentLikeCounts[n.id] ?? n.commentLikes}</span>}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleViewClick(n)}
-                          className="text-black/60"
+                          className="min-h-8 px-1 text-black/60"
                         >
                           Reply
                         </button>
@@ -1125,23 +1164,27 @@ export function Notifications() {
                     )}
                   </>
                 )}
-                {isProfileNotification && (
-                  <button
-                    type="button"
-                    onClick={() => handleProfileClick(n)}
-                    className="mt-1 text-[13px] font-medium text-[#498467]"
-                  >
-                    View Profile
-                  </button>
-                )}
-                {isPostNotification && (!isCommentNotification || !n.quote) && (
-                  <button
-                    type="button"
-                    onClick={() => handleViewClick(n)}
-                    className="mt-1 text-[13px] font-medium text-[#498467]"
-                  >
-                    View Post
-                  </button>
+                {(isProfileNotification || isPostNotification) && (
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-medium text-[#498467]">
+                    {isProfileNotification && (
+                      <button
+                        type="button"
+                        onClick={() => handleProfileClick(n)}
+                        className="min-h-8 px-1 text-left"
+                      >
+                        View Profile
+                      </button>
+                    )}
+                    {isPostNotification && (
+                      <button
+                        type="button"
+                        onClick={() => handleViewClick(n)}
+                        className="min-h-8 px-1 text-left"
+                      >
+                        View Post
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
               {thumbnail && (n.type === "product" || n.type === "event" || n.type === "order") && (

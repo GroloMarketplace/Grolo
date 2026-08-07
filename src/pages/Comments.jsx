@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
+import ThreadedComments from "../components/ThreadedComments";
 import { formatEventDate, formatEventTime } from "../context/EventContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
+import { useAuth } from "../context/AuthContext";
+import { createComment } from "../lib/api/comments";
 
 const CURRENT_USER = {
   username: "you",
@@ -33,38 +36,26 @@ export default function Comments() {
   const { state } = useLocation();
   const { settings } = useBuyerSettings();
   const content = state?.content ?? fallbackContent;
-  const [comments, setComments] = useState(() =>
-    state?.highlightedComment
-      ? [state.highlightedComment, ...MOCK_COMMENTS]
-      : MOCK_COMMENTS,
-  );
-  const [commentText, setCommentText] = useState("");
-  const commentRefs = useRef({});
+  const [comments, setComments] = useState(() => {
+    const sourceComments = state?.content?.post?.commentItems ?? MOCK_COMMENTS;
+    return state?.highlightedComment
+      ? [state.highlightedComment, ...sourceComments]
+      : sourceComments;
+  });
   const replyInputRef = useRef(null);
 
-  useEffect(() => {
-    if (!state?.commentId) return;
-    commentRefs.current[state.commentId]?.scrollIntoView({ block: "center" });
-    if (state.focusReply) replyInputRef.current?.focus();
-  }, [state]);
-
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    const text = commentText.trim();
-    if (!text) return;
-
-    setComments((current) => [
-      {
-        id: `comment-${Date.now()}`,
-        ...CURRENT_USER,
-        avatar: settings.avatar,
-        timestamp: "now",
-        text,
-        likes: 0,
-      },
-      ...current,
-    ]);
-    setCommentText("");
+  const handleSubmit = ({ text, parentComment }) => {
+    const newReply = {
+      id: `${parentComment ? "reply" : "comment"}-${Date.now()}`,
+      ...CURRENT_USER,
+      avatar: settings.avatar,
+      timestamp: "now",
+      text,
+      likes: 0,
+    };
+    setComments((current) => parentComment
+      ? addReplyToComment(current, parentComment.id, newReply)
+      : [newReply, ...current]);
   };
 
   return (
@@ -74,31 +65,19 @@ export default function Comments() {
         <OriginalContent content={content} profile={settings} />
         <div className="mt-6 border-t border-[#E6E6E6] pt-5">
           <h2 className="text-[18px] font-semibold">Comments</h2>
-          <div className="mt-4 flex flex-col gap-5">
-            {comments.map((comment) => (
-              <CommentItem
-                key={comment.id}
-                comment={comment}
-                commentRef={(element) => {
-                  commentRefs.current[comment.id] = element;
-                }}
-                highlighted={comment.id === state?.commentId}
-              />
-            ))}
+          <div className="mt-4">
+            <ThreadedComments
+              comments={comments}
+              currentUser={{ username: CURRENT_USER.username, avatar: settings.avatar }}
+              initialCommentId={state?.commentId}
+              highlightedCommentId={state?.replyId ?? state?.commentId}
+              focusReply={state?.focusReply}
+              inputRef={replyInputRef}
+              onSubmit={handleSubmit}
+            />
           </div>
         </div>
       </div>
-      <form onSubmit={handleSubmit} className="flex shrink-0 items-center gap-2 border-t border-[#E6E6E6] bg-white px-4 py-3">
-        <img src={settings.avatar} alt="Your profile" className="h-8 w-8 rounded-full object-cover" />
-        <input
-          ref={replyInputRef}
-          value={commentText}
-          onChange={(event) => setCommentText(event.target.value)}
-          placeholder="Add a comment..."
-          className="min-w-0 flex-1 rounded-full bg-[#F5F5F5] px-4 py-2.5 text-[14px] outline-none focus:ring-1 focus:ring-[#498467]"
-        />
-        <button type="submit" className="text-[14px] font-semibold text-[#498467]">Send</button>
-      </form>
     </MobileScreenLayout>
   );
 }
@@ -142,42 +121,13 @@ function OriginalContent({ content, profile }) {
   );
 }
 
-function CommentItem({ comment, commentRef, highlighted }) {
-  const [liked, setLiked] = useState(false);
-  const [likes, setLikes] = useState(comment.likes);
-
-  const handleLike = () => {
-    setLiked((current) => !current);
-    setLikes((current) => current + (liked ? -1 : 1));
-  };
-
-  return (
-    <div
-      ref={commentRef}
-      className={`flex gap-3 rounded-lg ${highlighted ? "bg-[#498467]/10 p-2" : ""}`}
-    >
-      <img src={comment.avatar} alt={comment.username} className="h-8 w-8 shrink-0 rounded-full object-cover" />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <span className="text-[14px] font-semibold">{comment.username}</span>
-          <span className="text-[12px] text-[#828282]">{comment.timestamp}</span>
-        </div>
-        <p className="mt-1 text-[14px] leading-[140%]">{comment.text}</p>
-        <button type="button" onClick={handleLike} className={`mt-2 flex items-center gap-1 text-[12px] ${liked ? "text-[#498467]" : "text-[#828282]"}`}>
-          <HeartIcon filled={liked} />
-          {likes}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function HeartIcon({ filled }) {
-  return (
-    <svg width="15" height="15" viewBox="0 0 20 20" fill={filled ? "#498467" : "none"}>
-      <path d="M17.37 3.84a4.13 4.13 0 0 0-6.49-.5L10 4.22l-.88-.88a4.13 4.13 0 0 0-6.13 5.5l.63.88L10 17.19l6.48-6.48.63-.88a4.13 4.13 0 0 0 .26-6.49Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+function addReplyToComment(comments, parentId, reply) {
+  return comments.map((comment) => {
+    if (String(comment.id) === String(parentId)) return { ...comment, replies: [...(comment.replies ?? []), reply] };
+    return comment.replies?.length
+      ? { ...comment, replies: addReplyToComment(comment.replies, parentId, reply) }
+      : comment;
+  });
 }
 
 const fallbackContent = {

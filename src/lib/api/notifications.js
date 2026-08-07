@@ -14,6 +14,7 @@ function normalizeNotification(notification) {
     thumbnailUrl: notification.thumbnail_url,
     postId: notification.post_id,
     commentId: notification.comment_id,
+    replyId: notification.reply_id,
     notificationType: notification.notification_type,
   };
 }
@@ -43,6 +44,7 @@ export async function createNotification({
   thumbnailUrl,
   postId,
   commentId,
+  replyId,
   notificationType,
 }) {
   requireSupabase();
@@ -68,6 +70,7 @@ export async function createNotification({
       thumbnail_url: thumbnailUrl,
       post_id: postId == null ? null : String(postId),
       comment_id: commentId == null ? null : String(commentId),
+      reply_id: replyId == null ? null : String(replyId),
       notification_type: notificationType ?? null,
     })
     .select()
@@ -81,6 +84,36 @@ export async function createNotification({
     commentId: data.comment_id,
     notificationType: data.notification_type,
   };
+}
+
+export async function createReplyNotifications({
+  postId,
+  parentCommentId,
+  replyId,
+  quote,
+  actorUserId,
+  actorUsername,
+  actorAvatarUrl,
+  recipientIds = [],
+  mentionedUserIds = [],
+  thumbnailUrl,
+}) {
+  const recipients = [...new Set([...recipientIds, ...mentionedUserIds])]
+    .filter((recipientId) => recipientId != null && String(recipientId) !== String(actorUserId));
+  return Promise.all(recipients.map((recipientId) => createNotification({
+    recipientId,
+    actorUserId,
+    actorUsername,
+    actorAvatarUrl,
+    type: "highlight",
+    action: "replied to your comment",
+    quote,
+    thumbnailUrl,
+    postId,
+    commentId: parentCommentId,
+    replyId,
+    notificationType: mentionedUserIds.some((mentionedId) => String(mentionedId) === String(recipientId)) ? "reply_mention" : "reply",
+  })));
 }
 
 export async function markNotificationRead(id) {

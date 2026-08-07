@@ -150,6 +150,32 @@ create policy "Participants can send messages"
     )
   );
 
+-- Comments and nested replies
+create table if not exists comments (
+  id uuid primary key default gen_random_uuid(),
+  author_id uuid not null references profiles(id) on delete cascade,
+  content_type text not null,
+  content_id text not null,
+  parent_comment_id uuid references comments(id) on delete cascade,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table comments enable row level security;
+create policy "Users can view comments" on comments for select using (true);
+create policy "Users can create their own comments" on comments for insert with check (auth.uid() = author_id);
+
+create table if not exists comment_likes (
+  comment_id text not null,
+  user_id uuid not null references profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (comment_id, user_id)
+);
+
+alter table comment_likes enable row level security;
+create policy "Users can view comment likes" on comment_likes for select using (true);
+create policy "Users can manage their comment likes" on comment_likes for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
 -- Notifications
 create table if not exists notifications (
   id uuid primary key default gen_random_uuid(),
@@ -164,6 +190,7 @@ create table if not exists notifications (
   thumbnail_url text,
   post_id text,
   comment_id text,
+  reply_id text,
   notification_type text,
   read boolean not null default false,
   created_at timestamptz not null default now()
@@ -173,7 +200,12 @@ alter table notifications add column if not exists actor_user_id text;
 alter table notifications add column if not exists actor_username text;
 alter table notifications add column if not exists post_id text;
 alter table notifications add column if not exists comment_id text;
+alter table notifications add column if not exists reply_id text;
 alter table notifications add column if not exists notification_type text;
+create unique index if not exists notifications_comment_like_unique
+  on notifications (recipient_id, actor_user_id, comment_id, notification_type)
+  where notification_type = 'comment_like';
+
 alter table notifications enable row level security;
 
 create policy "Users can view their own notifications"

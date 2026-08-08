@@ -30,6 +30,7 @@ import {
 } from "../context/EventContext";
 import { displayPostClassification } from "../data/postClassifications";
 import { formatListingPrice } from "../utils/listingDisplay";
+import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import OutlineIcon from "../components/OutlineIcon";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import ReviewSummary from "../components/ReviewSummary";
@@ -459,6 +460,7 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
         <MoreButton onClick={() => onMenu(menuContent)} />
       </div>
       <p className="text-[12px] text-[#828282]">{product.postedAt ?? "Recently posted"}</p>
+      <ServiceCategoryLabel listing={product} className="mt-1 block" />
       <VacationBadge sellerId={product.sellerId} />
       <button type="button" onClick={openProduct} className="relative mt-3 block w-full text-left">
         <img src={product.image} alt={product.name} className="aspect-square w-full rounded object-cover" />

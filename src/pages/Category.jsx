@@ -5,6 +5,7 @@ import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import SearchBar from "../components/SearchBar";
 import { categories, sellers } from "../data/mockData";
+import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import { useListings } from "../context/ListingContext";
 
 function getCategoryName(value) {
@@ -107,6 +108,7 @@ function CategoryProductCard({ product, onProduct }) {
         />
       </Link>
       <div className="flex flex-col gap-1 pt-2">
+        <ServiceCategoryLabel listing={product} />
         <button
           type="button"
           onClick={() => navigate(`/seller/${product.sellerId}`)}

@@ -19,6 +19,7 @@ import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useOrders } from "../context/OrderContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { formatListingPrice } from "../utils/listingDisplay";
+import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import { EventAttendanceCount } from "../components/EventRsvp";
 
 const BUYER = {
@@ -280,7 +281,7 @@ function EventPreview({ event }) {
 }
 
 function ListingPreview({ listing }) {
-  return <><img src={listing.image} alt={listing.name} className="mt-3 aspect-square w-full rounded-lg object-cover" /><p className="mt-2 text-[14px] font-semibold">{listing.name}</p><p className="text-[14px] text-[#498467]">{listing.shop} · {formatListingPrice(listing)}</p></>;
+  return <><img src={listing.image} alt={listing.name} className="mt-3 aspect-square w-full rounded-lg object-cover" /><ServiceCategoryLabel listing={listing} className="mt-2 block" /><p className="mt-1 text-[14px] font-semibold">{listing.name}</p><p className="text-[14px] text-[#498467]">{listing.shop} · {formatListingPrice(listing)}</p></>;
 }
 
 function PromotionPreview({ promotion, listing }) {

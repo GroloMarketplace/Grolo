@@ -5,6 +5,7 @@ import { usePromotions } from "../context/PromotionContext";
 import { useInventory } from "../context/InventoryContext";
 import ReviewSummary from "./ReviewSummary";
 import { formatListingPrice } from "../utils/listingDisplay";
+import ServiceCategoryLabel from "./ServiceCategoryLabel";
 
 export default function SellerListingCard({ product, onDelete }) {
   const navigate = useNavigate();
@@ -70,6 +71,7 @@ export default function SellerListingCard({ product, onDelete }) {
 
         {/* Product Info */}
         <div className="flex flex-col gap-0.5">
+          <ServiceCategoryLabel listing={product} />
           <div className="text-[12px] text-black/50 line-clamp-2">
             {product.shop}
           </div>

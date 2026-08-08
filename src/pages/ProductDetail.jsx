@@ -19,6 +19,7 @@ import { useListings } from "../context/ListingContext";
 import { useMessages } from "../context/MessageContext";
 import { useInventory } from "../context/InventoryContext";
 import { formatListingPrice } from "../utils/listingDisplay";
+import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -28,7 +29,7 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
   const { listings } = useListings();
-  const { createTradeConversation } = useMessages();
+  const { createSellerConversation, createTradeConversation } = useMessages();
   const { getAvailable } = useInventory();
   const listingId = state?.listingId ?? id;
   const productId = state?.productId ?? listingId;
@@ -52,6 +53,18 @@ export default function ProductDetail() {
   const { reviewsForProduct, productRating, canReviewProduct } = useReviews();
   const { average, count } = productRating(product.id);
   const productReviewList = reviewsForProduct(product.id);
+
+  const handleMessageSeller = () => {
+    if (!seller) return;
+    const { id: conversationId, serviceContext, conversation } = createSellerConversation({ listing: product, seller });
+    navigate(`/messages/${conversationId}`, {
+      state: {
+        listingId: product.id,
+        serviceContext,
+        pendingConversation: conversation,
+      },
+    });
+  };
 
   const handleProposeTrade = () => {
     if (!seller) return;
@@ -117,6 +130,7 @@ export default function ProductDetail() {
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-4">
+            <ServiceCategoryLabel listing={product} />
             <h1 className="text-[24px] font-semibold tracking-[-0.48px]">
               {product.name}
             </h1>
@@ -138,6 +152,15 @@ export default function ProductDetail() {
                   <span className="text-[48px] font-bold leading-none">{Math.floor(Number(product.price) || 0)}</span>
                 </>}
               </div>
+              {isService && seller && (
+                <button
+                  type="button"
+                  onClick={handleMessageSeller}
+                  className="w-full rounded-lg bg-[#498467] py-3 text-[16px] text-[#F5F5F5]"
+                >
+                  Message Seller
+                </button>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[16px] text-[#757575]">
@@ -155,7 +178,7 @@ export default function ProductDetail() {
           <FoundingMemberBadge sellerId={seller?.id} />
           {vacationMode && <div className="rounded-lg border border-[#D9D9D9] bg-[#F5FFF6] p-3 text-[14px] text-[#4F4F4F]">This store is temporarily not accepting orders.{sellerProfile.vacationMessage && <div className="mt-1 text-[13px] text-[#828282]">{sellerProfile.vacationMessage}</div>}</div>}
           <PaymentMethodsList paymentSettings={sellerPaymentMethods} />
-          <FulfillmentInfo paymentSettings={sellerPaymentMethods} />
+          {!isService && <FulfillmentInfo paymentSettings={sellerPaymentMethods} />}
           <button
             onClick={() => navigate(`/product/${product.id}/reviews`)}
             className="flex items-center gap-2 w-fit"
@@ -173,7 +196,7 @@ export default function ProductDetail() {
             <span><strong>Service Area:</strong> {product.serviceArea || product.location || "Contact provider"}</span>
             <span><strong>Availability:</strong> {product.availability || "By appointment"}</span>
             {product.yearsOfExperience && <span><strong>Experience:</strong> {product.yearsOfExperience}</span>}
-            <span><strong>Contact:</strong> {product.preferredContactMethod || "Message Through Grolo"}</span>
+            <span><strong>Contact Method:</strong> {product.preferredContactMethod || "Message Through Grolo"}</span>
             {product.responseTime && <span><strong>Response time:</strong> {product.responseTime}</span>}
           </div>
         ) : (
@@ -321,13 +344,21 @@ export default function ProductDetail() {
 }
 
 function PaymentMethodsList({ paymentSettings }) {
-  const { methods } = paymentSettings;
+  const methodLabels = {
+    cash: "Cash",
+    etransfer: "E-Transfer",
+    creditcard: "Credit Card",
+    card: "Credit Card",
+    debitcard: "Debit Card",
+  };
+  const methods = (paymentSettings.methods ?? []).filter((method) => methodLabels[method]);
+
   return (
     <div className="rounded-lg bg-[#F5FFF6] p-3">
       <div className="text-[12px] font-medium text-[#498467]">Accepted Payment Methods</div>
-      {methods.includes("cash") && <div className="mt-1 text-[13px] text-[#4F4F4F]">• Cash</div>}
-      {methods.includes("etransfer") && <div className="mt-1 text-[13px] text-[#4F4F4F]">• E-Transfer</div>}
-      {methods.length > 0 && <div className="mt-1 text-[13px] text-[#4F4F4F]">• Pay at Pickup</div>}
+      {methods.map((method) => (
+        <div key={method} className="mt-1 text-[13px] text-[#4F4F4F]">• {methodLabels[method]}</div>
+      ))}
     </div>
   );
 }

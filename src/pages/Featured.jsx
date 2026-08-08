@@ -11,6 +11,7 @@ import { useListings } from "../context/ListingContext";
 import { events, promotions, sellers } from "../data/mockData";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import ReviewSummary from "../components/ReviewSummary";
 
 const FILTERS = ["All", "Listings", "Events", "Stores", "Promotions"];
@@ -155,6 +156,7 @@ function FeaturedListingCard({ product, promotion, onProduct }) {
         </div>
         <div className="mt-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
+            <ServiceCategoryLabel listing={product} className="mb-1 block" />
             <h3 className="truncate text-[16px] font-semibold">{product.name}</h3>
             <div className="flex flex-wrap items-center gap-2"><p className="text-[13px] text-[#498467]">{product.shop}</p><FoundingMemberBadge sellerId={product.sellerId} compact /></div>
           </div>

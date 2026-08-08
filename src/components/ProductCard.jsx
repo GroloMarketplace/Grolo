@@ -4,6 +4,7 @@ import { usePromotions } from "../context/PromotionContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import FoundingMemberBadge from "./FoundingMemberBadge";
 import { formatListingPrice } from "../utils/listingDisplay";
+import ServiceCategoryLabel from "./ServiceCategoryLabel";
 
 export default function ProductCard({ product, onClick }) {
   const { promotionsForProduct } = usePromotions();
@@ -31,6 +32,7 @@ export default function ProductCard({ product, onClick }) {
         {vacationMode && <span className="absolute bottom-2 left-2 rounded-full bg-white/90 px-2 py-1 text-[10px] font-medium text-[#4F4F4F]">Temporarily Closed</span>}
       </div>
       <div className="flex flex-col gap-0.5">
+        <ServiceCategoryLabel listing={product} />
         <div className="text-[12px] text-black/50 line-clamp-2">
           {product.shop}
         </div>

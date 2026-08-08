@@ -3,21 +3,33 @@ import { chatMessages, messages as initialMessages } from "../data/mockData";
 
 const MessageContext = createContext(null);
 const MESSAGE_STORAGE_KEY = "grolo-messages";
+const CURRENT_BUYER_ID = "current-buyer";
+
+function stripSeededServiceMessages(messages) {
+  const hasSeededPrefix = chatMessages.every((sample, index) => (
+    messages[index]?.from === sample.from && messages[index]?.text === sample.text
+  ));
+  return hasSeededPrefix ? messages.slice(chatMessages.length) : messages;
+}
 
 function normalizeConversation(conversation) {
   const isTrading = conversation.tradeThread === true
     || conversation.conversationType === "trading"
     || conversation.category === "Trading";
+  const isService = conversation.conversationType === "service"
+    || Boolean(conversation.serviceContext?.listingId);
   const messages = Array.isArray(conversation.messages)
     ? conversation.messages
-    : isTrading
+    : isTrading || isService
       ? conversation.threadMessages ?? []
       : chatMessages.map((message) => ({ ...message }));
+  const normalizedMessages = isService ? stripSeededServiceMessages(messages) : messages;
 
   return {
     ...conversation,
     ...(isTrading ? { conversationType: "trading", category: "Trading", tradeThread: true } : {}),
-    messages,
+    ...(isService ? { conversationType: "service" } : {}),
+    messages: normalizedMessages,
   };
 }
 
@@ -124,6 +136,66 @@ export function MessageProvider({ children }) {
     return { id: conversation.id, draft, orderContext, conversation };
   };
 
+  const createSellerConversation = ({ listing, seller }) => {
+    const serviceContext = {
+      listingId: listing.id,
+      image: listing.images?.[0] ?? listing.image,
+      title: listing.name,
+      price: listing.price,
+      pricingType: listing.pricingType,
+      sellerName: seller.name,
+    };
+    const existing = messages.find((conversation) => (
+      conversation.buyerId === CURRENT_BUYER_ID
+      && conversation.sellerId === seller.id
+      && conversation.listingId === listing.id
+      && conversation.conversationType === "service"
+    ));
+
+    console.info("Service conversation lookup", {
+      buyerId: CURRENT_BUYER_ID,
+      sellerId: seller.id,
+      serviceListingId: listing.id,
+      matchedConversationId: existing?.id ?? null,
+      conversationType: existing?.conversationType ?? null,
+      messageCount: existing?.messages?.length ?? 0,
+    });
+
+    if (existing) {
+      const updatedConversation = { ...existing, buyerId: CURRENT_BUYER_ID, listingId: listing.id, conversationType: "service", serviceContext };
+      setMessages((current) => {
+        const nextMessages = current.map((conversation) => conversation.id === existing.id ? updatedConversation : conversation);
+        saveMessages(nextMessages);
+        return nextMessages;
+      });
+      return { id: existing.id, serviceContext, conversation: updatedConversation };
+    }
+
+    const conversation = {
+      id: `service-${CURRENT_BUYER_ID}-${seller.id}-${listing.id}`,
+      name: seller.name,
+      sellerId: seller.id,
+      buyerId: CURRENT_BUYER_ID,
+      participantId: seller.id,
+      location: seller.location,
+      timestamp: "Just now",
+      preview: "",
+      unread: false,
+      category: "Selling",
+      conversationType: "service",
+      listingId: listing.id,
+      serviceContext,
+      messages: [],
+    };
+    setMessages((current) => {
+      if (current.some((item) => item.id === conversation.id)) return current;
+      const nextMessages = [conversation, ...current];
+      saveMessages(nextMessages);
+      return nextMessages;
+    });
+    return { id: conversation.id, serviceContext, conversation };
+  };
+
   const createTradeConversation = ({ listing, seller }) => {
     const id = `trade-${listing.id}-${Date.now()}`;
     const tradePreferences = listing.desiredTradeItems?.trim() ?? "";
@@ -157,7 +229,7 @@ export function MessageProvider({ children }) {
     return { id, draft, conversation };
   };
 
-  const value = useMemo(() => ({ messages, upsertConversation, appendMessage, createTradeConversation, createOrderConversation }), [messages]);
+  const value = useMemo(() => ({ messages, upsertConversation, appendMessage, createSellerConversation, createTradeConversation, createOrderConversation }), [messages]);
   return <MessageContext.Provider value={value}>{children}</MessageContext.Provider>;
 }
 

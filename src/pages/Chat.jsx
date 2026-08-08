@@ -10,6 +10,7 @@ import { getConversationProfile } from "../utils/conversationProfile";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { getOrderStatusClass, getOrderStatusLabel } from "../utils/orderStatus";
+import { formatListingPrice } from "../utils/listingDisplay";
 
 export default function Chat() {
   const location = useLocation();
@@ -30,7 +31,8 @@ export default function Chat() {
     ? orders.find((order) => order.id === (conversation?.orderId ?? orderContext?.orderId))
     : null;
   const currentOrderContext = liveOrder ? { ...orderContext, orderId: liveOrder.id, orderNumber: liveOrder.id.replace(/^ORD-/, "#"), status: liveOrder.status, productId: liveOrder.productId, quantity: liveOrder.quantity } : orderContext;
-  const listingId = location.state?.listingId ?? conversation?.listingId ?? currentOrderContext?.productId;
+  const serviceContext = location.state?.serviceContext ?? conversation?.serviceContext;
+  const listingId = location.state?.listingId ?? conversation?.listingId ?? serviceContext?.listingId ?? currentOrderContext?.productId;
   const listing = listingId
     ? listings.find((item) => item.id === listingId)
     : null;
@@ -139,13 +141,14 @@ export default function Chat() {
               className="w-20 h-20 rounded-lg object-cover shrink-0"
             />
             <div className="flex-1 flex flex-col justify-center min-w-0">
+              {serviceContext && <span className="text-[12px] font-medium text-[#B56576]">In Services</span>}
               <h4 className="text-[16px] font-semibold truncate">{listing.name}</h4>
               <p className="text-[14px] text-[#828282] truncate">{seller.name}</p>
-              <p className="text-[16px] font-semibold text-[#498467]">${Number(listing.price).toFixed(2)}</p>
-              <div className="flex flex-wrap gap-x-2 text-[12px] text-[#498467]">
+              <p className="text-[16px] font-semibold text-[#498467]">{serviceContext ? formatListingPrice(listing) : `$${Number(listing.price).toFixed(2)}`}</p>
+              {serviceContext ? <span className="text-[12px] text-[#498467]">View Service Listing</span> : <div className="flex flex-wrap gap-x-2 text-[12px] text-[#498467]">
                 {listing.quantityAvailable != null && <span>Available: {listing.quantityAvailable}</span>}
                 {listing.availableForTrade && <span>Open to Trade</span>}
-              </div>
+              </div>}
             </div>
           </button>
         ) : (

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import OutlineIcon from "../components/OutlineIcon";
@@ -98,7 +99,7 @@ export default function PublicProfile() {
           <div className="rounded-lg bg-white p-4 shadow-sm">
             <div className="flex items-start gap-3">
               <img src={profile.avatar} alt={profile.username} className="h-16 w-16 rounded-full border-2 border-white object-cover shadow" />
-              <div className="flex-1"><h1 className="text-[20px] font-semibold">{profile.username}</h1><p className="text-[14px] text-[#828282]">@{profile.username}</p><div className="mt-0.5 flex flex-col gap-0.5"><CommunityStatusBadge metrics={metrics} />{profile.location && <p className="flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{profile.location}</p>}</div></div>
+              <div className="flex-1"><h1 className="text-[20px] font-semibold">{profile.username}</h1><p className="text-[14px] text-[#828282]">@{profile.username}</p><div className="mt-0.5 flex flex-col gap-0.5"><CommunityStatusBadge metrics={metrics} /><FoundingMemberBadge sellerId={userId} />{profile.location && <p className="flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{profile.location}</p>}</div></div>
             </div>
             <p className="mt-3 text-[14px] leading-[140%]">{profile.bio}</p>
             <div className="mt-4 flex gap-3"><button type="button" onClick={() => toggleFollow(userId)} className="flex-1 rounded-lg bg-[#498467] py-2.5 text-[14px] font-medium text-white">{isFollowing(userId) ? "Following" : "Follow"}</button><button type="button" onClick={handleMessage} className="flex-1 rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">Message</button></div>

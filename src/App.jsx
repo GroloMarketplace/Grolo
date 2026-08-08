@@ -65,6 +65,8 @@ import CreateAdvertisingAd from "./pages/CreateAdvertisingAd";
 import Trading from "./pages/Trading";
 import StoreCheckout from "./pages/StoreCheckout";
 import DeliveryAddress from "./pages/DeliveryAddress";
+import GroloStatuses from "./pages/GroloStatuses";
+import FoundingMember from "./pages/FoundingMember";
 
 export default function App() {
   return (
@@ -155,6 +157,8 @@ export default function App() {
           }
         />
         <Route path="/community-impact" element={<PhoneFrame><CommunityImpact /></PhoneFrame>} />
+        <Route path="/grolo-statuses" element={<PhoneFrame><GroloStatuses /></PhoneFrame>} />
+        <Route path="/founding-member/:memberId" element={<PhoneFrame><FoundingMember /></PhoneFrame>} />
         <Route path="/comments" element={<PhoneFrame hideTabBar><Comments /></PhoneFrame>} />
         <Route
           path="/my-shop/orders"

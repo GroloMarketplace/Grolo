@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import ProfileSwitcher from "../components/ProfileSwitcher";
@@ -109,6 +110,7 @@ export default function BuyerProfile() {
               <div className="flex-1">
                 {editing ? <input defaultValue={buyerProfile.username} className="w-full border-b border-[#E6E6E6] text-[20px] font-semibold outline-none" /> : <h1 className="text-[20px] font-semibold">{buyerProfile.username}</h1>}
                 <CommunityStatusBadge metrics={impactMetrics} />
+                <FoundingMemberBadge sellerId="current-buyer" />
                 {publicLocation && <p className="mt-0.5 flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{publicLocation}</p>}
               </div>
             </div>
@@ -177,8 +179,9 @@ function buildActivity() {
 }
 
 export function CommunityStatusBadge({ metrics }) {
+  const navigate = useNavigate();
   const status = getBuyerStatus(metrics);
-  return <p className="mt-1 flex items-center gap-1 text-[13px] font-medium text-[#498467]"><OutlineIcon name={status.icon} size={15} /> {status.name}</p>;
+  return <button type="button" onClick={() => navigate("/grolo-statuses")} className="mt-1 flex items-center gap-1 text-[13px] font-medium text-[#498467]"><OutlineIcon name={status.icon} size={15} /> {status.name}</button>;
 }
 
 function TrustReputationCard({ buyerId = "you" }) {
@@ -188,7 +191,8 @@ function TrustReputationCard({ buyerId = "you" }) {
 }
 
 function CommunityStatusCard({ status }) {
-  return <section className="mt-4 rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4"><div className="text-[12px] font-medium uppercase tracking-[0.4px] text-[#498467]">Community Status</div><div className="mt-2 flex items-center gap-2 text-[20px] font-semibold"><OutlineIcon name={status.icon} size={22} className="text-[#498467]" /> {status.name}</div><div className="mt-3 flex items-center justify-between text-[12px] text-[#828282]"><span>Progress to Next Level</span><span>{status.total} / {status.nextThreshold} actions</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-[#DDEBDF]"><div className="h-full rounded-full bg-[#498467]" style={{ width: `${status.progress}%` }} /></div></section>;
+  const navigate = useNavigate();
+  return <section className="mt-4 rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4"><div className="text-[12px] font-medium uppercase tracking-[0.4px] text-[#498467]">Community Status</div><button type="button" onClick={() => navigate("/grolo-statuses")} className="mt-2 flex items-center gap-2 text-left text-[20px] font-semibold"><OutlineIcon name={status.icon} size={22} className="text-[#498467]" /> {status.name}</button><div className="mt-3 flex items-center justify-between text-[12px] text-[#828282]"><span>Progress to Next Level</span><span>{status.total} / {status.nextThreshold} actions</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-[#DDEBDF]"><div className="h-full rounded-full bg-[#498467]" style={{ width: `${status.progress}%` }} /></div></section>;
 }
 
 export function CommunityImpactTab({ metrics, publicView = false, profileId = "you" }) {

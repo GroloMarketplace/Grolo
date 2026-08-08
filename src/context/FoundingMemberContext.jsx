@@ -7,7 +7,14 @@ const INITIAL_FOUNDING_MEMBERS = {
   "sarahs-backyard": {
     registrationNumber: 1,
     reviewSubmitted: true,
+    memberSince: "2026-01-15",
     awardedAt: "2026-01-15",
+  },
+  "current-buyer": {
+    registrationNumber: 17,
+    reviewSubmitted: true,
+    memberSince: "2026-08-07",
+    awardedAt: "2026-08-07",
   },
 };
 
@@ -46,6 +53,7 @@ export function FoundingMemberProvider({ children }) {
     const member = members[sellerId];
     return {
       ...member,
+      memberSince: member.memberSince ?? member.awardedAt,
       expiresAt: getExpirationDate(member.awardedAt),
     };
   };

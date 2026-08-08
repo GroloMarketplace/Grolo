@@ -229,7 +229,8 @@ export default function SellerProfile() {
 }
 
 function SellerStatusBadge({ status }) {
-  return <p className="mt-1 flex items-center gap-1 text-[13px] font-medium text-[#498467]"><OutlineIcon name={status.icon} size={15} /> {status.name}</p>;
+  const navigate = useNavigate();
+  return <button type="button" onClick={() => navigate("/grolo-statuses")} className="mt-1 flex items-center gap-1 text-[13px] font-medium text-[#498467]"><OutlineIcon name={status.icon} size={15} /> {status.name}</button>;
 }
 
 function FulfillmentAvailability({ methods }) {

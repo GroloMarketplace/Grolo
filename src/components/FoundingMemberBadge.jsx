@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useFoundingMember } from "../context/FoundingMemberContext";
 
 function FounderIcon({ compact = false }) {
@@ -12,17 +13,23 @@ function FounderIcon({ compact = false }) {
 }
 
 export default function FoundingMemberBadge({ sellerId, compact = false, iconOnly = false }) {
+  const navigate = useNavigate();
   const { isFoundingMember } = useFoundingMember();
   if (!isFoundingMember(sellerId)) return null;
 
+  const openFoundingMember = (event) => {
+    event.stopPropagation();
+    navigate(`/founding-member/${encodeURIComponent(sellerId)}`);
+  };
+
   if (iconOnly) {
-    return <span aria-label="Founding Member" title="Founding Member" className="inline-flex shrink-0 items-center leading-none"><FounderIcon compact={compact} /></span>;
+    return <button type="button" aria-label="Open Founding Member details" title="Founding Member" onClick={openFoundingMember} className="inline-flex shrink-0 items-center leading-none"><FounderIcon compact={compact} /></button>;
   }
 
   return (
-    <span className={`inline-flex w-fit items-center gap-1 font-medium text-[#6F5B1A] ${compact ? "text-[10px]" : "text-[11px]"}`}>
+    <button type="button" onClick={openFoundingMember} className={`inline-flex w-fit items-center gap-1 font-medium text-[#6F5B1A] ${compact ? "text-[10px]" : "text-[11px]"}`}>
       <FounderIcon compact={compact} />
       Founding Member
-    </span>
+    </button>
   );
 }

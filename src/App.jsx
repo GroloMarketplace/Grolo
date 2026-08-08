@@ -23,6 +23,7 @@ import { BuyerSettingsProvider } from "./context/BuyerSettingsContext";
 import { BuyerTrustProvider } from "./context/BuyerTrustContext";
 import { ListingProvider } from "./context/ListingContext";
 import { PostProvider } from "./context/PostContext";
+import AppErrorBoundary from "./components/AppErrorBoundary";
 import { EngagementProvider } from "./context/EngagementContext";
 import Feed, { Notifications } from "./pages/Feed";
 import Search from "./pages/Search";
@@ -67,10 +68,12 @@ import StoreCheckout from "./pages/StoreCheckout";
 import DeliveryAddress from "./pages/DeliveryAddress";
 import GroloStatuses from "./pages/GroloStatuses";
 import FoundingMember from "./pages/FoundingMember";
+import TrustReputation from "./pages/TrustReputation";
 
 export default function App() {
   return (
-    <AuthProvider>
+    <AppErrorBoundary>
+      <AuthProvider>
       <ProfileModeProvider>
       <FollowProvider>
         <OrderProvider>
@@ -159,6 +162,7 @@ export default function App() {
         <Route path="/community-impact" element={<PhoneFrame><CommunityImpact /></PhoneFrame>} />
         <Route path="/grolo-statuses" element={<PhoneFrame><GroloStatuses /></PhoneFrame>} />
         <Route path="/founding-member/:memberId" element={<PhoneFrame><FoundingMember /></PhoneFrame>} />
+        <Route path="/trust-reputation" element={<PhoneFrame><TrustReputation /></PhoneFrame>} />
         <Route path="/comments" element={<PhoneFrame hideTabBar><Comments /></PhoneFrame>} />
         <Route
           path="/my-shop/orders"
@@ -317,6 +321,7 @@ export default function App() {
         </OrderProvider>
       </FollowProvider>
       </ProfileModeProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </AppErrorBoundary>
   );
 }

@@ -11,6 +11,7 @@ import { useListings } from "../context/ListingContext";
 import { events, promotions, sellers } from "../data/mockData";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import { EventAttendanceCount } from "../components/EventRsvp";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import ReviewSummary from "../components/ReviewSummary";
 
@@ -180,6 +181,7 @@ function FeaturedEventCard({ event }) {
         <p className="text-[13px] text-[#498467]">{seller?.name}</p>
         <p className="text-[12px] text-[#828282]">{formatEventDate(event.date)} • {formatEventTime(event.startTime)} – {formatEventTime(event.endTime)}</p>
         <p className="text-[12px] text-[#828282]">{event.location}</p>
+        <EventAttendanceCount eventId={event.id} />
       </div>
     </button>
   );

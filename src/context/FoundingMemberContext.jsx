@@ -34,9 +34,9 @@ function persistMembers(members) {
   }
 }
 
-function getExpirationDate(awardedAt) {
-  const expiration = new Date(`${awardedAt}T00:00:00`);
-  expiration.setFullYear(expiration.getFullYear() + 1);
+function getExpirationDate(createdAt) {
+  const expiration = new Date(`${createdAt}T00:00:00`);
+  expiration.setMonth(expiration.getMonth() + 6);
   return expiration;
 }
 
@@ -53,18 +53,19 @@ export function FoundingMemberProvider({ children }) {
     const member = members[sellerId];
     return {
       ...member,
-      memberSince: member.memberSince ?? member.awardedAt,
-      expiresAt: getExpirationDate(member.awardedAt),
+      memberSince: member.createdAt ?? member.memberSince,
+      expiresAt: getExpirationDate(member.createdAt ?? member.memberSince ?? member.awardedAt),
     };
   };
 
-  const awardFoundingMember = (sellerId, registrationNumber, reviewSubmitted) => {
+  const awardFoundingMember = (sellerId, registrationNumber, reviewSubmitted, createdAt) => {
     if (registrationNumber > MAX_FOUNDING_MEMBERS || !reviewSubmitted || isFoundingMember(sellerId)) return;
     const next = {
       ...members,
       [sellerId]: {
         registrationNumber,
         reviewSubmitted: true,
+        ...(createdAt ? { createdAt, memberSince: createdAt } : {}),
         awardedAt: new Date().toISOString().slice(0, 10),
       },
     };

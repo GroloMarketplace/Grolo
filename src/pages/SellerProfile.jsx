@@ -19,6 +19,7 @@ import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { useOrders } from "../context/OrderContext";
 import { getSellerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
+import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useFoundingMember } from "../context/FoundingMemberContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
@@ -26,11 +27,12 @@ import { useInventory } from "../context/InventoryContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
+import SellerProfileShareModal from "../components/SellerProfileShareModal";
 
 export default function SellerProfile() {
   const { sellerId } = useParams();
   const navigate = useNavigate();
-  const { isFollowing, toggleFollow } = useFollow();
+  const { isFollowing, toggleFollow, getFollowerCount } = useFollow();
   const { sellerRating } = useReviews();
   const { upcomingEvents } = useEvents();
   const { promotionsForSeller } = usePromotions();
@@ -54,7 +56,7 @@ export default function SellerProfile() {
     productsSold: sellerOrdersForStatus.reduce((total, order) => total + order.quantity, 0),
     reviewsReceived: count,
     eventsHosted: sellerEvents.length,
-    followersGained: seller.followers,
+    followersGained: getFollowerCount(seller.id),
     tradesCompleted: 3,
   });
   const sellerPosts = [...followingPosts, ...communityPosts].filter(
@@ -64,6 +66,7 @@ export default function SellerProfile() {
   const sellerRegrows = sellerPosts.slice(0, 2);
   const savedProfileState = readNavigationState(`seller-profile-${seller.id}`, { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 });
   const [activeTab, setActiveTab] = useState(savedProfileState.activeTab);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const pageScrollRef = useRef(null);
   const contentRef = useRef(null);
 
@@ -164,20 +167,27 @@ export default function SellerProfile() {
               </div>
               <span className="text-[14px] text-[#828282]">({count} reviews)</span>
               <span className="text-[14px] text-[#828282]">•</span>
-              <span className="text-[14px] text-[#828282]">{seller.followers} followers</span>
+              <span className="text-[14px] text-[#828282]">{getFollowerCount(seller.id)} followers</span>
             </div>
 
             {/* Action Buttons */}
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => toggleFollow(sellerId)}
+                type="button"
+                onClick={() => setIsShareModalOpen(true)}
+                className="flex-1 rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]"
+              >
+                Share Profile
+              </button>
+              <button
+                onClick={() => toggleFollow(seller.id) }
                 className={`flex-1 py-2.5 rounded-lg text-[14px] font-medium ${
-                  isFollowing(sellerId)
+                  isFollowing(seller.id)
                     ? "bg-[#498467] text-white"
                     : "bg-[#498467] text-white"
                 }`}
               >
-                {isFollowing(sellerId) ? "Following" : "Follow Store"}
+                {isFollowing(seller.id) ? "Following" : "Follow Store"}
               </button>
               <button 
                 onClick={handleMessageClick}
@@ -224,13 +234,13 @@ export default function SellerProfile() {
           </div>
         </div>
       </div>
+      {isShareModalOpen && <SellerProfileShareModal seller={seller} profile={sellerProfile} onClose={() => setIsShareModalOpen(false)} />}
     </MobileScreenLayout>
   );
 }
 
 function SellerStatusBadge({ status }) {
-  const navigate = useNavigate();
-  return <button type="button" onClick={() => navigate("/grolo-statuses")} className="mt-1 flex items-center gap-1 text-[13px] font-medium text-[#498467]"><OutlineIcon name={status.icon} size={15} /> {status.name}</button>;
+  return <InteractiveStatusBadge status={status} />;
 }
 
 function FulfillmentAvailability({ methods }) {

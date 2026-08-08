@@ -34,12 +34,20 @@ function loadOrders() {
   }
 }
 
-const NEXT_STATUS = {
+const PICKUP_NEXT_STATUS = {
   "Order Placed": ["Preparing"],
   "Seller Notified": ["In Progress"],
   Preparing: ["Ready for Pickup"],
   "In Progress": ["Ready for Pickup"],
   "Ready for Pickup": ["Completed"],
+};
+
+const DELIVERY_NEXT_STATUS = {
+  "Order Placed": ["Preparing"],
+  "Seller Notified": ["Preparing"],
+  Preparing: ["Out for Delivery"],
+  "In Progress": ["Out for Delivery"],
+  "Out for Delivery": ["Delivered"],
 };
 
 export function OrderProvider({ children }) {
@@ -70,7 +78,10 @@ export function OrderProvider({ children }) {
   );
 
   const nextStatuses = useCallback(
-    (status) => NEXT_STATUS[status] ?? [],
+    (status, fulfillmentMethod = "pickup") => {
+      const workflow = fulfillmentMethod === "delivery" ? DELIVERY_NEXT_STATUS : PICKUP_NEXT_STATUS;
+      return workflow[status] ?? [];
+    },
     [],
   );
 
@@ -93,13 +104,34 @@ export function OrderProvider({ children }) {
       return mergedOrders;
     });
     setLastCreatedOrder(nextOrders[0] ?? null);
+    setOrderNotifications((previous) => [
+      ...nextOrders.map((order) => {
+        const product = products.find((item) => item.id === order.productId);
+        const seller = sellers[order.sellerId ?? product?.sellerId];
+        return {
+          id: `order-${order.id}-accepted-${Date.now()}`,
+          name: seller?.name ?? product?.shop ?? "Store",
+          avatar: seller?.avatar,
+          time: "now",
+          action: `Your order from ${seller?.name ?? product?.shop ?? "the store"} has been accepted.`,
+          thumb: product?.image,
+          type: "order",
+          orderId: order.id,
+          sellerId: order.sellerId ?? product?.sellerId,
+          productId: order.productId,
+        };
+      }),
+      ...previous,
+    ]);
     console.info("Seller orders created", nextOrders.map((order) => ({ orderId: order.id, status: order.status, sellerId: order.sellerId })));
     return nextOrders;
   }, []);
 
   const updateOrderStatus = useCallback((orderId, status) => {
     const order = orders.find((o) => o.id === orderId);
-    if (!order || order.status === "Cancelled" || !NEXT_STATUS[order.status]?.includes(status)) return false;
+    if (!order || order.status === "Cancelled") return false;
+    const workflow = order.fulfillmentMethod === "delivery" ? DELIVERY_NEXT_STATUS : PICKUP_NEXT_STATUS;
+    if (!workflow[order.status]?.includes(status)) return false;
     const nextOrders = orders.map((item) => item.id === orderId ? { ...item, status } : item);
     setOrders(nextOrders);
     saveOrders(nextOrders);
@@ -114,10 +146,22 @@ export function OrderProvider({ children }) {
         name: seller?.name ?? product.shop,
         avatar: seller?.avatar,
         time: "now",
-        action: `${order.id} • ${product.name} is now ${status}`,
+        action: status === "Seller Notified"
+          ? `Your order from ${seller?.name ?? product.shop} has been accepted.`
+          : status === "Preparing" || status === "In Progress"
+            ? "Your order is now being prepared."
+            : status === "Out for Delivery"
+              ? `Your order from ${seller?.name ?? product.shop} is now out for delivery.`
+              : status === "Delivered"
+                ? `Your order from ${seller?.name ?? product.shop} has been delivered.`
+                : status === "Ready for Pickup"
+                  ? "Your order is ready for pickup."
+                  : `${order.id} • ${product.name} is now ${status}`,
         thumb: product.image,
         type: "order",
         orderId,
+        sellerId: order.sellerId ?? product.sellerId,
+        productId: product.id,
       },
       ...prev,
     ]);

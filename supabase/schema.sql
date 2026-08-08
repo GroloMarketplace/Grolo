@@ -25,6 +25,42 @@ create policy "Users can update their own profile"
 create policy "Users can insert their own profile"
   on profiles for insert with check (auth.uid() = id);
 
+-- Store follows. The composite key prevents duplicate follows.
+create table if not exists user_follows (
+  follower_id uuid not null references auth.users(id) on delete cascade,
+  seller_id text not null,
+  created_at timestamptz not null default now(),
+  primary key (follower_id, seller_id)
+);
+
+alter table user_follows enable row level security;
+
+create policy "Follows are viewable by everyone"
+  on user_follows for select using (true);
+
+create policy "Users can manage their own follows"
+  on user_follows for all
+  using (auth.uid() = follower_id)
+  with check (auth.uid() = follower_id);
+
+-- Event attendance. The composite key guarantees one attendance record per user/event.
+create table if not exists event_attendees (
+  event_id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (event_id, user_id)
+);
+
+alter table event_attendees enable row level security;
+
+create policy "Event attendance is viewable by everyone"
+  on event_attendees for select using (true);
+
+create policy "Users can manage their own event attendance"
+  on event_attendees for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
 -- Categories
 create table if not exists categories (
   id uuid primary key default gen_random_uuid(),

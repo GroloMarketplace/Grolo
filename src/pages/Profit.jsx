@@ -2,10 +2,12 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import { events, products, reviews, sellers } from "../data/mockData";
+import { events, products, reviews } from "../data/mockData";
 import { useOrders } from "../context/OrderContext";
 import { getSellerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
+import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
+import { useFollow } from "../context/FollowContext";
 
 const TABS = ["Overview", "Orders", "Community", "Products"];
 const SELLER_ID = "sarahs-backyard";
@@ -14,8 +16,9 @@ export default function Profit() {
   const [tab, setTab] = useState("Overview");
   const navigate = useNavigate();
   const { sellerOrders } = useOrders();
-  const seller = sellers[SELLER_ID];
+  const { getFollowerCount } = useFollow();
   const orders = sellerOrders(SELLER_ID);
+  const followers = getFollowerCount(SELLER_ID);
   const sellerProducts = products.filter((product) => product.sellerId === SELLER_ID);
   const sellerEvents = events.filter((event) => event.sellerId === SELLER_ID);
   const sellerReviews = reviews.filter((review) =>
@@ -28,7 +31,7 @@ export default function Profit() {
     productsSold,
     reviewsReceived: sellerReviews.length,
     eventsHosted: sellerEvents.length,
-    followersGained: seller.followers,
+    followersGained: followers,
     tradesCompleted: 3,
   });
   const cancelledOrders = orders.filter((order) => order.status === "Cancelled");
@@ -58,7 +61,7 @@ export default function Profit() {
           <OverviewTab
             orders={orders}
             productsSold={productsSold}
-            followers={seller.followers}
+            followers={followers}
             communityStatus={communityStatus}
           />
         )}
@@ -72,7 +75,7 @@ export default function Profit() {
         )}
         {tab === "Community" && (
           <CommunityTab
-            followers={seller.followers}
+            followers={followers}
             reviewsReceived={sellerReviews.length}
             eventsHosted={sellerEvents.length}
             communityStatus={communityStatus}
@@ -93,10 +96,7 @@ function OverviewTab({ orders, productsSold, followers, communityStatus }) {
       <MetricCard
         label="Seller Status"
         value={(
-          <span className="flex flex-col items-center gap-1">
-            <span className="text-[#498467]"><OutlineIcon name={communityStatus.icon} size={22} /></span>
-            <span className="whitespace-nowrap text-[14px]">{communityStatus.name}</span>
-          </span>
+          <InteractiveStatusBadge status={communityStatus} prominent className="mt-0 flex-col gap-1 text-center" />
         )}
         valueClassName="text-center"
       />

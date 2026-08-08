@@ -27,7 +27,9 @@ const DELIVERY_STEPS = [
 
 const STATUS_INDEX = {
   "Order Placed": 1,
+  "Seller Notified": 1,
   Preparing: 2,
+  "In Progress": 2,
   "Ready for Pickup": 3,
   Completed: 4,
   "Out for Delivery": 3,

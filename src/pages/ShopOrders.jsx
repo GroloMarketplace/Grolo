@@ -12,10 +12,14 @@ import { useBuyerTrust } from "../context/BuyerTrustContext";
 const STORE_ID = "sarahs-backyard";
 
 const SECTIONS = [
-  { title: "New Orders", statuses: ["Seller Notified", "Order Placed"] },
-  { title: "Preparing", statuses: ["In Progress", "Preparing"] },
-  { title: "Ready for Pickup", statuses: ["Ready for Pickup"] },
-  { title: "Completed Orders", statuses: ["Completed"] },
+  { title: "Pickup Orders · New", statuses: ["Seller Notified", "Order Placed"], fulfillmentMethod: "pickup" },
+  { title: "Pickup Orders · Preparing", statuses: ["In Progress", "Preparing"], fulfillmentMethod: "pickup" },
+  { title: "Pickup Orders · Ready for Pickup", statuses: ["Ready for Pickup"], fulfillmentMethod: "pickup" },
+  { title: "Pickup Orders · Completed", statuses: ["Completed"], fulfillmentMethod: "pickup" },
+  { title: "Delivery Orders · New", statuses: ["Seller Notified", "Order Placed"], fulfillmentMethod: "delivery" },
+  { title: "Delivery Orders · Preparing", statuses: ["In Progress", "Preparing"], fulfillmentMethod: "delivery" },
+  { title: "Delivery Orders · Out for Delivery", statuses: ["Out for Delivery"], fulfillmentMethod: "delivery" },
+  { title: "Delivery Orders · Delivered", statuses: ["Delivered"], fulfillmentMethod: "delivery" },
   { title: "Cancelled Orders", statuses: ["Cancelled"] },
 ];
 
@@ -63,7 +67,8 @@ export default function ShopOrders() {
       <div ref={scrollRef} className="overflow-y-auto flex-1 no-scrollbar">
         {SECTIONS.map((section) => {
           const sectionOrders = storeOrders.filter((o) =>
-            section.statuses.includes(o.status),
+            section.statuses.includes(o.status)
+            && (!section.fulfillmentMethod || (o.fulfillmentMethod ?? "pickup") === section.fulfillmentMethod),
           );
 
           return (
@@ -142,9 +147,9 @@ export default function ShopOrders() {
 
                         {order.status === "Completed" && !hasReviewedOrder(order.id) && <button type="button" onClick={() => setReviewOrder(order)} className="mt-3 w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">Review Buyer</button>}
 
-                        {nextStatuses(order.status).length > 0 && (
+                        {nextStatuses(order.status, order.fulfillmentMethod).length > 0 && (
                           <div className="flex flex-col gap-2 mt-3">
-                            {nextStatuses(order.status).map((status) => (
+                            {nextStatuses(order.status, order.fulfillmentMethod).map((status) => (
                               <button
                                 key={status}
                                 onClick={() => requestStatusChange(order, status)}

@@ -14,6 +14,8 @@ import { getBuyerStatus, getSellerStatus, mockBuyerActions } from "../data/commu
 import { products, sellers } from "../data/mockData";
 import { useFoundingMember } from "../context/FoundingMemberContext";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
+import { useFollow } from "../context/FollowContext";
 
 const SELLER_ID = "sarahs-backyard";
 const seller = sellers[SELLER_ID];
@@ -29,6 +31,7 @@ function SellerAccountSettings() {
   const routeLocation = useLocation();
   const { isSidebarOpen, closeSidebar } = useSidebar();
   const { sellerOrders } = useOrders();
+  const { getFollowerCount } = useFollow();
   const { getPaymentMethods, updatePaymentMethods, updateFulfillment } = usePaymentMethods();
   const { getSellerProfile, updateSellerProfile } = useSellerSettings();
   const profile = getSellerProfile(SELLER_ID);
@@ -55,7 +58,7 @@ function SellerAccountSettings() {
   const { getFoundingMember } = useFoundingMember();
   const foundingMember = getFoundingMember(SELLER_ID);
   const snapshot = {
-    followers: seller.followers,
+    followers: getFollowerCount(SELLER_ID),
     listings: products.filter((product) => product.sellerId === SELLER_ID).length,
     rating: seller.rating,
     productsSold: orders.reduce((total, order) => total + order.quantity, 0) || 23,
@@ -127,8 +130,8 @@ function SellerAccountSettings() {
 
             <Section title="Seller Status">
               <div className="flex items-center gap-3 rounded-lg bg-[#F5FFF6] p-3">
-                <span className="text-[#498467]"><OutlineIcon name={sellerStatus.icon} size={24} /></span>
-                <div><div className="text-[14px] font-semibold">{sellerStatus.name}</div><div className="text-[12px] text-[#828282]">Read-only seller status</div></div>
+                <InteractiveStatusBadge status={sellerStatus} className="mt-0 text-[14px]" />
+                <div><div className="text-[12px] text-[#828282]">Read-only seller status</div></div>
                 <button type="button" onClick={() => navigate("/profit")} className="ml-auto text-[12px] font-medium text-[#498467]">View Progress <span aria-hidden="true">›</span></button>
               </div>
             </Section>
@@ -139,7 +142,7 @@ function SellerAccountSettings() {
                 <div className="mt-2 text-[13px] font-medium text-[#5F4A00]">Member #{foundingMember.registrationNumber} of 100</div>
                 <div className="mt-2 text-[12px] font-medium text-[#5F4A00]">Benefits</div>
                 <div className="mt-1 flex flex-col gap-1 text-[12px] text-[#6F5B1A]">
-                  <div>✓ Complimentary Community Spotlight Advertising</div>
+                  <div>✓ 6 Months Complimentary Community Spotlight Advertising</div>
                   <div className="pl-4 text-[11px] text-[#806D2A]">Expires: {foundingMember.expiresAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
                   <div>✓ Priority Placement in Featured Listings</div>
                   <div>✓ Exclusive Founder Memorabilia</div>

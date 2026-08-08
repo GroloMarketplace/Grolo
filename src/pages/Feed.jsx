@@ -74,7 +74,8 @@ export default function Feed() {
   const touchStartRef = useRef(null);
   const [notificationsRead, setNotificationsRead] = useState(() => localStorage.getItem("grolo-notifications-read") === "true");
   const { followedSellers } = useFollow();
-  const unreadNotifications = notificationsRead ? 0 : notificationsHighlights.length + notificationsFollowers.length;
+  const { orderNotifications } = useOrders();
+  const unreadNotifications = notificationsRead ? 0 : notificationsHighlights.length + notificationsFollowers.length + orderNotifications.length;
 
   useEffect(() => {
     if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = savedFeedState.scrollTop;
@@ -1060,7 +1061,7 @@ export function Notifications() {
     } else if (isCommentNotification) {
       return;
     } else if (notification.type === "order") {
-      navigate("/orders");
+      navigate(`/orders/${encodeURIComponent(notification.orderId ?? "")}`);
     } else if (notification.productId) {
       navigate(`/product/${notification.productId}`);
     } else if (notification.actorUserId) {
@@ -1193,7 +1194,7 @@ export function Notifications() {
                     )}
                   </>
                 )}
-                {(isProfileNotification || isPostNotification) && (
+                {(isProfileNotification || isPostNotification || n.type === "order") && (
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-medium text-[#498467]">
                     {isProfileNotification && (
                       <button
@@ -1212,6 +1213,12 @@ export function Notifications() {
                       >
                         View Post
                       </button>
+                    )}
+                    {n.type === "order" && (
+                      <>
+                        <button type="button" onClick={() => handleViewClick(n)} className="min-h-8 px-1 text-left">View Order</button>
+                        {n.sellerId && <button type="button" onClick={() => navigate(`/seller/${n.sellerId}`)} className="min-h-8 px-1 text-left">View Store</button>}
+                      </>
                     )}
                   </div>
                 )}

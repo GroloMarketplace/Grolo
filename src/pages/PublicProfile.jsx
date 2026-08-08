@@ -1,13 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import OutlineIcon from "../components/OutlineIcon";
-import { ActivityCard, CommunityImpactTab, CommunityStatusBadge } from "./BuyerProfile";
+import { ActivityCard, CommunityImpactTab, ReviewsTab, TrustStatusBadge } from "./BuyerProfile";
 import { communityPosts, events, notificationsFollowers, notificationsHighlights, products } from "../data/mockData";
 import { getBuyerImpactMetrics } from "../utils/buyerImpact";
 import { useFollow } from "../context/FollowContext";
+import { useReviews } from "../context/ReviewContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 
 const FALLBACK_AVATAR = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80";
@@ -36,12 +36,14 @@ export default function PublicProfile() {
   const navigate = useNavigate();
   const { userId } = useParams();
   const { state } = useLocation();
-  const { isFollowing, toggleFollow } = useFollow();
+  const { isFollowing, toggleFollow, getFollowerCount } = useFollow();
+  const { reviewsForBuyer } = useReviews();
   const profile = getNotificationProfile(userId, state);
+  const profileReviews = reviewsForBuyer(profile.username, userId).sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0));
   const activity = buildPublicActivity();
   const metrics = getBuyerImpactMetrics({ orders: [], events, attendingEventIds: [], followedSellers: [], reviewsWritten: 0 });
   const savedProfileState = readNavigationState(`public-profile-${userId}`, { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 });
-  const [activeTab, setActiveTab] = useState(() => Math.min(Math.max(savedProfileState.activeTab, 0), 1));
+  const [activeTab, setActiveTab] = useState(() => Math.min(Math.max(savedProfileState.activeTab, 0), 2));
   const pageScrollRef = useRef(null);
   const tabContentRef = useRef(null);
   const restoredInitialLayout = useRef(false);
@@ -99,14 +101,14 @@ export default function PublicProfile() {
           <div className="rounded-lg bg-white p-4 shadow-sm">
             <div className="flex items-start gap-3">
               <img src={profile.avatar} alt={profile.username} className="h-16 w-16 rounded-full border-2 border-white object-cover shadow" />
-              <div className="flex-1"><h1 className="text-[20px] font-semibold">{profile.username}</h1><p className="text-[14px] text-[#828282]">@{profile.username}</p><div className="mt-0.5 flex flex-col gap-0.5"><CommunityStatusBadge metrics={metrics} /><FoundingMemberBadge sellerId={userId} />{profile.location && <p className="flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{profile.location}</p>}</div></div>
+              <div className="flex-1"><h1 className="text-[20px] font-semibold">{profile.username}</h1><p className="text-[14px] text-[#828282]">@{profile.username}</p><div className="mt-0.5 flex flex-col gap-0.5"><TrustStatusBadge buyerId={userId} />{profile.location && <p className="flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{profile.location}</p>}</div></div>
             </div>
             <p className="mt-3 text-[14px] leading-[140%]">{profile.bio}</p>
             <div className="mt-4 flex gap-3"><button type="button" onClick={() => toggleFollow(userId)} className="flex-1 rounded-lg bg-[#498467] py-2.5 text-[14px] font-medium text-white">{isFollowing(userId) ? "Following" : "Follow"}</button><button type="button" onClick={handleMessage} className="flex-1 rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">Message</button></div>
-            <div className="mt-4 grid grid-cols-2 gap-2"><PublicStat label="Followers" value={0} /><PublicStat label="Following" value={0} /></div>
+            <div className="mt-4 grid grid-cols-2 gap-2"><PublicStat label="Followers" value={getFollowerCount(userId)} /><PublicStat label="Following" value={0} /></div>
           </div>
         </div>
-        <div className="mt-4"><div className="sticky top-0 z-20 border-y border-[#E6E6E6] bg-white"><div className="flex">{["My Activity", "Community Impact"].map((tab, index) => <button key={tab} type="button" onClick={() => handleTabChange(index)} className={`relative flex-1 py-3 text-[14px] font-semibold ${activeTab === index ? "text-[#498467]" : "text-black/40"}`}>{tab}{activeTab === index && <span className="absolute bottom-0 left-8 right-8 h-0.5 bg-[#498467]" />}</button>)}</div></div><div className="w-full max-w-full overflow-hidden"><div ref={tabContentRef} className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"><div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4"><div className="flex w-full min-w-0 flex-col gap-4">{activity.map((item) => <ActivityCard key={item.id} activity={item} navigate={navigate} profile={profile} />)}</div></div><CommunityImpactTab metrics={metrics} publicView profileId={userId} /></div></div></div>
+        <div className="mt-4"><div className="sticky top-0 z-20 border-y border-[#E6E6E6] bg-white"><div className="flex">{["My Activity", "Community Impact", "Reviews"].map((tab, index) => <button key={tab} type="button" onClick={() => handleTabChange(index)} className={`relative flex-1 py-3 text-[14px] font-semibold ${activeTab === index ? "text-[#498467]" : "text-black/40"}`}>{tab}{activeTab === index && <span className="absolute bottom-0 left-8 right-8 h-0.5 bg-[#498467]" />}</button>)}</div></div><div className="w-full max-w-full overflow-hidden"><div ref={tabContentRef} className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"><div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4"><div className="flex w-full min-w-0 flex-col gap-4">{activity.map((item) => <ActivityCard key={item.id} activity={item} navigate={navigate} profile={profile} />)}</div></div><CommunityImpactTab metrics={metrics} publicView profileId={userId} /><ReviewsTab reviews={profileReviews} navigate={navigate} /></div></div></div>
       </div>
     </MobileScreenLayout>
   );

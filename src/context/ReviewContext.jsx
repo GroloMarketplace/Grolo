@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   currentUser,
   productReviews,
@@ -8,6 +8,29 @@ import {
 import { useOrders } from "./OrderContext";
 
 const ReviewContext = createContext(null);
+const REVIEW_STORAGE_KEY = "grolo-submitted-reviews";
+
+function normalizeReview(review) {
+  const source = review && typeof review === "object" ? review : {};
+  return {
+    ...source,
+    reviewer: source.reviewer ?? source.username ?? currentUser.username,
+    reviewerId: source.reviewerId ?? source.userId ?? source.buyerId ?? currentUser.id,
+    public: source.public !== false,
+    deleted: Boolean(source.deleted),
+    draft: Boolean(source.draft),
+    private: Boolean(source.private),
+  };
+}
+
+function readSubmittedReviews() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(REVIEW_STORAGE_KEY));
+    return Array.isArray(saved) ? saved.map(normalizeReview) : [];
+  } catch {
+    return [];
+  }
+}
 
 function averageWith(baseRating, baseCount, addedRatings) {
   const count = baseCount + addedRatings.length;
@@ -18,8 +41,15 @@ function averageWith(baseRating, baseCount, addedRatings) {
 }
 
 export function ReviewProvider({ children }) {
-  const [submittedReviews, setSubmittedReviews] = useState([]);
+  const [submittedReviews, setSubmittedReviews] = useState(readSubmittedReviews);
   const { orders } = useOrders();
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(submittedReviews));
+    } catch {
+    }
+  }, [submittedReviews]);
 
   const allReviews = useMemo(
     () => [...submittedReviews, ...productReviews],
@@ -34,6 +64,12 @@ export function ReviewProvider({ children }) {
   const reviewsForSeller = useCallback(
     (sellerId) => allReviews.filter((r) => r.sellerId === sellerId),
     [allReviews],
+  );
+
+  const reviewsForBuyer = useCallback(
+    (reviewer = currentUser.username, reviewerId = currentUser.id) => submittedReviews
+      .filter((review) => (review.reviewer === reviewer || review.reviewerId === reviewerId || review.userId === reviewerId || review.buyerId === reviewerId) && review.public !== false && !review.deleted && !review.draft && !review.private),
+    [submittedReviews],
   );
 
   const productRating = useCallback(
@@ -84,20 +120,23 @@ export function ReviewProvider({ children }) {
     [completedOrderForProduct, hasReviewedProduct],
   );
 
-  const addReview = useCallback(({ productId, sellerId, rating, text, photos }) => {
+  const addReview = useCallback(({ productId, sellerId, rating, text, photos, ...target }) => {
     setSubmittedReviews((prev) => [
-      {
+      normalizeReview({
         id: `rev-${Date.now()}`,
+        ...target,
         productId,
         sellerId,
         reviewer: currentUser.username,
+        reviewerId: currentUser.id,
+        buyerId: currentUser.id,
         avatar: currentUser.avatar,
         rating,
         date: "Just now",
         createdAt: new Date().toISOString(),
         text,
         photos: photos ?? [],
-      },
+      }),
       ...prev,
     ]);
   }, []);
@@ -105,8 +144,9 @@ export function ReviewProvider({ children }) {
   const value = {
     reviews: allReviews,
     submittedReviews,
-    reviewsWrittenCount: submittedReviews.length,
+    reviewsWrittenCount: reviewsForBuyer().length,
     reviewsForProduct,
+    reviewsForBuyer,
     reviewsForSeller,
     productRating,
     sellerRating,

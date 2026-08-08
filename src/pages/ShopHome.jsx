@@ -13,12 +13,15 @@ import { useOrders } from "../context/OrderContext";
 import { formatEventDate, formatEventTime, useEvents } from "../context/EventContext";
 import { usePromotions } from "../context/PromotionContext";
 import { useRegrow } from "../context/RegrowContext";
+import { useFollow } from "../context/FollowContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { getSellerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
+import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useInventory } from "../context/InventoryContext";
+import SellerProfileShareModal from "../components/SellerProfileShareModal";
 
 export default function ShopHome() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -36,6 +39,7 @@ export default function ShopHome() {
   const sellerProfile = getSellerProfile(seller.id);
   const { listings, removeListing } = useListings();
   const [isEditing, setIsEditing] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [storeName, setStoreName] = useState(sellerProfile.name);
   const [location, setLocation] = useState(sellerProfile.location);
   const [description, setDescription] = useState(sellerProfile.description);
@@ -51,6 +55,7 @@ export default function ShopHome() {
   const { upcomingEvents } = useEvents();
   const { promotionsForSeller } = usePromotions();
   const { isRegrown } = useRegrow();
+  const { getFollowerCount } = useFollow();
   const { getAvailable } = useInventory();
   const storeOrders = sellerOrders("sarahs-backyard");
   const orderCounts = [
@@ -80,7 +85,7 @@ export default function ShopHome() {
     productsSold: storeOrders.reduce((total, order) => total + order.quantity, 0),
     reviewsReceived: seller.reviewCount,
     eventsHosted: managedEvents.length,
-    followersGained: seller.followers,
+    followersGained: getFollowerCount(seller.id),
     tradesCompleted: 3,
   });
 
@@ -195,7 +200,7 @@ export default function ShopHome() {
                     ) : (
                       <h1 className="text-[20px] font-semibold">{storeName}</h1>
                     )}
-                    <p className="mt-1 flex items-center gap-1 text-[13px] font-medium text-[#498467]"><OutlineIcon name={sellerStatus.icon} size={15} /> {sellerStatus.name}</p>
+                    <InteractiveStatusBadge status={sellerStatus} className="mt-1" />
                     <FoundingMemberBadge sellerId={seller.id} />
                     {isEditing ? (
                       <input
@@ -289,7 +294,7 @@ export default function ShopHome() {
                     ({seller.reviewCount} reviews)
                   </button>
                   <span className="text-[14px] text-[#828282]">•</span>
-                  <span className="text-[14px] text-[#828282]">{seller.followers} followers</span>
+                  <span className="text-[14px] text-[#828282]">{getFollowerCount(seller.id)} followers</span>
                 </div>
 
                 {/* Action Buttons */}
@@ -310,6 +315,13 @@ export default function ShopHome() {
                   </div>
                 ) : (
                   <div className="flex gap-2 mt-4">
+                    <button
+                      type="button"
+                      onClick={() => setIsShareModalOpen(true)}
+                      className="flex-1 rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]"
+                    >
+                      Share Profile
+                    </button>
                     <button
                       onClick={handleEditStore}
                       className="flex-1 bg-[#498467] text-white py-2.5 rounded-lg text-[14px] font-medium"
@@ -390,6 +402,7 @@ export default function ShopHome() {
         </div>
       </MobileScreenLayout>
       <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
+      {isShareModalOpen && <SellerProfileShareModal seller={seller} profile={{ ...sellerProfile, name: storeName, description }} onClose={() => setIsShareModalOpen(false)} />}
     </>
   );
 }

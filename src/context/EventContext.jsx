@@ -1,16 +1,44 @@
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { events as mockEvents, sellers } from "../data/mockData";
+import { useAuth } from "./AuthContext";
+import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 
 const EventContext = createContext(null);
 
 const STORE_ID = "sarahs-backyard";
-const RSVP_STORAGE_KEY = "grolo-event-rsvps";
+const RSVP_STORAGE_KEY = "grolo-event-attendees";
 
-function readRsvps() {
+function readAttendees(currentUserId) {
   try {
-    return JSON.parse(localStorage.getItem(RSVP_STORAGE_KEY)) ?? [];
+    const saved = JSON.parse(localStorage.getItem(RSVP_STORAGE_KEY));
+    if (!saved) return {};
+    if (Array.isArray(saved)) {
+      return saved.reduce((result, eventId) => ({
+        ...result,
+        [eventId]: [currentUserId],
+      }), {});
+    }
+    return Object.fromEntries(Object.entries(saved).map(([eventId, userIds]) => [
+      eventId,
+      [...new Set(Array.isArray(userIds) ? userIds : [])],
+    ]));
   } catch {
-    return [];
+    return {};
+  }
+}
+
+function groupAttendees(rows) {
+  return rows.reduce((result, row) => {
+    const current = result[row.event_id] ?? [];
+    result[row.event_id] = current.includes(row.user_id) ? current : [...current, row.user_id];
+    return result;
+  }, {});
+}
+
+function persistAttendees(attendees) {
+  try {
+    localStorage.setItem(RSVP_STORAGE_KEY, JSON.stringify(attendees));
+  } catch {
   }
 }
 
@@ -39,26 +67,65 @@ export function formatEventTime(time) {
 }
 
 export function EventProvider({ children }) {
+  const { user } = useAuth();
+  const currentUserId = user?.id ?? "current-user";
   const [events, setEvents] = useState(() => mockEvents.map((event, index) => ({
     ...event,
     createdAt: event.createdAt ?? new Date(0).getTime() + (mockEvents.length - index),
   })));
-  const [rsvpEventIds, setRsvpEventIds] = useState(() => readRsvps());
+  const [attendees, setAttendees] = useState(() => readAttendees(currentUserId));
 
-  const isAttending = useCallback((eventId) => rsvpEventIds.includes(eventId), [rsvpEventIds]);
-  const getAttendeeCount = useCallback((eventId) => {
-    const event = events.find((current) => current.id === eventId);
-    return (event?.attendeeCount ?? 0) + (isAttending(eventId) ? 1 : 0);
-  }, [events, isAttending]);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAttendees() {
+      if (!isSupabaseConfigured) return;
+      const { data, error } = await supabase
+        .from("event_attendees")
+        .select("event_id, user_id");
+      if (!error && !cancelled) {
+        const next = groupAttendees(data ?? []);
+        setAttendees(next);
+        persistAttendees(next);
+      }
+    }
+
+    loadAttendees();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  const isAttending = useCallback((eventId) => (
+    (attendees[eventId] ?? []).includes(currentUserId)
+  ), [attendees, currentUserId]);
+
+  const getAttendeeCount = useCallback((eventId) => (
+    (attendees[eventId] ?? []).length
+  ), [attendees]);
+
   const toggleAttendance = useCallback((eventId) => {
-    setRsvpEventIds((current) => {
-      const next = current.includes(eventId)
-        ? current.filter((id) => id !== eventId)
-        : [...current, eventId];
-      localStorage.setItem(RSVP_STORAGE_KEY, JSON.stringify(next));
+    setAttendees((current) => {
+      const existing = new Set(current[eventId] ?? []);
+      const removing = existing.has(currentUserId);
+      if (removing) existing.delete(currentUserId);
+      else existing.add(currentUserId);
+
+      const next = { ...current, [eventId]: [...existing] };
+      persistAttendees(next);
+
+      if (isSupabaseConfigured && user?.id) {
+        const request = removing
+          ? supabase.from("event_attendees").delete().eq("event_id", eventId).eq("user_id", user.id)
+          : supabase.from("event_attendees").insert({ event_id: eventId, user_id: user.id });
+        request.then(({ error }) => {
+          if (error) console.error("Unable to persist event attendance", error);
+        });
+      }
+
       return next;
     });
-  }, []);
+  }, [currentUserId, user?.id]);
 
   const upcomingEvents = useCallback(
     (sellerId) =>
@@ -90,7 +157,6 @@ export function EventProvider({ children }) {
         comments: 0,
         reposts: 0,
         shares: 0,
-        attendeeCount: 0,
         ...event,
         id: `event-${Date.now()}`,
         createdAt: event.createdAt ?? Date.now(),
@@ -114,7 +180,7 @@ export function EventProvider({ children }) {
     eventSeller,
     isAttending,
     getAttendeeCount,
-    attendingEventIds: rsvpEventIds,
+    attendingEventIds: attendees[currentUserId] ?? [],
     toggleAttendance,
     storeId: STORE_ID,
   };

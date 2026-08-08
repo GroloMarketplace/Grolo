@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import ProfileSwitcher from "../components/ProfileSwitcher";
@@ -12,8 +11,9 @@ import { useFollow } from "../context/FollowContext";
 import { useReviews } from "../context/ReviewContext";
 import { getBuyerImpactMetrics } from "../utils/buyerImpact";
 import { impactTimeline } from "../data/communityImpact";
-import { getBuyerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
+import { getBuyerTrustLevel, BUYER_TRUST_LEVELS } from "../data/buyerTrust";
+import TrustLevelIcon from "../components/TrustLevelIcon";
 import { useSavedItems } from "../context/SavedContext";
 import { useBuyerTrust } from "../context/BuyerTrustContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
@@ -22,6 +22,7 @@ import { readNavigationState, writeNavigationState } from "../hooks/navigationSt
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import { EventAttendanceCount } from "../components/EventRsvp";
+import BuyerReviewCard from "../components/BuyerReviewCard";
 
 const BUYER = {
   username: "remi",
@@ -36,7 +37,8 @@ export default function BuyerProfile() {
   const { events: liveEvents, attendingEventIds } = useEvents();
   const { followedSellers } = useFollow();
   const { buyerOrders } = useOrders();
-  const { reviewsWrittenCount } = useReviews();
+  const { reviewsWrittenCount, reviewsForBuyer } = useReviews();
+  const buyerReviews = (reviewsForBuyer?.() ?? []).sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0));
   const impactMetrics = getBuyerImpactMetrics({ orders: buyerOrders(), events: liveEvents, attendingEventIds, followedSellers, reviewsWritten: reviewsWrittenCount });
   const buyerProfile = { ...BUYER, username: settings.displayName, bio: settings.bio, avatar: settings.avatar };
   const publicLocation = settings.showLocationPublicly && settings.location.trim() ? `${settings.location.trim()}, Calgary` : "";
@@ -44,7 +46,7 @@ export default function BuyerProfile() {
   const savedProductCount = savedItems.filter((item) => item.type === "listing").length;
   const [savedProfileState] = useState(() => readNavigationState("buyer-profile", { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 }));
   const [editing, setEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState(() => Math.min(Math.max(savedProfileState.activeTab, 0), 1));
+  const [activeTab, setActiveTab] = useState(() => Math.min(Math.max(savedProfileState.activeTab, 0), 2));
   const pageScrollRef = useRef(null);
   const tabContentRef = useRef(null);
   const restoredInitialLayout = useRef(false);
@@ -109,8 +111,7 @@ export default function BuyerProfile() {
               <img src={buyerProfile.avatar} alt={buyerProfile.username} className="h-16 w-16 rounded-full border-2 border-white object-cover shadow" />
               <div className="flex-1">
                 {editing ? <input defaultValue={buyerProfile.username} className="w-full border-b border-[#E6E6E6] text-[20px] font-semibold outline-none" /> : <h1 className="text-[20px] font-semibold">{buyerProfile.username}</h1>}
-                <CommunityStatusBadge metrics={impactMetrics} />
-                <FoundingMemberBadge sellerId="current-buyer" />
+                <TrustStatusBadge />
                 {publicLocation && <p className="mt-0.5 flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{publicLocation}</p>}
               </div>
             </div>
@@ -129,7 +130,7 @@ export default function BuyerProfile() {
         <div className="mt-4">
           <div className="sticky top-0 z-20 border-y border-[#E6E6E6] bg-white">
             <div className="flex">
-              {["My Activity", "Community Impact"].map((tab, index) => (
+              {["My Activity", "Community Impact", "Reviews"].map((tab, index) => (
                 <button
                   key={tab}
                   type="button"
@@ -150,6 +151,7 @@ export default function BuyerProfile() {
                 </div>
               </div>
               <CommunityImpactTab metrics={impactMetrics} />
+              <ReviewsTab reviews={buyerReviews} navigate={navigate} />
             </div>
           </div>
         </div>
@@ -178,37 +180,44 @@ function buildActivity() {
   ];
 }
 
-export function CommunityStatusBadge({ metrics }) {
+export function TrustStatusBadge({ buyerId = "you" }) {
   const navigate = useNavigate();
-  const status = getBuyerStatus(metrics);
-  return <button type="button" onClick={() => navigate("/grolo-statuses")} className="mt-1 flex items-center gap-1 text-[13px] font-medium text-[#498467]"><OutlineIcon name={status.icon} size={15} /> {status.name}</button>;
+  const { getBuyerTrust } = useBuyerTrust();
+  const trust = getBuyerTrust(buyerId) ?? {};
+  const { current = BUYER_TRUST_LEVELS[0] } = getBuyerTrustLevel(trust);
+  return <button type="button" onClick={() => navigate("/trust-reputation")} aria-label={`Open ${current.name} trust details`} className="group mt-1 inline-flex w-fit items-center gap-1 rounded-md text-[13px] font-medium text-[#498467] transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#498467]"><TrustLevelIcon name={current.icon} className="h-4 w-4" /><span className="group-hover:underline">{current.name}</span><span aria-hidden="true" className="text-[15px] opacity-60">›</span></button>;
 }
 
 function TrustReputationCard({ buyerId = "you" }) {
-  const { getBuyerTrust } = useBuyerTrust();
-  const trust = getBuyerTrust(buyerId);
-  return <section className="mt-4 rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4"><div className="text-[12px] font-medium uppercase tracking-[0.4px] text-[#498467]">Trust & Reputation</div><div className="mt-2 flex items-center gap-2 text-[17px] font-semibold"><OutlineIcon name={trust.reliable ? "heart" : "sprout"} size={21} className="text-[#498467]" /> {trust.reliable ? "Reliable Buyer" : "Building Trust"}</div><div className="mt-3 grid grid-cols-3 gap-2 text-[11px] leading-[130%] text-[#828282]"><div><div className="text-[17px] font-semibold text-[#498467]">{trust.completedTransactions}</div>Completed Transactions</div><div><div className="text-[17px] font-semibold text-[#498467]">{trust.sellerRecommendations}</div>Seller Recommendations</div><div><div className="text-[17px] font-semibold text-[#498467]">{trust.wouldTransactAgain}</div>Would Transact Again</div></div></section>;
-}
-
-function CommunityStatusCard({ status }) {
   const navigate = useNavigate();
-  return <section className="mt-4 rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4"><div className="text-[12px] font-medium uppercase tracking-[0.4px] text-[#498467]">Community Status</div><button type="button" onClick={() => navigate("/grolo-statuses")} className="mt-2 flex items-center gap-2 text-left text-[20px] font-semibold"><OutlineIcon name={status.icon} size={22} className="text-[#498467]" /> {status.name}</button><div className="mt-3 flex items-center justify-between text-[12px] text-[#828282]"><span>Progress to Next Level</span><span>{status.total} / {status.nextThreshold} actions</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-[#DDEBDF]"><div className="h-full rounded-full bg-[#498467]" style={{ width: `${status.progress}%` }} /></div></section>;
+  const { getBuyerTrust } = useBuyerTrust();
+  const trust = getBuyerTrust(buyerId) ?? {};
+  const { current = BUYER_TRUST_LEVELS[0] } = getBuyerTrustLevel(trust);
+  return <button type="button" onClick={() => navigate("/trust-reputation")} aria-label="Open Trust and Reputation details" className="group mt-4 w-full rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4 text-left transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#498467]"><div className="flex items-center justify-between"><div className="text-[12px] font-medium uppercase tracking-[0.4px] text-[#498467]">Trust & Reputation</div><span aria-hidden="true" className="text-[20px] text-[#498467] opacity-60 transition-transform group-hover:translate-x-0.5">›</span></div><div className="mt-2 flex items-center gap-2 text-[17px] font-semibold"><TrustLevelIcon name={current.icon} /> {current.name}</div><div className="mt-3 grid grid-cols-3 gap-2 text-[11px] leading-[130%] text-[#828282]"><div><div className="text-[17px] font-semibold text-[#498467]">{trust.completedTransactions ?? 0}</div>Completed Transactions</div><div><div className="text-[17px] font-semibold text-[#498467]">{trust.sellerRecommendations ?? 0}</div>Seller Recommended</div><div><div className="text-[17px] font-semibold text-[#498467]">{trust.wouldTransactAgain ?? 0}</div>Would Transact Again</div></div></button>;
 }
 
 export function CommunityImpactTab({ metrics, publicView = false, profileId = "you" }) {
-  const status = getBuyerStatus(metrics);
+  const safeMetrics = {
+    businessesSupported: 0,
+    purchasesMade: 0,
+    eventsAttended: 0,
+    storesFollowed: 0,
+    reviewsWritten: 0,
+    ...(metrics ?? {}),
+  };
+  const impactTotal = Object.values(safeMetrics).reduce((total, value) => total + (typeof value === "number" ? value : 0), 0);
   const impactStats = [
-    { label: "Local businesses supported", value: metrics.businessesSupported },
-    { label: "Local purchases made", value: metrics.purchasesMade },
-    { label: "Events attended", value: metrics.eventsAttended },
-    { label: "Stores followed", value: metrics.storesFollowed },
-    { label: "Reviews written", value: metrics.reviewsWritten },
+    { label: "Local businesses supported", value: safeMetrics.businessesSupported },
+    { label: "Local purchases made", value: safeMetrics.purchasesMade },
+    { label: "Events attended", value: safeMetrics.eventsAttended },
+    { label: "Stores followed", value: safeMetrics.storesFollowed },
+    { label: "Reviews written", value: safeMetrics.reviewsWritten },
   ];
   const impactBadges = [
-    { name: "Local Supporter", progress: `${metrics.purchasesMade} / 5 purchases completed`, value: metrics.purchasesMade, goal: 5 },
-    { name: "Market Explorer", progress: `${metrics.businessesSupported} / 5 local businesses visited`, value: metrics.businessesSupported, goal: 5 },
-    { name: "Trusted Reviewer", progress: `${metrics.reviewsWritten} / 25 reviews written`, value: metrics.reviewsWritten, goal: 25 },
-    { name: "Community Champion", progress: `${status.total} community actions completed`, value: status.total, goal: 50 },
+    { name: "Local Supporter", progress: `${safeMetrics.purchasesMade} / 5 purchases completed`, value: safeMetrics.purchasesMade, goal: 5 },
+    { name: "Market Explorer", progress: `${safeMetrics.businessesSupported} / 5 local businesses visited`, value: safeMetrics.businessesSupported, goal: 5 },
+    { name: "Trusted Reviewer", progress: `${safeMetrics.reviewsWritten} / 25 reviews written`, value: safeMetrics.reviewsWritten, goal: 25 },
+    { name: "Community Champion", progress: `${impactTotal} community actions completed`, value: impactTotal, goal: 50 },
   ];
   return (
     <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4">
@@ -225,7 +234,6 @@ export function CommunityImpactTab({ metrics, publicView = false, profileId = "y
         ))}
       </div>
       <TrustReputationCard buyerId={profileId} />
-      <CommunityStatusCard status={status} />
       <section className="mt-5">
         <h3 className="text-[18px] font-semibold">Impact timeline</h3>
         <div className="mt-3 flex flex-col">
@@ -273,6 +281,24 @@ export function ActivityCard({ activity, navigate, profile }) {
       </div>
       {activity.type === "event" ? <EventPreview event={activity.event} /> : activity.type === "listing" ? <ListingPreview listing={activity.listing} /> : activity.type === "promotion" ? <PromotionPreview promotion={activity.promotion} listing={activity.listing} /> : <PostPreview post={activity.post} text={activity.text} />}
     </button>
+  );
+}
+
+export function ReviewsTab({ reviews, navigate }) {
+  const safeReviews = Array.isArray(reviews) ? reviews : [];
+  return (
+    <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4">
+      {safeReviews.length === 0 ? (
+        <div className="py-12 text-center">
+          <p className="text-[14px] text-[#828282]">No reviews written yet.</p>
+          <p className="mt-1 text-[13px] leading-[140%] text-[#828282]">Support local businesses and share your experiences with the community.</p>
+        </div>
+      ) : (
+        <div className="flex w-full min-w-0 flex-col gap-3">
+          {safeReviews.map((review, index) => <BuyerReviewCard key={review.id ?? `review-${index}`} review={review} navigate={navigate} />)}
+        </div>
+      )}
+    </div>
   );
 }
 

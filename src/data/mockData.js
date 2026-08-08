@@ -446,7 +446,6 @@ export const events = [
     comments: 12,
     reposts: 9,
     shares: 6,
-    attendeeCount: 24,
   },
   {
     id: "backyard-berry-tasting",
@@ -465,7 +464,6 @@ export const events = [
     comments: 7,
     reposts: 4,
     shares: 3,
-    attendeeCount: 24,
   },
   {
     id: "weekend-pickup-day",
@@ -484,7 +482,6 @@ export const events = [
     comments: 3,
     reposts: 2,
     shares: 2,
-    attendeeCount: 24,
   },
   {
     id: "summer-harvest-sale",
@@ -503,7 +500,6 @@ export const events = [
     comments: 15,
     reposts: 11,
     shares: 8,
-    attendeeCount: 24,
   },
   {
     id: "donut-decorating-workshop",
@@ -522,7 +518,6 @@ export const events = [
     comments: 14,
     reposts: 7,
     shares: 5,
-    attendeeCount: 24,
   },
   {
     id: "marda-loop-popup",
@@ -541,7 +536,6 @@ export const events = [
     comments: 6,
     reposts: 5,
     shares: 4,
-    attendeeCount: 24,
   },
   {
     id: "crochet-basics-workshop",
@@ -560,7 +554,6 @@ export const events = [
     comments: 9,
     reposts: 3,
     shares: 2,
-    attendeeCount: 24,
   },
 ];
 

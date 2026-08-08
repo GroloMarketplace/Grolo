@@ -3,6 +3,7 @@ import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { useAuth } from "../context/AuthContext";
 import { useFoundingMember } from "../context/FoundingMemberContext";
+import GroloStatusIcon from "../components/GroloStatusIcon";
 
 function formatMemberSince(value) {
   if (!value) return "Member since unavailable";
@@ -17,7 +18,7 @@ export default function FoundingMember() {
   const { user } = useAuth();
   const { getFoundingMember } = useFoundingMember();
   const member = getFoundingMember(memberId);
-  const memberSince = memberId === "current-buyer" ? user?.created_at ?? member?.memberSince : member?.memberSince;
+  const memberSince = memberId === "current-buyer" ? user?.created_at ?? member?.memberSince : member?.createdAt ?? member?.memberSince;
 
   return (
     <MobileScreenLayout>
@@ -28,7 +29,7 @@ export default function FoundingMember() {
         ) : (
           <div className="flex flex-col gap-5">
             <section className="rounded-lg bg-[#FFF9E6] p-5 text-center">
-              <div className="text-[32px]" aria-hidden="true">🏆</div>
+              <div className="flex justify-center"><GroloStatusIcon name="trophy" className="h-9 w-9" /></div>
               <h1 className="mt-2 text-[24px] font-semibold">Founding Member</h1>
               <p className="mt-2 text-[18px] font-medium text-[#6F5B1A]">Founding Member #{member.registrationNumber} of 100</p>
             </section>

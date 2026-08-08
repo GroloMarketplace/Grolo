@@ -9,8 +9,10 @@ import { readNavigationState, writeNavigationState } from "../hooks/navigationSt
 
 const ORDER_SECTIONS = [
   { title: "Active Orders", statuses: ["Order Placed", "Preparing", "In Progress", "Seller Notified"] },
-  { title: "Ready for Pickup", statuses: ["Ready for Pickup"] },
-  { title: "Completed Orders", statuses: ["Completed"] },
+  { title: "Ready for Pickup", statuses: ["Ready for Pickup"], fulfillmentMethod: "pickup" },
+  { title: "Out for Delivery", statuses: ["Out for Delivery"], fulfillmentMethod: "delivery" },
+  { title: "Delivered Orders", statuses: ["Delivered"], fulfillmentMethod: "delivery" },
+  { title: "Completed Pickup Orders", statuses: ["Completed"], fulfillmentMethod: "pickup" },
   { title: "Cancelled Orders", statuses: ["Cancelled"] },
 ];
 
@@ -38,7 +40,10 @@ export default function Orders() {
       <Header title="My Orders" onBack={() => navigate(-1)} />
       <div ref={scrollRef} className="overflow-y-auto flex-1 no-scrollbar">
         {ORDER_SECTIONS.map((section) => {
-          const sectionOrders = orders.filter((order) => section.statuses.includes(order.status));
+          const sectionOrders = orders.filter((order) => (
+            section.statuses.includes(order.status)
+            && (!section.fulfillmentMethod || (order.fulfillmentMethod ?? "pickup") === section.fulfillmentMethod)
+          ));
           return (
             <section key={section.title} className="py-2">
               <div className="flex items-center justify-between px-4 py-2">

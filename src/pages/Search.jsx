@@ -29,8 +29,10 @@ const TABS = ["Local", "Map", "History", "My Orders"];
 
 const ORDER_SECTIONS = [
   { title: "Active Orders", statuses: ["Order Placed", "Preparing", "In Progress", "Seller Notified"] },
-  { title: "Ready for Pickup", statuses: ["Ready for Pickup"] },
-  { title: "Completed Orders", statuses: ["Completed"] },
+  { title: "Ready for Pickup", statuses: ["Ready for Pickup"], fulfillmentMethod: "pickup" },
+  { title: "Out for Delivery", statuses: ["Out for Delivery"], fulfillmentMethod: "delivery" },
+  { title: "Delivered Orders", statuses: ["Delivered"], fulfillmentMethod: "delivery" },
+  { title: "Completed Pickup Orders", statuses: ["Completed"], fulfillmentMethod: "pickup" },
   { title: "Cancelled Orders", statuses: ["Cancelled"] },
 ];
 
@@ -468,9 +470,10 @@ function MyOrders() {
   return (
     <div className="py-2">
       {ORDER_SECTIONS.map((section) => {
-        const sectionOrders = orders.filter((o) =>
-          section.statuses.includes(o.status),
-        );
+        const sectionOrders = orders.filter((o) => (
+          section.statuses.includes(o.status)
+          && (!section.fulfillmentMethod || (o.fulfillmentMethod ?? "pickup") === section.fulfillmentMethod)
+        ));
 
         return (
           <div key={section.title} className="py-2">

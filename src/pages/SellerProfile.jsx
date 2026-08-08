@@ -28,6 +28,7 @@ import { readNavigationState, writeNavigationState } from "../hooks/navigationSt
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import SellerProfileShareModal from "../components/SellerProfileShareModal";
+import ShareProfileButton from "../components/ShareProfileButton";
 
 export default function SellerProfile() {
   const { sellerId } = useParams();
@@ -119,7 +120,7 @@ export default function SellerProfile() {
 
   return (
     <MobileScreenLayout>
-      <Header onBack={() => navigate(-1)} />
+      <Header onBack={() => navigate(-1)} shareButton={<ShareProfileButton onClick={() => setIsShareModalOpen(true)} />} />
       <div ref={pageScrollRef} className="overflow-y-auto flex-1 no-scrollbar">
         {sellerProfile.vacationMode && <div className="mx-4 mt-4 mb-4 rounded-lg border border-[#F5A623] bg-[#FFF4E5] p-3"><div className="text-[14px] font-semibold text-[#8A4B08]">🟠 Store Temporarily Closed</div><p className="mt-1 text-[13px] text-[#8A4B08]">{sellerProfile.vacationMessage || "This seller is currently not accepting orders."}</p>{sellerProfile.returnDate && <p className="mt-1 text-[12px] text-[#8A4B08]">Returning {new Date(`${sellerProfile.returnDate}T00:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>}</div>}
         {/* Banner */}
@@ -172,13 +173,6 @@ export default function SellerProfile() {
 
             {/* Action Buttons */}
             <div className="flex gap-2 mt-4">
-              <button
-                type="button"
-                onClick={() => setIsShareModalOpen(true)}
-                className="flex-1 rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]"
-              >
-                Share Profile
-              </button>
               <button
                 onClick={() => toggleFollow(seller.id) }
                 className={`flex-1 py-2.5 rounded-lg text-[14px] font-medium ${

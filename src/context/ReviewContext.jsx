@@ -6,16 +6,30 @@ import {
   sellers,
 } from "../data/mockData";
 import { useOrders } from "./OrderContext";
+import { useAuth } from "./AuthContext";
 
 const ReviewContext = createContext(null);
 const REVIEW_STORAGE_KEY = "grolo-submitted-reviews";
+const LEGACY_REVIEW_STORAGE_KEYS = ["grolo-reviews", "submitted-reviews"];
 
-function normalizeReview(review) {
+function getIdentity(user) {
+  return {
+    id: user?.id ?? currentUser.id,
+    username: user?.user_metadata?.username ?? user?.user_metadata?.name ?? currentUser.username,
+    email: user?.email,
+    avatar: user?.user_metadata?.avatar_url ?? currentUser.avatar,
+  };
+}
+
+function normalizeReview(review, identity = getIdentity()) {
   const source = review && typeof review === "object" ? review : {};
+  const reviewerId = source.reviewerId ?? source.userId ?? source.buyerId ?? source.authorId ?? source.user_id ?? source.buyer_id ?? identity?.id;
+  const reviewer = source.reviewer ?? source.username ?? source.author ?? (typeof source.buyer === "string" ? source.buyer : null) ?? identity?.username;
   return {
     ...source,
-    reviewer: source.reviewer ?? source.username ?? currentUser.username,
-    reviewerId: source.reviewerId ?? source.userId ?? source.buyerId ?? currentUser.id,
+    reviewer,
+    reviewerId,
+    buyerId: source.buyerId ?? source.buyer_id ?? reviewerId,
     public: source.public !== false,
     deleted: Boolean(source.deleted),
     draft: Boolean(source.draft),
@@ -23,13 +37,36 @@ function normalizeReview(review) {
   };
 }
 
-function readSubmittedReviews() {
+function readSubmittedReviews(identity) {
   try {
-    const saved = JSON.parse(localStorage.getItem(REVIEW_STORAGE_KEY));
-    return Array.isArray(saved) ? saved.map(normalizeReview) : [];
+    const savedValues = [localStorage.getItem(REVIEW_STORAGE_KEY), ...LEGACY_REVIEW_STORAGE_KEYS.map((key) => localStorage.getItem(key))];
+    const savedReviews = savedValues.flatMap((value) => {
+      if (!value) return [];
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed?.reviews)) return parsed.reviews;
+        if (Array.isArray(parsed?.data)) return parsed.data;
+        return [];
+      } catch {
+        return [];
+      }
+    });
+    const uniqueReviews = [...new Map(savedReviews.map((review, index) => [review?.id ?? `legacy-review-${index}`, review])).values()];
+    return uniqueReviews.map((review) => normalizeReview(review, identity));
   } catch {
     return [];
   }
+}
+
+function buyerAliases(reviewer, reviewerId) {
+  return new Set([reviewer, reviewerId].filter(Boolean).map((value) => String(value).trim().toLowerCase()));
+}
+
+function belongsToBuyer(review, aliases) {
+  return [review.reviewer, review.reviewerId, review.userId, review.buyerId, review.authorId, review.username, review.author, review.buyer]
+    .filter((value) => typeof value === "string" || typeof value === "number")
+    .some((value) => aliases.has(String(value).trim().toLowerCase()));
 }
 
 function averageWith(baseRating, baseCount, addedRatings) {
@@ -41,8 +78,10 @@ function averageWith(baseRating, baseCount, addedRatings) {
 }
 
 export function ReviewProvider({ children }) {
-  const [submittedReviews, setSubmittedReviews] = useState(readSubmittedReviews);
   const { orders } = useOrders();
+  const { user } = useAuth();
+  const identity = useMemo(() => getIdentity(user), [user]);
+  const [submittedReviews, setSubmittedReviews] = useState(() => readSubmittedReviews(identity));
 
   useEffect(() => {
     try {
@@ -67,9 +106,14 @@ export function ReviewProvider({ children }) {
   );
 
   const reviewsForBuyer = useCallback(
-    (reviewer = currentUser.username, reviewerId = currentUser.id) => submittedReviews
-      .filter((review) => (review.reviewer === reviewer || review.reviewerId === reviewerId || review.userId === reviewerId || review.buyerId === reviewerId) && review.public !== false && !review.deleted && !review.draft && !review.private),
-    [submittedReviews],
+    (reviewer = identity.username, reviewerId = identity.id) => {
+      const aliases = buyerAliases(reviewer, reviewerId);
+      aliases.add(currentUser.username.toLowerCase());
+      aliases.add(currentUser.id.toLowerCase());
+      if (identity.email) aliases.add(identity.email.toLowerCase());
+      return allReviews.filter((review) => belongsToBuyer(review, aliases) && review.public !== false && !review.deleted && !review.draft && !review.private);
+    },
+    [allReviews, identity],
   );
 
   const productRating = useCallback(
@@ -100,17 +144,14 @@ export function ReviewProvider({ children }) {
         (o) =>
           o.productId === productId &&
           o.status === "Completed" &&
-          o.buyer === currentUser.username,
+          String(o.buyer ?? "").toLowerCase() === identity.username.toLowerCase(),
       ),
-    [orders],
+    [identity.username, orders],
   );
 
   const hasReviewedProduct = useCallback(
-    (productId) =>
-      submittedReviews.some(
-        (r) => r.productId === productId && r.reviewer === currentUser.username,
-      ),
-    [submittedReviews],
+    (productId) => submittedReviews.some((review) => belongsToBuyer(review, buyerAliases(identity.username, identity.id)) && review.productId === productId),
+    [identity, submittedReviews],
   );
 
   const canReviewProduct = useCallback(
@@ -127,19 +168,19 @@ export function ReviewProvider({ children }) {
         ...target,
         productId,
         sellerId,
-        reviewer: currentUser.username,
-        reviewerId: currentUser.id,
-        buyerId: currentUser.id,
-        avatar: currentUser.avatar,
+        reviewer: identity.username,
+        reviewerId: identity.id,
+        buyerId: identity.id,
+        avatar: identity.avatar,
         rating,
         date: "Just now",
         createdAt: new Date().toISOString(),
         text,
         photos: photos ?? [],
-      }),
+      }, identity),
       ...prev,
     ]);
-  }, []);
+  }, [identity]);
 
   const value = {
     reviews: allReviews,

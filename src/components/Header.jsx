@@ -3,7 +3,7 @@ import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 
-export default function Header({ title, titleContent, onBack, onMenu, right, postButton }) {
+export default function Header({ title, titleContent, onBack, onMenu, right, postButton, shareButton }) {
   const navigate = useNavigate();
   const { settings: buyerSettings } = useBuyerSettings();
   const { profileMode } = useProfileMode();
@@ -51,6 +51,7 @@ export default function Header({ title, titleContent, onBack, onMenu, right, pos
       )}
       <div className="flex items-center gap-2">
         {postButton}
+        {shareButton}
         {right ?? (
           <button type="button" onClick={() => navigate("/account-settings")} aria-label="Open Account Settings" className="rounded-full">
             <img

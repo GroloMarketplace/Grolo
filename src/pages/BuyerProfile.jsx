@@ -8,7 +8,6 @@ import { useSidebar } from "../hooks/useSidebar";
 import { communityPosts, events, followingPosts, products, promotions } from "../data/mockData";
 import { formatEventDate, formatEventTime, useEvents } from "../context/EventContext";
 import { useFollow } from "../context/FollowContext";
-import { useReviews } from "../context/ReviewContext";
 import { getBuyerImpactMetrics } from "../utils/buyerImpact";
 import { impactTimeline } from "../data/communityImpact";
 import OutlineIcon from "../components/OutlineIcon";
@@ -22,7 +21,7 @@ import { readNavigationState, writeNavigationState } from "../hooks/navigationSt
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import { EventAttendanceCount } from "../components/EventRsvp";
-import BuyerReviewCard from "../components/BuyerReviewCard";
+import SellerReviewCard from "../components/SellerReviewCard";
 
 const BUYER = {
   username: "remi",
@@ -37,9 +36,9 @@ export default function BuyerProfile() {
   const { events: liveEvents, attendingEventIds } = useEvents();
   const { followedSellers } = useFollow();
   const { buyerOrders } = useOrders();
-  const { reviewsWrittenCount, reviewsForBuyer } = useReviews();
-  const buyerReviews = (reviewsForBuyer?.() ?? []).sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0));
-  const impactMetrics = getBuyerImpactMetrics({ orders: buyerOrders(), events: liveEvents, attendingEventIds, followedSellers, reviewsWritten: reviewsWrittenCount });
+  const { reviewsForBuyer } = useBuyerTrust();
+  const sellerReviews = (reviewsForBuyer?.("you") ?? []).sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0));
+  const impactMetrics = getBuyerImpactMetrics({ orders: buyerOrders(), events: liveEvents, attendingEventIds, followedSellers, reviewsWritten: sellerReviews.length });
   const buyerProfile = { ...BUYER, username: settings.displayName, bio: settings.bio, avatar: settings.avatar };
   const publicLocation = settings.showLocationPublicly && settings.location.trim() ? `${settings.location.trim()}, Calgary` : "";
   const { savedItems } = useSavedItems();
@@ -111,7 +110,7 @@ export default function BuyerProfile() {
               <img src={buyerProfile.avatar} alt={buyerProfile.username} className="h-16 w-16 rounded-full border-2 border-white object-cover shadow" />
               <div className="flex-1">
                 {editing ? <input defaultValue={buyerProfile.username} className="w-full border-b border-[#E6E6E6] text-[20px] font-semibold outline-none" /> : <h1 className="text-[20px] font-semibold">{buyerProfile.username}</h1>}
-                <TrustStatusBadge />
+                <TrustStatusBadge buyerId="you" />
                 {publicLocation && <p className="mt-0.5 flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{publicLocation}</p>}
               </div>
             </div>
@@ -120,7 +119,7 @@ export default function BuyerProfile() {
             <div className="mt-4 grid grid-cols-2 gap-2">
               <BuyerStat label="Stores Followed" value={impactMetrics.storesFollowed} />
               <button type="button" onClick={() => navigate("/saved")} className="text-left"><BuyerStat label="Saved Items" value={savedProductCount} /></button>
-              <BuyerStat label="Reviews Written" value={impactMetrics.reviewsWritten} />
+              <BuyerStat label="Seller Reviews" value={sellerReviews.length} />
               <BuyerStat label="Events Attended" value={impactMetrics.eventsAttended} />
             </div>
           </div>
@@ -150,8 +149,8 @@ export default function BuyerProfile() {
                   {activity.map((item) => <ActivityCard key={item.id} activity={item} navigate={navigate} profile={buyerProfile} />)}
                 </div>
               </div>
-              <CommunityImpactTab metrics={impactMetrics} />
-              <ReviewsTab reviews={buyerReviews} navigate={navigate} />
+              <CommunityImpactTab metrics={impactMetrics} profileId="you" />
+              <ReviewsTab reviews={sellerReviews} />
             </div>
           </div>
         </div>
@@ -211,12 +210,12 @@ export function CommunityImpactTab({ metrics, publicView = false, profileId = "y
     { label: "Local purchases made", value: safeMetrics.purchasesMade },
     { label: "Events attended", value: safeMetrics.eventsAttended },
     { label: "Stores followed", value: safeMetrics.storesFollowed },
-    { label: "Reviews written", value: safeMetrics.reviewsWritten },
+    { label: "Seller reviews", value: safeMetrics.reviewsWritten },
   ];
   const impactBadges = [
     { name: "Local Supporter", progress: `${safeMetrics.purchasesMade} / 5 purchases completed`, value: safeMetrics.purchasesMade, goal: 5 },
     { name: "Market Explorer", progress: `${safeMetrics.businessesSupported} / 5 local businesses visited`, value: safeMetrics.businessesSupported, goal: 5 },
-    { name: "Trusted Reviewer", progress: `${safeMetrics.reviewsWritten} / 25 reviews written`, value: safeMetrics.reviewsWritten, goal: 25 },
+    { name: "Trusted Buyer", progress: `${safeMetrics.reviewsWritten} seller reviews received`, value: safeMetrics.reviewsWritten, goal: 25 },
     { name: "Community Champion", progress: `${impactTotal} community actions completed`, value: impactTotal, goal: 50 },
   ];
   return (
@@ -284,18 +283,18 @@ export function ActivityCard({ activity, navigate, profile }) {
   );
 }
 
-export function ReviewsTab({ reviews, navigate }) {
+export function ReviewsTab({ reviews }) {
   const safeReviews = Array.isArray(reviews) ? reviews : [];
   return (
     <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4">
       {safeReviews.length === 0 ? (
         <div className="py-12 text-center">
-          <p className="text-[14px] text-[#828282]">No reviews written yet.</p>
-          <p className="mt-1 text-[13px] leading-[140%] text-[#828282]">Support local businesses and share your experiences with the community.</p>
+          <p className="text-[14px] text-[#828282]">No reviews yet.</p>
+          <p className="mt-1 text-[13px] leading-[140%] text-[#828282]">Seller feedback will appear here after completed transactions.</p>
         </div>
       ) : (
         <div className="flex w-full min-w-0 flex-col gap-3">
-          {safeReviews.map((review, index) => <BuyerReviewCard key={review.id ?? `review-${index}`} review={review} navigate={navigate} />)}
+          {safeReviews.map((review, index) => <SellerReviewCard key={review.id ?? `seller-review-${index}`} review={review} />)}
         </div>
       )}
     </div>

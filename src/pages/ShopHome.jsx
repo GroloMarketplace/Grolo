@@ -22,6 +22,7 @@ import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useInventory } from "../context/InventoryContext";
 import SellerProfileShareModal from "../components/SellerProfileShareModal";
+import ShareProfileButton from "../components/ShareProfileButton";
 
 export default function ShopHome() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -170,6 +171,7 @@ export default function ShopHome() {
           <Header
             titleContent={<ProfileSwitcher />}
             onMenu={openSidebar}
+            shareButton={<ShareProfileButton onClick={() => setIsShareModalOpen(true)} />}
           />
           <div className="overflow-y-auto flex-1 no-scrollbar">
             {/* Banner */}
@@ -315,13 +317,6 @@ export default function ShopHome() {
                   </div>
                 ) : (
                   <div className="flex gap-2 mt-4">
-                    <button
-                      type="button"
-                      onClick={() => setIsShareModalOpen(true)}
-                      className="flex-1 rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]"
-                    >
-                      Share Profile
-                    </button>
                     <button
                       onClick={handleEditStore}
                       className="flex-1 bg-[#498467] text-white py-2.5 rounded-lg text-[14px] font-medium"

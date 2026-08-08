@@ -116,11 +116,6 @@ export default function ShopHome() {
     setIsEditing(false);
   };
 
-  const handleManageListings = () => {
-    // Navigate to listings management page (to be implemented)
-    console.log("Navigate to Manage Listings");
-  };
-
   const handleCreatePost = () => {
     navigate("/create-post");
   };
@@ -316,18 +311,12 @@ export default function ShopHome() {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex gap-2 mt-4">
+                  <div className="mt-4 flex justify-center">
                     <button
                       onClick={handleEditStore}
-                      className="flex-1 bg-[#498467] text-white py-2.5 rounded-lg text-[14px] font-medium"
+                      className="w-full max-w-[220px] rounded-lg bg-[#498467] py-2.5 text-[14px] font-medium text-white"
                     >
                       Edit Store
-                    </button>
-                    <button
-                      onClick={handleManageListings}
-                      className="flex-1 border border-[#498467] text-[#498467] py-2.5 rounded-lg text-[14px] font-medium"
-                    >
-                      Manage Listings
                     </button>
                   </div>
                 )}

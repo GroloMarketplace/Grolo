@@ -39,6 +39,7 @@ const initialSettings = {
   },
   showLocationPublicly: false,
   username: "remi",
+  email: "",
   interests: [],
 };
 

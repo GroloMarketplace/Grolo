@@ -6,6 +6,7 @@ import { useInventory } from "../context/InventoryContext";
 import ReviewSummary from "./ReviewSummary";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "./ServiceCategoryLabel";
+import ConfirmationModal from "./ConfirmationModal";
 
 export default function SellerListingCard({ product, onDelete }) {
   const navigate = useNavigate();
@@ -161,30 +162,7 @@ export default function SellerListingCard({ product, onDelete }) {
       </div>
 
       {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-[300px]">
-            <h3 className="text-[18px] font-semibold mb-2">Delete Listing</h3>
-            <p className="text-[14px] text-[#828282] mb-6">
-              Are you sure you want to delete this listing?
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleDeleteCancel}
-                className="flex-1 py-2.5 rounded-lg text-[14px] font-medium border border-[#E6E6E6]"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                className="flex-1 py-2.5 rounded-lg text-[14px] font-medium bg-red-500 text-white"
-              >
-                Delete Listing
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showDeleteModal && <ConfirmationModal title="Delete Listing?" message="Are you sure you want to delete this listing? This action cannot be undone." confirmLabel="Delete Listing" onCancel={handleDeleteCancel} onConfirm={handleDeleteConfirm} />}
     </>
   );
 }

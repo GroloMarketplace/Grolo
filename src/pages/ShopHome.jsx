@@ -23,6 +23,7 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useInventory } from "../context/InventoryContext";
 import SellerProfileShareModal from "../components/SellerProfileShareModal";
 import ShareProfileButton from "../components/ShareProfileButton";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 export default function ShopHome() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -41,6 +42,8 @@ export default function ShopHome() {
   const { listings, removeListing } = useListings();
   const [isEditing, setIsEditing] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [deleteRequest, setDeleteRequest] = useState(null);
+  const [toastMessage, setToastMessage] = useState("");
   const [storeName, setStoreName] = useState(sellerProfile.name);
   const [location, setLocation] = useState(sellerProfile.location);
   const [description, setDescription] = useState(sellerProfile.description);
@@ -82,16 +85,24 @@ export default function ShopHome() {
   const tabs = ["Listings", "Posts", "Events", "Regrows"];
   const sellerPromotions = promotionsForSeller(seller.id);
   const sellerStatus = getSellerStatus({
-    ordersFulfilled: storeOrders.filter((order) => order.status === "Completed").length,
-    productsSold: storeOrders.reduce((total, order) => total + order.quantity, 0),
-    reviewsReceived: seller.reviewCount,
-    eventsHosted: managedEvents.length,
-    followersGained: getFollowerCount(seller.id),
-    tradesCompleted: 3,
+    listingsCreated: sellerProducts.length,
+    completedOrders: storeOrders.filter((order) => order.status === "Completed").length,
+    followers: getFollowerCount(seller.id),
+    sellerReviews: seller.reviewCount,
+    marketplaceInteractions: 0,
+    activeDays: 0,
+    averageRating: seller.rating,
+    communityContribution: managedEvents.length || sellerPromotions.length ? 1 : 0,
   });
+
+  const showToast = (message) => {
+    setToastMessage(message);
+    window.setTimeout(() => setToastMessage(""), 2400);
+  };
 
   const handleDeleteListing = (productId) => {
     removeListing(productId);
+    showToast("Listing deleted");
   };
 
   const handleEditStore = () => {
@@ -141,9 +152,7 @@ export default function ShopHome() {
   };
 
   const handleDeletePost = (postId) => {
-    if (window.confirm("Delete this post?")) {
-      setManagedPosts((current) => current.filter((post) => post.id !== postId));
-    }
+    setDeleteRequest({ type: "post", id: postId });
   };
 
   const handleEditEvent = (event) => {
@@ -154,9 +163,19 @@ export default function ShopHome() {
   };
 
   const handleDeleteEvent = (eventId) => {
-    if (window.confirm("Delete this event?")) {
-      setManagedEvents((current) => current.filter((event) => event.id !== eventId));
+    setDeleteRequest({ type: "event", id: eventId });
+  };
+
+  const confirmDelete = () => {
+    if (deleteRequest?.type === "post") {
+      setManagedPosts((current) => current.filter((post) => post.id !== deleteRequest.id));
+      showToast("Post deleted");
     }
+    if (deleteRequest?.type === "event") {
+      setManagedEvents((current) => current.filter((event) => event.id !== deleteRequest.id));
+      showToast("Event deleted");
+    }
+    setDeleteRequest(null);
   };
 
   return (
@@ -387,6 +406,8 @@ export default function ShopHome() {
       </MobileScreenLayout>
       <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
       {isShareModalOpen && <SellerProfileShareModal seller={seller} profile={{ ...sellerProfile, name: storeName, description }} onClose={() => setIsShareModalOpen(false)} />}
+      {deleteRequest && <ConfirmationModal title={`Delete ${deleteRequest.type === "post" ? "Post" : "Event"}?`} message={`Are you sure you want to delete this ${deleteRequest.type}? This action cannot be undone.`} confirmLabel={`Delete ${deleteRequest.type === "post" ? "Post" : "Event"}`} onCancel={() => setDeleteRequest(null)} onConfirm={confirmDelete} />}
+      {toastMessage && <div role="status" className="fixed bottom-6 left-1/2 z-[110] -translate-x-1/2 rounded-full bg-[#498467] px-4 py-2 text-[13px] font-medium text-white shadow-lg">{toastMessage}</div>}
     </>
   );
 }

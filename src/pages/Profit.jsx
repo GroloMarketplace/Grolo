@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import { events, products, reviews } from "../data/mockData";
+import { events, products, reviews, sellers } from "../data/mockData";
 import { useOrders } from "../context/OrderContext";
 import { getSellerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
@@ -21,18 +21,21 @@ export default function Profit() {
   const followers = getFollowerCount(SELLER_ID);
   const sellerProducts = products.filter((product) => product.sellerId === SELLER_ID);
   const sellerEvents = events.filter((event) => event.sellerId === SELLER_ID);
+  const seller = sellers[SELLER_ID];
   const sellerReviews = reviews.filter((review) =>
     sellerProducts.some((product) => product.id === review.productId),
   );
   const productsSold = orders.reduce((total, order) => total + order.quantity, 0);
   const completedOrders = orders.filter((order) => order.status === "Completed");
   const communityStatus = getSellerStatus({
-    ordersFulfilled: completedOrders.length,
-    productsSold,
-    reviewsReceived: sellerReviews.length,
-    eventsHosted: sellerEvents.length,
-    followersGained: followers,
-    tradesCompleted: 3,
+    listingsCreated: sellerProducts.length,
+    completedOrders: completedOrders.length,
+    followers,
+    sellerReviews: sellerReviews.length,
+    marketplaceInteractions: 0,
+    activeDays: 0,
+    averageRating: seller.rating ?? 0,
+    communityContribution: sellerEvents.length ? 1 : 0,
   });
   const cancelledOrders = orders.filter((order) => order.status === "Cancelled");
   const topProduct = useMemo(() => getTopProduct(orders, sellerProducts), [orders, sellerProducts]);
@@ -63,6 +66,7 @@ export default function Profit() {
             productsSold={productsSold}
             followers={followers}
             communityStatus={communityStatus}
+            progressItems={communityStatus.progressItems}
           />
         )}
         {tab === "Orders" && (
@@ -87,19 +91,16 @@ export default function Profit() {
   );
 }
 
-function OverviewTab({ orders, productsSold, followers, communityStatus }) {
+function OverviewTab({ orders, productsSold, followers, communityStatus, progressItems }) {
   return (
-    <div className="mt-4 grid grid-cols-2 gap-3">
-      <MetricCard label="Total Orders" value={orders.length} />
-      <MetricCard label="Products Sold" value={productsSold} />
-      <MetricCard label="Store Followers" value={followers} />
-      <MetricCard
-        label="Seller Status"
-        value={(
-          <InteractiveStatusBadge status={communityStatus} prominent className="mt-0 flex-col gap-1 text-center" />
-        )}
-        valueClassName="text-center"
-      />
+    <div className="mt-4">
+      <div className="grid grid-cols-2 gap-3">
+        <MetricCard label="Total Orders" value={orders.length} />
+        <MetricCard label="Products Sold" value={productsSold} />
+        <MetricCard label="Store Followers" value={followers} />
+        <MetricCard label="Seller Status" value={<InteractiveStatusBadge status={communityStatus} prominent className="mt-0 flex-col gap-1 text-center" />} valueClassName="text-center" />
+      </div>
+      {communityStatus.nextLevel && <section className="mt-4 rounded-lg border border-[#E0E0E0] bg-white p-4"><h2 className="text-[16px] font-semibold">Progress to {communityStatus.nextLevel.name}</h2><div className="mt-3 flex flex-col gap-3">{progressItems.map(({ key, label, target, value }) => <div key={key}><div className="flex justify-between text-[12px]"><span>{label}</span><span className="font-medium text-[#498467]">{Math.min(value, target)} / {target}</span></div><div className="mt-1 h-1.5 rounded-full bg-[#E6E6E6]"><div className="h-full rounded-full bg-[#498467]" style={{ width: `${Math.min((value / target) * 100, 100)}%` }} /></div></div>)}</div></section>}
     </div>
   );
 }

@@ -14,6 +14,10 @@ function nextPath() {
   }
 }
 
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 export default function SignIn() {
   const navigate = useNavigate();
   const { signInWithEmail, signInWithProvider, isAuthenticated } = useAuth();
@@ -31,7 +35,21 @@ export default function SignIn() {
   }, [isAuthenticated, navigate]);
 
   async function handleContinue() {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail) {
+      setError("Email is required.");
+      return;
+    }
+    if (!isValidEmail(normalizedEmail)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
     setError("");
+    try {
+      localStorage.setItem("grolo-pending-email", normalizedEmail);
+    } catch {
+      // Continue even if local persistence is unavailable.
+    }
     if (!isSupabaseConfigured) {
       navigate(nextPath());
       return;
@@ -91,10 +109,12 @@ export default function SignIn() {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => { setEmail(e.target.value); if (error) setError(""); }}
               placeholder="email@domain.com"
-              className="h-10 rounded-lg border border-[#E0E0E0] bg-white px-4 text-[14px] outline-none"
+              aria-invalid={Boolean(error)}
+              className={`h-10 rounded-lg border bg-white px-4 text-[14px] outline-none ${error ? "border-red-500" : "border-[#E0E0E0]"}`}
             />
+            {error && <p className="text-[12px] text-red-600">{error}</p>}
             <button
               onClick={handleContinue}
               disabled={status === "sending"}
@@ -102,9 +122,6 @@ export default function SignIn() {
             >
               {status === "sending" ? "Sending..." : "Continue"}
             </button>
-            {error && (
-              <p className="text-[12px] text-center text-red-600">{error}</p>
-            )}
           </div>
         )}
 

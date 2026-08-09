@@ -4,24 +4,19 @@ const FoundingMemberContext = createContext(null);
 const STORAGE_KEY = "grolo-founding-members";
 const MAX_FOUNDING_MEMBERS = 100;
 const INITIAL_FOUNDING_MEMBERS = {
-  "sarahs-backyard": {
-    registrationNumber: 1,
-    reviewSubmitted: true,
-    memberSince: "2026-01-15",
-    awardedAt: "2026-01-15",
-  },
-  "current-buyer": {
-    registrationNumber: 17,
-    reviewSubmitted: true,
-    memberSince: "2026-08-07",
-    awardedAt: "2026-08-07",
-  },
+  "sarahs-backyard": { registrationNumber: 1, memberSince: "2026-08-08", awardedAt: "2026-08-08" },
+  "current-buyer": { registrationNumber: 17, memberSince: "2026-08-08", awardedAt: "2026-08-08" },
 };
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function loadMembers() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return saved ? { ...INITIAL_FOUNDING_MEMBERS, ...saved } : INITIAL_FOUNDING_MEMBERS;
+    const members = saved ? { ...INITIAL_FOUNDING_MEMBERS, ...saved } : INITIAL_FOUNDING_MEMBERS;
+    return Object.fromEntries(Object.entries(members).map(([sellerId, member]) => [sellerId, { ...member, reviewSubmitted: true, reserved: false }]));
   } catch {
     return INITIAL_FOUNDING_MEMBERS;
   }
@@ -31,6 +26,7 @@ function persistMembers(members) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(members));
   } catch {
+    // Persistence is best effort; the in-memory state remains available.
   }
 }
 
@@ -43,34 +39,25 @@ function getExpirationDate(createdAt) {
 export function FoundingMemberProvider({ children }) {
   const [members, setMembers] = useState(loadMembers);
 
-  const isFoundingMember = (sellerId) => {
-    const member = members[sellerId];
-    return Boolean(member && member.registrationNumber <= MAX_FOUNDING_MEMBERS && member.reviewSubmitted);
-  };
-
   const getFoundingMember = (sellerId) => {
-    if (!isFoundingMember(sellerId)) return null;
     const member = members[sellerId];
-    return {
-      ...member,
-      memberSince: member.createdAt ?? member.memberSince,
-      expiresAt: getExpirationDate(member.createdAt ?? member.memberSince ?? member.awardedAt),
-    };
+    if (!member || member.registrationNumber > MAX_FOUNDING_MEMBERS) return null;
+    const memberSince = member.memberSince ?? member.awardedAt ?? today();
+    return { ...member, reviewSubmitted: true, reserved: false, memberSince, expiresAt: getExpirationDate(memberSince) };
   };
 
-  const awardFoundingMember = (sellerId, registrationNumber, reviewSubmitted, createdAt) => {
-    if (registrationNumber > MAX_FOUNDING_MEMBERS || !reviewSubmitted || isFoundingMember(sellerId)) return;
-    const next = {
-      ...members,
-      [sellerId]: {
-        registrationNumber,
-        reviewSubmitted: true,
-        ...(createdAt ? { createdAt, memberSince: createdAt } : {}),
-        awardedAt: new Date().toISOString().slice(0, 10),
-      },
-    };
+  const isFoundingMember = (sellerId) => Boolean(getFoundingMember(sellerId));
+
+  const awardFoundingMember = (sellerId, createdAt = today()) => {
+    if (members[sellerId]) return members[sellerId];
+    const usedNumbers = Object.values(members).map((member) => member.registrationNumber).filter(Boolean);
+    const registrationNumber = Array.from({ length: MAX_FOUNDING_MEMBERS }, (_, index) => index + 1).find((number) => !usedNumbers.includes(number));
+    if (!registrationNumber) return null;
+    const nextMember = { registrationNumber, memberSince: createdAt, awardedAt: createdAt, reviewSubmitted: true, reserved: false };
+    const next = { ...members, [sellerId]: nextMember };
     setMembers(next);
     persistMembers(next);
+    return nextMember;
   };
 
   const value = useMemo(() => ({ isFoundingMember, getFoundingMember, awardFoundingMember }), [members]);

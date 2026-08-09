@@ -56,7 +56,16 @@ function SellerAccountSettings() {
   const [uploadError, setUploadError] = useState("");
   const [uploadWarning, setUploadWarning] = useState("");
   const orders = sellerOrders(SELLER_ID);
-  const sellerStatus = getSellerStatus();
+  const sellerStatus = getSellerStatus({
+    listingsCreated: products.filter((product) => product.sellerId === SELLER_ID).length,
+    completedOrders: orders.filter((order) => order.status === "Completed").length,
+    followers: getFollowerCount(SELLER_ID),
+    sellerReviews: 0,
+    marketplaceInteractions: 0,
+    activeDays: 0,
+    averageRating: seller.rating,
+    communityContribution: 0,
+  });
   const { getFoundingMember } = useFoundingMember();
   const foundingMember = getFoundingMember(SELLER_ID);
   const snapshot = {
@@ -170,6 +179,8 @@ function SellerAccountSettings() {
                 <button type="button" onClick={() => navigate("/profit")} className="ml-auto text-[12px] font-medium text-[#498467]">View Progress <span aria-hidden="true">›</span></button>
               </div>
             </Section>
+
+
 
             {foundingMember && <Section title="Founder Benefits">
               <div className="rounded-lg border border-[#E7C66A] bg-[#FFF8DD] p-3">

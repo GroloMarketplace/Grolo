@@ -4,6 +4,8 @@ import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import { useFoundingMember } from "../context/FoundingMemberContext";
+import { useBuyerSettings } from "../context/BuyerSettingsContext";
 
 const SELLER_ID = "sarahs-backyard";
 const DRAFT_KEY = "grolo-open-store-draft";
@@ -19,15 +21,17 @@ const emptyForm = {
   instagram: "", facebook: "", x: "", website: "", phone: "", email: "",
 };
 
-function readDraft(profile) {
+function readDraft(profile, buyerAvatar) {
+  const defaultAvatar = buyerAvatar || profile.avatar;
+  const defaultBanner = profile.banner;
   try {
     const saved = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "null");
     return {
       step: Number.isInteger(saved?.step) ? saved.step : 0,
-      form: { ...emptyForm, avatar: profile.avatar, banner: profile.banner, ...(saved?.form ?? {}) },
+      form: { ...emptyForm, ...(saved?.form ?? {}), avatar: saved?.form?.avatar || defaultAvatar, banner: saved?.form?.banner || defaultBanner },
     };
   } catch {
-    return { step: 0, form: { ...emptyForm, avatar: profile.avatar, banner: profile.banner } };
+    return { step: 0, form: { ...emptyForm, avatar: defaultAvatar, banner: defaultBanner } };
   }
 }
 
@@ -35,8 +39,10 @@ export default function OpenStore() {
   const navigate = useNavigate();
   const { activateStore } = useProfileMode();
   const { getSellerProfile, updateSellerProfile } = useSellerSettings();
+  const { awardFoundingMember } = useFoundingMember();
+  const { settings: buyerSettings } = useBuyerSettings();
   const profile = getSellerProfile(SELLER_ID);
-  const initial = readDraft(profile);
+  const initial = readDraft(profile, buyerSettings.avatar);
   const [step, setStep] = useState(initial.step);
   const [form, setForm] = useState(initial.form);
   const [uploadError, setUploadError] = useState("");
@@ -98,6 +104,7 @@ export default function OpenStore() {
       return;
     }
     try { localStorage.removeItem(DRAFT_KEY); } catch { /* Ignore storage cleanup failures. */ }
+    awardFoundingMember(SELLER_ID);
     activateStore();
     navigate("/shop", { replace: true });
   };

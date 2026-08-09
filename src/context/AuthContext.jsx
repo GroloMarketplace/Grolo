@@ -36,6 +36,12 @@ export function AuthProvider({ children }) {
     if (error) throw error;
   }
 
+  async function updateEmail(email) {
+    if (!isSupabaseConfigured) return;
+    const { error } = await supabase.auth.updateUser({ email });
+    if (error) throw error;
+  }
+
   async function signOut() {
     if (!isSupabaseConfigured) return;
     await supabase.auth.signOut();
@@ -48,6 +54,7 @@ export function AuthProvider({ children }) {
     isAuthenticated: Boolean(session),
     signInWithEmail,
     signInWithProvider,
+    updateEmail,
     signOut,
   };
 

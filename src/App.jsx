@@ -165,6 +165,7 @@ export default function App() {
         <Route path="/community-impact" element={<PhoneFrame><CommunityImpact /></PhoneFrame>} />
         <Route path="/grolo-statuses" element={<PhoneFrame><GroloStatuses /></PhoneFrame>} />
         <Route path="/founding-member/:memberId" element={<PhoneFrame><FoundingMember /></PhoneFrame>} />
+
         <Route path="/trust-reputation" element={<PhoneFrame><TrustReputation /></PhoneFrame>} />
         <Route path="/comments" element={<PhoneFrame hideTabBar><Comments /></PhoneFrame>} />
         <Route

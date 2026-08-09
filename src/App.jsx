@@ -41,7 +41,9 @@ import BuyerProfile from "./pages/BuyerProfile";
 import PublicProfile from "./pages/PublicProfile";
 import ProductDetail from "./pages/ProductDetail";
 import SignIn from "./pages/SignIn";
+import Onboarding from "./pages/Onboarding";
 import AccountSettings from "./pages/AccountSettings";
+import OpenStore from "./pages/OpenStore";
 import CreateListing from "./pages/CreateListing";
 import Saved from "./pages/Saved";
 import SellerProfile from "./pages/SellerProfile";
@@ -97,11 +99,12 @@ export default function App() {
         <PostProvider>
         <DeliveryAddressProvider>
         <Routes>
-        <Route path="/signin" element={<PhoneFrame hideTabBar statusBarBackground="bg-[#E6DCCF]" backgroundColor="bg-[#E6DCCF]"><SignIn /></PhoneFrame>} />
+        <Route path="/signin" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SignIn /></PhoneFrame>} />
+        <Route path="/onboarding" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute><Onboarding /></ProtectedRoute></PhoneFrame>} />
         <Route path="/" element={<PhoneFrame><Feed /></PhoneFrame>} />
         <Route path="/notifications" element={<PhoneFrame><Notifications /></PhoneFrame>} />
-        <Route path="/shop" element={<PhoneFrame><ShopHome /></PhoneFrame>} />
-        <Route path="/seller-profile" element={<PhoneFrame><ShopHome /></PhoneFrame>} />
+        <Route path="/shop" element={<PhoneFrame><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></PhoneFrame>} />
+        <Route path="/seller-profile" element={<PhoneFrame><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></PhoneFrame>} />
         <Route path="/profile" element={<PhoneFrame><BuyerProfile /></PhoneFrame>} />
         <Route path="/profile/:userId" element={<PhoneFrame><PublicProfile /></PhoneFrame>} />
         <Route path="/buyer-profile" element={<PhoneFrame><BuyerProfile /></PhoneFrame>} />
@@ -110,7 +113,7 @@ export default function App() {
           path="/my-shop/advertising"
           element={
             <PhoneFrame>
-              <ProtectedRoute>
+              <ProtectedRoute sellerOnly>
                 <Advertising />
               </ProtectedRoute>
             </PhoneFrame>
@@ -120,7 +123,7 @@ export default function App() {
           path="/my-shop/advertising/create"
           element={
             <PhoneFrame>
-              <ProtectedRoute>
+              <ProtectedRoute sellerOnly>
                 <CreateAdvertisingAd />
               </ProtectedRoute>
             </PhoneFrame>
@@ -132,7 +135,7 @@ export default function App() {
           path="/my-shop/events"
           element={
             <PhoneFrame>
-              <ProtectedRoute>
+              <ProtectedRoute sellerOnly>
                 <ShopEvents />
               </ProtectedRoute>
             </PhoneFrame>
@@ -142,7 +145,7 @@ export default function App() {
           path="/create-event"
           element={
             <PhoneFrame>
-              <ProtectedRoute>
+              <ProtectedRoute sellerOnly>
                 <CreateEvent />
               </ProtectedRoute>
             </PhoneFrame>
@@ -153,7 +156,7 @@ export default function App() {
           path="/create-promotion"
           element={
             <PhoneFrame>
-              <ProtectedRoute>
+              <ProtectedRoute sellerOnly>
                 <CreatePromotion />
               </ProtectedRoute>
             </PhoneFrame>
@@ -168,7 +171,7 @@ export default function App() {
           path="/my-shop/orders"
           element={
             <PhoneFrame>
-              <ProtectedRoute>
+              <ProtectedRoute sellerOnly>
                 <ShopOrders />
               </ProtectedRoute>
             </PhoneFrame>
@@ -232,7 +235,7 @@ export default function App() {
           path="/profit"
           element={
             <PhoneFrame>
-              <ProtectedRoute>
+              <ProtectedRoute sellerOnly>
                 <Profit />
               </ProtectedRoute>
             </PhoneFrame>
@@ -242,7 +245,7 @@ export default function App() {
           path="/analytics"
           element={
             <PhoneFrame>
-              <ProtectedRoute>
+              <ProtectedRoute sellerOnly>
                 <Analytics />
               </ProtectedRoute>
             </PhoneFrame>
@@ -252,7 +255,7 @@ export default function App() {
           path="/create-listing"
           element={
             <PhoneFrame>
-              <ProtectedRoute>
+              <ProtectedRoute sellerOnly>
                 <CreateListing />
               </ProtectedRoute>
             </PhoneFrame>
@@ -262,7 +265,7 @@ export default function App() {
           path="/edit-listing/:id"
           element={
             <PhoneFrame>
-              <ProtectedRoute>
+              <ProtectedRoute sellerOnly>
                 <EditListing />
               </ProtectedRoute>
             </PhoneFrame>
@@ -284,6 +287,16 @@ export default function App() {
             <PhoneFrame>
               <ProtectedRoute>
                 <Saved />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
+        <Route
+          path="/open-store"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute>
+                <OpenStore />
               </ProtectedRoute>
             </PhoneFrame>
           }

@@ -39,7 +39,7 @@ export default function BuyerProfile() {
   const { reviewsForBuyer } = useBuyerTrust();
   const sellerReviews = (reviewsForBuyer?.("you") ?? []).sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0));
   const impactMetrics = getBuyerImpactMetrics({ orders: buyerOrders(), events: liveEvents, attendingEventIds, followedSellers, reviewsWritten: sellerReviews.length });
-  const buyerProfile = { ...BUYER, username: settings.displayName, bio: settings.bio, avatar: settings.avatar };
+  const buyerProfile = { ...BUYER, username: settings.displayName, handle: settings.username, bio: settings.bio, avatar: settings.avatar };
   const publicLocation = settings.showLocationPublicly && settings.location.trim() ? `${settings.location.trim()}, Calgary` : "";
   const { savedItems } = useSavedItems();
   const savedProductCount = savedItems.filter((item) => item.type === "listing").length;
@@ -110,6 +110,7 @@ export default function BuyerProfile() {
               <img src={buyerProfile.avatar} alt={buyerProfile.username} className="h-16 w-16 rounded-full border-2 border-white object-cover shadow" />
               <div className="flex-1">
                 {editing ? <input defaultValue={buyerProfile.username} className="w-full border-b border-[#E6E6E6] text-[20px] font-semibold outline-none" /> : <h1 className="text-[20px] font-semibold">{buyerProfile.username}</h1>}
+                <p className="text-[12px] text-[#828282]">@{buyerProfile.handle}</p>
                 <TrustStatusBadge buyerId="you" />
                 {publicLocation && <p className="mt-0.5 flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{publicLocation}</p>}
               </div>

@@ -1,6 +1,27 @@
 import { createContext, useContext, useState } from "react";
 
 const BuyerSettingsContext = createContext(null);
+const STORAGE_KEY = "grolo-buyer-settings";
+
+function readStoredSettings(initialSettings) {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return initialSettings;
+    const parsed = JSON.parse(stored);
+    return { ...initialSettings, ...parsed, notifications: { ...initialSettings.notifications, ...(parsed.notifications ?? {}) } };
+  } catch {
+    return initialSettings;
+  }
+}
+
+function persistSettings(settings) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const initialSettings = {
   displayName: "remi",
@@ -17,20 +38,28 @@ const initialSettings = {
     communityActivity: true,
   },
   showLocationPublicly: false,
+  username: "remi",
+  interests: [],
 };
 
 export function BuyerSettingsProvider({ children }) {
-  const [settings, setSettings] = useState(initialSettings);
+  const [settings, setSettings] = useState(() => readStoredSettings(initialSettings));
 
   const updateSettings = (updates) => {
-    setSettings((current) => ({
-      ...current,
-      ...updates,
-      notifications: {
-        ...current.notifications,
-        ...(updates.notifications ?? {}),
-      },
-    }));
+    let saved = true;
+    setSettings((current) => {
+      const next = {
+        ...current,
+        ...updates,
+        notifications: {
+          ...current.notifications,
+          ...(updates.notifications ?? {}),
+        },
+      };
+      saved = persistSettings(next);
+      return next;
+    });
+    return saved;
   };
 
   return <BuyerSettingsContext.Provider value={{ settings, updateSettings }}>{children}</BuyerSettingsContext.Provider>;

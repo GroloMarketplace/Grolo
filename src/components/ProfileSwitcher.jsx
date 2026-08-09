@@ -5,7 +5,7 @@ import { useProfileMode } from "../context/ProfileModeContext";
 export default function ProfileSwitcher() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profileMode, setProfileMode } = useProfileMode();
+  const { profileMode, setProfileMode, canSeller } = useProfileMode();
   const [open, setOpen] = useState(false);
   const isBuyerPath = location.pathname === "/profile" || location.pathname === "/buyer-profile";
   const isSeller = !isBuyerPath && (profileMode === "seller" || location.pathname === "/shop" || location.pathname === "/seller-profile");
@@ -31,7 +31,7 @@ export default function ProfileSwitcher() {
       {open && (
         <div className="absolute left-1/2 top-9 z-50 min-w-[160px] -translate-x-1/2 rounded-lg border border-[#E6E6E6] bg-white p-1 text-left shadow-lg">
           <ProfileOption active={!isSeller} label="Buyer Profile" onClick={() => switchProfile("buyer")} />
-          <ProfileOption active={isSeller} label="Seller Profile" onClick={() => switchProfile("seller")} />
+          {canSeller && <ProfileOption active={isSeller} label="Seller Profile" onClick={() => switchProfile("seller")} />}
         </div>
       )}
     </div>

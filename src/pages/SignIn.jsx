@@ -1,30 +1,39 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { useProfileMode } from "../context/ProfileModeContext";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 
-function profilePath(accountType) {
-  return accountType === "buyer" ? "/profile" : "/shop";
+const ONBOARDING_KEY = "grolo-onboarding-complete";
+
+function nextPath() {
+  try {
+    return localStorage.getItem(ONBOARDING_KEY) === "true" ? "/profile" : "/onboarding";
+  } catch {
+    return "/onboarding";
+  }
 }
 
 export default function SignIn() {
   const navigate = useNavigate();
   const { signInWithEmail, signInWithProvider, isAuthenticated } = useAuth();
-  const { accountType, setAccountType } = useProfileMode();
   const [email, setEmail] = useState("");
+  const [accountDeleted] = useState(() => {
+    const deleted = sessionStorage.getItem("grolo-account-deleted") === "true";
+    if (deleted) sessionStorage.removeItem("grolo-account-deleted");
+    return deleted;
+  });
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (isAuthenticated) navigate(profilePath(accountType));
-  }, [accountType, isAuthenticated, navigate]);
+    if (isAuthenticated) navigate(nextPath());
+  }, [isAuthenticated, navigate]);
 
   async function handleContinue() {
     setError("");
     if (!isSupabaseConfigured) {
-      navigate(profilePath(accountType));
+      navigate(nextPath());
       return;
     }
     try {
@@ -40,7 +49,7 @@ export default function SignIn() {
   async function handleProvider(provider) {
     setError("");
     if (!isSupabaseConfigured) {
-      navigate(profilePath(accountType));
+      navigate(nextPath());
       return;
     }
     try {
@@ -51,7 +60,7 @@ export default function SignIn() {
   }
 
   return (
-    <MobileScreenLayout className="bg-[#E6DCCF] flex flex-col justify-between px-6 pb-8 min-h-full">
+    <MobileScreenLayout className="bg-white flex flex-col justify-between px-6 pb-8 min-h-full">
       <div className="flex flex-col items-center gap-2 mt-8">
         <img 
           src="/grolo-logo.svg" 
@@ -68,24 +77,9 @@ export default function SignIn() {
           </div>
         </div>
 
-        <div className="w-full">
-          <p className="mb-2 text-[14px] font-medium">Choose your Grolo profile</p>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              ["buyer", "Buyer Only"],
-              ["seller", "Seller Only"],
-              ["both", "Both"],
-            ].map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setAccountType(value)}
-                className={`rounded-lg border px-2 py-2 text-[12px] font-medium ${accountType === value ? "border-[#498467] bg-[#498467] text-white" : "border-[#E0E0E0] bg-white text-black"}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+        {accountDeleted && <div role="status" className="w-full rounded-lg border border-[#C9DCCB] bg-[#F5FFF6] px-4 py-3 text-center text-[13px] text-[#355F45]">Your account has been successfully deleted.</div>}
+        <div className="w-full rounded-lg border border-[#C9DCCB] bg-[#F5FFF6] px-4 py-3 text-[13px] text-[#355F45]">
+          Your new account starts as a Buyer. You can open a store anytime from your account settings.
         </div>
 
         {status === "sent" ? (

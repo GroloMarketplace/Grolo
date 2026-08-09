@@ -53,6 +53,8 @@ function SellerAccountSettings() {
   const [vacationMessage, setVacationMessage] = useState(profile.vacationMessage ?? "");
   const [returnDate, setReturnDate] = useState(profile.returnDate ?? "");
   const [saved, setSaved] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [uploadWarning, setUploadWarning] = useState("");
   const orders = sellerOrders(SELLER_ID);
   const sellerStatus = getSellerStatus();
   const { getFoundingMember } = useFoundingMember();
@@ -68,16 +70,43 @@ function SellerAccountSettings() {
     ? values.filter((item) => item !== value)
     : [...values, value];
 
-  const handleFile = (event, setValue) => {
+  const handleFile = (event, setValue, kind) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    const isBanner = kind === "banner";
+    setUploadError("");
+    setUploadWarning("");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setUploadError("Please choose a JPG, PNG, or WEBP image.");
+      return;
+    }
+    if (file.size > (isBanner ? 5 : 3) * 1024 * 1024) {
+      setUploadError(`This image must be ${isBanner ? 5 : 3} MB or smaller.`);
+      return;
+    }
     const reader = new FileReader();
-    reader.onload = () => setValue(reader.result);
+    reader.onload = () => {
+      setValue(reader.result);
+      const image = new Image();
+      image.onload = () => {
+        if (isBanner) {
+          const warnings = [];
+          if (image.width < 1500 || image.height < 500) warnings.push("For best quality, use at least 1500 × 500 px.");
+          if (Math.abs((image.width / image.height) - 3) / 3 > 0.2) warnings.push("This image may be cropped to fit the 3:1 banner ratio.");
+          setUploadWarning(warnings.join(" "));
+        } else if (image.width < 800 || image.height < 800) {
+          setUploadWarning("For a sharp profile picture, use at least 800 × 800 px.");
+        }
+      };
+      image.src = reader.result;
+    };
+    reader.onerror = () => setUploadError("We couldn't read that image. Please try again.");
     reader.readAsDataURL(file);
   };
 
   const handleSave = () => {
-    updateSellerProfile(SELLER_ID, {
+    if (uploadError) return;
+    const profileSaved = updateSellerProfile(SELLER_ID, {
       name,
       description,
       location,
@@ -88,6 +117,10 @@ function SellerAccountSettings() {
       vacationMessage,
       returnDate,
     });
+    if (!profileSaved) {
+      setUploadError("Your profile image could not be saved. Please try a smaller image.");
+      return;
+    }
     updatePaymentMethods(SELLER_ID, methods, eTransferEmail);
     updateFulfillment(SELLER_ID, fulfillmentMethods, deliveryFee, deliveryRadius, pickupLocation, pickupNotes);
     setSaved(true);
@@ -110,13 +143,15 @@ function SellerAccountSettings() {
                 <img src={avatar} alt={name} className="h-20 w-20 rounded-full object-cover" />
                 <div className="flex flex-col gap-2">
                   <span className="text-[14px] font-medium">Profile Picture</span>
-                  <FileButton label="Change Profile Picture" accept="image/*" onChange={(event) => handleFile(event, setAvatar)} />
+                  <div className="text-[11px] leading-[140%] text-[#828282]">Recommended: 800 × 800 px<br />Maximum Size: 3 MB<br />JPG, PNG, WEBP</div><FileButton label="Change Profile Picture" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, setAvatar, "avatar")} />
                 </div>
               </div>
               <div className="mt-4 flex items-center gap-3">
                 <img src={banner} alt="Store banner" className="h-20 flex-1 rounded-lg object-cover" />
-                <div className="flex flex-col items-start gap-2"><FileButton label="Upload / Change Store Banner" accept="image/*" onChange={(event) => handleFile(event, setBanner)} /><div className="text-[11px] leading-[140%] text-[#828282]">Recommended Banner Size<br /><span className="font-medium text-[#4F4F4F]">1200 × 400 px</span> (3:1 ratio)<br />Accepted formats: JPG, PNG<br />Maximum file size: 5 MB</div></div>
+                <div className="flex flex-col items-start gap-2"><div className="text-[11px] leading-[140%] text-[#828282]">Recommended Banner Size<br /><span className="font-medium text-[#4F4F4F]">1500 × 500 px</span><br />Maximum Size: 5 MB<br />JPG, PNG, WEBP<br />Choose a wide image that represents your business.</div><FileButton label="Upload / Change Store Banner" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, setBanner, "banner")} /></div>
               </div>
+              {uploadWarning && <p className="mt-3 text-[12px] text-amber-700">{uploadWarning}</p>}
+              {uploadError && <p role="alert" className="mt-3 text-[12px] text-red-600">{uploadError}</p>}
             </Section>
 
             <Section title="Store Information">
@@ -192,6 +227,7 @@ function SellerAccountSettings() {
 
 function BuyerAccountSettings() {
   const navigate = useNavigate();
+  const { canSeller } = useProfileMode();
   const { isSidebarOpen, closeSidebar } = useSidebar();
   const { settings, updateSettings } = useBuyerSettings();
   const [displayName, setDisplayName] = useState(settings.displayName);
@@ -235,6 +271,14 @@ function BuyerAccountSettings() {
               <label className="flex flex-col gap-2 text-[14px] font-medium">Bio (optional)<textarea value={bio} onChange={(event) => setBio(event.target.value)} rows={3} className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-3 text-[14px] font-normal outline-none focus:border-[#498467]" /></label>
               <Field label="Location (optional)" value={location} placeholder="Optional" onChange={setLocation} />
             </Section>
+
+            {!canSeller && <Section title="Sell with Grolo">
+              <div className="rounded-lg bg-[#F5FFF6] p-4">
+                <div className="text-[14px] font-medium">Ready to share what you do?</div>
+                <div className="mt-1 text-[12px] text-[#828282]">Open a store to unlock your seller profile, listings, orders, and dashboard.</div>
+                <button type="button" onClick={() => navigate("/open-store")} className="mt-3 rounded-lg bg-[#498467] px-4 py-2 text-[13px] font-medium text-white">Open a Store</button>
+              </div>
+            </Section>}
 
             <Section title="Buyer Status">
               <div className="flex items-center gap-3 rounded-lg bg-[#F5FFF6] p-3">

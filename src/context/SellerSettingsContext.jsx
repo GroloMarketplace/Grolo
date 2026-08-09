@@ -2,6 +2,7 @@ import { createContext, useContext, useState } from "react";
 import { sellers } from "../data/mockData";
 
 const SellerSettingsContext = createContext(null);
+const STORAGE_KEY = "grolo-seller-profiles";
 
 const defaultNotifications = {
   newOrders: true,
@@ -25,23 +26,47 @@ const initialProfiles = Object.fromEntries(
   }]),
 );
 
+function readStoredProfiles() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? { ...initialProfiles, ...JSON.parse(stored) } : initialProfiles;
+  } catch {
+    return initialProfiles;
+  }
+}
+
+function storeProfiles(profiles) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function SellerSettingsProvider({ children }) {
-  const [profiles, setProfiles] = useState(initialProfiles);
+  const [profiles, setProfiles] = useState(readStoredProfiles);
 
   const getSellerProfile = (sellerId) => profiles[sellerId] ?? profiles["sarahs-backyard"];
 
   const updateSellerProfile = (sellerId, updates) => {
-    setProfiles((current) => ({
-      ...current,
-      [sellerId]: {
-        ...(current[sellerId] ?? initialProfiles["sarahs-backyard"]),
-        ...updates,
-        notifications: {
-          ...(current[sellerId]?.notifications ?? defaultNotifications),
-          ...(updates.notifications ?? {}),
+    let saved = true;
+    setProfiles((current) => {
+      const next = {
+        ...current,
+        [sellerId]: {
+          ...(current[sellerId] ?? initialProfiles["sarahs-backyard"]),
+          ...updates,
+          notifications: {
+            ...(current[sellerId]?.notifications ?? defaultNotifications),
+            ...(updates.notifications ?? {}),
+          },
         },
-      },
-    }));
+      };
+      saved = storeProfiles(next);
+      return next;
+    });
+    return saved;
   };
 
   return <SellerSettingsContext.Provider value={{ profiles, getSellerProfile, updateSellerProfile }}>{children}</SellerSettingsContext.Provider>;

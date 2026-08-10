@@ -97,6 +97,7 @@ export function OrderProvider({ children }) {
       buyer: currentUser.username,
       buyerAvatar: currentUser.avatar,
       fulfillmentMethod: orderDetails.fulfillmentMethod ?? "pickup",
+      createdAt: Date.now(),
     }));
     setOrders((current) => {
       const mergedOrders = [...current, ...nextOrders];

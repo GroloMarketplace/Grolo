@@ -2,15 +2,18 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import { products } from "../data/mockData";
 import { PROMOTION_TYPES, usePromotions } from "../context/PromotionContext";
+import { useListings } from "../context/ListingContext";
+import { useProfileMode } from "../context/ProfileModeContext";
 
 const SELLER_ID = "sarahs-backyard";
 
 export default function CreatePromotion() {
   const navigate = useNavigate();
   const { addPromotion } = usePromotions();
-  const sellerProducts = products.filter((product) => product.sellerId === SELLER_ID);
+  const { listings } = useListings();
+  const { storeOpenedAt } = useProfileMode();
+  const sellerProducts = listings.filter((product) => product.sellerId === SELLER_ID && Number(product.createdAt) >= storeOpenedAt);
   const [formData, setFormData] = useState({
     title: "",
     type: "percentage",

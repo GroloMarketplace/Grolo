@@ -6,7 +6,7 @@ import CommunityImpactCard from "../components/CommunityImpactCard";
 import PromotionBadge from "../components/PromotionBadge";
 import ContentActionSheet from "../components/ContentActionSheet";
 import ShareSheet from "../components/ShareSheet";
-import { usePromotions } from "../context/PromotionContext";
+import { promotionUrgencyLabel, usePromotions } from "../context/PromotionContext";
 import { useAdvertising } from "../context/AdvertisingContext";
 import { useSavedItems } from "../context/SavedContext";
 import { useRegrow } from "../context/RegrowContext";
@@ -41,6 +41,8 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useListings } from "../context/ListingContext";
 import { usePosts } from "../context/PostContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
+import { discoveryRadiusLabel, isWithinDiscoveryRadius } from "../utils/locationRadius";
+import DistanceLabel from "../components/DistanceLabel";
 
 const TABS = ["Following", "Your Community"];
 const COMMUNITY_FILTERS = ["For You", "Posts", "Events", "Listings", "Promotions", "Regrows"];
@@ -74,6 +76,7 @@ export default function Feed() {
   const touchStartRef = useRef(null);
   const [notificationsRead, setNotificationsRead] = useState(() => localStorage.getItem("grolo-notifications-read") === "true");
   const { followedSellers } = useFollow();
+  const { settings: buyerSettings = {} } = useBuyerSettings();
   const { orderNotifications } = useOrders();
   const unreadNotifications = notificationsRead ? 0 : notificationsHighlights.length + notificationsFollowers.length + orderNotifications.length;
 
@@ -243,6 +246,8 @@ export default function Feed() {
               <FollowingFeed
                 key={`following-${feedVersion}`}
                 followedSellers={followedSellers}
+                location={buyerSettings.latitude ? buyerSettings : buyerSettings.location}
+                radius={buyerSettings.locationRadius ?? 25}
                 hiddenContentIds={hiddenContentIds}
                 onComment={openComments}
                 onMenu={setActionContent}
@@ -258,6 +263,8 @@ export default function Feed() {
                 onComment={openComments}
                 onMenu={setActionContent}
                 onShare={openShare}
+                location={buyerSettings.latitude ? buyerSettings : buyerSettings.location}
+                radius={buyerSettings.locationRadius ?? 25}
                 hiddenContentIds={hiddenContentIds}
               />
             </div>
@@ -288,18 +295,18 @@ export default function Feed() {
   );
 }
 
-function FollowingFeed({ followedSellers, hiddenContentIds, onComment, onMenu, onShare }) {
+function FollowingFeed({ followedSellers, location, radius, hiddenContentIds, onComment, onMenu, onShare }) {
   const { upcomingEvents } = useEvents();
   const { listings } = useListings();
   const { posts } = usePosts();
   const { activePromotions } = usePromotions();
-  const events = upcomingEvents().filter((event) => followedSellers.includes(event.sellerId));
-  const followedPosts = [...followingPosts, ...posts].filter((post) => followedSellers.includes(post.sellerId));
-  const followedListings = listings.filter((product) => followedSellers.includes(product.sellerId));
+  const events = upcomingEvents().filter((event) => followedSellers.includes(event.sellerId) && isWithinDiscoveryRadius(event, location, radius));
+  const followedPosts = [...followingPosts, ...posts].filter((post) => followedSellers.includes(post.sellerId) && isWithinDiscoveryRadius(post, location, radius));
+  const followedListings = listings.filter((product) => followedSellers.includes(product.sellerId) && isWithinDiscoveryRadius(product, location, radius));
   const listingsForPromotions = listings;
   const postsForItems = followedPosts;
   const listingsForItems = followedListings;
-  const promotions = activePromotions().filter((promotion) => followedSellers.includes(promotion.sellerId));
+  const promotions = activePromotions().filter((promotion) => followedSellers.includes(promotion.sellerId) && isWithinDiscoveryRadius(promotion, location, radius));
   const items = getFollowedItems({ posts: postsForItems, events, listings: listingsForItems, promotions, allListings: listingsForPromotions, hiddenContentIds });
 
   return (
@@ -323,16 +330,18 @@ function getFollowedItems({ posts, events, listings, promotions, allListings, hi
   return items.filter((item) => !hiddenContentIds.has(item.id));
 }
 
-function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu, onShare, hiddenContentIds }) {
+function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu, onShare, location, radius, hiddenContentIds }) {
   const { upcomingEvents } = useEvents();
   const { listings } = useListings();
   const { posts } = usePosts();
   const { activePromotions } = usePromotions();
   const { isRegrown } = useRegrow();
   const [touchStart, setTouchStart] = useState(null);
-  const events = upcomingEvents();
-  const currentPromotions = activePromotions();
-  const items = getCommunityItems(filter, { events, listings, posts, currentPromotions, isRegrown, hiddenContentIds });
+  const events = upcomingEvents().filter((event) => isWithinDiscoveryRadius(event, location, radius));
+  const nearbyListings = listings.filter((listing) => isWithinDiscoveryRadius(listing, location, radius));
+  const nearbyPosts = posts.filter((post) => isWithinDiscoveryRadius(post, location, radius));
+  const currentPromotions = [];
+  const items = getCommunityItems(filter, { events, listings: nearbyListings, posts: nearbyPosts, currentPromotions, isRegrown, hiddenContentIds });
 
   const changeFilter = (nextFilter) => onFilterChange(nextFilter);
   const handlePointerEnd = (event) => {
@@ -376,6 +385,7 @@ function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu
         ))}
       </div>
       <div className="flex flex-col gap-4 px-4 py-3">
+        <p className="text-[12px] text-[#828282]">Showing results within {discoveryRadiusLabel(radius)}</p>
         <CommunityImpactCard />
         {items.map((item) => renderCommunityItem(item, onOpenDetail, onComment, onMenu, onShare))}
       </div>
@@ -458,6 +468,7 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
           </button>
           <FoundingMemberBadge sellerId={product.sellerId} iconOnly />
         </div>
+        <DistanceLabel content={product} />
         <MoreButton onClick={() => onMenu(menuContent)} />
       </div>
       <p className="text-[12px] text-[#828282]">{product.postedAt ?? "Recently posted"}</p>
@@ -482,7 +493,21 @@ function PromotionFeedCard({ promotion, product, onOpenDetail, onMenu, onShare }
   const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
   const savedItem = product ? { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName: product.shop, image: product.image, description: product.name } : null;
   const menuContent = { id: `promotion:${promotion.id}`, type: "promotion", title: promotion.title, name: promotion.title, sellerId: promotion.sellerId, productId: product?.id, sharePath: product ? `/product/${product.id}` : "/", savedItem: { id: `promotion:${promotion.id}`, type: "promotion", sourceId: promotion.id, name: promotion.title, storeName: product?.shop, image: product?.image, description: promotion.title, promotion, productId: product?.id } };
-  return <div className="rounded-lg border border-[#E6E6E6] p-3"><div className="flex items-center justify-between gap-2"><PromotionBadge promotion={promotion} /><MoreButton onClick={() => onMenu(menuContent)} /></div><VacationBadge sellerId={promotion.sellerId} />{product && <button type="button" onClick={() => openDetail(`/product/${product.id}`, { sellerId: product.sellerId })} className="mt-3 block w-full"><img src={product.image} alt={product.name} className="aspect-square w-full rounded object-cover" /></button>}<h3 className="mt-2 text-[16px] font-semibold">{promotion.title}</h3><p className="text-[14px] text-[#498467]">{product?.shop}</p><div className="mt-3 flex justify-end gap-4">{savedItem && <SaveButton savedItem={savedItem} />}<ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>;
+  return (
+    <div className="overflow-hidden rounded-xl border border-[#F3D38A] bg-gradient-to-br from-[#FFFDF5] via-white to-[#F5FFF6] p-4 shadow-[0_5px_18px_rgba(73,132,103,0.14)]">
+      <div className="flex items-start justify-between gap-2">
+        <PromotionBadge promotion={promotion} className="text-[13px]" />
+        <MoreButton onClick={() => onMenu(menuContent)} />
+      </div>
+      <VacationBadge sellerId={promotion.sellerId} />
+      {product && <button type="button" onClick={() => openDetail(`/product/${product.id}`, { sellerId: product.sellerId })} className="relative mt-4 block w-full overflow-hidden rounded-lg"><img src={product.image} alt={product.name} className="aspect-square w-full object-cover" /><span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[15px] font-extrabold uppercase text-[#498467] shadow">{promotionDisplayLabel(promotion)}</span></button>}
+      <h3 className="mt-4 text-[20px] font-bold tracking-[-0.3px]">{promotion.title}</h3>
+      <p className="mt-2 text-[14px] font-semibold text-[#498467]">{product?.shop}</p>
+      <DistanceLabel content={product ?? promotion} className="mt-1" />
+      <p className="mt-2 text-[12px] font-semibold uppercase tracking-[0.4px] text-[#B56576]">⏳ {promotionUrgencyLabel(promotion)}</p>
+      <div className="mt-4 flex items-center justify-between gap-4"><button type="button" onClick={() => product && openDetail(`/product/${product.id}`, { sellerId: product.sellerId })} className="rounded-lg bg-[#498467] px-4 py-2 text-[13px] font-semibold text-white">View Promotion</button><div className="flex gap-4">{savedItem && <SaveButton savedItem={savedItem} />}<ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>
+    </div>
+  );
 }
 
 function ShareButton({ onClick }) {
@@ -593,6 +618,7 @@ function EventPost({ event, onOpenDetail, onComment, onMenu, onShare }) {
         </div>
         <MoreButton onClick={() => onMenu(menuContent)} />
       </div>
+      <DistanceLabel content={event} />
 
       <button
         onClick={openEvent}

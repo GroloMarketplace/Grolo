@@ -7,6 +7,7 @@ import ReviewSummary from "./ReviewSummary";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "./ServiceCategoryLabel";
 import ConfirmationModal from "./ConfirmationModal";
+import DistanceLabel from "./DistanceLabel";
 
 export default function SellerListingCard({ product, onDelete }) {
   const navigate = useNavigate();
@@ -76,6 +77,7 @@ export default function SellerListingCard({ product, onDelete }) {
           <div className="text-[12px] text-black/50 line-clamp-2">
             {product.shop}
           </div>
+          <DistanceLabel content={product} />
           <div className="text-[14px] text-black line-clamp-2">
             {product.name}
           </div>

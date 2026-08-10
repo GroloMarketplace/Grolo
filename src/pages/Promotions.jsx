@@ -1,17 +1,20 @@
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import { promotionDisplayLabel, usePromotions } from "../context/PromotionContext";
+import { promotionDisplayLabel, promotionUrgencyLabel, usePromotions } from "../context/PromotionContext";
 import { sellers } from "../data/mockData";
 import { useListings } from "../context/ListingContext";
+import { useProfileMode } from "../context/ProfileModeContext";
+import DistanceLabel from "../components/DistanceLabel";
 
 export default function Promotions() {
   const navigate = useNavigate();
   const { sellerId } = useParams();
   const { promotionsForSeller } = usePromotions();
   const { listings } = useListings();
+  const { storeOpenedAt } = useProfileMode();
   const seller = sellers[sellerId] ?? sellers["sarahs-backyard"];
-  const promotions = promotionsForSeller(seller.id);
+  const promotions = promotionsForSeller(seller.id).filter((promotion) => Number(promotion.createdAt) >= storeOpenedAt);
 
   return (
     <MobileScreenLayout>
@@ -25,10 +28,12 @@ export default function Promotions() {
             {promotions.map((promotion) => {
               const promotionListings = listings.filter((listing) => promotion.productIds?.includes(listing.id));
               return (
-                <article key={promotion.id} className="rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4">
-                  <div className="text-[12px] font-medium uppercase tracking-[0.3px] text-[#498467]">{promotionDisplayLabel(promotion)}</div>
-                  <h2 className="mt-1 text-[17px] font-semibold">{promotion.title}</h2>
-                  <div className="mt-3 text-[13px] text-[#828282]">Available on:</div>
+                <article key={promotion.id} className="rounded-xl border border-[#F3D38A] bg-gradient-to-br from-[#FFFDF5] to-[#F5FFF6] p-5 shadow-[0_5px_18px_rgba(73,132,103,0.14)]">
+                  <div className="flex items-center justify-between gap-3"><div className="rounded-full bg-[#498467] px-3 py-1.5 text-[12px] font-bold uppercase tracking-[0.3px] text-white">{promotionDisplayLabel(promotion)}</div><span className="text-[12px] font-semibold text-[#B56576]">⏳ {promotionUrgencyLabel(promotion)}</span></div>
+                  <h2 className="mt-4 text-[21px] font-bold">{promotion.title}</h2>
+                  <p className="mt-2 text-[14px] font-semibold text-[#498467]">{seller.name}</p>
+                  <DistanceLabel content={seller} className="mt-1 block" />
+                  <div className="mt-4 text-[13px] font-medium text-[#828282]">Available on:</div>
                   <div className="mt-1 flex flex-col gap-1 text-[14px] text-[#4F4F4F]">
                     {promotionListings.length > 0 ? promotionListings.map((listing) => <div key={listing.id}>{listing.name}</div>) : <div>No current listings</div>}
                   </div>

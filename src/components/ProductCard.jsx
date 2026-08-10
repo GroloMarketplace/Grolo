@@ -5,6 +5,7 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import FoundingMemberBadge from "./FoundingMemberBadge";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "./ServiceCategoryLabel";
+import DistanceLabel from "./DistanceLabel";
 
 export default function ProductCard({ product, onClick }) {
   const { promotionsForProduct } = usePromotions();
@@ -36,6 +37,7 @@ export default function ProductCard({ product, onClick }) {
         <div className="text-[12px] text-black/50 line-clamp-2">
           {product.shop}
         </div>
+        <DistanceLabel content={product} />
         <FoundingMemberBadge sellerId={product.sellerId} compact />
         <div className="text-[14px] text-black line-clamp-2">
           {product.name}

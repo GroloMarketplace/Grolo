@@ -11,6 +11,7 @@ import { useEngagement } from "../context/EngagementContext";
 import { usePosts } from "../context/PostContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useAuth } from "../context/AuthContext";
+import DistanceLabel from "../components/DistanceLabel";
 import { toggleCommentLike as persistCommentLike } from "../lib/api/commentLikes";
 
 function imageReferenceMatches(first, second) {
@@ -92,7 +93,7 @@ export default function PostDetail() {
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-5">
         <div className="flex items-center gap-3">
           <img src={postAvatar} alt={post.name} className="h-10 w-10 rounded-full object-cover" />
-          <div className="min-w-0 flex-1"><div className="flex items-center gap-1"><span className="truncate text-[16px] font-semibold text-[#498467]">{post.name}</span><FoundingMemberBadge sellerId={post.sellerId} iconOnly /></div><div className="text-[12px] text-[#828282]">{post.location ?? seller?.location ?? "Local community"} · {post.time}</div></div>
+          <div className="min-w-0 flex-1"><div className="flex items-center gap-1"><span className="truncate text-[16px] font-semibold text-[#498467]">{post.name}</span><FoundingMemberBadge sellerId={post.sellerId} iconOnly /></div><div className="flex flex-col gap-1 text-[12px] text-[#828282]"><DistanceLabel content={post} /><span>{post.location ?? seller?.location ?? "Local community"} · {post.time}</span></div></div>
         </div>
         {post.image && <img src={post.image} alt="" className="mt-5 aspect-square w-full rounded-lg object-cover" />}
         <p className="mt-5 whitespace-pre-wrap text-[16px] leading-7">{post.body}</p>

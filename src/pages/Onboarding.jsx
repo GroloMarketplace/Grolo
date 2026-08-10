@@ -27,7 +27,7 @@ function readPendingEmail() {
 
 export default function Onboarding() {
   const navigate = useNavigate();
-  const { settings, updateSettings } = useBuyerSettings();
+  const { settings, updateSettings, refreshLocation } = useBuyerSettings();
   const { user, updateEmail } = useAuth();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
@@ -104,14 +104,26 @@ export default function Onboarding() {
       setStep(1);
       return;
     }
-    const saved = updateSettings({ ...form, email: form.email.trim() });
+    const saved = updateSettings({
+      ...form,
+      email: form.email.trim(),
+      city: form.location.split(",")[0].trim(),
+      province: "Alberta",
+    });
     if (!saved) {
       setError("We couldn't save your profile. Please try again with a smaller photo.");
       return;
     }
     localStorage.setItem(ONBOARDING_KEY, "true");
     localStorage.removeItem("grolo-pending-email");
-    navigate("/profile", { replace: true });
+    navigate("/", {
+      replace: true,
+      state: {
+        tab: "Your Community",
+        communityFilter: "For You",
+        refreshFeed: Date.now(),
+      },
+    });
   };
 
   return (
@@ -122,7 +134,8 @@ export default function Onboarding() {
         {step === 1 && <ProfileStep form={form} update={update} error={error} onContinue={handleProfileContinue} />}
         {step === 2 && <PhotoStep form={form} update={update} handleFile={handleFile} error={error} onContinue={() => { setError(""); setStep(3); }} onSkip={() => { setError(""); setStep(3); }} />}
         {step === 3 && <InterestsStep interests={form.interests} toggleInterest={toggleInterest} onContinue={() => { setError(""); setStep(4); }} />}
-        {step === 4 && <ReadyStep form={form} onEnter={finish} />}
+        {step === 4 && <LocationPermissionStep onAllow={async () => { await refreshLocation(); setStep(5); }} onNotNow={() => { updateSettings({ locationPermission: "denied" }); setStep(5); }} />}
+        {step === 5 && <ReadyStep form={form} onEnter={finish} />}
       </div>
     </MobileScreenLayout>
   );
@@ -142,6 +155,10 @@ function PhotoStep({ form, update, handleFile, error, onContinue, onSkip }) {
 
 function InterestsStep({ interests, toggleInterest, onContinue }) {
   return <Step title="Personalize Your Experience"><p className="text-[13px] text-[#828282]">What interests you? Choose as many as you like.</p><div className="grid grid-cols-2 gap-2">{INTERESTS.map((interest) => <button key={interest} type="button" onClick={() => toggleInterest(interest)} className={`rounded-lg border px-3 py-3 text-left text-[12px] font-medium ${interests.includes(interest) ? "border-[#498467] bg-[#498467] text-white" : "border-[#E0E0E0] bg-white"}`}>{interest}</button>)}</div><NextButton onClick={onContinue}>Continue</NextButton></Step>;
+}
+
+function LocationPermissionStep({ onAllow, onNotNow }) {
+  return <Step title="Help Us Personalize Your Community"><p className="text-[14px] leading-[150%] text-[#4F4F4F]">Allow Grolo to access your location to discover nearby businesses, events, products, services, and community activity.</p><div className="rounded-lg bg-[#F5FFF6] p-4 text-[13px] text-[#355F45]">Grolo only uses your location to improve local discovery. We never publicly display your exact location.</div><NextButton onClick={onAllow}>Allow Location Access</NextButton><button type="button" onClick={onNotNow} className="text-[13px] font-medium text-[#498467]">Not Now</button></Step>;
 }
 
 function ReadyStep({ form, onEnter }) {

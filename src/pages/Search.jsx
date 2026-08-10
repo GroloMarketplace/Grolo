@@ -24,6 +24,9 @@ import MapView from "../components/MapView";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useListings } from "../context/ListingContext";
 import ReviewSummary from "../components/ReviewSummary";
+import { useBuyerSettings } from "../context/BuyerSettingsContext";
+import { isWithinDiscoveryRadius, discoveryRadiusLabel } from "../utils/locationRadius";
+import DistanceLabel from "../components/DistanceLabel";
 
 const TABS = ["Local", "Map", "History", "My Orders"];
 
@@ -39,6 +42,8 @@ const ORDER_SECTIONS = [
 export default function Search() {
   const navigate = useNavigate();
   const { listings } = useListings();
+  const safeListings = Array.isArray(listings) ? listings.filter(Boolean) : [];
+  const { settings: buyerSettings = {} } = useBuyerSettings();
   const location = useLocation();
   const scrollRef = useRef(null);
   const savedSearchState = location.state?.resetSearch
@@ -108,10 +113,11 @@ export default function Search() {
 
       <div ref={scrollRef} className="overflow-y-auto flex-1 no-scrollbar">
         <div className="bg-white py-3 border-b border-black/5">
+          <p className="px-4 pb-2 text-[12px] text-[#828282]">Showing results within {discoveryRadiusLabel(buyerSettings.locationRadius ?? 25)}</p>
           <SearchBar value={query} onChange={(event) => { queryRef.current = event.target.value; setQuery(event.target.value); }} />
         </div>
 
-        {tab === "Local" && query.trim() ? <SearchResults products={listings} query={query} navigate={navigate} onProduct={rememberProduct} onBack={returnToSearchHome} /> : tab === "Local" && (
+        {tab === "Local" && query.trim() ? <SearchResults products={safeListings} query={query} navigate={navigate} onProduct={rememberProduct} onBack={returnToSearchHome} buyerSettings={buyerSettings} /> : tab === "Local" && (
           <>
             <CommunitySpotlightCarousel />
             <CategoryRow onCategory={(path) => { writeNavigationState("search", { tab, query, scrollTop: scrollRef.current?.scrollTop ?? 0, currentRoutePath: path }); navigate(path, { state: { fromSearch: true } }); }} />
@@ -135,18 +141,23 @@ export default function Search() {
   );
 }
 
-function SearchResults({ products, query, navigate, onProduct, onBack }) {
+function SearchResults({ products, query, navigate, onProduct, onBack, buyerSettings }) {
   const normalizedQuery = query.trim().toLowerCase();
+  const nearby = (content) => isWithinDiscoveryRadius(content, buyerSettings.latitude ? buyerSettings : buyerSettings.location, buyerSettings.locationRadius ?? 25);
+  const nearbyProducts = products.filter(nearby);
+  const nearbyEvents = events.filter(nearby);
+  const nearbyPosts = [...followingPosts, ...communityPosts].filter(nearby);
+  const nearbySellers = Object.values(sellers).filter((seller) => nearby(seller));
   const matches = (value) => String(value ?? "").toLowerCase().includes(normalizedQuery);
-  const productResults = products.filter((product) => matches(`${product.name} ${product.description} ${product.shop}`));
-  const storeResults = Object.values(sellers).filter((seller) => matches(`${seller.name} ${seller.description} ${seller.location}`));
-  const eventResults = events.filter((event) => matches(`${event.title} ${event.description} ${event.type} ${event.location}`));
-  const postResults = [...followingPosts, ...communityPosts].filter((post, index, posts) => posts.findIndex((item) => item.id === post.id) === index && matches(`${post.body} ${post.name} ${post.classification}`));
-  const tradeResults = products.filter((product) => product.availableForTrade && matches(`${product.name} ${product.tradeAvailableFor} ${product.desiredTradeItems}`));
+  const productResults = nearbyProducts.filter((product) => matches(`${product.name} ${product.description} ${product.shop}`));
+  const storeResults = nearbySellers.filter((seller) => matches(`${seller.name} ${seller.description} ${seller.location}`));
+  const eventResults = nearbyEvents.filter((event) => matches(`${event.title} ${event.description} ${event.type} ${event.location}`));
+  const postResults = nearbyPosts.filter((post, index, posts) => posts.findIndex((item) => item.id === post.id) === index && matches(`${post.body} ${post.name} ${post.classification}`));
+  const tradeResults = nearbyProducts.filter((product) => product.availableForTrade && matches(`${product.name} ${product.tradeAvailableFor} ${product.desiredTradeItems}`));
   const groups = [
     { title: "Products", items: productResults, render: (product) => <ProductSearchRow key={product.id} product={product} onProduct={onProduct} /> },
-    { title: "Stores", items: storeResults, render: (seller) => <ResultRow key={seller.id} title={seller.name} subtitle={seller.location} onClick={() => navigate(`/seller/${seller.id}`)} /> },
-    { title: "Events", items: eventResults, render: (event) => <ResultRow key={event.id} title={event.title} subtitle={event.location} onClick={() => navigate(`/event/${event.id}`)} /> },
+    { title: "Stores", items: storeResults, render: (seller) => <ResultRow key={seller.id} title={seller.name} subtitle={seller.location} content={seller} onClick={() => navigate(`/seller/${seller.id}`)} /> },
+    { title: "Events", items: eventResults, render: (event) => <ResultRow key={event.id} title={event.title} subtitle={event.location} content={event} onClick={() => navigate(`/event/${event.id}`)} /> },
     { title: "Posts", items: postResults, render: (post) => <ResultRow key={post.id} title={post.body} subtitle={post.name} onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })} /> },
     { title: "Trades", items: tradeResults, render: (product) => <ResultRow key={`trade-${product.id}`} title={`Looking to trade ${product.name}`} subtitle={`For ${product.desiredTradeItems || product.tradeAvailable}`} onClick={() => onProduct(product.id)} /> },
   ];
@@ -163,6 +174,7 @@ function ProductSearchRow({ product, onProduct }) {
         <ServiceCategoryLabel listing={product} className="block" />
         <div className="truncate text-[14px] font-medium">{product.name}</div>
         <div className="mt-1 text-[12px] text-[#828282]">{product.shop}</div>
+        <DistanceLabel content={product} className="mt-1 block" />
         <div className="mt-1 text-[14px] font-semibold text-[#498467]">{formatListingPrice(product)}</div>
       </button>
       <ReviewSummary product={product} onClick={openReviews} />
@@ -170,8 +182,8 @@ function ProductSearchRow({ product, onProduct }) {
   );
 }
 
-function ResultRow({ title, subtitle, onClick }) {
-  return <button type="button" onClick={onClick} className="flex w-full items-center justify-between rounded-lg border border-[#E6E6E6] p-3 text-left hover:bg-[#F5FFF6]"><div className="min-w-0"><div className="truncate text-[14px] font-medium">{title}</div>{subtitle && <div className="mt-1 truncate text-[12px] text-[#828282]">{subtitle}</div>}</div><span className="ml-3 text-[20px] text-[#498467]">›</span></button>;
+function ResultRow({ title, subtitle, content, onClick }) {
+  return <button type="button" onClick={onClick} className="flex w-full items-center justify-between rounded-lg border border-[#E6E6E6] p-3 text-left hover:bg-[#F5FFF6]"><div className="min-w-0"><div className="truncate text-[14px] font-medium">{title}</div>{subtitle && <div className="mt-1 truncate text-[12px] text-[#828282]">{subtitle}</div>}{content && <DistanceLabel content={content} className="mt-1 block" />}</div><span className="ml-3 text-[20px] text-[#498467]">›</span></button>;
 }
 
 function History({ onProduct }) {

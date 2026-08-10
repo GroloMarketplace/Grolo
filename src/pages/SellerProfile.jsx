@@ -29,6 +29,8 @@ import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import SellerProfileShareModal from "../components/SellerProfileShareModal";
 import ShareProfileButton from "../components/ShareProfileButton";
+import DistanceLabel from "../components/DistanceLabel";
+import { useProfileMode } from "../context/ProfileModeContext";
 
 export default function SellerProfile() {
   const { sellerId } = useParams();
@@ -43,15 +45,18 @@ export default function SellerProfile() {
   const { listings } = useListings();
   const { getAvailable } = useInventory();
   const { getFoundingMember } = useFoundingMember();
+  const { storeOpenedAt } = useProfileMode();
   const seller = sellers[sellerId] || sellers["sarahs-backyard"];
   const sellerProfile = getSellerProfile(seller.id);
   const foundingMember = getFoundingMember(seller.id);
   const sellerPaymentMethods = getPaymentMethods(seller.id);
-  const sellerEvents = upcomingEvents(seller.id);
-  const sellerPromotions = promotionsForSeller(seller.id);
-  const { average, count } = sellerRating(seller.id);
-  const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === seller.name);
-  const sellerOrdersForStatus = sellerOrders(seller.id);
+  const createdBySeller = (item) => Number(item.createdAt) >= storeOpenedAt;
+  const sellerEvents = upcomingEvents(seller.id).filter(createdBySeller);
+  const sellerPromotions = promotionsForSeller(seller.id).filter(createdBySeller);
+  const sellerRatingData = seller.id === "sarahs-backyard" ? { average: 0, count: 0 } : sellerRating(seller.id);
+  const { average, count } = sellerRatingData;
+  const sellerProducts = listings.filter((p) => (p.sellerId === seller.id || p.shop === seller.name) && createdBySeller(p));
+  const sellerOrdersForStatus = sellerOrders(seller.id).filter(createdBySeller);
   const sellerStatus = getSellerStatus({
     ordersFulfilled: sellerOrdersForStatus.filter((order) => order.status === "Completed").length,
     productsSold: sellerOrdersForStatus.reduce((total, order) => total + order.quantity, 0),
@@ -62,7 +67,7 @@ export default function SellerProfile() {
   });
   const sellerPosts = [...followingPosts, ...communityPosts].filter(
     (post, index, posts) =>
-      post.sellerId === seller.id && posts.findIndex((item) => item.id === post.id) === index,
+      post.sellerId === seller.id && createdBySeller(post) && posts.findIndex((item) => item.id === post.id) === index,
   );
   const sellerRegrows = sellerPosts.slice(0, 2);
   const savedProfileState = readNavigationState(`seller-profile-${seller.id}`, { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 });
@@ -146,6 +151,7 @@ export default function SellerProfile() {
                 <SellerStatusBadge status={sellerStatus} />
                 {foundingMember && <FoundingMemberBadge sellerId={seller.id} />}
                 <p className="mt-0.5 flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{sellerProfile.location}</p>
+                <DistanceLabel content={sellerProfile} />
                 <FulfillmentAvailability methods={sellerPaymentMethods.fulfillmentMethods} />
               </div>
             </div>

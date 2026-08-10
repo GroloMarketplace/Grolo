@@ -1,4 +1,5 @@
-import { promotionDisplayLabel } from "../context/PromotionContext";
+import { promotionUrgencyLabel } from "../context/PromotionContext";
+import PromotionBadge from "./PromotionBadge";
 
 export default function PromotionsModal({ promotions, onClose }) {
   return (
@@ -10,10 +11,10 @@ export default function PromotionsModal({ promotions, onClose }) {
         </div>
         <div className="mt-4 flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
           {promotions.map((promotion) => (
-            <article key={promotion.id} className="rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-3">
-              <div className="text-[12px] font-medium uppercase tracking-[0.3px] text-[#498467]">{promotionDisplayLabel(promotion)}</div>
-              <h3 className="mt-1 text-[15px] font-semibold">{promotion.title}</h3>
-              <p className="mt-1 text-[12px] text-[#828282]">Available on {promotion.productIds?.length ?? 0} listing{promotion.productIds?.length === 1 ? "" : "s"}</p>
+            <article key={promotion.id} className="rounded-xl border border-[#F3D38A] bg-gradient-to-br from-[#FFFDF5] to-[#F5FFF6] p-4 shadow-[0_4px_14px_rgba(73,132,103,0.12)]">
+              <div className="flex items-center justify-between gap-3"><PromotionBadge promotion={promotion} /><span className="text-[11px] font-semibold text-[#B56576]">⏳ {promotionUrgencyLabel(promotion)}</span></div>
+              <h3 className="mt-3 text-[17px] font-bold">{promotion.title}</h3>
+              <p className="mt-2 text-[12px] text-[#828282]">Available on {promotion.productIds?.length ?? 0} listing{promotion.productIds?.length === 1 ? "" : "s"}</p>
             </article>
           ))}
         </div>

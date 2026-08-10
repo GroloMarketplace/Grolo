@@ -30,6 +30,7 @@ export default function Messages() {
   const tabRef = useRef(tab);
   const saveMessagesState = (nextTab = tabRef.current) => writeNavigationState("messages", { tab: nextTab, scrollTop: scrollRef.current?.scrollTop ?? 0 });
   const { messages } = useMessages();
+  const safeMessages = Array.isArray(messages) ? messages.filter(Boolean) : [];
   const { orders } = useOrders();
   const { profileMode } = useProfileMode();
   const { getSellerProfile } = useSellerSettings();
@@ -56,16 +57,16 @@ export default function Messages() {
   }, []);
 
   const filteredMessages = tab === "All"
-    ? messages
+    ? safeMessages
     : tab === "Trading"
-      ? messages.filter(isTradeConversation)
-      : messages.filter((m) => !isTradeConversation(m) && m.category === tab);
+      ? safeMessages.filter(isTradeConversation)
+      : safeMessages.filter((m) => !isTradeConversation(m) && m.category === tab);
   const unreadCountFor = (tabName) => {
     const tabMessages = tabName === "All"
-      ? messages
+      ? safeMessages
       : tabName === "Trading"
-        ? messages.filter(isTradeConversation)
-        : messages.filter((m) => !isTradeConversation(m) && m.category === tabName);
+        ? safeMessages.filter(isTradeConversation)
+        : safeMessages.filter((m) => !isTradeConversation(m) && m.category === tabName);
     return tabMessages.filter((message) => message.unread).length;
   };
 
@@ -98,8 +99,11 @@ export default function Messages() {
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-0 pb-24 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex flex-col">
         {filteredMessages.length === 0 ? (
-          <div className="flex items-center justify-center px-4 py-12">
-            <p className="text-[14px] text-[#828282]">No conversations found</p>
+          <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
+            <h2 className="text-[18px] font-semibold">Messages</h2>
+            <p className="mt-2 text-[14px] text-[#828282]">No conversations yet.</p>
+            <p className="mt-1 text-[13px] text-[#828282]">Start a conversation with a local seller to begin messaging.</p>
+            <button type="button" onClick={() => navigate("/")} className="mt-4 rounded-lg bg-[#498467] px-4 py-2.5 text-[13px] font-medium text-white">Explore Community</button>
           </div>
         ) : (
           filteredMessages.map((m) => {

@@ -101,13 +101,13 @@ export default function App() {
         <Routes>
         <Route path="/signin" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SignIn /></PhoneFrame>} />
         <Route path="/onboarding" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute><Onboarding /></ProtectedRoute></PhoneFrame>} />
-        <Route path="/" element={<PhoneFrame><Feed /></PhoneFrame>} />
-        <Route path="/notifications" element={<PhoneFrame><Notifications /></PhoneFrame>} />
-        <Route path="/shop" element={<PhoneFrame><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></PhoneFrame>} />
-        <Route path="/seller-profile" element={<PhoneFrame><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></PhoneFrame>} />
-        <Route path="/profile" element={<PhoneFrame><BuyerProfile /></PhoneFrame>} />
+        <Route path="/" element={<PhoneFrame><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></PhoneFrame>} />
+        <Route path="/notifications" element={<PhoneFrame><AppErrorBoundary label="Notifications"><Notifications /></AppErrorBoundary></PhoneFrame>} />
+        <Route path="/shop" element={<PhoneFrame><AppErrorBoundary label="Seller Profile"><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></AppErrorBoundary></PhoneFrame>} />
+        <Route path="/seller-profile" element={<PhoneFrame><AppErrorBoundary label="Seller Profile"><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></AppErrorBoundary></PhoneFrame>} />
+        <Route path="/profile" element={<PhoneFrame><AppErrorBoundary label="Buyer Profile"><BuyerProfile /></AppErrorBoundary></PhoneFrame>} />
         <Route path="/profile/:userId" element={<PhoneFrame><PublicProfile /></PhoneFrame>} />
-        <Route path="/buyer-profile" element={<PhoneFrame><BuyerProfile /></PhoneFrame>} />
+        <Route path="/buyer-profile" element={<PhoneFrame><AppErrorBoundary label="Buyer Profile"><BuyerProfile /></AppErrorBoundary></PhoneFrame>} />
         <Route path="/my-shop/reviews" element={<PhoneFrame><StoreReviews /></PhoneFrame>} />
         <Route
           path="/my-shop/advertising"
@@ -129,8 +129,8 @@ export default function App() {
             </PhoneFrame>
           }
         />
-        <Route path="/event/:eventId" element={<PhoneFrame><EventDetail /></PhoneFrame>} />
-        <Route path="/post/:id" element={<PhoneFrame><PostDetail /></PhoneFrame>} />
+        <Route path="/event/:eventId" element={<PhoneFrame><AppErrorBoundary label="Event"><EventDetail /></AppErrorBoundary></PhoneFrame>} />
+        <Route path="/post/:id" element={<PhoneFrame><AppErrorBoundary label="Post"><PostDetail /></AppErrorBoundary></PhoneFrame>} />
         <Route
           path="/my-shop/events"
           element={
@@ -151,7 +151,7 @@ export default function App() {
             </PhoneFrame>
           }
         />
-        <Route path="/promotions/:sellerId" element={<PhoneFrame><Promotions /></PhoneFrame>} />
+        <Route path="/promotions/:sellerId" element={<PhoneFrame><AppErrorBoundary label="Promotions"><Promotions /></AppErrorBoundary></PhoneFrame>} />
         <Route
           path="/create-promotion"
           element={
@@ -178,8 +178,8 @@ export default function App() {
             </PhoneFrame>
           }
         />
-        <Route path="/product/:id" element={<PhoneFrame><ProductDetail /></PhoneFrame>} />
-        <Route path="/listing/:id" element={<PhoneFrame><ProductDetail /></PhoneFrame>} />
+        <Route path="/product/:id" element={<PhoneFrame><AppErrorBoundary label="Listings"><ProductDetail /></AppErrorBoundary></PhoneFrame>} />
+        <Route path="/listing/:id" element={<PhoneFrame><AppErrorBoundary label="Listings"><ProductDetail /></AppErrorBoundary></PhoneFrame>} />
         <Route path="/product/:id/reviews" element={<PhoneFrame><ProductReviews /></PhoneFrame>} />
         <Route
           path="/orders"
@@ -202,18 +202,16 @@ export default function App() {
             </PhoneFrame>
           }
         />
-        <Route path="/seller/:sellerId" element={<PhoneFrame><SellerProfile /></PhoneFrame>} />
+        <Route path="/seller/:sellerId" element={<PhoneFrame><AppErrorBoundary label="Seller Profile"><SellerProfile /></AppErrorBoundary></PhoneFrame>} />
         <Route path="/category/:categoryName" element={<PhoneFrame><Category /></PhoneFrame>} />
         <Route path="/featured" element={<PhoneFrame><Featured /></PhoneFrame>} />
         <Route path="/trading" element={<PhoneFrame><Trading /></PhoneFrame>} />
-        <Route path="/search" element={<PhoneFrame><Search /></PhoneFrame>} />
+        <Route path="/search" element={<PhoneFrame><AppErrorBoundary label="Search"><Search /></AppErrorBoundary></PhoneFrame>} />
         <Route
           path="/messages"
           element={
             <PhoneFrame>
-              <ProtectedRoute>
-                <Messages />
-              </ProtectedRoute>
+              <AppErrorBoundary label="Messages"><ProtectedRoute><Messages /></ProtectedRoute></AppErrorBoundary>
             </PhoneFrame>
           }
         />

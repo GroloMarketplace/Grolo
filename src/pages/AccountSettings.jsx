@@ -16,6 +16,7 @@ import { useFoundingMember } from "../context/FoundingMemberContext";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
 import { useFollow } from "../context/FollowContext";
+import { LOCATION_RADIUS_OPTIONS, discoveryRadiusLabel } from "../utils/locationRadius";
 
 const SELLER_ID = "sarahs-backyard";
 const seller = sellers[SELLER_ID];
@@ -240,13 +241,15 @@ function BuyerAccountSettings() {
   const navigate = useNavigate();
   const { canSeller } = useProfileMode();
   const { isSidebarOpen, closeSidebar } = useSidebar();
-  const { settings, updateSettings } = useBuyerSettings();
+  const { settings, updateSettings, refreshLocation } = useBuyerSettings();
   const [displayName, setDisplayName] = useState(settings.displayName);
   const [bio, setBio] = useState(settings.bio);
   const [location, setLocation] = useState(settings.location);
+  const [locationRadius, setLocationRadius] = useState(settings.locationRadius ?? 25);
   const [avatar, setAvatar] = useState(settings.avatar);
   const [notifications, setNotifications] = useState(settings.notifications);
   const [showLocationPublicly, setShowLocationPublicly] = useState(settings.showLocationPublicly);
+  const [locationStatus, setLocationStatus] = useState("");
   const [saved, setSaved] = useState(false);
   const status = getBuyerStatus(mockBuyerActions);
 
@@ -258,8 +261,14 @@ function BuyerAccountSettings() {
     reader.readAsDataURL(file);
   };
 
+  const handleRefreshLocation = async () => {
+    setLocationStatus("Refreshing location…");
+    const result = await refreshLocation();
+    setLocationStatus(result.ok ? "Location updated" : result.error || "Location unavailable");
+  };
+
   const handleSave = () => {
-    updateSettings({ displayName, bio, location, avatar, notifications, showLocationPublicly });
+    updateSettings({ displayName, bio, location, locationRadius, avatar, notifications, showLocationPublicly });
     setSaved(true);
     window.setTimeout(() => setSaved(false), 2200);
   };
@@ -281,6 +290,23 @@ function BuyerAccountSettings() {
               <Field label="Display Name" value={displayName} onChange={setDisplayName} />
               <label className="flex flex-col gap-2 text-[14px] font-medium">Bio (optional)<textarea value={bio} onChange={(event) => setBio(event.target.value)} rows={3} className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-3 text-[14px] font-normal outline-none focus:border-[#498467]" /></label>
               <Field label="Location (optional)" value={location} placeholder="Optional" onChange={setLocation} />
+            </Section>
+
+            <Section title="Discovery Settings">
+              <div className="rounded-lg bg-[#F5FFF6] p-3">
+                <div className="text-[14px] font-medium">Location Services</div>
+                <div className="mt-2 text-[13px] text-[#4F4F4F]">Current Location: {settings.city || location || "Not set"}{settings.province ? `, ${settings.province}` : ""}</div>
+                <div className="mt-1 text-[12px] text-[#828282]">Location Access: {settings.locationPermission === "enabled" ? "Enabled" : "Disabled"}</div>
+                <button type="button" onClick={handleRefreshLocation} className="mt-3 rounded-lg border border-[#498467] px-3 py-2 text-[13px] font-medium text-[#498467]">Refresh My Location</button>
+                {locationStatus && <p className="mt-2 text-[12px] text-[#498467]">{locationStatus}</p>}
+              </div>
+              <div>
+                <div className="text-[14px] font-medium">Location Radius</div>
+                <p className="mt-1 text-[12px] text-[#828282]">Choose how far from your location you'd like to discover businesses, listings, services, events, and community activity.</p>
+                <select value={String(locationRadius)} onChange={(event) => setLocationRadius(event.target.value === "Infinity" ? Infinity : Number(event.target.value))} className="mt-3 w-full rounded-lg border border-[#E0E0E0] px-3 py-3 text-[14px] outline-none focus:border-[#498467]">
+                  {LOCATION_RADIUS_OPTIONS.map((radius) => <option key={String(radius)} value={String(radius)}>{discoveryRadiusLabel(radius)}</option>)}
+                </select>
+              </div>
             </Section>
 
             {!canSeller && <Section title="Sell with Grolo">

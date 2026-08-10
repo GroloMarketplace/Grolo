@@ -23,6 +23,15 @@ export function promotionDisplayLabel(promotion) {
   return "Limited time";
 }
 
+export function promotionUrgencyLabel(promotion) {
+  if (!promotion?.endsAt) return "Limited-time offer";
+  const end = new Date(`${promotion.endsAt}T23:59:59`);
+  const days = Math.ceil((end.getTime() - Date.now()) / 86400000);
+  if (days <= 1) return days < 1 ? "Ends today" : "Ends tomorrow";
+  if (days < 7) return `Ends in ${days} days`;
+  return `Ends ${end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+}
+
 function isActive(promotion) {
   const today = new Date().toISOString().slice(0, 10);
   return (!promotion.startsAt || promotion.startsAt <= today) &&
@@ -53,6 +62,7 @@ export function PromotionProvider({ children }) {
         ...promotion,
         id: `promotion-${Date.now()}`,
         startsAt: promotion.startsAt || new Date().toISOString().slice(0, 10),
+        createdAt: Date.now(),
       },
       ...current,
     ]);

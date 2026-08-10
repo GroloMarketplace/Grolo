@@ -20,6 +20,7 @@ import { useMessages } from "../context/MessageContext";
 import { useInventory } from "../context/InventoryContext";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
+import DistanceLabel from "../components/DistanceLabel";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -165,12 +166,15 @@ export default function ProductDetail() {
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[16px] text-[#757575]">
             {seller ? (
-              <button
-                onClick={() => navigate(`/seller/${seller.id}`)}
-                className="text-[#498467] hover:underline"
-              >
-                {product.shop}
-              </button>
+              <>
+                <button
+                  onClick={() => navigate(`/seller/${seller.id}`)}
+                  className="text-[#498467] hover:underline"
+                >
+                  {product.shop}
+                </button>
+                <DistanceLabel content={product} />
+              </>
             ) : (
               product.shop
             )}

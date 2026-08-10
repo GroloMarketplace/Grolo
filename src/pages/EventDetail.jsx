@@ -8,6 +8,7 @@ import {
   useEvents,
 } from "../context/EventContext";
 import EventRsvp from "../components/EventRsvp";
+import DistanceLabel from "../components/DistanceLabel";
 
 export default function EventDetail() {
   const { eventId } = useParams();
@@ -66,6 +67,7 @@ export default function EventDetail() {
                 {seller.name}
               </button>
             )}
+            <DistanceLabel content={event} />
           </div>
 
           <div className="rounded-lg border border-[#E6E6E6] p-4 flex flex-col gap-3">

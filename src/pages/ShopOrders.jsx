@@ -8,6 +8,7 @@ import OutlineIcon from "../components/OutlineIcon";
 import { useEffect, useRef, useState } from "react";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useBuyerTrust } from "../context/BuyerTrustContext";
+import { useProfileMode } from "../context/ProfileModeContext";
 
 const STORE_ID = "sarahs-backyard";
 
@@ -27,12 +28,13 @@ export default function ShopOrders() {
   const navigate = useNavigate();
   const { sellerOrders, nextStatuses, updateOrderStatus } = useOrders();
   const { hasReviewedOrder, getBuyerTrust } = useBuyerTrust();
+  const { storeOpenedAt } = useProfileMode();
   const [reviewOrder, setReviewOrder] = useState(null);
   const [inProgressOrder, setInProgressOrder] = useState(null);
   const [statusToast, setStatusToast] = useState("");
   const scrollRef = useRef(null);
   const savedOrderState = readNavigationState("store-orders", { scrollTop: 0 });
-  const storeOrders = sellerOrders(STORE_ID);
+  const storeOrders = sellerOrders(STORE_ID).filter((order) => Number(order.createdAt) >= storeOpenedAt);
 
   const requestStatusChange = (order, status) => {
     if (status === "In Progress") {

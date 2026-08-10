@@ -5,7 +5,7 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import Sidebar from "../components/Sidebar";
 import ProfileSwitcher from "../components/ProfileSwitcher";
 import { useSidebar } from "../hooks/useSidebar";
-import { communityPosts, followingPosts, sellers } from "../data/mockData";
+import { sellers } from "../data/mockData";
 import { useListings } from "../context/ListingContext";
 import SellerListingCard from "../components/SellerListingCard";
 import PromotionsBanner from "../components/PromotionsBanner";
@@ -20,7 +20,9 @@ import OutlineIcon from "../components/OutlineIcon";
 import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import { useProfileMode } from "../context/ProfileModeContext";
 import { useInventory } from "../context/InventoryContext";
+import { usePosts } from "../context/PostContext";
 import SellerProfileShareModal from "../components/SellerProfileShareModal";
 import ShareProfileButton from "../components/ShareProfileButton";
 import ConfirmationModal from "../components/ConfirmationModal";
@@ -37,6 +39,7 @@ export default function ShopHome() {
     }
   }, [routeLocation, openSidebar, navigate]);
   const seller = sellers["sarahs-backyard"];
+  const { storeOpenedAt } = useProfileMode();
   const { getSellerProfile, updateSellerProfile } = useSellerSettings();
   const sellerProfile = getSellerProfile(seller.id);
   const { listings, removeListing } = useListings();
@@ -57,25 +60,24 @@ export default function ShopHome() {
   const [pickupNotes, setPickupNotes] = useState(() => getPaymentMethods(seller.id).pickupNotes);
   const { sellerOrders } = useOrders();
   const { upcomingEvents } = useEvents();
+  const { posts } = usePosts();
   const { promotionsForSeller } = usePromotions();
   const { isRegrown } = useRegrow();
   const { getFollowerCount } = useFollow();
   const { getAvailable } = useInventory();
-  const storeOrders = sellerOrders("sarahs-backyard");
+  const createdBySeller = (item) => Number(item.createdAt) >= storeOpenedAt;
+  const storeOrders = sellerOrders("sarahs-backyard").filter(createdBySeller);
   const orderCounts = [
     { label: "New", count: storeOrders.filter((o) => ["Seller Notified", "Order Placed"].includes(o.status)).length },
     { label: "Preparing", count: storeOrders.filter((o) => ["In Progress", "Preparing"].includes(o.status)).length },
     { label: "Ready", count: storeOrders.filter((o) => o.status === "Ready for Pickup").length },
   ];
-  const sellerProducts = listings.filter((p) => p.sellerId === "sarahs-backyard" || p.shop === storeName);
+  const sellerProducts = listings.filter((p) => (p.sellerId === "sarahs-backyard" || p.shop === storeName) && createdBySeller(p));
   const activeSellerProducts = sellerProducts.filter((product) => getAvailable(product.id) > 0);
   const outOfStockSellerProducts = sellerProducts.filter((product) => getAvailable(product.id) <= 0);
-  const sellerPosts = [...followingPosts, ...communityPosts].filter(
-    (post, index, posts) =>
-      post.sellerId === seller.id && posts.findIndex((item) => item.id === post.id) === index,
-  );
+  const sellerPosts = posts.filter((post) => post.sellerId === seller.id && createdBySeller(post));
   const [managedPosts, setManagedPosts] = useState(sellerPosts);
-  const [managedEvents, setManagedEvents] = useState(() => upcomingEvents("sarahs-backyard"));
+  const [managedEvents, setManagedEvents] = useState(() => upcomingEvents("sarahs-backyard").filter(createdBySeller));
   const [activeTab, setActiveTab] = useState(0);
   const contentRef = useRef(null);
 
@@ -83,15 +85,15 @@ export default function ShopHome() {
     if (routeLocation.state?.activeTab === "Listings") setActiveTab(0);
   }, [routeLocation.state?.activeTab]);
   const tabs = ["Listings", "Posts", "Events", "Regrows"];
-  const sellerPromotions = promotionsForSeller(seller.id);
+  const sellerPromotions = promotionsForSeller(seller.id).filter(createdBySeller);
   const sellerStatus = getSellerStatus({
     listingsCreated: sellerProducts.length,
     completedOrders: storeOrders.filter((order) => order.status === "Completed").length,
     followers: getFollowerCount(seller.id),
-    sellerReviews: seller.reviewCount,
+    sellerReviews: 0,
     marketplaceInteractions: 0,
     activeDays: 0,
-    averageRating: seller.rating,
+    averageRating: 0,
     communityContribution: managedEvents.length || sellerPromotions.length ? 1 : 0,
   });
 
@@ -301,13 +303,13 @@ export default function ShopHome() {
                         strokeWidth="1"
                       />
                     </svg>
-                    <span className="text-[14px] font-semibold">{seller.rating}</span>
+                    <span className="text-[14px] font-semibold">0</span>
                   </div>
                   <button
                     onClick={() => navigate("/my-shop/reviews")}
                     className="text-[14px] text-[#828282] hover:text-[#498467]"
                   >
-                    ({seller.reviewCount} reviews)
+                    (0 reviews)
                   </button>
                   <span className="text-[14px] text-[#828282]">•</span>
                   <span className="text-[14px] text-[#828282]">{getFollowerCount(seller.id)} followers</span>
@@ -441,7 +443,7 @@ function ShopListingsTab({ products, outOfStockProducts, promotions, navigate, o
         </div>
       </div>
       {promotions.length > 0 && <PromotionsBanner count={promotions.length} onClick={onOpenPromotions} />}
-      {products.length === 0 ? <ShopEmptyTab>No active listings</ShopEmptyTab> : <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{products.map((product) => <SellerListingCard key={product.id} product={product} onDelete={onDelete} />)}</div>}
+      {products.length === 0 ? <ShopEmptyTab>No listings yet. Create your first listing to start selling on Grolo.</ShopEmptyTab> : <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{products.map((product) => <SellerListingCard key={product.id} product={product} onDelete={onDelete} />)}</div>}
       {outOfStockProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Out of Stock</h2><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{outOfStockProducts.map((product) => <SellerListingCard key={product.id} product={product} onDelete={onDelete} />)}</div></section>}
     </ShopTabPanel>
   );

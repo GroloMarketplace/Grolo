@@ -12,7 +12,8 @@ function stripSeededServiceMessages(messages) {
   return hasSeededPrefix ? messages.slice(chatMessages.length) : messages;
 }
 
-function normalizeConversation(conversation) {
+function normalizeConversation(input) {
+  const conversation = input && typeof input === "object" ? input : {};
   const isTrading = conversation.tradeThread === true
     || conversation.conversationType === "trading"
     || conversation.category === "Trading";
@@ -37,7 +38,8 @@ function loadMessages() {
   try {
     const savedMessages = window.localStorage.getItem(MESSAGE_STORAGE_KEY);
     const parsedMessages = savedMessages ? JSON.parse(savedMessages) : initialMessages;
-    return parsedMessages.map(normalizeConversation).filter((conversation) => (
+    const conversations = Array.isArray(parsedMessages) ? parsedMessages : [];
+    return conversations.map((conversation) => normalizeConversation(conversation ?? {})).filter((conversation) => (
       !["order", "trading"].includes(conversation.conversationType) || conversation.messages.length > 0
     ));
   } catch {

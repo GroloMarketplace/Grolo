@@ -8,7 +8,8 @@ function readStoredSettings(initialSettings) {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return initialSettings;
     const parsed = JSON.parse(stored);
-    return { ...initialSettings, ...parsed, notifications: { ...initialSettings.notifications, ...(parsed.notifications ?? {}) } };
+    const safeSettings = parsed && typeof parsed === "object" ? parsed : {};
+    return { ...initialSettings, ...safeSettings, notifications: { ...initialSettings.notifications, ...(safeSettings.notifications && typeof safeSettings.notifications === "object" ? safeSettings.notifications : {}) } };
   } catch {
     return initialSettings;
   }
@@ -27,6 +28,12 @@ const initialSettings = {
   displayName: "remi",
   bio: "Discovering local makers, businesses, and community moments around Calgary.",
   location: "",
+  locationRadius: 25,
+  latitude: null,
+  longitude: null,
+  city: "",
+  province: "",
+  locationPermission: "unknown",
   avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
   notifications: {
     newMessages: true,
@@ -63,7 +70,31 @@ export function BuyerSettingsProvider({ children }) {
     return saved;
   };
 
-  return <BuyerSettingsContext.Provider value={{ settings, updateSettings }}>{children}</BuyerSettingsContext.Provider>;
+  const refreshLocation = () => new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      updateSettings({ locationPermission: "unsupported" });
+      resolve({ ok: false, error: "Location services are not available on this device." });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const next = {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          locationPermission: "enabled",
+        };
+        updateSettings(next);
+        resolve({ ok: true, ...next });
+      },
+      (error) => {
+        updateSettings({ locationPermission: error.code === 1 ? "denied" : "unavailable" });
+        resolve({ ok: false, error: error.message });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+    );
+  });
+
+  return <BuyerSettingsContext.Provider value={{ settings, updateSettings, refreshLocation }}>{children}</BuyerSettingsContext.Provider>;
 }
 
 export function useBuyerSettings() {

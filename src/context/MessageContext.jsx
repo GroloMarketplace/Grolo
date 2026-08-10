@@ -1,16 +1,9 @@
-import { createContext, useContext, useMemo, useState } from "react";
-import { chatMessages, messages as initialMessages } from "../data/mockData";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useAuth } from "./AuthContext";
 
 const MessageContext = createContext(null);
 const MESSAGE_STORAGE_KEY = "grolo-messages";
 const CURRENT_BUYER_ID = "current-buyer";
-
-function stripSeededServiceMessages(messages) {
-  const hasSeededPrefix = chatMessages.every((sample, index) => (
-    messages[index]?.from === sample.from && messages[index]?.text === sample.text
-  ));
-  return hasSeededPrefix ? messages.slice(chatMessages.length) : messages;
-}
 
 function normalizeConversation(input) {
   const conversation = input && typeof input === "object" ? input : {};
@@ -21,10 +14,10 @@ function normalizeConversation(input) {
     || Boolean(conversation.serviceContext?.listingId);
   const messages = Array.isArray(conversation.messages)
     ? conversation.messages
-    : isTrading || isService
-      ? conversation.threadMessages ?? []
-      : chatMessages.map((message) => ({ ...message }));
-  const normalizedMessages = isService ? stripSeededServiceMessages(messages) : messages;
+    : Array.isArray(conversation.threadMessages)
+      ? conversation.threadMessages
+      : [];
+  const normalizedMessages = messages.filter(Boolean);
 
   return {
     ...conversation,
@@ -34,25 +27,30 @@ function normalizeConversation(input) {
   };
 }
 
-function loadMessages() {
+function loadMessages(storageKey) {
   try {
-    const savedMessages = window.localStorage.getItem(MESSAGE_STORAGE_KEY);
-    const parsedMessages = savedMessages ? JSON.parse(savedMessages) : initialMessages;
+    const parsedMessages = JSON.parse(window.localStorage.getItem(storageKey) ?? "[]");
     const conversations = Array.isArray(parsedMessages) ? parsedMessages : [];
     return conversations.map((conversation) => normalizeConversation(conversation ?? {})).filter((conversation) => (
-      !["order", "trading"].includes(conversation.conversationType) || conversation.messages.length > 0
+      conversation.id && (!["order", "trading"].includes(conversation.conversationType) || conversation.messages.length > 0)
     ));
   } catch {
-    return initialMessages.map(normalizeConversation);
+    return [];
   }
 }
 
 export function MessageProvider({ children }) {
-  const [messages, setMessages] = useState(loadMessages);
+  const { user } = useAuth();
+  const storageKey = `${MESSAGE_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
+  const [messages, setMessages] = useState(() => loadMessages(storageKey));
+
+  useEffect(() => {
+    setMessages(loadMessages(storageKey));
+  }, [storageKey]);
 
   const saveMessages = (nextMessages) => {
     try {
-      window.localStorage.setItem(MESSAGE_STORAGE_KEY, JSON.stringify(nextMessages));
+      window.localStorage.setItem(storageKey, JSON.stringify(nextMessages));
     } catch {
     }
   };

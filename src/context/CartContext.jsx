@@ -1,22 +1,22 @@
-import { createContext, useContext, useMemo, useState } from "react";
-import { cartItems as initialCartItems } from "../data/mockData";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useAuth } from "./AuthContext";
 
 const CartContext = createContext(null);
 const INVENTORY_STORAGE_KEY = "grolo-inventory";
 const CART_STORAGE_KEY = "grolo-cart";
 
-function loadCart() {
+function loadCart(storageKey) {
   try {
-    const savedCart = window.localStorage.getItem(CART_STORAGE_KEY);
-    return savedCart ? JSON.parse(savedCart) : initialCartItems.map((item) => ({ ...item }));
+    const parsed = JSON.parse(window.localStorage.getItem(storageKey) ?? "[]");
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return initialCartItems.map((item) => ({ ...item }));
+    return [];
   }
 }
 
-function persistCart(nextItems) {
+function persistCart(storageKey, nextItems) {
   try {
-    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(nextItems));
+    window.localStorage.setItem(storageKey, JSON.stringify(nextItems));
   } catch {
   }
 }
@@ -32,7 +32,13 @@ function getStoredAvailable(productId, fallback) {
 }
 
 export function CartProvider({ children }) {
-  const [items, setItems] = useState(loadCart);
+  const { user } = useAuth();
+  const storageKey = `${CART_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
+  const [items, setItems] = useState(() => loadCart(storageKey));
+
+  useEffect(() => {
+    setItems(loadCart(storageKey));
+  }, [storageKey]);
 
   const updateQuantity = (itemId, delta, available) => {
     setItems((current) => {
@@ -42,7 +48,7 @@ export function CartProvider({ children }) {
         const max = Number.isFinite(normalizedAvailable) ? normalizedAvailable : Infinity;
         return { ...item, quantity: Math.min(max, Math.max(1, item.quantity + delta)) };
       });
-      persistCart(nextItems);
+      persistCart(storageKey, nextItems);
       return nextItems;
     });
   };
@@ -59,7 +65,7 @@ export function CartProvider({ children }) {
       const nextItems = existing
         ? current.map((item) => item.productId === product.id ? { ...item, quantity: cappedQuantity } : item)
         : [...current, { ...product, productId: product.id, id: `cart-${product.id}`, quantity: cappedQuantity }];
-      persistCart(nextItems);
+      persistCart(storageKey, nextItems);
       return nextItems;
     });
   };
@@ -68,7 +74,7 @@ export function CartProvider({ children }) {
     const itemIds = new Set(itemsToRemove.map((item) => item.id));
     setItems((current) => {
       const nextItems = current.filter((item) => !itemIds.has(item.id));
-      persistCart(nextItems);
+      persistCart(storageKey, nextItems);
       return nextItems;
     });
   };
@@ -77,7 +83,7 @@ export function CartProvider({ children }) {
     setItems((current) => {
       const existingIds = new Set(current.map((item) => item.id));
       const nextItems = [...current, ...itemsToRestore.filter((item) => !existingIds.has(item.id))];
-      persistCart(nextItems);
+      persistCart(storageKey, nextItems);
       return nextItems;
     });
   };

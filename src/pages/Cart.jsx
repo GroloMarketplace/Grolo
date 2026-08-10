@@ -102,11 +102,13 @@ export default function Cart() {
           <Row label="Subtotal" value={`$${activeSubtotal.toFixed(2)}`} />
         </div>
         <div className="px-4 py-4">
-          {canCheckout ? <Link to="/checkout" className="block w-full rounded-lg bg-[#498467] py-3.5 text-center text-[16px] font-medium text-white">Proceed to Checkout</Link> : <div className="w-full rounded-lg bg-[#E6E6E6] py-3.5 text-center text-[16px] font-medium text-[#757575]">Checkout unavailable</div>}
+          {canCheckout ? <Link to="/checkout" className="block w-full rounded-lg bg-[#498467] py-3.5 text-center text-[16px] font-medium text-white">Proceed to Checkout</Link> : <button type="button" onClick={() => navigate("/")} className="w-full rounded-lg border border-[#498467] py-3.5 text-center text-[16px] font-medium text-[#498467]">Browse Local Listings</button>}
         </div>
       </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
-        <CartSection title="Active Cart Items">
+        {activeItems.length === 0 && soldOutItems.length === 0 ? (
+          <div className="px-4 py-12 text-center"><h2 className="text-[20px] font-semibold">Your cart is empty.</h2><p className="mt-2 text-[14px] leading-[140%] text-[#828282]">Discover local products, services, and promotions from your community.</p><button type="button" onClick={() => navigate("/")} className="mt-5 rounded-lg bg-[#498467] px-5 py-3 text-[14px] font-medium text-white">Explore Community</button></div>
+        ) : <CartSection title="Active Cart Items">
           {storeGroups.map(([sellerId, storeItems]) => (
             <div key={sellerId} className="rounded-lg border border-[#E6E6E6] p-3">
               <div className="flex items-center justify-between gap-2">
@@ -119,7 +121,7 @@ export default function Cart() {
               <div className="mt-3 flex flex-col gap-4">{storeItems.map((item) => <CartItem key={item.id} item={item} updateQuantity={updateQuantity} removeItem={() => removeCartItem(item)} saveForLater={() => { addItems([item]); removeCartItems([item]); }} available={getRealInventory(item)} onProductClick={() => openProduct(item)} />)}</div>
             </div>
           ))}
-        </CartSection>
+        </CartSection>}
         {(soldOutItems.length > 0 || savedForLaterSoldOutItems.length > 0) && (
           <CartSection title="Temporarily Sold Out">
             {soldOutItems.map(({ item }) => (

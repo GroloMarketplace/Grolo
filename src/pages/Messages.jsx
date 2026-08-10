@@ -102,7 +102,7 @@ export default function Messages() {
           <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
             <h2 className="text-[18px] font-semibold">Messages</h2>
             <p className="mt-2 text-[14px] text-[#828282]">No conversations yet.</p>
-            <p className="mt-1 text-[13px] text-[#828282]">Start a conversation with a local seller to begin messaging.</p>
+            <p className="mt-1 text-[13px] text-[#828282]">Connect with local buyers and sellers to start chatting.</p>
             <button type="button" onClick={() => navigate("/")} className="mt-4 rounded-lg bg-[#498467] px-4 py-2.5 text-[13px] font-medium text-white">Explore Community</button>
           </div>
         ) : (

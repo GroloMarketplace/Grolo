@@ -13,6 +13,7 @@ import { readNavigationState, writeNavigationState } from "../hooks/navigationSt
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { EventAttendanceCount } from "../components/EventRsvp";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
+import DistanceLabel from "../components/DistanceLabel";
 import ReviewSummary from "../components/ReviewSummary";
 
 const FILTERS = ["All", "Listings", "Events", "Stores", "Promotions"];
@@ -155,6 +156,7 @@ function FeaturedListingCard({ product, promotion, onProduct }) {
             <ServiceCategoryLabel listing={product} className="mb-1 block" />
             <h3 className="truncate text-[16px] font-semibold">{product.name}</h3>
             <div className="flex flex-wrap items-center gap-2"><p className="text-[13px] text-[#498467]">{product.shop}</p><FoundingMemberBadge sellerId={product.sellerId} compact /></div>
+            <DistanceLabel content={product} />
           </div>
           <span className="shrink-0 text-[16px] font-semibold">${product.price.toFixed(2)}</span>
         </div>
@@ -174,6 +176,7 @@ function FeaturedEventCard({ event }) {
       <div className="flex flex-col gap-1 p-3">
         <h3 className="text-[16px] font-semibold">{event.title}</h3>
         <p className="text-[13px] text-[#498467]">{seller?.name}</p>
+        <DistanceLabel content={event} />
         <p className="text-[12px] text-[#828282]">{formatEventDate(event.date)} • {formatEventTime(event.startTime)} – {formatEventTime(event.endTime)}</p>
         <p className="text-[12px] text-[#828282]">{event.location}</p>
         <EventAttendanceCount eventId={event.id} />
@@ -194,6 +197,7 @@ function FeaturedStoreCard({ store }) {
         <span className="min-w-0">
           <span className="flex flex-wrap items-center gap-2"><span className="truncate text-[16px] font-semibold">{store.name}</span><FoundingMemberBadge sellerId={store.id} compact /></span>
           <span className="block text-[13px] text-[#828282]">{STORE_CATEGORIES[store.id] ?? "Local store"}</span>
+          <DistanceLabel content={store} className="mt-1 block" />
           <span className="mt-1 block text-[12px] text-[#828282]"><span className="text-[#498467]">★</span> {store.rating.toFixed(1)} ({store.reviewCount})</span>
         </span>
       </button>

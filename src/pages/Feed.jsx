@@ -447,8 +447,6 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
     event.stopPropagation();
     navigate(`/seller/${product.sellerId}`);
   };
-  const generalLocation = seller?.location?.split(",")[0] ?? product.location?.split(",")[0] ?? "Local community";
-
   return (
     <div
       role="button"
@@ -464,13 +462,13 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
         <div className="flex min-w-0 items-center gap-2">
           <button type="button" onClick={openStore} className="flex min-w-0 items-center gap-2 text-left">
             <img src={seller?.avatar ?? product.image} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
-            <span className="truncate text-[14px] font-semibold text-[#498467]">{seller?.name ?? product.shop} <span className="font-normal text-[#B56576]">in {generalLocation}</span></span>
+            <span className="truncate text-[14px] font-semibold text-[#498467]">{seller?.name ?? product.shop}</span>
           </button>
           <FoundingMemberBadge sellerId={product.sellerId} iconOnly />
         </div>
-        <DistanceLabel content={product} />
         <MoreButton onClick={() => onMenu(menuContent)} />
       </div>
+      <DistanceLabel content={product} className="mt-1" />
       <p className="text-[12px] text-[#828282]">{product.postedAt ?? "Recently posted"}</p>
       <ServiceCategoryLabel listing={product} className="mt-1 block" />
       <VacationBadge sellerId={product.sellerId} />
@@ -775,10 +773,8 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
         <FoundingMemberBadge sellerId={post.sellerId} iconOnly />
         <span className="shrink-0 text-[14px] text-[#B56576]">in {displayPostClassification(post.classification)}</span>
       </div>
-      <div className="flex items-center gap-2">
-        <span className="text-[12px] text-[#828282]">{post.time}</span>
-        <DistanceLabel content={post} />
-      </div>
+      <DistanceLabel content={post} className="mt-0.5" />
+      <span className="text-[12px] text-[#828282]">{post.time}</span>
     </div>
   );
 

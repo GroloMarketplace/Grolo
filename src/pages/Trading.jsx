@@ -6,6 +6,7 @@ import SearchBar from "../components/SearchBar";
 import { sellers } from "../data/mockData";
 import { useListings } from "../context/ListingContext";
 import { useMessages } from "../context/MessageContext";
+import DistanceLabel from "../components/DistanceLabel";
 
 const TRADE_DIRECTIONS = ["Available For", "Looking For"];
 const TRADE_TYPES = ["Products", "Services"];
@@ -103,7 +104,7 @@ function TradeListingCard({ product, navigate, createTradeConversation }) {
         <div className="flex flex-col gap-1 p-3">
           <h3 className="text-[18px] font-semibold">{product.name}</h3>
           <p className="text-[14px] text-[#498467]">{seller?.name ?? product.shop}</p>
-          <p className="text-[13px] text-[#828282]">{product.location ?? seller?.location ?? "Local pickup"}</p>
+          <DistanceLabel content={product} />
           <div className="mt-2 rounded-lg bg-[#F5FFF6] p-3">
             <p className="text-[12px] font-medium text-[#498467]">Looking For</p>
             <p className="mt-1 text-[14px]">{product.desiredTradeItems}</p>

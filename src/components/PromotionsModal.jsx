@@ -1,5 +1,6 @@
 import { promotionUrgencyLabel } from "../context/PromotionContext";
 import PromotionBadge from "./PromotionBadge";
+import DistanceLabel from "./DistanceLabel";
 
 export default function PromotionsModal({ promotions, onClose }) {
   return (
@@ -14,6 +15,7 @@ export default function PromotionsModal({ promotions, onClose }) {
             <article key={promotion.id} className="rounded-xl border border-[#F3D38A] bg-gradient-to-br from-[#FFFDF5] to-[#F5FFF6] p-4 shadow-[0_4px_14px_rgba(73,132,103,0.12)]">
               <div className="flex items-center justify-between gap-3"><PromotionBadge promotion={promotion} /><span className="text-[11px] font-semibold text-[#B56576]">⏳ {promotionUrgencyLabel(promotion)}</span></div>
               <h3 className="mt-3 text-[17px] font-bold">{promotion.title}</h3>
+              <DistanceLabel content={promotion} className="mt-1" />
               <p className="mt-2 text-[12px] text-[#828282]">Available on {promotion.productIds?.length ?? 0} listing{promotion.productIds?.length === 1 ? "" : "s"}</p>
             </article>
           ))}

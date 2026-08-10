@@ -7,6 +7,7 @@ import SearchBar from "../components/SearchBar";
 import { categories, sellers } from "../data/mockData";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import { useListings } from "../context/ListingContext";
+import DistanceLabel from "../components/DistanceLabel";
 
 function getCategoryName(value) {
   try {
@@ -116,6 +117,7 @@ function CategoryProductCard({ product, onProduct }) {
         >
           {seller?.name ?? product.shop}
         </button>
+        <DistanceLabel content={product} />
         <Link to={`/product/${product.id}`} onClick={() => onProduct?.(product.id)} className="line-clamp-2 text-[14px] font-medium">
           {product.name}
         </Link>

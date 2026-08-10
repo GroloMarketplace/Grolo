@@ -17,12 +17,7 @@ import ReviewSummary from "../components/ReviewSummary";
 
 const FILTERS = ["All", "Listings", "Events", "Stores", "Promotions"];
 const SORT_OPTIONS = ["Featured", "Trending", "Newest"];
-const STORE_CATEGORIES = {
-  "sarahs-backyard": "Garden",
-  "pennies-produce": "Garden",
-  "dustins-donuts": "Bakery",
-  "brandys-crafts": "Crafts",
-};
+const STORE_CATEGORIES = {};
 
 export default function Featured() {
   const navigate = useNavigate();

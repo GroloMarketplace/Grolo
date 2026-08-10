@@ -5,7 +5,7 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import { useAdvertising } from "../context/AdvertisingContext";
 import { events, products, promotions } from "../data/mockData";
 
-const SELLER_ID = "sarahs-backyard";
+const SELLER_ID = "current-user";
 const AD_TYPES = ["Store", "Product", "Event", "Promotion"];
 const BADGE_LABELS = ["New Listing", "Top Seller", "Featured", "Trending", "Community Spotlight"];
 
@@ -41,7 +41,7 @@ export default function CreateAdvertisingAd() {
     if (formData.type === "Product") return products.filter((product) => product.sellerId === SELLER_ID).map((product) => ({ id: product.id, label: product.name, destinationType: "Product listing" }));
     if (formData.type === "Event") return events.filter((event) => event.sellerId === SELLER_ID).map((event) => ({ id: event.id, label: event.title, destinationType: "Event detail page" }));
     if (formData.type === "Promotion") return promotions.filter((promotion) => promotion.sellerId === SELLER_ID).map((promotion) => ({ id: promotion.productIds?.[0] ?? promotion.id, label: promotion.title, destinationType: "Product listing" }));
-    return [{ id: SELLER_ID, label: "Sarah's Backyard", destinationType: "Store profile" }];
+    return [{ id: SELLER_ID, label: "My store", destinationType: "Store profile" }];
   }, [formData.type]);
 
   useEffect(() => {
@@ -96,7 +96,7 @@ export default function CreateAdvertisingAd() {
           </div>
 
           <FormField label="Ad title">
-            <input required value={formData.title} onChange={(event) => updateField("title", event.target.value)} placeholder="e.g. Fresh Harvest Sale" className={fieldClassName()} />
+            <input required value={formData.title} onChange={(event) => updateField("title", event.target.value)} placeholder="e.g. Weekend promotion" className={fieldClassName()} />
           </FormField>
           <FormField label="Description">
             <textarea required value={formData.description} onChange={(event) => updateField("description", event.target.value)} placeholder="Tell local shoppers what makes this special" rows="3" className={fieldClassName()} />

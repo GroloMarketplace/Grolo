@@ -13,7 +13,7 @@ export function getCartItemSellerId(item, listings = []) {
       || listing.id === item.listingId
       || listing.id === item.id
       || listing.name === item.name
-  ))?.sellerId ?? item.sellerId ?? "sarahs-backyard";
+  ))?.sellerId ?? item.sellerId ?? "current-user";
 }
 
 export function groupCartItemsByStore(items, listings = []) {

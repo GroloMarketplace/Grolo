@@ -289,7 +289,9 @@ function CommunitySpotlightCarousel() {
     return { ...spotlight, adType: spotlight.type, destinationId, destinationType, destinationRoute };
   });
   const spotlights = [...paidSpotlights, ...organicSpotlights].slice(0, 10);
-  const slides = [spotlights[spotlights.length - 1], ...spotlights, spotlights[0]];
+  const slides = spotlights.length > 0
+    ? [spotlights[spotlights.length - 1], ...spotlights, spotlights[0]]
+    : [];
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -346,6 +348,8 @@ function CommunitySpotlightCarousel() {
     openSpotlight(spotlight);
   };
 
+  if (spotlights.length === 0) return null;
+
   return (
     <section aria-label="Featured Community Spotlight" className="px-4 pt-3">
       <h2 className="mb-2 text-[16px] font-semibold tracking-[-0.32px]">Community Spotlight</h2>
@@ -364,7 +368,8 @@ function CommunitySpotlightCarousel() {
           onTransitionEnd={handleTransitionEnd}
         >
           {slides.map((spotlight, index) => {
-            const seller = sellers[spotlight.sellerId];
+            if (!spotlight) return null;
+            const seller = sellers[spotlight.sellerId] ?? { name: "", avatar: "" };
             return (
               <button
                 key={`${spotlight.id}-${index}`}

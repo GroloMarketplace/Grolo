@@ -39,7 +39,7 @@ function Section({ title, events }) {
       </div>
       {events.length === 0 ? (
         <div className="px-4 py-3 text-[14px] text-[#828282]">
-          No events here yet
+          No events yet. Host your first community event.
         </div>
       ) : (
         <div className="flex flex-col gap-3 px-4">

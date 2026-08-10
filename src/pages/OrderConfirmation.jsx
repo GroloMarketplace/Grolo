@@ -34,10 +34,10 @@ export default function OrderConfirmation() {
   const orderItemsRef = useRef(null);
   const orderNumberRef = useRef(null);
   const orderItems = orderItemsRef.current ?? (orderItemsRef.current = (state?.sellerId
-    ? items.filter((item) => (item.sellerId ?? "sarahs-backyard") === state.sellerId)
+    ? items.filter((item) => (item.sellerId ?? "current-user") === state.sellerId)
     : items).filter((item) => Number(item.quantity) > 0));
   const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const paymentSettings = getPaymentMethods(state?.sellerId ?? orderItems[0]?.sellerId ?? "sarahs-backyard");
+  const paymentSettings = getPaymentMethods(state?.sellerId ?? orderItems[0]?.sellerId ?? "current-user");
   const requestedFulfillment = state?.fulfillmentMethod ?? fulfillmentMethod;
   const selectedFulfillment = paymentSettings.fulfillmentMethods.includes(requestedFulfillment) ? requestedFulfillment : paymentSettings.fulfillmentMethods[0] ?? "pickup";
   const deliveryFee = selectedFulfillment === "delivery" ? paymentSettings.deliveryFee : 0;
@@ -133,7 +133,7 @@ export default function OrderConfirmation() {
           state={{
             order: {
               id: orderNumber,
-              sellerId: state?.sellerId ?? orderItems[0]?.sellerId ?? "sarahs-backyard",
+              sellerId: state?.sellerId ?? orderItems[0]?.sellerId ?? "current-user",
               productId: orderItems[0]?.productId ?? orderItems[0]?.id,
               quantity: orderItems.reduce((sum, item) => sum + item.quantity, 0),
               status: "Seller Notified",

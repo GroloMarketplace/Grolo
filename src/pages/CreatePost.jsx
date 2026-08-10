@@ -5,11 +5,13 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import { POST_CLASSIFICATIONS } from "../data/postClassifications";
 import { usePosts } from "../context/PostContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
+import { useAuth } from "../context/AuthContext";
 
 export default function CreatePost() {
   const navigate = useNavigate();
   const { addPost } = usePosts();
   const { settings: buyerProfile } = useBuyerSettings();
+  const { user } = useAuth();
   const [content, setContent] = useState("");
   const [classification, setClassification] = useState("");
   const [selectedProduct] = useState(null);
@@ -17,15 +19,15 @@ export default function CreatePost() {
   const handlePublish = () => {
     // Handle post publishing logic
     const post = addPost({
-      name: "Sarah's Backyard",
-      sellerId: "sarahs-backyard",
+      name: buyerProfile.displayName || user?.user_metadata?.name || "",
+      sellerId: user?.id ?? "current-user",
       authorId: buyerProfile.displayName,
       productId: selectedProduct?.id ?? null,
       group: "Your Community",
       classification,
       time: "Just now",
       avatar: buyerProfile.avatar,
-      image: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80",
+      image: "",
       body: content,
       likes: 0,
       comments: 0,

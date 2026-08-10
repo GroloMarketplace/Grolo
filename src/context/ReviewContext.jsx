@@ -10,7 +10,6 @@ import { useAuth } from "./AuthContext";
 
 const ReviewContext = createContext(null);
 const REVIEW_STORAGE_KEY = "grolo-submitted-reviews";
-const LEGACY_REVIEW_STORAGE_KEYS = ["grolo-reviews", "submitted-reviews"];
 
 function getIdentity(user) {
   return {
@@ -37,9 +36,9 @@ function normalizeReview(review, identity = getIdentity()) {
   };
 }
 
-function readSubmittedReviews(identity) {
+function readSubmittedReviews(identity, storageKey) {
   try {
-    const savedValues = [localStorage.getItem(REVIEW_STORAGE_KEY), ...LEGACY_REVIEW_STORAGE_KEYS.map((key) => localStorage.getItem(key))];
+    const savedValues = [localStorage.getItem(storageKey)];
     const savedReviews = savedValues.flatMap((value) => {
       if (!value) return [];
       try {
@@ -81,14 +80,15 @@ export function ReviewProvider({ children }) {
   const { orders } = useOrders();
   const { user } = useAuth();
   const identity = useMemo(() => getIdentity(user), [user]);
-  const [submittedReviews, setSubmittedReviews] = useState(() => readSubmittedReviews(identity));
+  const storageKey = `${REVIEW_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
+  const [submittedReviews, setSubmittedReviews] = useState(() => readSubmittedReviews(identity, storageKey));
 
   useEffect(() => {
     try {
-      localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(submittedReviews));
+      localStorage.setItem(storageKey, JSON.stringify(submittedReviews));
     } catch {
     }
-  }, [submittedReviews]);
+  }, [storageKey, submittedReviews]);
 
   const allReviews = useMemo(
     () => [...submittedReviews, ...productReviews],

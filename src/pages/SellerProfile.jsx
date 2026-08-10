@@ -46,14 +46,14 @@ export default function SellerProfile() {
   const { getAvailable } = useInventory();
   const { getFoundingMember } = useFoundingMember();
   const { storeOpenedAt } = useProfileMode();
-  const seller = sellers[sellerId] || sellers["sarahs-backyard"];
+  const seller = sellers[sellerId] || { id: sellerId, name: "this store" };
   const sellerProfile = getSellerProfile(seller.id);
   const foundingMember = getFoundingMember(seller.id);
   const sellerPaymentMethods = getPaymentMethods(seller.id);
   const createdBySeller = (item) => Number(item.createdAt) >= storeOpenedAt;
   const sellerEvents = upcomingEvents(seller.id).filter(createdBySeller);
   const sellerPromotions = promotionsForSeller(seller.id).filter(createdBySeller);
-  const sellerRatingData = seller.id === "sarahs-backyard" ? { average: 0, count: 0 } : sellerRating(seller.id);
+  const sellerRatingData = sellerRating(seller.id);
   const { average, count } = sellerRatingData;
   const sellerProducts = listings.filter((p) => (p.sellerId === seller.id || p.shop === seller.name) && createdBySeller(p));
   const sellerOrdersForStatus = sellerOrders(seller.id).filter(createdBySeller);
@@ -118,7 +118,7 @@ export default function SellerProfile() {
       navigate(`/messages/${existingConversation.id}`);
     } else {
       // Create new conversation and navigate to it
-      // For mock data, use sellerId as the conversation ID
+      // Use the seller ID until a conversation is persisted.
       navigate(`/messages/${sellerId}`);
     }
   };

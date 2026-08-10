@@ -6,7 +6,7 @@ import { PROMOTION_TYPES, usePromotions } from "../context/PromotionContext";
 import { useListings } from "../context/ListingContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 
-const SELLER_ID = "sarahs-backyard";
+const SELLER_ID = "current-user";
 
 export default function CreatePromotion() {
   const navigate = useNavigate();

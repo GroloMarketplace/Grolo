@@ -28,7 +28,7 @@ export default function StoreCheckout() {
     return available > 0 && item.quantity <= available;
   });
   const storeItems = allStoreItems.filter((item) => getAvailable(getCartItemProductId(item, listings)) > 0);
-  const seller = sellers[sellerId] ?? sellers["sarahs-backyard"];
+  const seller = sellers[sellerId] ?? { id: sellerId, name: "this store" };
   const settings = getPaymentMethods(seller.id);
   const vacationMode = getSellerProfile(seller.id)?.vacationMode;
   const [fulfillmentMethod, setFulfillmentMethod] = useStoreFulfillment(settings.fulfillmentMethods);

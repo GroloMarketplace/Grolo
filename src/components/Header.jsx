@@ -8,7 +8,7 @@ export default function Header({ title, titleContent, onBack, onMenu, right, pos
   const { settings: buyerSettings } = useBuyerSettings();
   const { profileMode } = useProfileMode();
   const { getSellerProfile } = useSellerSettings();
-  const avatar = profileMode === "seller" ? getSellerProfile("sarahs-backyard").avatar : buyerSettings.avatar;
+  const avatar = profileMode === "seller" ? getSellerProfile("current-user").avatar : buyerSettings.avatar;
 
   return (
     <div className="h-14 flex items-center justify-between px-4 border-b border-[#E6E6E6]">

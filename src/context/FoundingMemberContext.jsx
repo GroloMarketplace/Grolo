@@ -3,10 +3,7 @@ import { createContext, useContext, useMemo, useState } from "react";
 const FoundingMemberContext = createContext(null);
 const STORAGE_KEY = "grolo-founding-members";
 const MAX_FOUNDING_MEMBERS = 100;
-const INITIAL_FOUNDING_MEMBERS = {
-  "sarahs-backyard": { registrationNumber: 1, memberSince: "2026-08-08", awardedAt: "2026-08-08" },
-  "current-buyer": { registrationNumber: 17, memberSince: "2026-08-08", awardedAt: "2026-08-08" },
-};
+const INITIAL_FOUNDING_MEMBERS = {};
 
 function today() {
   return new Date().toISOString().slice(0, 10);

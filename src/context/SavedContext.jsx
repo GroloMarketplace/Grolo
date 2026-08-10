@@ -1,27 +1,31 @@
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { useAuth } from "./AuthContext";
 
 const SavedContext = createContext(null);
 const STORAGE_KEY = "grolo-saved-items";
 
-function readSavedItems() {
+function readSavedItems(storageKey) {
   try {
-    const savedItems = JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? [];
-    const legacyFavoriteIds = JSON.parse(localStorage.getItem("my-shop-favorites")) ?? [];
-    const legacyItems = legacyFavoriteIds
-      .filter((listingId) => !savedItems.some((item) => item.id === `listing:${listingId}` || item.sourceId === listingId))
-      .map((listingId) => ({ id: `listing:${listingId}`, type: "listing", sourceId: listingId }));
-    return [...savedItems, ...legacyItems];
+    const savedItems = JSON.parse(localStorage.getItem(storageKey)) ?? [];
+    return savedItems;
   } catch {
     return [];
   }
 }
 
-function writeSavedItems(items) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+function writeSavedItems(storageKey, items) {
+  localStorage.setItem(storageKey, JSON.stringify(items));
 }
 
 export function SavedProvider({ children }) {
-  const [savedItems, setSavedItems] = useState(() => readSavedItems());
+  const { user } = useAuth();
+  const storageKey = `${STORAGE_KEY}-${user?.id ?? "anonymous"}`;
+  const [savedItems, setSavedItems] = useState(() => readSavedItems(storageKey));
+
+  useEffect(() => {
+    setSavedItems(readSavedItems(storageKey));
+  }, [storageKey]);
+
   const [toast, setToast] = useState("");
 
   const showToast = useCallback((message) => {
@@ -42,10 +46,10 @@ export function SavedProvider({ children }) {
         ? savedItems.filter((item) => !items.some((nextItem) => nextItem.id === item.id))
         : [...savedItems, ...items.filter((item) => !savedItems.some((current) => current.id === item.id))];
       setSavedItems(next);
-      writeSavedItems(next);
+      writeSavedItems(storageKey, next);
       showToast(saved ? "Removed from Saved Items" : "Saved to Saved Items");
     },
-    [savedItems, showToast],
+    [savedItems, showToast, storageKey],
   );
 
   return (

@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useState } from "react";
-import { promotions as mockPromotions } from "../data/mockData";
 
 const PromotionContext = createContext(null);
 
@@ -39,7 +38,7 @@ function isActive(promotion) {
 }
 
 export function PromotionProvider({ children }) {
-  const [promotions, setPromotions] = useState(mockPromotions);
+  const [promotions, setPromotions] = useState([]);
 
   const activePromotions = useCallback(
     () => promotions.filter(isActive),

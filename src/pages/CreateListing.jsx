@@ -6,6 +6,8 @@ import PhotoManager from "../components/PhotoManager";
 import { useSidebar } from "../hooks/useSidebar";
 import { useListings } from "../context/ListingContext";
 import { useInventory } from "../context/InventoryContext";
+import { useAuth } from "../context/AuthContext";
+import { useSellerSettings } from "../context/SellerSettingsContext";
 
 function TextField({ label, type = "text", value, onChange, placeholder, required }) {
   return (
@@ -32,6 +34,8 @@ export default function CreateListing() {
   const navigate = useNavigate();
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
   const { listings, addListing } = useListings();
+  const { user } = useAuth();
+  const { getSellerProfile } = useSellerSettings();
   const { updateAvailable } = useInventory();
   const [photos, setPhotos] = useState([]);
   const [submitError, setSubmitError] = useState("");
@@ -74,11 +78,11 @@ export default function CreateListing() {
       } : { quantityAvailable: Number(formData.quantityAvailable) }),
       description: formData.description,
       location: isService ? formData.serviceArea : formData.location,
-      shop: "Sarah's Backyard",
-      sellerId: "sarahs-backyard",
+      shop: getSellerProfile(user?.id ?? "current-user").name,
+      sellerId: user?.id ?? "current-user",
       status: "Active",
-      image: photos[0] ?? "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=800&q=80",
-      images: photos.length ? photos : ["https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=800&q=80"],
+      image: photos[0] ?? "",
+      images: photos,
       availableForTrade: formData.availableForTrade,
       desiredTradeItems: formData.desiredTradeItems,
       views: 0,

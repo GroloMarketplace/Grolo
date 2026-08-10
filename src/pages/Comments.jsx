@@ -11,24 +11,6 @@ const CURRENT_USER = {
   username: "you",
 };
 
-const MOCK_COMMENTS = [
-  {
-    id: "comment-1",
-    username: "miafields",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80",
-    timestamp: "2 hrs ago",
-    text: "This looks wonderful. Thanks for sharing with the community!",
-    likes: 4,
-  },
-  {
-    id: "comment-2",
-    username: "localfoodie",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
-    timestamp: "1 hr ago",
-    text: "I will definitely check this out.",
-    likes: 2,
-  },
-];
 
 export default function Comments() {
   const navigate = useNavigate();
@@ -37,7 +19,7 @@ export default function Comments() {
   const { updatePost } = useEngagement();
   const content = state?.content ?? fallbackContent;
   const [comments, setComments] = useState(() => {
-    const sourceComments = state?.content?.post?.commentItems ?? MOCK_COMMENTS;
+    const sourceComments = state?.content?.post?.commentItems ?? [];
     return state?.highlightedComment
       ? [state.highlightedComment, ...sourceComments]
       : sourceComments;
@@ -113,7 +95,7 @@ function OriginalContent({ content, profile }) {
   return (
     <section className="rounded-lg border border-[#E6E6E6] p-3">
       <div className="flex items-center gap-2">
-        <img src={post.sellerId === "sarahs-backyard" || !post.avatar ? profile.avatar : post.avatar} alt={post.name} className="h-8 w-8 rounded-full object-cover" />
+        <img src={post.sellerId === "current-user" || !post.avatar ? profile.avatar : post.avatar} alt={post.name} className="h-8 w-8 rounded-full object-cover" />
         <div>
           <div className="text-[14px] font-semibold text-[#498467]">{post.name}</div>
           <div className="text-[12px] text-[#828282]">{post.time}</div>

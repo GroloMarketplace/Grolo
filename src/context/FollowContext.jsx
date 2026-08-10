@@ -8,7 +8,7 @@ const STORAGE_KEY = "grolo-following";
 function readStoredFollowing(userKey) {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (Array.isArray(saved)) return [...new Set(saved)];
+    if (Array.isArray(saved)) return [];
     return [...new Set(saved?.users?.[userKey] ?? [])];
   } catch {
     return [];

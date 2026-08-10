@@ -1,22 +1,30 @@
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useAuth } from "./AuthContext";
 
 const RegrowContext = createContext(null);
 const STORAGE_KEY = "grolo-regrown-items";
 
-function readRegrownIds() {
+function readRegrownIds(storageKey) {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? [];
+    return JSON.parse(localStorage.getItem(storageKey)) ?? [];
   } catch {
     return [];
   }
 }
 
-function writeRegrownIds(ids) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+function writeRegrownIds(storageKey, ids) {
+  localStorage.setItem(storageKey, JSON.stringify(ids));
 }
 
 export function RegrowProvider({ children }) {
-  const [regrownIds, setRegrownIds] = useState(() => readRegrownIds());
+  const { user } = useAuth();
+  const storageKey = `${STORAGE_KEY}-${user?.id ?? "anonymous"}`;
+  const [regrownIds, setRegrownIds] = useState(() => readRegrownIds(storageKey));
+
+  useEffect(() => {
+    setRegrownIds(readRegrownIds(storageKey));
+  }, [storageKey]);
+
   const [toast, setToast] = useState(null);
   const hideTimer = useRef(null);
   const clearTimer = useRef(null);
@@ -40,11 +48,11 @@ export function RegrowProvider({ children }) {
     setRegrownIds((current) => {
       const active = current.includes(id);
       const next = active ? current.filter((itemId) => itemId !== id) : [...current, id];
-      writeRegrownIds(next);
+      writeRegrownIds(storageKey, next);
       return next;
     });
     showToast(message);
-  }, [showToast]);
+  }, [showToast, storageKey]);
 
   return (
     <RegrowContext.Provider value={{ isRegrown, toggleRegrow, toast }}>

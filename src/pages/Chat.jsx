@@ -36,7 +36,7 @@ export default function Chat() {
   const listing = listingId
     ? listings.find((item) => item.id === listingId)
     : null;
-  const seller = Object.values(sellers).find((s) => s.id === (conversation?.sellerId ?? listing?.sellerId ?? id)) || sellers["pennies-produce"];
+  const seller = Object.values(sellers).find((s) => s.id === (conversation?.sellerId ?? listing?.sellerId ?? id)) || { id: conversation?.sellerId ?? listing?.sellerId ?? id, name: "this store" };
   const conversationProfile = getConversationProfile({ ...conversation, sellerId: conversation?.sellerId ?? seller.id, name: conversation?.name ?? seller.name }, getSellerProfile, buyerProfile);
   const isOrderThread = location.state?.orderConversation === true || conversation?.conversationType === "order";
   const isTradeThread = location.state?.tradeThread === true

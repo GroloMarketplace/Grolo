@@ -127,7 +127,7 @@ export default function Messages() {
                 <div className="flex-1 min-w-0">
                   <div className="flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap text-[14px]">
                     <Link
-                      to={`/seller/${Object.values(sellers).find((s) => s.name === m.name)?.id || 'sarahs-backyard'}`}
+                      to={`/seller/${Object.values(sellers).find((s) => s.name === m.name)?.id || 'current-user'}`}
                       onClick={(e) => e.stopPropagation()}
                       className={`min-w-0 truncate ${m.unread ? "font-bold" : "font-semibold"} text-[#498467] hover:underline`}
                     >

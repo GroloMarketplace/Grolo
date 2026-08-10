@@ -1,22 +1,25 @@
 import { createContext, useCallback, useContext, useState } from "react";
+import { useAuth } from "./AuthContext";
 
 const SavedForLaterContext = createContext(null);
 const STORAGE_KEY = "grolo-saved-for-later";
 
-function readSavedForLater() {
+function readSavedForLater(storageKey) {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? [];
+    return JSON.parse(localStorage.getItem(storageKey)) ?? [];
   } catch {
     return [];
   }
 }
 
-function writeSavedForLater(items) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+function writeSavedForLater(storageKey, items) {
+  localStorage.setItem(storageKey, JSON.stringify(items));
 }
 
 export function SavedForLaterProvider({ children }) {
-  const [items, setItems] = useState(() => readSavedForLater());
+  const { user } = useAuth();
+  const storageKey = `${STORAGE_KEY}-${user?.id ?? "anonymous"}`;
+  const [items, setItems] = useState(() => readSavedForLater(storageKey));
 
   const addItems = useCallback((itemsToAdd) => {
     setItems((current) => {
@@ -24,7 +27,7 @@ export function SavedForLaterProvider({ children }) {
         ...current,
         ...itemsToAdd.filter((item) => !current.some((savedItem) => savedItem.id === item.id)),
       ];
-      writeSavedForLater(next);
+      writeSavedForLater(storageKey, next);
       return next;
     });
   }, []);
@@ -33,7 +36,7 @@ export function SavedForLaterProvider({ children }) {
     const itemIds = new Set(itemsToRemove.map((item) => item.id));
     setItems((current) => {
       const next = current.filter((item) => !itemIds.has(item.id));
-      writeSavedForLater(next);
+      writeSavedForLater(storageKey, next);
       return next;
     });
   }, []);

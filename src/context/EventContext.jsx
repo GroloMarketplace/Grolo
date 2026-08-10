@@ -1,11 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { events as mockEvents, sellers } from "../data/mockData";
+import { sellers } from "../data/mockData";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 
 const EventContext = createContext(null);
 
-const STORE_ID = "sarahs-backyard";
+const STORE_ID = "current-user";
 const RSVP_STORAGE_KEY = "grolo-event-attendees";
 
 function readAttendees(currentUserId) {
@@ -69,10 +69,7 @@ export function formatEventTime(time) {
 export function EventProvider({ children }) {
   const { user } = useAuth();
   const currentUserId = user?.id ?? "current-user";
-  const [events, setEvents] = useState(() => mockEvents.map((event, index) => ({
-    ...event,
-    createdAt: event.createdAt ?? new Date(0).getTime() + (mockEvents.length - index),
-  })));
+  const [events, setEvents] = useState([]);
   const [attendees, setAttendees] = useState(() => readAttendees(currentUserId));
 
   useEffect(() => {

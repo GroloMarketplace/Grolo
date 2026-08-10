@@ -1,13 +1,9 @@
 import { createContext, useContext, useMemo, useState } from "react";
-import { communityPosts as initialPosts } from "../data/mockData";
 
 const PostContext = createContext(null);
 
 export function PostProvider({ children }) {
-  const [posts, setPosts] = useState(() => initialPosts.map((post, index) => ({
-    ...post,
-    createdAt: post.createdAt ?? new Date(0).getTime() + (initialPosts.length - index),
-  })));
+  const [posts, setPosts] = useState([]);
 
   const addPost = (post) => {
     const createdPost = { ...post, id: post.id ?? `post-${Date.now()}`, createdAt: post.createdAt ?? Date.now() };

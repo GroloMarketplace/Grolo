@@ -13,8 +13,9 @@ npm run dev
 
 ## Supabase backend
 
-The app runs fully on mock data (`src/data/mockData.js`) out of the box, so no
-backend is required to browse the UI. To connect a real Supabase backend:
+The app starts without seeded marketplace content. New accounts receive empty
+buyer and seller collections, while real marketplace content is loaded from the
+connected backend as those screens are enabled. To connect Supabase:
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. Run `supabase/schema.sql` in the Supabase SQL editor to create the
@@ -34,9 +35,9 @@ backend is required to browse the UI. To connect a real Supabase backend:
    - The heart/save button on the product page persists favorites to
      Supabase for signed-in users, or to `localStorage` otherwise
      (`src/hooks/useFavorites.js`).
-   - `src/lib/api/*.js` contains typed query helpers for listings, profiles,
-     favorites, messages, and notifications — swap these in for the mock
-     data as each screen is connected.
+   - `src/lib/api/*.js` contains query helpers for listings, profiles, favorites,
+     messages, and notifications. These should be used by screens as backend
+     connectivity is enabled; do not add seed or demo records to account flows.
 
 If OAuth providers (Google/Apple) aren't configured in your Supabase project,
 disable those buttons or configure them under Authentication → Providers.

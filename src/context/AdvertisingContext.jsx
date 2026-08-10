@@ -1,24 +1,9 @@
 import { createContext, useContext, useState } from "react";
 
 const AdvertisingContext = createContext(null);
-const SELLER_ID = "sarahs-backyard";
+const SELLER_ID = "current-user";
 
-const initialAds = [
-  {
-    id: "ad-community-spotlight-trial",
-    title: "Fresh Harvest Sale",
-    description: "20% off garden berries and free herb bundles this week.",
-    image: "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=800&q=80",
-    type: "Store",
-    destinationType: "Store profile",
-    destinationId: SELLER_ID,
-    destinationRoute: `/seller/${SELLER_ID}`,
-    status: "Trial",
-    startsAt: "2026-08-01",
-    endsAt: "2026-08-31",
-    sellerId: SELLER_ID,
-  },
-];
+const initialAds = [];
 
 function addDays(date, days) {
   const result = new Date(`${date}T00:00:00`);

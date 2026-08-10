@@ -1,7 +1,7 @@
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { useAuth } from "./AuthContext";
 import {
   currentUser,
-  orders as mockOrders,
   products,
   sellers,
 } from "../data/mockData";
@@ -25,12 +25,12 @@ function restorePersistedInventory(items) {
   }
 }
 
-function loadOrders() {
+function loadOrders(storageKey) {
   try {
-    const savedOrders = window.localStorage.getItem(ORDER_STORAGE_KEY);
-    return savedOrders ? JSON.parse(savedOrders) : mockOrders;
+    const savedOrders = window.localStorage.getItem(storageKey);
+    return savedOrders ? JSON.parse(savedOrders) : [];
   } catch {
-    return mockOrders;
+    return [];
   }
 }
 
@@ -51,12 +51,19 @@ const DELIVERY_NEXT_STATUS = {
 };
 
 export function OrderProvider({ children }) {
-  const [orders, setOrders] = useState(loadOrders);
+  const { user } = useAuth();
+  const storageKey = `${ORDER_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
+  const [orders, setOrders] = useState(() => loadOrders(storageKey));
+
+  useEffect(() => {
+    setOrders(loadOrders(storageKey));
+  }, [storageKey]);
+
   const [lastCreatedOrder, setLastCreatedOrder] = useState(null);
 
   const saveOrders = (nextOrders) => {
     try {
-      window.localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(nextOrders));
+      window.localStorage.setItem(storageKey, JSON.stringify(nextOrders));
     } catch {
     }
   };
@@ -64,8 +71,8 @@ export function OrderProvider({ children }) {
   const [sellerOrderNotifications, setSellerOrderNotifications] = useState([]);
 
   const buyerOrders = useCallback(
-    () => orders.filter((o) => o.buyer === currentUser.username),
-    [orders],
+    () => orders.filter((o) => o.buyerId === user?.id || (!o.buyerId && o.buyer === (user?.user_metadata?.username ?? currentUser.username))),
+    [orders, user?.id, user?.user_metadata?.username],
   );
 
   const sellerOrders = useCallback(
@@ -94,7 +101,8 @@ export function OrderProvider({ children }) {
       total: item.price * item.quantity + (index === 0 ? Number(orderDetails.deliveryFee) || 0 : 0),
       status: "Seller Notified",
       date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      buyer: currentUser.username,
+      buyer: user?.user_metadata?.username ?? currentUser.username,
+      buyerId: user?.id,
       buyerAvatar: currentUser.avatar,
       fulfillmentMethod: orderDetails.fulfillmentMethod ?? "pickup",
       createdAt: Date.now(),
@@ -175,10 +183,10 @@ export function OrderProvider({ children }) {
     const order = orderIndex >= 0 ? orders[orderIndex] : fallbackOrder;
     const resolvedOrderId = order?.id ?? orderId;
     const product = products.find((item) => item.id === order?.productId);
-    const sellerId = order?.sellerId ?? product?.sellerId ?? "sarahs-backyard";
+    const sellerId = order?.sellerId ?? product?.sellerId ?? "current-user";
     if (!order || order.status === "Cancelled") return false;
 
-    const seller = sellers[sellerId] ?? sellers["sarahs-backyard"];
+    const seller = sellers[sellerId] ?? sellers["current-user"];
     console.info("Order cancellation", {
       orderId: resolvedOrderId,
       previousStatus: order.status,

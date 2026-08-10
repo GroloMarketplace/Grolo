@@ -6,9 +6,9 @@ import { useAuth } from "./AuthContext";
 const BuyerTrustContext = createContext(null);
 const SELLER_REVIEW_STORAGE_KEY = "grolo-seller-buyer-reviews";
 
-function readSellerReviews() {
+function readSellerReviews(storageKey) {
   try {
-    const saved = JSON.parse(localStorage.getItem(SELLER_REVIEW_STORAGE_KEY));
+    const saved = JSON.parse(localStorage.getItem(storageKey));
     return Array.isArray(saved) ? saved : [];
   } catch {
     return [];
@@ -24,11 +24,12 @@ export function BuyerTrustProvider({ children }) {
   const { orders } = useOrders();
   const { attendingEventIds } = useEvents();
   const { user } = useAuth();
-  const [reviews, setReviews] = useState(readSellerReviews);
+  const storageKey = `${SELLER_REVIEW_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
+  const [reviews, setReviews] = useState(() => readSellerReviews(storageKey));
 
   useEffect(() => {
     try {
-      localStorage.setItem(SELLER_REVIEW_STORAGE_KEY, JSON.stringify(reviews));
+      localStorage.setItem(storageKey, JSON.stringify(reviews));
     } catch {
     }
   }, [reviews]);

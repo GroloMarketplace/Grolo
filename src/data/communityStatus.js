@@ -13,25 +13,15 @@ export const SELLER_STATUS_LEVELS = [
   { name: "Grolo Partner", icon: "heart", requirements: [{ key: "completedOrders", label: "Completed Orders", target: 25 }, { key: "followers", label: "Followers", target: 25 }, { key: "sellerReviews", label: "Seller Reviews", target: 10 }, { key: "averageRating", label: "Average Rating", target: 4.5 }, { key: "activeDays", label: "Store Active", target: 90 }, { key: "communityContribution", label: "Community Contribution", target: 1 }] },
 ];
 
-export const mockBuyerActions = {
-  purchasesCompleted: 14,
-  reviewsWritten: 18,
-  eventsAttended: 3,
-  tradesCompleted: 1,
-  businessesSupported: 6,
+export const buyerActions = {
+  purchasesCompleted: 0,
+  reviewsWritten: 0,
+  eventsAttended: 0,
+  tradesCompleted: 0,
+  businessesSupported: 0,
 };
 
-export const mockSellerActions = {
-  listingsCreated: 10,
-  completedOrders: 18,
-  profileVisits: 25,
-  followers: 28,
-  sellerReviews: 12,
-  marketplaceInteractions: 10,
-  activeDays: 90,
-  averageRating: 4.8,
-  communityContribution: 1,
-};
+export const sellerActions = {};
 
 function resolveStatus(levels, metrics) {
   const total = Object.values(metrics).reduce((sum, value) => sum + Number(value || 0), 0);
@@ -39,7 +29,7 @@ function resolveStatus(levels, metrics) {
   return { ...current, total, metrics, progress: Math.min((total / (current.nextThreshold || 1)) * 100, 100) };
 }
 
-export function getBuyerStatus(metrics = mockBuyerActions) {
+export function getBuyerStatus(metrics = {}) {
   return resolveStatus(BUYER_STATUS_LEVELS, metrics);
 }
 
@@ -57,7 +47,7 @@ function sellerMetrics(metrics = {}) {
   };
 }
 
-export function getSellerStatus(metrics = mockSellerActions) {
+export function getSellerStatus(metrics = {}) {
   const normalized = sellerMetrics(metrics);
   let currentIndex = 0;
   for (let index = 1; index < SELLER_STATUS_LEVELS.length; index += 1) {

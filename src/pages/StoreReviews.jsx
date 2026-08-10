@@ -5,15 +5,8 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import { products } from "../data/mockData";
 import { useReviews } from "../context/ReviewContext";
 
-const STORE_ID = "sarahs-backyard";
+const STORE_ID = "current-user";
 
-const baseRatingBreakdown = [
-  { stars: 5, count: 78 },
-  { stars: 4, count: 23 },
-  { stars: 3, count: 12 },
-  { stars: 2, count: 6 },
-  { stars: 1, count: 5 },
-];
 
 export default function StoreReviews() {
   const navigate = useNavigate();
@@ -26,13 +19,9 @@ export default function StoreReviews() {
 
   const { average: averageRating, count: totalReviews } = sellerRating(STORE_ID);
 
-  const ratingBreakdown = baseRatingBreakdown.map((item) => ({
-    ...item,
-    count:
-      item.count +
-      submittedReviews.filter(
-        (r) => r.sellerId === STORE_ID && r.rating === item.stars,
-      ).length,
+  const ratingBreakdown = [5, 4, 3, 2, 1].map((stars) => ({
+    stars,
+    count: submittedReviews.filter((review) => review.sellerId === STORE_ID && review.rating === stars).length,
   }));
 
   const filteredReviews = reviewsForSeller(STORE_ID)

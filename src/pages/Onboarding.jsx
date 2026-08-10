@@ -29,6 +29,7 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const { settings, updateSettings, refreshLocation } = useBuyerSettings();
   const { user, updateEmail } = useAuth();
+  const onboardingKey = `${ONBOARDING_KEY}-${user?.id ?? "anonymous"}`;
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     displayName: "",
@@ -114,7 +115,7 @@ export default function Onboarding() {
       setError("We couldn't save your profile. Please try again with a smaller photo.");
       return;
     }
-    localStorage.setItem(ONBOARDING_KEY, "true");
+    localStorage.setItem(onboardingKey, "true");
     localStorage.removeItem("grolo-pending-email");
     navigate("/", {
       replace: true,

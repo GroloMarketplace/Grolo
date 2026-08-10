@@ -13,7 +13,7 @@ export default function Promotions() {
   const { promotionsForSeller } = usePromotions();
   const { listings } = useListings();
   const { storeOpenedAt } = useProfileMode();
-  const seller = sellers[sellerId] ?? sellers["sarahs-backyard"];
+  const seller = sellers[sellerId] ?? { id: sellerId ?? "current-user", name: "your store" };
   const promotions = promotionsForSeller(seller.id).filter((promotion) => Number(promotion.createdAt) >= storeOpenedAt);
 
   return (
@@ -22,7 +22,11 @@ export default function Promotions() {
       <div className="flex-1 overflow-y-auto px-4 py-5 no-scrollbar">
         <p className="text-[14px] text-[#828282]">Active promotions from {seller.name}</p>
         {promotions.length === 0 ? (
-          <div className="py-12 text-center text-[14px] text-[#828282]">No active promotions</div>
+          <div className="py-12 text-center">
+            <p className="text-[18px] font-semibold">No promotions yet.</p>
+            <p className="mt-2 text-[14px] text-[#828282]">Create your first promotion to bring attention to your listings.</p>
+            <button type="button" onClick={() => navigate("/create-promotion")} className="mt-4 rounded-lg bg-[#498467] px-4 py-2.5 text-[13px] font-medium text-white">+ Create Promotion</button>
+          </div>
         ) : (
           <div className="mt-4 flex flex-col gap-3">
             {promotions.map((promotion) => {

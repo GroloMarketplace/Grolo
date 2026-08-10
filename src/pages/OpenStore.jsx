@@ -6,8 +6,9 @@ import { useProfileMode } from "../context/ProfileModeContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useFoundingMember } from "../context/FoundingMemberContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
+import { useAuth } from "../context/AuthContext";
 
-const SELLER_ID = "sarahs-backyard";
+const SELLER_ID = "current-user";
 const DRAFT_KEY = "grolo-open-store-draft";
 const STORE_CATEGORIES = [
   "Garden & Produce", "Bakery & Sweets", "Meal Prep & Catering", "Crafts & Handmade",
@@ -21,11 +22,11 @@ const emptyForm = {
   instagram: "", facebook: "", x: "", website: "", phone: "", email: "",
 };
 
-function readDraft(profile, buyerAvatar) {
+function readDraft(storageKey, profile, buyerAvatar) {
   const defaultAvatar = buyerAvatar || profile.avatar;
   const defaultBanner = profile.banner;
   try {
-    const saved = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "null");
+    const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null");
     return {
       step: Number.isInteger(saved?.step) ? saved.step : 0,
       form: { ...emptyForm, ...(saved?.form ?? {}), avatar: saved?.form?.avatar || defaultAvatar, banner: saved?.form?.banner || defaultBanner },
@@ -41,8 +42,10 @@ export default function OpenStore() {
   const { getSellerProfile, updateSellerProfile } = useSellerSettings();
   const { awardFoundingMember } = useFoundingMember();
   const { settings: buyerSettings } = useBuyerSettings();
+  const { user } = useAuth();
+  const storageKey = `${DRAFT_KEY}-${user?.id ?? "anonymous"}`;
   const profile = getSellerProfile(SELLER_ID);
-  const initial = readDraft(profile, buyerSettings.avatar);
+  const initial = readDraft(storageKey, profile, buyerSettings.avatar);
   const [step, setStep] = useState(initial.step);
   const [form, setForm] = useState(initial.form);
   const [uploadError, setUploadError] = useState("");
@@ -51,7 +54,7 @@ export default function OpenStore() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, form }));
+      localStorage.setItem(storageKey, JSON.stringify({ step, form }));
     } catch {
       setFormError("Your progress could not be saved. Try smaller images or continue without uploads.");
     }
@@ -103,7 +106,7 @@ export default function OpenStore() {
       setFormError("Your store could not be saved. Please try smaller images.");
       return;
     }
-    try { localStorage.removeItem(DRAFT_KEY); } catch { /* Ignore storage cleanup failures. */ }
+    try { localStorage.removeItem(storageKey); } catch { /* Ignore storage cleanup failures. */ }
     awardFoundingMember(SELLER_ID);
     activateStore();
     navigate("/shop", { replace: true });
@@ -137,7 +140,7 @@ function WelcomeStep({ onContinue }) {
 }
 
 function BasicsStep({ form, update, onContinue, error }) {
-  return <Step title="Tell Us About Your Store"><Field label="Store Name" value={form.name} onChange={(value) => update("name", value)} placeholder="Your store name" required /><label className="flex flex-col gap-2 text-[14px] font-medium">Store Description<textarea value={form.description} onChange={(event) => update("description", event.target.value)} rows={5} placeholder="Tell your community what makes your store special.\n\nExample: We grow organic vegetables in our backyard and share seasonal produce with our local community." className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-3 text-[14px] font-normal outline-none focus:border-[#498467]" /></label><Field label="Store Location" value={form.location} onChange={(value) => update("location", value)} placeholder="Neighbourhood or city" required /><PreviewCard title={form.name || "Your Store"} text={form.description || "Your store description will appear here."} /><ErrorMessage>{error}</ErrorMessage><NextButton onClick={onContinue}>Continue</NextButton></Step>;
+  return <Step title="Tell Us About Your Store"><Field label="Store Name" value={form.name} onChange={(value) => update("name", value)} placeholder="Your store name" required /><label className="flex flex-col gap-2 text-[14px] font-medium">Store Description<textarea value={form.description} onChange={(event) => update("description", event.target.value)} rows={5} placeholder="Tell your community what makes your store special." className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-3 text-[14px] font-normal outline-none focus:border-[#498467]" /></label><Field label="Store Location" value={form.location} onChange={(value) => update("location", value)} placeholder="Neighbourhood or city" required /><PreviewCard title={form.name || "Your Store"} text={form.description || "Your store description will appear here."} /><ErrorMessage>{error}</ErrorMessage><NextButton onClick={onContinue}>Continue</NextButton></Step>;
 }
 
 function BrandingStep({ form, handleFile, onContinue, error, warning }) {

@@ -1,12 +1,12 @@
-import { createContext, useContext, useMemo, useState } from "react";
-import { products as initialProducts } from "../data/mockData";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useAuth } from "./AuthContext";
 
 const ListingContext = createContext(null);
 const STORAGE_KEY = "grolo-listings";
 
-function readListings() {
+function readListings(storageKey) {
   try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    const parsed = JSON.parse(localStorage.getItem(storageKey));
     return Array.isArray(parsed) ? parsed : null;
   } catch {
     return null;
@@ -14,16 +14,19 @@ function readListings() {
 }
 
 export function ListingProvider({ children }) {
-  const [listings, setListings] = useState(() => readListings() ?? initialProducts.map((product, index) => ({
-    ...product,
-    createdAt: product.createdAt ?? new Date(0).getTime() + (initialProducts.length - index),
-  })));
+  const { user } = useAuth();
+  const storageKey = `${STORAGE_KEY}-${user?.id ?? "anonymous"}`;
+  const [listings, setListings] = useState(() => readListings(storageKey) ?? []);
+
+  useEffect(() => {
+    setListings(readListings(storageKey) ?? []);
+  }, [storageKey]);
 
   const addListing = (listing) => {
     const createdListing = { ...listing, createdAt: listing.createdAt ?? Date.now() };
     setListings((current) => {
       const next = [createdListing, ...current];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      localStorage.setItem(storageKey, JSON.stringify(next));
       return next;
     });
     return createdListing;
@@ -32,7 +35,7 @@ export function ListingProvider({ children }) {
   const updateListing = (listingId, updates) => {
     setListings((current) => {
       const next = current.map((listing) => listing.id === listingId ? { ...listing, ...updates } : listing);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      localStorage.setItem(storageKey, JSON.stringify(next));
       return next;
     });
   };
@@ -40,7 +43,7 @@ export function ListingProvider({ children }) {
   const removeListing = (listingId) => {
     setListings((current) => {
       const next = current.filter((listing) => listing.id !== listingId);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      localStorage.setItem(storageKey, JSON.stringify(next));
       return next;
     });
   };

@@ -10,16 +10,16 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useSidebar } from "../hooks/useSidebar";
-import { getBuyerStatus, getSellerStatus, mockBuyerActions } from "../data/communityStatus";
-import { products, sellers } from "../data/mockData";
+import { buyerActions, getBuyerStatus, getSellerStatus } from "../data/communityStatus";
+import { products } from "../data/mockData";
 import { useFoundingMember } from "../context/FoundingMemberContext";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
 import { useFollow } from "../context/FollowContext";
 import { LOCATION_RADIUS_OPTIONS, discoveryRadiusLabel } from "../utils/locationRadius";
 
-const SELLER_ID = "sarahs-backyard";
-const seller = sellers[SELLER_ID];
+const SELLER_ID = "current-user";
+const seller = { rating: 0 };
 const defaultDescription = "Tell customers about your store, what you sell, and what makes it special.";
 
 export default function AccountSettings() {
@@ -73,7 +73,7 @@ function SellerAccountSettings() {
     followers: getFollowerCount(SELLER_ID),
     listings: products.filter((product) => product.sellerId === SELLER_ID).length,
     rating: seller.rating,
-    productsSold: orders.reduce((total, order) => total + order.quantity, 0) || 23,
+    productsSold: orders.reduce((total, order) => total + order.quantity, 0),
   };
 
   const toggleValue = (values, value) => values.includes(value)
@@ -251,7 +251,7 @@ function BuyerAccountSettings() {
   const [showLocationPublicly, setShowLocationPublicly] = useState(settings.showLocationPublicly);
   const [locationStatus, setLocationStatus] = useState("");
   const [saved, setSaved] = useState(false);
-  const status = getBuyerStatus(mockBuyerActions);
+  const status = getBuyerStatus({});
 
   const handleFile = (event) => {
     const file = event.target.files?.[0];
@@ -326,7 +326,7 @@ function BuyerAccountSettings() {
             </Section>
 
             <Section title="Profile Snapshot">
-              <div className="grid grid-cols-2 gap-3">{[["Businesses Supported", mockBuyerActions.businessesSupported], ["Reviews Written", mockBuyerActions.reviewsWritten], ["Events Attended", mockBuyerActions.eventsAttended], ["Completed Trades", mockBuyerActions.tradesCompleted]].map(([label, value]) => <div key={label} className="rounded-lg bg-[#F5FFF6] p-3"><div className="text-[20px] font-semibold text-[#498467]">{value}</div><div className="text-[12px] text-[#828282]">{label}</div></div>)}</div>
+              <div className="grid grid-cols-2 gap-3">{[["Businesses Supported", buyerActions.businessesSupported], ["Reviews Written", buyerActions.reviewsWritten], ["Events Attended", buyerActions.eventsAttended], ["Completed Trades", buyerActions.tradesCompleted]].map(([label, value]) => <div key={label} className="rounded-lg bg-[#F5FFF6] p-3"><div className="text-[20px] font-semibold text-[#498467]">{value}</div><div className="text-[12px] text-[#828282]">{label}</div></div>)}</div>
             </Section>
 
             <Section title="Notification Settings">

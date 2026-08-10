@@ -1136,6 +1136,12 @@ export function Notifications() {
           >
             {notificationLists.map((notifications, index) => (
               <div key={index} className="box-border w-full min-w-full max-w-full shrink-0 snap-start">
+                {notifications.length === 0 ? (
+                  <div className="px-4 py-12 text-center">
+                    <p className="text-[18px] font-semibold">No notifications yet.</p>
+                    <p className="mt-2 text-[14px] text-[#828282]">We'll keep you updated when something happens.</p>
+                  </div>
+                ) : (
                 <div className="flex flex-col">
         {notifications.map((n) => {
           const productThumb = n.productId
@@ -1267,6 +1273,7 @@ export function Notifications() {
           );
                 })}
                 </div>
+                )}
               </div>
             ))}
           </div>

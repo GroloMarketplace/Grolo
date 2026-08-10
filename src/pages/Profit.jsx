@@ -10,7 +10,7 @@ import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
 import { useFollow } from "../context/FollowContext";
 
 const TABS = ["Overview", "Orders", "Community", "Products"];
-const SELLER_ID = "sarahs-backyard";
+const SELLER_ID = "current-user";
 
 export default function Profit() {
   const [tab, setTab] = useState("Overview");
@@ -21,7 +21,7 @@ export default function Profit() {
   const followers = getFollowerCount(SELLER_ID);
   const sellerProducts = products.filter((product) => product.sellerId === SELLER_ID);
   const sellerEvents = events.filter((event) => event.sellerId === SELLER_ID);
-  const seller = sellers[SELLER_ID];
+  const seller = sellers[SELLER_ID] ?? { rating: 0 };
   const sellerReviews = reviews.filter((review) =>
     sellerProducts.some((product) => product.id === review.productId),
   );

@@ -264,8 +264,7 @@ export default function ProductDetail() {
           </button>
           {open && (
             <p className="text-[16px] leading-[140%]">
-              {product.description ??
-                "Fresh bags of strawberries, straight from my backyard garden. All soil and seeds are 100% organic."}
+              {product.description ?? "No description provided yet."}
             </p>
           )}
         </div>

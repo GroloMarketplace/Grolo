@@ -13,7 +13,7 @@ export default function Sidebar({ isOpen, onClose, mode = "seller" }) {
   const { canSeller, setProfileMode } = useProfileMode();
   const { settings: buyerSettings } = useBuyerSettings();
   const { getSellerProfile } = useSellerSettings();
-  const avatar = mode === "seller" ? getSellerProfile("sarahs-backyard").avatar : buyerSettings.avatar;
+  const avatar = mode === "seller" ? getSellerProfile("current-user").avatar : buyerSettings.avatar;
 
   const handleMenuClick = (action) => {
     onClose();

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState } from "react";
-import { sellers } from "../data/mockData";
+import { useAuth } from "./AuthContext";
 
 const SellerSettingsContext = createContext(null);
 const STORAGE_KEY = "grolo-seller-profiles";
@@ -12,32 +12,31 @@ const defaultNotifications = {
   eventInteractions: true,
 };
 
-const initialProfiles = Object.fromEntries(
-  Object.values(sellers).map((seller) => [seller.id, {
-    name: seller.name,
-    description: seller.description ?? "",
-    location: seller.location ?? "",
-    avatar: seller.avatar,
-    banner: seller.banner,
-    vacationMode: false,
-    vacationMessage: "",
-    returnDate: "",
-    notifications: { ...defaultNotifications },
-  }]),
-);
+const initialProfiles = {};
+const emptyProfile = {
+  name: "",
+  description: "",
+  location: "",
+  avatar: "",
+  banner: "",
+  vacationMode: false,
+  vacationMessage: "",
+  returnDate: "",
+  notifications: { ...defaultNotifications },
+};
 
-function readStoredProfiles() {
+function readStoredProfiles(storageKey) {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(storageKey);
     return stored ? { ...initialProfiles, ...JSON.parse(stored) } : initialProfiles;
   } catch {
     return initialProfiles;
   }
 }
 
-function storeProfiles(profiles) {
+function storeProfiles(storageKey, profiles) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles));
+    localStorage.setItem(storageKey, JSON.stringify(profiles));
     return true;
   } catch {
     return false;
@@ -45,9 +44,11 @@ function storeProfiles(profiles) {
 }
 
 export function SellerSettingsProvider({ children }) {
-  const [profiles, setProfiles] = useState(readStoredProfiles);
+  const { user } = useAuth();
+  const storageKey = `${STORAGE_KEY}-${user?.id ?? "anonymous"}`;
+  const [profiles, setProfiles] = useState(() => readStoredProfiles(storageKey));
 
-  const getSellerProfile = (sellerId) => profiles[sellerId] ?? profiles["sarahs-backyard"];
+  const getSellerProfile = (sellerId) => profiles[sellerId] ?? emptyProfile;
 
   const updateSellerProfile = (sellerId, updates) => {
     let saved = true;
@@ -55,7 +56,7 @@ export function SellerSettingsProvider({ children }) {
       const next = {
         ...current,
         [sellerId]: {
-          ...(current[sellerId] ?? initialProfiles["sarahs-backyard"]),
+          ...(current[sellerId] ?? emptyProfile),
           ...updates,
           notifications: {
             ...(current[sellerId]?.notifications ?? defaultNotifications),
@@ -63,7 +64,7 @@ export function SellerSettingsProvider({ children }) {
           },
         },
       };
-      saved = storeProfiles(next);
+      saved = storeProfiles(storageKey, next);
       return next;
     });
     return saved;

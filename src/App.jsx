@@ -100,8 +100,10 @@ export default function App() {
         <DeliveryAddressProvider>
         <Routes>
         <Route path="/signin" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SignIn /></PhoneFrame>} />
+        <Route path="/signup" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SignIn /></PhoneFrame>} />
         <Route path="/onboarding" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute><Onboarding /></ProtectedRoute></PhoneFrame>} />
         <Route path="/" element={<PhoneFrame><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></PhoneFrame>} />
+        <Route path="/home" element={<PhoneFrame><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></PhoneFrame>} />
         <Route path="/notifications" element={<PhoneFrame><AppErrorBoundary label="Notifications"><Notifications /></AppErrorBoundary></PhoneFrame>} />
         <Route path="/shop" element={<PhoneFrame><AppErrorBoundary label="Seller Profile"><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></AppErrorBoundary></PhoneFrame>} />
         <Route path="/seller-profile" element={<PhoneFrame><AppErrorBoundary label="Seller Profile"><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></AppErrorBoundary></PhoneFrame>} />

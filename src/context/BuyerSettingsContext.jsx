@@ -1,11 +1,12 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { useAuth } from "./AuthContext";
 
 const BuyerSettingsContext = createContext(null);
 const STORAGE_KEY = "grolo-buyer-settings";
 
-function readStoredSettings(initialSettings) {
+function readStoredSettings(storageKey, initialSettings) {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(storageKey);
     if (!stored) return initialSettings;
     const parsed = JSON.parse(stored);
     const safeSettings = parsed && typeof parsed === "object" ? parsed : {};
@@ -15,9 +16,9 @@ function readStoredSettings(initialSettings) {
   }
 }
 
-function persistSettings(settings) {
+function persistSettings(storageKey, settings) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    localStorage.setItem(storageKey, JSON.stringify(settings));
     return true;
   } catch {
     return false;
@@ -25,8 +26,9 @@ function persistSettings(settings) {
 }
 
 const initialSettings = {
-  displayName: "remi",
-  bio: "Discovering local makers, businesses, and community moments around Calgary.",
+  displayName: "",
+  bio: "",
+
   location: "",
   locationRadius: 25,
   latitude: null,
@@ -34,7 +36,7 @@ const initialSettings = {
   city: "",
   province: "",
   locationPermission: "unknown",
-  avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80",
+  avatar: "",
   notifications: {
     newMessages: true,
     newFollowers: true,
@@ -45,13 +47,19 @@ const initialSettings = {
     communityActivity: true,
   },
   showLocationPublicly: false,
-  username: "remi",
+  username: "",
   email: "",
   interests: [],
 };
 
 export function BuyerSettingsProvider({ children }) {
-  const [settings, setSettings] = useState(() => readStoredSettings(initialSettings));
+  const { user } = useAuth();
+  const storageKey = `${STORAGE_KEY}-${user?.id ?? "anonymous"}`;
+  const [settings, setSettings] = useState(() => readStoredSettings(storageKey, initialSettings));
+
+  useEffect(() => {
+    setSettings(readStoredSettings(storageKey, initialSettings));
+  }, [storageKey]);
 
   const updateSettings = (updates) => {
     let saved = true;
@@ -64,7 +72,7 @@ export function BuyerSettingsProvider({ children }) {
           ...(updates.notifications ?? {}),
         },
       };
-      saved = persistSettings(next);
+      saved = persistSettings(storageKey, next);
       return next;
     });
     return saved;

@@ -5,7 +5,6 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import ProfileSwitcher from "../components/ProfileSwitcher";
 import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../hooks/useSidebar";
-import { communityPosts, events, followingPosts, products, promotions } from "../data/mockData";
 import { formatEventDate, formatEventTime, useEvents } from "../context/EventContext";
 import { useFollow } from "../context/FollowContext";
 import { getBuyerImpactMetrics } from "../utils/buyerImpact";
@@ -146,9 +145,16 @@ export default function BuyerProfile() {
           <div className="w-full max-w-full overflow-hidden">
             <div ref={tabContentRef} onScroll={handleTabScroll} className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar">
               <div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4">
-                <div className="flex w-full min-w-0 flex-col gap-4">
-                  {activity.map((item) => <ActivityCard key={item.id} activity={item} navigate={navigate} profile={buyerProfile} />)}
-                </div>
+                {activity.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <p className="text-[14px] text-[#828282]">No activity yet.</p>
+                    <p className="mt-1 text-[13px] leading-[140%] text-[#828282]">Posts, saves, and community interactions will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="flex w-full min-w-0 flex-col gap-4">
+                    {activity.map((item) => <ActivityCard key={item.id} activity={item} navigate={navigate} profile={buyerProfile} />)}
+                  </div>
+                )}
               </div>
               <CommunityImpactTab metrics={impactMetrics} profileId="you" />
               <ReviewsTab reviews={sellerReviews} />
@@ -163,21 +169,9 @@ export default function BuyerProfile() {
 }
 
 function buildActivity() {
-  const post = communityPosts[0];
-  const regrownPost = followingPosts[0];
-  const event = events[0];
-  const listing = products[0];
-  const promotion = promotions[0];
-
-  return [
-    { id: "activity-post", type: "post", label: "Posted to the community", timestamp: "Today · 10:30 AM", post },
-    { id: "activity-regrow-post", type: "post", label: "🌱 Regrew a community post", timestamp: "Yesterday · 4:20 PM", post: regrownPost },
-    { id: "activity-regrow-event", type: "event", label: "🎉 Regrew an event", timestamp: "2 days ago", event },
-    { id: "activity-regrow-listing", type: "listing", label: "🌱 Regrew a listing", timestamp: "3 days ago", listing },
-    { id: "activity-comment", type: "comment", label: "💬 Commented on a post", timestamp: "4 days ago", post, text: "These look amazing! I will stop by this weekend." },
-    { id: "activity-saved", type: "listing", label: "❤️ Saved a listing", timestamp: "5 days ago", listing: products[1] },
-    { id: "activity-promotion", type: "promotion", label: "Interacted with a community promotion", timestamp: "6 days ago", promotion, listing },
-  ];
+  // Real activity is generated as the buyer interacts with the marketplace.
+  // New accounts should start with no activity rather than sample entries.
+  return [];
 }
 
 export function TrustStatusBadge({ buyerId = "you" }) {
@@ -303,18 +297,22 @@ export function ReviewsTab({ reviews }) {
 }
 
 function PostPreview({ post, text }) {
+  if (!post) return null;
   return <><img src={post.image} alt="" className="mt-3 aspect-square w-full rounded-lg object-cover" /><p className="mt-2 text-[14px] leading-[140%]">{text || post.body}</p></>;
 }
 
 function EventPreview({ event }) {
+  if (!event) return null;
   return <><img src={event.image} alt={event.title} className="mt-3 aspect-square w-full rounded-lg object-cover" /><h3 className="mt-2 text-[15px] font-semibold">{event.title}</h3><p className="mt-1 text-[13px] text-[#828282]">{formatEventDate(event.date)} · {formatEventTime(event.startTime)} · {event.location}</p><EventAttendanceCount eventId={event.id} className="mt-1 block" /></>;
 }
 
 function ListingPreview({ listing }) {
+  if (!listing) return null;
   return <><img src={listing.image} alt={listing.name} className="mt-3 aspect-square w-full rounded-lg object-cover" /><ServiceCategoryLabel listing={listing} className="mt-2 block" /><p className="mt-1 text-[14px] font-semibold">{listing.name}</p><p className="text-[14px] text-[#498467]">{listing.shop} · {formatListingPrice(listing)}</p></>;
 }
 
 function PromotionPreview({ promotion, listing }) {
+  if (!promotion || !listing) return null;
   return <><div className="mt-3 rounded-lg bg-[#F5FFF6] p-3"><p className="text-[12px] font-medium text-[#498467]">{promotion.title}</p><p className="mt-1 text-[14px] font-semibold">{listing.name}</p></div></>;
 }
 

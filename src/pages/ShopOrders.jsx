@@ -10,7 +10,7 @@ import { readNavigationState, writeNavigationState } from "../hooks/navigationSt
 import { useBuyerTrust } from "../context/BuyerTrustContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 
-const STORE_ID = "sarahs-backyard";
+const STORE_ID = "current-user";
 
 const SECTIONS = [
   { title: "Pickup Orders · New", statuses: ["Seller Notified", "Order Placed"], fulfillmentMethod: "pickup" },

@@ -18,7 +18,8 @@ const STATS = [
   { key: "totalMessages", label: "Total Messages", icon: "message" },
   { key: "totalFollowers", label: "Total Followers", icon: "users" },
   { key: "totalListings", label: "Total Listings", icon: "box" },
-  { key: "totalSales", label: "Total Sales", icon: "sales" },
+  { key: "totalOrders", label: "Orders", icon: "sales" },
+  { key: "totalRevenue", label: "Revenue", icon: "sales" },
   { key: "averageRating", label: "Average Rating", icon: "star" },
 ];
 
@@ -64,12 +65,19 @@ export default function Analytics() {
                   <div className="text-[12px] font-medium text-[#828282]">{stat.label}</div>
                 </div>
                 <div className="text-[24px] font-semibold tracking-[-0.48px]">
-                  {stat.key === "averageRating" ? data[stat.key].toFixed(1) : data[stat.key].toLocaleString()}
+                  {stat.key === "averageRating" ? data[stat.key].toFixed(1) : stat.key === "totalRevenue" ? `$${data[stat.key].toFixed(2)}` : data[stat.key].toLocaleString()}
                 </div>
               </div>
             ))}
           </div>
         </div>
+
+        {data.totalViews === 0 && data.totalOrders === 0 && data.totalRevenue === 0 && (
+          <div className="mx-4 mb-4 rounded-lg bg-[#F5FFF6] px-4 py-4 text-center">
+            <p className="text-[15px] font-semibold">No analytics yet.</p>
+            <p className="mt-1 text-[13px] text-[#5D7459]">Views, orders, and revenue will appear after your store starts receiving activity.</p>
+          </div>
+        )}
 
         {/* Views Chart */}
         <div className="mx-4 mb-4 rounded-lg border border-[#E0E0E0] p-4">

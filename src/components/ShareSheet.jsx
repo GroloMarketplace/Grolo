@@ -1,18 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const USERS = [
-  { name: "Mia Fields", image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80" },
-  { name: "Alex Chen", image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80" },
-  { name: "Jordan Lee", image: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100&q=80" },
-  { name: "Sam Rivera", image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&q=80" },
-];
-const STORES = [
-  { name: "Sarah's Backyard", image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80" },
-  { name: "Pennie's Produce", image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80" },
-  { name: "Dustin's Donut Store", image: "https://images.unsplash.com/photo-1541823709867-1b206113eafd?w=100&q=80" },
-  { name: "Brandy's Crafts", image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80" },
-];
+const USERS = [];
+const STORES = [];
 
 export default function ShareSheet({ content, onClose, onSuccess }) {
   const navigate = useNavigate();

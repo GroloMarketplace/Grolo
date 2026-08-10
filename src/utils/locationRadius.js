@@ -82,3 +82,31 @@ export function isWithinDiscoveryRadius(content, userLocation, radius) {
 export function discoveryRadiusLabel(radius) {
   return radius === Infinity || Number(radius) === Infinity ? "Anywhere" : `${radius} km`;
 }
+
+// Sorts items nearest-first. Distance for each item is computed exactly once
+// (not recomputed on every comparison) to keep sorting efficient. Items with
+// unknown distance are never dropped — they simply sort after known ones,
+// falling back to `tiebreaker` (or original order) when distances match.
+export function sortByDistance(items, userLocation, getContent = (item) => item, tiebreaker) {
+  return items
+    .map((item, index) => ({ item, index, distance: distanceInKmBetween(getContent(item) ?? {}, userLocation) }))
+    .sort((a, b) => {
+      if (a.distance === b.distance) return tiebreaker ? tiebreaker(a.item, b.item) : a.index - b.index;
+      if (a.distance === null) return 1;
+      if (b.distance === null) return -1;
+      return a.distance - b.distance;
+    })
+    .map(({ item }) => item);
+}
+
+// Resolves the value to pass as `userLocation` to the functions above:
+// precise coordinates when available, otherwise the saved/onboarding
+// location text, otherwise an empty string (treated as "unknown").
+export function resolveUserLocation(settings = {}) {
+  if (Number.isFinite(Number(settings.latitude)) && Number.isFinite(Number(settings.longitude))) return settings;
+  return settings.location?.trim() || settings.city?.trim() || "";
+}
+
+export function hasKnownLocation(settings = {}) {
+  return Boolean(resolveUserLocation(settings));
+}

@@ -41,7 +41,7 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useListings } from "../context/ListingContext";
 import { usePosts } from "../context/PostContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
-import { discoveryRadiusLabel, isWithinDiscoveryRadius } from "../utils/locationRadius";
+import { discoveryRadiusLabel, isWithinDiscoveryRadius, resolveUserLocation, sortByDistance } from "../utils/locationRadius";
 import DistanceLabel from "../components/DistanceLabel";
 
 const TABS = ["Following", "Your Community"];
@@ -246,7 +246,7 @@ export default function Feed() {
               <FollowingFeed
                 key={`following-${feedVersion}`}
                 followedSellers={followedSellers}
-                location={buyerSettings.latitude ? buyerSettings : buyerSettings.location}
+                location={resolveUserLocation(buyerSettings)}
                 radius={buyerSettings.locationRadius ?? 25}
                 hiddenContentIds={hiddenContentIds}
                 onComment={openComments}
@@ -263,7 +263,7 @@ export default function Feed() {
                 onComment={openComments}
                 onMenu={setActionContent}
                 onShare={openShare}
-                location={buyerSettings.latitude ? buyerSettings : buyerSettings.location}
+                location={resolveUserLocation(buyerSettings)}
                 radius={buyerSettings.locationRadius ?? 25}
                 hiddenContentIds={hiddenContentIds}
               />
@@ -307,7 +307,7 @@ function FollowingFeed({ followedSellers, location, radius, hiddenContentIds, on
   const postsForItems = followedPosts;
   const listingsForItems = followedListings;
   const promotions = activePromotions().filter((promotion) => followedSellers.includes(promotion.sellerId) && isWithinDiscoveryRadius(promotion, location, radius));
-  const items = getFollowedItems({ posts: postsForItems, events, listings: listingsForItems, promotions, allListings: listingsForPromotions, hiddenContentIds });
+  const items = getFollowedItems({ posts: postsForItems, events, listings: listingsForItems, promotions, allListings: listingsForPromotions, hiddenContentIds, location });
 
   return (
     <div className="flex flex-col gap-8 px-4 py-6">
@@ -320,14 +320,20 @@ function FollowingFeed({ followedSellers, location, radius, hiddenContentIds, on
   );
 }
 
-function getFollowedItems({ posts, events, listings, promotions, allListings, hiddenContentIds }) {
+function getFollowedItems({ posts, events, listings, promotions, allListings, hiddenContentIds, location }) {
   const items = [
     ...posts.map((post) => ({ type: "post", id: `post:${post.id}`, post })),
     ...events.map((event) => ({ type: "event", id: `event:${event.id}`, event })),
     ...listings.map((product) => ({ type: "listing", id: `listing:${product.id}`, product })),
     ...promotions.map((promotion) => ({ type: "promotion", id: `promotion:${promotion.id}`, promotion, product: allListings.find((product) => promotion.productIds?.includes(product.id)) })),
   ];
-  return items.filter((item) => !hiddenContentIds.has(item.id));
+  const visible = items.filter((item) => !hiddenContentIds.has(item.id));
+  // Closer content first; ties (or unknown distance) fall back to newest first.
+  return sortByDistance(visible, location, feedItemContent, (a, b) => contentTimestamp(b) - contentTimestamp(a));
+}
+
+function feedItemContent(item) {
+  return item.post ?? item.event ?? item.product ?? item.promotion ?? {};
 }
 
 function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu, onShare, location, radius, hiddenContentIds }) {

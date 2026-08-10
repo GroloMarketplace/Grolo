@@ -48,11 +48,20 @@ export function distanceInKmBetween(content, userLocation) {
   return distanceInKm(userCoordinates, contentCoordinates);
 }
 
-export function distanceLabel(content, userLocation) {
+export function distanceInfo(content, userLocation) {
   const distance = distanceInKmBetween(content, userLocation);
-  if (distance === null) return content?.location ?? content?.address ?? "Location unavailable";
-  if (distance < 1) return "Less than 1 km away";
-  return `${distance < 100 ? distance.toFixed(1) : Math.round(distance)} km away`;
+  if (distance === null) {
+    const fallbackLocation = content?.location ?? content?.address;
+    return fallbackLocation
+      ? { label: fallbackLocation, hasDistance: false }
+      : { label: "Location unavailable", hasDistance: false };
+  }
+  const label = distance < 1 ? "Less than 1 km away" : `${distance < 100 ? distance.toFixed(1) : Math.round(distance)} km away`;
+  return { label, hasDistance: true };
+}
+
+export function distanceLabel(content, userLocation) {
+  return distanceInfo(content, userLocation).label;
 }
 
 export function isWithinDiscoveryRadius(content, userLocation, radius) {

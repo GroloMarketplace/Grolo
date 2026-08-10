@@ -340,7 +340,7 @@ function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu
   const events = upcomingEvents().filter((event) => isWithinDiscoveryRadius(event, location, radius));
   const nearbyListings = listings.filter((listing) => isWithinDiscoveryRadius(listing, location, radius));
   const nearbyPosts = posts.filter((post) => isWithinDiscoveryRadius(post, location, radius));
-  const currentPromotions = [];
+  const currentPromotions = activePromotions().filter((promotion) => isWithinDiscoveryRadius(promotion, location, radius));
   const items = getCommunityItems(filter, { events, listings: nearbyListings, posts: nearbyPosts, currentPromotions, isRegrown, hiddenContentIds });
 
   const changeFilter = (nextFilter) => onFilterChange(nextFilter);
@@ -775,7 +775,10 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
         <FoundingMemberBadge sellerId={post.sellerId} iconOnly />
         <span className="shrink-0 text-[14px] text-[#B56576]">in {displayPostClassification(post.classification)}</span>
       </div>
-      <span className="text-[12px] text-[#828282]">{post.time}</span>
+      <div className="flex items-center gap-2">
+        <span className="text-[12px] text-[#828282]">{post.time}</span>
+        <DistanceLabel content={post} />
+      </div>
     </div>
   );
 

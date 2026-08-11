@@ -6,22 +6,59 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(isSupabaseConfigured);
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
+    let cancelled = false;
+    let profileRequest = 0;
 
-    supabase.auth.getSession().then(({ data }) => {
+    async function loadProfileStatus(currentSession) {
+      const requestId = ++profileRequest;
+      if (!currentSession?.user?.id) {
+        if (!cancelled) setOnboardingComplete(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", currentSession.user.id)
+        .maybeSingle();
+      if (cancelled || requestId !== profileRequest) return;
+      if (error) {
+        console.error("Unable to load authenticated profile", error);
+        setOnboardingComplete(false);
+        return;
+      }
+
+      const hasLegacyCompletedProfile = Boolean(data?.display_name?.trim() && data?.username?.trim() && data?.bio?.trim());
+      const hasExistingProfile = Boolean(data?.id);
+      setOnboardingComplete(Boolean(data?.onboarding_completed || hasLegacyCompletedProfile || hasExistingProfile));
+    }
+
+    async function initialize() {
+      const { data, error } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (error) console.error("Unable to restore auth session", error);
       setSession(data.session);
-      setLoading(false);
+      await loadProfileStatus(data.session);
+      if (!cancelled) setLoading(false);
+    }
+
+    initialize();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      loadProfileStatus(newSession).finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
-        setSession(newSession);
-      },
-    );
-
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   async function signInWithEmail(email) {
@@ -51,6 +88,7 @@ export function AuthProvider({ children }) {
     session,
     user: session?.user ?? null,
     loading,
+    onboardingComplete,
     isAuthenticated: Boolean(session),
     signInWithEmail,
     signInWithProvider,

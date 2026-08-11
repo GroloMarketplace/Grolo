@@ -4,23 +4,13 @@ import { useAuth } from "../context/AuthContext";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 
-const ONBOARDING_KEY = "grolo-onboarding-complete";
-
-function nextPath() {
-  try {
-    return localStorage.getItem(ONBOARDING_KEY) === "true" ? "/profile" : "/onboarding";
-  } catch {
-    return "/onboarding";
-  }
-}
-
 function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
 export default function SignIn() {
   const navigate = useNavigate();
-  const { signInWithEmail, signInWithProvider, isAuthenticated } = useAuth();
+  const { signInWithEmail, signInWithProvider, isAuthenticated, loading, onboardingComplete } = useAuth();
   const [email, setEmail] = useState("");
   const [accountDeleted] = useState(() => {
     const deleted = sessionStorage.getItem("grolo-account-deleted") === "true";
@@ -31,8 +21,8 @@ export default function SignIn() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (isAuthenticated) navigate(nextPath());
-  }, [isAuthenticated, navigate]);
+    if (isAuthenticated && !loading) navigate(onboardingComplete ? "/" : "/onboarding", { replace: true });
+  }, [isAuthenticated, loading, navigate, onboardingComplete]);
 
   async function handleContinue() {
     const normalizedEmail = email.trim();
@@ -51,7 +41,7 @@ export default function SignIn() {
       // Continue even if local persistence is unavailable.
     }
     if (!isSupabaseConfigured) {
-      navigate(nextPath());
+      navigate("/onboarding");
       return;
     }
     try {
@@ -67,7 +57,7 @@ export default function SignIn() {
   async function handleProvider(provider) {
     setError("");
     if (!isSupabaseConfigured) {
-      navigate(nextPath());
+      navigate("/onboarding");
       return;
     }
     try {
@@ -89,9 +79,9 @@ export default function SignIn() {
 
       <div className="flex flex-col items-center gap-6 mt-auto">
         <div className="flex flex-col items-center gap-0.5">
-          <div className="text-[16px] font-semibold">Create an account</div>
+          <div className="text-[16px] font-semibold">Sign in or create an account</div>
           <div className="text-[14px]">
-            Enter your email to sign up for this app
+            Enter your email to continue to Grolo
           </div>
         </div>
 

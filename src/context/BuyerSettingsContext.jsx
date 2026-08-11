@@ -54,6 +54,7 @@ function settingsFromProfile(profile, user) {
     },
     showLocationPublicly: profile?.show_location_publicly ?? false,
     interests: Array.isArray(profile?.interests) ? profile.interests : [],
+    onboardingCompleted: Boolean(profile?.onboarding_completed),
     email: user?.email ?? "",
   };
 }
@@ -75,6 +76,7 @@ function profileUpdates(updates) {
     banner: "banner_url",
     showLocationPublicly: "show_location_publicly",
     interests: "interests",
+    onboardingCompleted: "onboarding_completed",
   };
   Object.entries(fields).forEach(([key, column]) => {
     if (updates[key] !== undefined) next[column] = updates[key];

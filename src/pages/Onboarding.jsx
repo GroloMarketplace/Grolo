@@ -7,7 +7,6 @@ import { useAuth } from "../context/AuthContext";
 import ProfileAvatar from "../components/ProfileAvatar";
 import { uploadImage } from "../lib/imageStorage";
 
-const ONBOARDING_KEY = "grolo-onboarding-complete";
 const INTERESTS = [
   "Farmers Markets", "Garden & Produce", "Bakery & Sweets", "Meal Prep & Catering",
   "Crafts & Handmade", "Local Events", "Workshops & Classes", "Plants & Flowers",
@@ -30,7 +29,6 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const { settings, updateSettings, refreshLocation } = useBuyerSettings();
   const { user, updateEmail } = useAuth();
-  const onboardingKey = `${ONBOARDING_KEY}-${user?.id ?? "anonymous"}`;
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     displayName: "",
@@ -107,12 +105,12 @@ export default function Onboarding() {
         email: form.email.trim(),
         city: form.location.split(",")[0].trim(),
         province: "Alberta",
+        onboardingCompleted: true,
       });
     } catch (saveError) {
       setError(saveError.message || "We couldn't save your profile. Please try again.");
       return;
     }
-    localStorage.setItem(onboardingKey, "true");
     localStorage.removeItem("grolo-pending-email");
     navigate("/", {
       replace: true,

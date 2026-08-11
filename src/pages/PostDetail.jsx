@@ -5,13 +5,15 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import ShareSheet from "../components/ShareSheet";
 import ThreadedComments from "../components/ThreadedComments";
-import { sellers } from "../data/mockData";
+import { products, sellers } from "../data/mockData";
 import { useRegrow } from "../context/RegrowContext";
 import { useEngagement } from "../context/EngagementContext";
 import { usePosts } from "../context/PostContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useAuth } from "../context/AuthContext";
+import { useListings } from "../context/ListingContext";
 import DistanceLabel from "../components/DistanceLabel";
+import { formatListingPrice } from "../utils/listingDisplay";
 import { toggleCommentLike as persistCommentLike } from "../lib/api/commentLikes";
 
 function imageReferenceMatches(first, second) {
@@ -29,6 +31,7 @@ export default function PostDetail() {
   const { getPostEngagement, updatePost, togglePostLike, incrementPostShares, togglePostRegrow } = useEngagement();
   const { settings: buyerProfile } = useBuyerSettings();
   const { user: authUser } = useAuth();
+  const { listings } = useListings();
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [showRegrowConfirm, setShowRegrowConfirm] = useState(false);
   const [comments, setComments] = useState(post?.commentItems ?? []);
@@ -37,6 +40,10 @@ export default function PostDetail() {
   const postAvatar = post?.authorId === buyerProfile.displayName ? buyerProfile.avatar : post?.avatar ?? seller?.avatar;
   const engagement = getPostEngagement(post);
   const regrown = post ? isRegrown(`post:${post.id}`) : false;
+  const attachedProduct = post?.productId
+    ? products.find((item) => item.id === post.productId) ?? listings.find((item) => item.id === post.productId)
+    : null;
+  const postImages = post?.images?.length ? post.images : post?.image ? [post.image] : [];
 
   useEffect(() => {
     if (!state?.notificationId) return;
@@ -95,8 +102,31 @@ export default function PostDetail() {
           <img src={postAvatar} alt={post.name} className="h-10 w-10 rounded-full object-cover" />
           <div className="min-w-0 flex-1"><div className="flex items-center gap-1"><span className="truncate text-[16px] font-semibold text-[#498467]">{post.name}</span><FoundingMemberBadge sellerId={post.sellerId} iconOnly /></div><div className="flex flex-col gap-1 text-[12px] text-[#828282]"><DistanceLabel content={post} /><span>{post.location ?? seller?.location ?? "Local community"} · {post.time}</span></div></div>
         </div>
-        {post.image && <img src={post.image} alt="" className="mt-5 aspect-square w-full rounded-lg object-cover" />}
+        {postImages.length > 0 && (
+          <div className={postImages.length > 1 ? "mt-5 flex gap-2 overflow-x-auto no-scrollbar" : "mt-5"}>
+            {postImages.map((image, index) => (
+              <img key={index} src={image} alt="" className={postImages.length > 1 ? "aspect-square w-[85%] shrink-0 rounded-lg object-cover" : "aspect-square w-full rounded-lg object-cover"} />
+            ))}
+          </div>
+        )}
         <p className="mt-5 whitespace-pre-wrap text-[16px] leading-7">{post.body}</p>
+        {attachedProduct && (
+          <button
+            type="button"
+            onClick={() => navigate(`/product/${attachedProduct.id}`, { state: { sellerId: attachedProduct.sellerId } })}
+            className="mt-4 w-full rounded-lg border border-[#E6E6E6] p-3 text-left"
+          >
+            <p className="mb-2 text-[12px] font-medium text-[#828282]">Attached Listing</p>
+            <div className="flex items-center gap-3">
+              {attachedProduct.image && <img src={attachedProduct.image} alt={attachedProduct.name} className="h-12 w-12 shrink-0 rounded-lg object-cover" />}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[14px] font-semibold">{attachedProduct.name}</p>
+                <p className="text-[13px] text-[#498467]">{formatListingPrice(attachedProduct)}</p>
+                <p className="text-[12px] text-[#828282]">Seller: {sellers[attachedProduct.sellerId]?.name ?? attachedProduct.shop}</p>
+              </div>
+            </div>
+          </button>
+        )}
         <div className="mt-6 flex items-center justify-between border-y border-[#E6E6E6] py-3"><EngagementButton label={engagement.likes} active={engagement.liked} ariaLabel="Like post" onClick={handlePostLike}><LikeIcon active={engagement.liked} /></EngagementButton><EngagementButton label={engagement.comments} ariaLabel="View comments" onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })}><CommentIcon /></EngagementButton><EngagementButton label={engagement.shares} ariaLabel="Share post" onClick={() => setShowShareSheet(true)}><ShareIcon /></EngagementButton><EngagementButton label={engagement.regrows} active={regrown} ariaLabel="Regrow post" onClick={() => setShowRegrowConfirm(true)}><RegrowIcon active={regrown} /></EngagementButton></div>
         <section className="mt-6 border-t border-[#E6E6E6] pt-5">
           <h2 className="text-[18px] font-semibold">Comments</h2>

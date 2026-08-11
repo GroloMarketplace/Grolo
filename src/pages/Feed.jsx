@@ -527,6 +527,29 @@ function PromotionFeedCard({ promotion, product, onOpenDetail, onMenu, onShare }
   );
 }
 
+function AttachedListingCard({ product, onOpenDetail }) {
+  const navigate = useNavigate();
+  const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
+  const seller = sellers[product.sellerId];
+  const openProduct = (event) => {
+    event.stopPropagation();
+    openDetail(`/product/${product.id}`, { sellerId: product.sellerId });
+  };
+  return (
+    <button type="button" onClick={openProduct} className="rounded-lg border border-[#E6E6E6] p-3 text-left">
+      <p className="mb-2 text-[12px] font-medium text-[#828282]">Attached Listing</p>
+      <div className="flex items-center gap-3">
+        {product.image && <img src={product.image} alt={product.name} className="h-12 w-12 shrink-0 rounded-lg object-cover" />}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[14px] font-semibold">{product.name}</p>
+          <p className="text-[13px] text-[#498467]">{formatListingPrice(product)}</p>
+          <p className="text-[12px] text-[#828282]">Seller: {seller?.name ?? product.shop}</p>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 function ShareButton({ onClick }) {
   return <button type="button" aria-label="Share" onClick={(event) => { event.stopPropagation(); onClick(event); }} className="flex items-center gap-1 text-[12px] text-[#498467]"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M18.33 1.67 9.17 10.83M9.17 10.83 1.67 7.5l16.66-5.83-5.83 16.66-3.33-7.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>Share</button>;
 }
@@ -704,6 +727,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
   const { isRegrown, toggleRegrow } = useRegrow();
   const { getPostEngagement, togglePostLike, incrementPostShares, togglePostRegrow } = useEngagement();
   const { settings: buyerProfile } = useBuyerSettings();
+  const { listings } = useListings();
   const engagement = getPostEngagement(post);
   const postAvatar = post.authorId === buyerProfile.displayName ? buyerProfile.avatar : post.avatar;
   const reposts = engagement.regrows;
@@ -712,7 +736,10 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
   const shares = engagement.shares;
   const seller = Object.values(sellers).find((s) => s.name === post.name);
   const promotion = post.productId ? promotionsForProduct(post.productId)[0] : null;
-  const product = post.productId ? products.find((item) => item.id === post.productId) : null;
+  const product = post.productId
+    ? products.find((item) => item.id === post.productId) ?? listings.find((item) => item.id === post.productId)
+    : null;
+  const postImages = post.images?.length ? post.images : post.image ? [post.image] : [];
   const savedPost = {
     id: `post:${post.id}`,
     type: "post",
@@ -801,24 +828,29 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
 
   const content = (
     <>
-      {post.image && (
-        <div className="relative">
-          <button
-            onClick={handleImageClick}
-            className="w-full aspect-square overflow-hidden rounded"
-          >
-            <img
-              src={post.image}
-              alt=""
-              className="w-full h-full object-cover hover:opacity-90 transition-opacity"
-            />
-          </button>
-          <PromotionBadge promotion={promotion} className="absolute left-2 top-2" />
+      {postImages.length > 0 && (
+        <div className={postImages.length > 1 ? "flex gap-1 overflow-x-auto no-scrollbar" : "relative"}>
+          {postImages.map((image, index) => (
+            <button
+              key={index}
+              onClick={handleImageClick}
+              className={postImages.length > 1 ? "relative aspect-square w-[85%] shrink-0 overflow-hidden rounded" : "relative w-full aspect-square overflow-hidden rounded"}
+            >
+              <img
+                src={image}
+                alt=""
+                className="w-full h-full object-cover hover:opacity-90 transition-opacity"
+              />
+              {index === 0 && <PromotionBadge promotion={promotion} className="absolute left-2 top-2" />}
+            </button>
+          ))}
         </div>
       )}
 
       {product && <VacationBadge sellerId={product.sellerId} />}
       <button type="button" onClick={openPostDetail} className="text-left text-[14px] leading-[140%]">{post.body}</button>
+
+      {product && <AttachedListingCard product={product} onOpenDetail={openDetail} />}
 
       <EngagementRow
         likes={likes}

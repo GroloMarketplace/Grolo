@@ -23,6 +23,7 @@ import { useAdvertising } from "../context/AdvertisingContext";
 import MapView from "../components/MapView";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useListings } from "../context/ListingContext";
+import TradeBadge from "../components/TradeBadge";
 import ReviewSummary from "../components/ReviewSummary";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { discoveryRadiusLabel, resolveUserLocation, sortByDistance } from "../utils/locationRadius";
@@ -176,6 +177,7 @@ function ProductSearchRow({ product, onProduct }) {
         <div className="mt-1 text-[12px] text-[#828282]">{product.shop}</div>
         <DistanceLabel content={product} className="mt-1 block" />
         <div className="mt-1 text-[14px] font-semibold text-[#498467]">{formatListingPrice(product)}</div>
+        <TradeBadge listing={product} compact className="mt-1" />
       </button>
       <ReviewSummary product={product} onClick={openReviews} />
     </div>

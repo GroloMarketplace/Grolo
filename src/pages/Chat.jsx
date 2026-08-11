@@ -107,7 +107,16 @@ export default function Chat() {
         <ProfileAvatar profile={conversationProfile} size="w-8 h-8" />
         <div className="flex-1">
           <div className="text-[16px] font-semibold">{seller.name}</div>
-          {isOrderThread && currentOrderContext ? <div className={`text-[12px] ${getOrderStatusClass(currentOrderContext.status)}`}>{getOrderStatusLabel(currentOrderContext.status)} · Order {currentOrderContext.orderNumber}</div> : <div className="text-[12px] text-black/50">Active 11m ago</div>}
+          {isOrderThread && currentOrderContext ? (
+            <div className={`text-[12px] ${getOrderStatusClass(currentOrderContext.status)}`}>{getOrderStatusLabel(currentOrderContext.status)} · Order {currentOrderContext.orderNumber}</div>
+          ) : isTradeThread ? (
+            <div className="flex items-center gap-1 text-[12px] font-medium text-[#498467]">
+              <OutlineIcon name="trade" size={12} />
+              Trade Proposal
+            </div>
+          ) : (
+            <div className="text-[12px] text-black/50">Active 11m ago</div>
+          )}
         </div>
       </div>
 
@@ -130,6 +139,54 @@ export default function Chat() {
               <div className="flex flex-wrap gap-x-2 text-[12px] text-[#498467]"><span>{currentOrderContext.fulfillmentMethod === "delivery" ? "Delivery" : "Pickup"}</span><span className={getOrderStatusClass(currentOrderContext.status)}>{getOrderStatusLabel(currentOrderContext.status)}</span></div>
             </div>
           </button>
+        ) : isTradeThread && conversation?.tradeProposal ? (
+          <div className="flex flex-col gap-3 p-3 rounded-lg border border-[#A7DDB5] bg-[#F5FFF6]">
+            <div className="flex items-center gap-2 text-[13px] font-semibold text-[#356B4A]">
+              <OutlineIcon name="trade" size={14} />
+              Trade Proposal
+            </div>
+            <p className="text-[12px] text-[#828282]">From {conversation.tradeProposal.buyerName}</p>
+            <button
+              onClick={() => navigate(`/product/${conversation.tradeProposal.requestedListing.id}`)}
+              className="flex gap-3 text-left"
+            >
+              <img
+                src={conversation.tradeProposal.requestedListing.image}
+                alt={conversation.tradeProposal.requestedListing.name}
+                className="w-16 h-16 rounded-lg object-cover shrink-0"
+              />
+              <div className="flex-1 flex flex-col justify-center min-w-0">
+                <p className="text-[12px] text-[#828282]">Requesting</p>
+                <h4 className="text-[14px] font-semibold truncate">{conversation.tradeProposal.requestedListing.name}</h4>
+              </div>
+            </button>
+            {conversation.tradeProposal.offeredListing && (
+              <div className="flex gap-3">
+                <img
+                  src={conversation.tradeProposal.offeredListing.image}
+                  alt={conversation.tradeProposal.offeredListing.name}
+                  className="w-16 h-16 rounded-lg object-cover shrink-0"
+                />
+                <div className="flex-1 flex flex-col justify-center min-w-0">
+                  <p className="text-[12px] text-[#828282]">Offered</p>
+                  <h4 className="text-[14px] font-semibold truncate">{conversation.tradeProposal.offeredListing.name}</h4>
+                </div>
+              </div>
+            )}
+            {conversation.tradeProposal.message && (
+              <div className="text-[13px] text-[#4F4F4F]">
+                <span className="font-medium text-[#356B4A]">Message: </span>
+                {conversation.tradeProposal.message}
+              </div>
+            )}
+            {conversation.tradeProposal.photos?.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto">
+                {conversation.tradeProposal.photos.map((photo, index) => (
+                  <img key={index} src={photo} alt={`Trade photo ${index + 1}`} className="w-16 h-16 rounded-lg object-cover shrink-0" />
+                ))}
+              </div>
+            )}
+          </div>
         ) : listing ? (
           <button
             onClick={() => navigate(`/product/${listing.id}`)}

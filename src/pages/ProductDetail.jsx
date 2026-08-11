@@ -21,6 +21,7 @@ import { useInventory } from "../context/InventoryContext";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import DistanceLabel from "../components/DistanceLabel";
+import TradeBadge from "../components/TradeBadge";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -30,7 +31,7 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
   const { listings } = useListings();
-  const { createSellerConversation, createTradeConversation } = useMessages();
+  const { createSellerConversation } = useMessages();
   const { getAvailable } = useInventory();
   const listingId = state?.listingId ?? id;
   const productId = state?.productId ?? listingId;
@@ -69,15 +70,7 @@ export default function ProductDetail() {
 
   const handleProposeTrade = () => {
     if (!seller) return;
-    const { id: tradeThreadId, draft: tradeDraft, conversation } = createTradeConversation({ listing: product, seller });
-    navigate(`/messages/${tradeThreadId}`, {
-      state: {
-        draft: tradeDraft,
-        listingId: product.id,
-        tradeThread: true,
-        pendingConversation: conversation,
-      },
-    });
+    navigate(`/propose-trade/${product.id}`);
   };
 
   useEffect(() => {
@@ -136,9 +129,12 @@ export default function ProductDetail() {
               {product.name}
             </h1>
             <div className="flex flex-col gap-2">
-              <span className="inline-flex w-fit items-center rounded-lg bg-[#CFF7D3] text-[#02542D] text-[16px] px-2 py-2">
-                {product.tag ?? "Tag"}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex w-fit items-center rounded-lg bg-[#CFF7D3] text-[#02542D] text-[16px] px-2 py-2">
+                  {product.tag ?? "Tag"}
+                </span>
+                <TradeBadge listing={product} />
+              </div>
               {promotion && (
                 <div className="flex flex-col items-start gap-1">
                   <PromotionBadge promotion={promotion} />
@@ -153,7 +149,7 @@ export default function ProductDetail() {
                   <span className="text-[48px] font-bold leading-none">{Math.floor(Number(product.price) || 0)}</span>
                 </>}
               </div>
-              {isService && seller && (
+              {isService && seller && !product.availableForTrade && (
                 <button
                   type="button"
                   onClick={handleMessageSeller}
@@ -223,20 +219,30 @@ export default function ProductDetail() {
         {product.availableForTrade && seller && (
           <div className="rounded-lg border border-[#D9D9D9] bg-white p-4 flex flex-col gap-3">
             <div className="flex items-center gap-2 text-[16px] font-semibold text-[#498467]">
-              <OutlineIcon name="sprout" size={18} className="text-[#498467]" />
-              <span>Open to Trade</span>
+              <OutlineIcon name="trade" size={18} className="text-[#498467]" />
+              <span>Trade Availability</span>
             </div>
+            <p className="text-[14px] text-[#4F4F4F]">This seller is open to trade offers.</p>
             <div className="text-[14px] text-[#4F4F4F]">
               <div className="font-medium">Looking For:</div>
               <div className="mt-1 whitespace-pre-wrap">{tradePreferences || "Open to offers"}</div>
             </div>
-            <button
-              type="button"
-              onClick={handleProposeTrade}
-              className="w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]"
-            >
-              Propose Trade
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleMessageSeller}
+                className="flex-1 rounded-lg bg-[#498467] py-2.5 text-[14px] font-medium text-[#F5F5F5]"
+              >
+                Message Seller
+              </button>
+              <button
+                type="button"
+                onClick={handleProposeTrade}
+                className="flex-1 rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]"
+              >
+                Propose Trade
+              </button>
+            </div>
           </div>
         )}
 

@@ -8,6 +8,7 @@ import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "./ServiceCategoryLabel";
 import ConfirmationModal from "./ConfirmationModal";
 import DistanceLabel from "./DistanceLabel";
+import TradeBadge from "./TradeBadge";
 
 export default function SellerListingCard({ product, onDelete }) {
   const navigate = useNavigate();
@@ -84,6 +85,7 @@ export default function SellerListingCard({ product, onDelete }) {
           <div className="text-[16px] font-medium text-black">
             {formatListingPrice(product)}
           </div>
+          <TradeBadge listing={product} compact />
           <ReviewSummary product={product} />
           <div className="text-[12px] text-[#828282]">{available} Available</div>
         </div>

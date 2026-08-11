@@ -17,7 +17,6 @@ export default function Trading() {
   const [tradeDirection, setTradeDirection] = useState("Available For");
   const [tradeType, setTradeType] = useState("Products");
   const { listings } = useListings();
-  const { createTradeConversation } = useMessages();
   const tradeListings = listings
     .filter((product) => product.availableForTrade)
     .filter((product) => {
@@ -73,7 +72,7 @@ export default function Trading() {
             <div className="rounded-lg border border-[#E6E6E6] px-4 py-8 text-center text-[14px] text-[#828282]">No listings are available for trade yet.</div>
           ) : (
             <div className="flex flex-col gap-4">
-              {tradeListings.map((product) => <TradeListingCard key={product.id} product={product} navigate={navigate} createTradeConversation={createTradeConversation} />)}
+              {tradeListings.map((product) => <TradeListingCard key={product.id} product={product} navigate={navigate} />)}
             </div>
           )}
         </div>

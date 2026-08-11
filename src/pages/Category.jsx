@@ -8,6 +8,7 @@ import { categories, sellers } from "../data/mockData";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import { useListings } from "../context/ListingContext";
 import DistanceLabel from "../components/DistanceLabel";
+import TradeBadge from "../components/TradeBadge";
 
 function getCategoryName(value) {
   try {
@@ -127,6 +128,7 @@ function CategoryProductCard({ product, onProduct }) {
           {product.reviewCount && <span>({product.reviewCount})</span>}
         </div>
         <span className="text-[16px] font-semibold">${product.price.toFixed(2)}</span>
+        <TradeBadge listing={product} compact />
       </div>
     </article>
   );

@@ -15,6 +15,7 @@ import { EventAttendanceCount } from "../components/EventRsvp";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import DistanceLabel from "../components/DistanceLabel";
 import ReviewSummary from "../components/ReviewSummary";
+import TradeBadge from "../components/TradeBadge";
 
 const FILTERS = ["All", "Listings", "Events", "Stores", "Promotions"];
 const SORT_OPTIONS = ["Featured", "Trending", "Newest"];
@@ -160,6 +161,7 @@ function FeaturedListingCard({ product, promotion, onProduct }) {
           </div>
           <span className="shrink-0 text-[16px] font-semibold">${product.price.toFixed(2)}</span>
         </div>
+        <TradeBadge listing={product} compact className="mt-2" />
       </Link>
       <ReviewSummary product={product} onClick={openReviews} />
     </article>

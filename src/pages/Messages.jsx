@@ -137,6 +137,7 @@ export default function Messages() {
                     <span className="flex shrink-0 items-center gap-1 text-[#828282]"><OutlineIcon name="location" size={13} />{m.location}</span>
                   </div>
                   {isOrderConversation && <div className={`mt-1 flex min-w-0 items-center gap-1 text-[12px] ${getOrderStatusClass(orderStatus)}`}><span className="truncate">{orderStatus ? getOrderStatusLabel(orderStatus) : "Order"}</span><span aria-hidden="true">•</span><span className="shrink-0">Order #{String(orderNumber ?? "").replace(/^#/, "")}</span></div>}
+                  {isTradeConversation(m) && <div className="mt-1 flex items-center gap-1 text-[12px] font-medium text-[#498467]"><OutlineIcon name="trade" size={12} />Trade Proposal</div>}
                   <p className="mt-1 line-clamp-1 text-[14px]">{latestMessage?.text ?? ""}</p>
                 </div>
               </button>

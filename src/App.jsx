@@ -48,6 +48,7 @@ import CreateListing from "./pages/CreateListing";
 import Saved from "./pages/Saved";
 import SellerProfile from "./pages/SellerProfile";
 import CreatePost from "./pages/CreatePost";
+import ProposeTrade from "./pages/ProposeTrade";
 import EditListing from "./pages/EditListing";
 import StoreReviews from "./pages/StoreReviews";
 import Analytics from "./pages/Analytics";
@@ -291,6 +292,18 @@ export default function App() {
             <PhoneFrame>
               <ProtectedRoute>
                 <CreatePost />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
+        <Route
+          path="/propose-trade/:listingId"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute>
+                <AppErrorBoundary label="Propose Trade">
+                  <ProposeTrade />
+                </AppErrorBoundary>
               </ProtectedRoute>
             </PhoneFrame>
           }

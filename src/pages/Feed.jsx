@@ -40,6 +40,7 @@ import { toggleCommentLike as persistCommentLike } from "../lib/api/commentLikes
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useListings } from "../context/ListingContext";
 import { usePosts } from "../context/PostContext";
+import TradeBadge from "../components/TradeBadge";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { discoveryRadiusLabel, isWithinDiscoveryRadius, resolveUserLocation, sortByDistance } from "../utils/locationRadius";
 import DistanceLabel from "../components/DistanceLabel";
@@ -498,6 +499,7 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
       <button type="button" onClick={openProduct} className="mt-2 block text-left">
         <h3 className="text-[16px] font-semibold">{product.name}</h3>
         <p className="text-[14px] text-[#498467]">{formatListingPrice(product)}</p>
+        <TradeBadge listing={product} compact className="mt-1" />
       </button>
       <ReviewSummary product={product} onClick={openReviews} />
       <div className="mt-3 flex justify-end gap-4"><SaveButton savedItem={savedItem} /><ShareButton onClick={() => onShare(menuContent, undefined)} /></div>
@@ -544,6 +546,7 @@ function AttachedListingCard({ product, onOpenDetail }) {
           <p className="truncate text-[14px] font-semibold">{product.name}</p>
           <p className="text-[13px] text-[#498467]">{formatListingPrice(product)}</p>
           <p className="text-[12px] text-[#828282]">Seller: {seller?.name ?? product.shop}</p>
+          <TradeBadge listing={product} compact className="mt-1" />
         </div>
       </div>
     </button>

@@ -18,6 +18,7 @@ const ICON_PATHS = {
   trash: "M4 7h16m-10 4v6m4-6v6M9 7V4h6v3m-9 0 1 13h10l1-13",
   user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-6 8v-1a6 6 0 0 1 12 0v1",
   cancel: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM9 9l6 6M15 9l-6 6",
+  trade: "M4 8h13m0 0-3.5-3.5M17 8l-3.5 3.5M20 16H7m0 0 3.5-3.5M7 16l3.5 3.5",
 };
 
 export default function OutlineIcon({ name, size = 18, className = "", label, fill = "none" }) {

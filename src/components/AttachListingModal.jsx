@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { formatListingPrice } from "../utils/listingDisplay";
+import TradeBadge from "./TradeBadge";
 
 export default function AttachListingModal({ listings, selectedListingId, onSelect, onClose }) {
   const [pendingId, setPendingId] = useState(selectedListingId ?? null);
@@ -30,6 +31,7 @@ export default function AttachListingModal({ listings, selectedListingId, onSele
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[14px] font-medium">{listing.name}</p>
                       <p className="text-[12px] text-[#498467]">{formatListingPrice(listing)}</p>
+                      <TradeBadge listing={listing} compact className="mt-1" />
                     </div>
                   </button>
                 );

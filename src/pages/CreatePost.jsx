@@ -10,6 +10,7 @@ import { useListings } from "../context/ListingContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { formatListingPrice } from "../utils/listingDisplay";
 import AttachListingModal from "../components/AttachListingModal";
+import TradeBadge from "../components/TradeBadge";
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_PHOTOS = 5;
@@ -181,6 +182,7 @@ export default function CreatePost() {
                   <p className="truncate text-[14px] font-semibold">{attachedListing.name}</p>
                   <p className="text-[13px] text-[#498467]">{formatListingPrice(attachedListing)}</p>
                   <p className="text-[12px] text-[#828282]">Seller: {getSellerProfile(sellerId).name || "You"}</p>
+                  <TradeBadge listing={attachedListing} compact className="mt-1" />
                 </div>
               </div>
               <div className="mt-3 flex gap-2">

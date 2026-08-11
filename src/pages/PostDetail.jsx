@@ -13,6 +13,7 @@ import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useAuth } from "../context/AuthContext";
 import { useListings } from "../context/ListingContext";
 import DistanceLabel from "../components/DistanceLabel";
+import TradeBadge from "../components/TradeBadge";
 import { formatListingPrice } from "../utils/listingDisplay";
 import { toggleCommentLike as persistCommentLike } from "../lib/api/commentLikes";
 
@@ -123,6 +124,7 @@ export default function PostDetail() {
                 <p className="truncate text-[14px] font-semibold">{attachedProduct.name}</p>
                 <p className="text-[13px] text-[#498467]">{formatListingPrice(attachedProduct)}</p>
                 <p className="text-[12px] text-[#828282]">Seller: {sellers[attachedProduct.sellerId]?.name ?? attachedProduct.shop}</p>
+                <TradeBadge listing={attachedProduct} compact className="mt-1" />
               </div>
             </div>
           </button>

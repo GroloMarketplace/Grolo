@@ -229,7 +229,67 @@ export function MessageProvider({ children }) {
     return { id, draft, conversation };
   };
 
-  const value = useMemo(() => ({ messages, upsertConversation, appendMessage, createSellerConversation, createTradeConversation, createOrderConversation }), [messages]);
+  const createTradeProposal = ({ listing, seller, buyerName, message, offeredListing, photos }) => {
+    const id = `trade-${listing.id}-${Date.now()}`;
+    const tradeProposal = {
+      buyerName: buyerName || "A buyer",
+      requestedListing: {
+        id: listing.id,
+        name: listing.name,
+        image: listing.images?.[0] ?? listing.image,
+      },
+      offeredListing: offeredListing
+        ? {
+          id: offeredListing.id,
+          name: offeredListing.name,
+          image: offeredListing.images?.[0] ?? offeredListing.image,
+          price: offeredListing.price,
+        }
+        : null,
+      message,
+      photos: photos ?? [],
+    };
+    const firstMessage = {
+      id: `${id}-1`,
+      from: "me",
+      text: message || `I'd like to propose a trade for ${listing.name}.`,
+      timestamp: "Just now",
+    };
+    const conversation = {
+      id,
+      name: seller.name,
+      sellerId: seller.id,
+      participantId: seller.id,
+      location: seller.location,
+      timestamp: "Just now",
+      preview: firstMessage.text,
+      unread: false,
+      category: "Trading",
+      conversationType: "trading",
+      listingId: listing.id,
+      tradePreferences: listing.desiredTradeItems?.trim() ?? "",
+      productContext: {
+        id: listing.id,
+        image: listing.images?.[0] ?? listing.image,
+        title: listing.name,
+        sellerName: seller.name,
+        price: listing.price,
+        quantityAvailable: listing.quantityAvailable,
+        availableForTrade: listing.availableForTrade,
+      },
+      tradeThread: true,
+      tradeProposal,
+      messages: [firstMessage],
+    };
+    setMessages((current) => {
+      const nextMessages = [conversation, ...current];
+      saveMessages(nextMessages);
+      return nextMessages;
+    });
+    return { id, conversation };
+  };
+
+  const value = useMemo(() => ({ messages, upsertConversation, appendMessage, createSellerConversation, createTradeConversation, createTradeProposal, createOrderConversation }), [messages]);
   return <MessageContext.Provider value={value}>{children}</MessageContext.Provider>;
 }
 

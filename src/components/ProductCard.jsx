@@ -6,6 +6,7 @@ import FoundingMemberBadge from "./FoundingMemberBadge";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "./ServiceCategoryLabel";
 import DistanceLabel from "./DistanceLabel";
+import TradeBadge from "./TradeBadge";
 
 export default function ProductCard({ product, onClick }) {
   const { promotionsForProduct } = usePromotions();
@@ -45,6 +46,7 @@ export default function ProductCard({ product, onClick }) {
         <div className="text-[16px] font-medium text-black">
           {formatListingPrice(product)}
         </div>
+        <TradeBadge listing={product} compact />
       </div>
     </Link>
   );

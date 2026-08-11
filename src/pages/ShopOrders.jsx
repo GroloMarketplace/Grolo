@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import { products } from "../data/mockData";
+import { useListings } from "../context/ListingContext";
 import { useOrders } from "../context/OrderContext";
 import { getBuyerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
@@ -27,6 +27,7 @@ const SECTIONS = [
 export default function ShopOrders() {
   const navigate = useNavigate();
   const { sellerOrders, nextStatuses, updateOrderStatus } = useOrders();
+  const { listings } = useListings();
   const { hasReviewedOrder, getBuyerTrust } = useBuyerTrust();
   const { storeOpenedAt } = useProfileMode();
   const [reviewOrder, setReviewOrder] = useState(null);
@@ -91,8 +92,11 @@ export default function ShopOrders() {
               ) : (
                 <div className="flex flex-col gap-3 px-4">
                   {sectionOrders.map((order) => {
-                    const product = products.find((p) => p.id === order.productId);
-                    if (!product) return null;
+                    // Listings live in ListingContext (created per seller), not the
+                    // static mockData catalog. Fall back to a placeholder rather than
+                    // hiding the order if the listing was since deleted.
+                    const product = listings.find((p) => p.id === order.productId)
+                      ?? { id: order.productId, name: "Listing unavailable", image: "" };
 
                     return (
                       <div
@@ -184,11 +188,12 @@ function InProgressConfirmation({ onKeepNew, onConfirm }) {
 
 function BuyerReviewForm({ order, onClose }) {
   const { addReview } = useBuyerTrust();
+  const { listings } = useListings();
   const [criteria, setCriteria] = useState([]);
   const [notes, setNotes] = useState("");
   const options = ["Arrived for Pickup", "Communicated Well", "Polite and Respectful", "Would Transact Again"];
   const submit = () => {
-    const product = products.find((item) => item.id === order.productId);
+    const product = listings.find((item) => item.id === order.productId);
     addReview({ buyer: order.buyer, orderId: order.id, sellerId: order.sellerId ?? product?.sellerId ?? STORE_ID, productId: order.productId, criteria, notes });
     onClose();
   };

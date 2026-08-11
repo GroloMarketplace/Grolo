@@ -2,8 +2,9 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import { products, sellers } from "../data/mockData";
+import { sellers } from "../data/mockData";
 import { useOrders } from "../context/OrderContext";
+import { useListings } from "../context/ListingContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { useMessages } from "../context/MessageContext";
 import MapOptionsSheet from "../components/MapOptionsSheet";
@@ -41,6 +42,7 @@ export default function OrderTracking() {
   const { id } = useParams();
   const { state } = useLocation();
   const { orders, cancelOrder } = useOrders();
+  const { listings } = useListings();
   const { getPaymentMethods } = usePaymentMethods();
   const { createOrderConversation } = useMessages();
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -49,7 +51,9 @@ export default function OrderTracking() {
   const matchesRouteId = (item) => String(item.id) === id || String(item.id).replace(/^ORD-/, "") === id;
   const contextOrder = orders.find(matchesRouteId) ?? state?.order;
   const order = contextOrder;
-  const product = products.find((item) => item.id === order?.productId);
+  // Listings live in ListingContext (created per seller), not the static
+  // mockData catalog.
+  const product = listings.find((item) => item.id === order?.productId);
   const sellerId = order?.sellerId ?? product?.sellerId ?? "current-user";
   const seller = sellers[sellerId] ?? { id: sellerId, name: "this store" };
   const settings = getPaymentMethods(seller.id);

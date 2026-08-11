@@ -482,6 +482,7 @@ function MyOrders() {
   const navigate = useNavigate();
   const { hasReviewedProduct } = useReviews();
   const { buyerOrders } = useOrders();
+  const { listings } = useListings();
   const orders = buyerOrders();
 
   return (
@@ -507,8 +508,10 @@ function MyOrders() {
             ) : (
               <div className="flex flex-col gap-3 px-4">
                 {sectionOrders.map((order) => {
-                  const product = products.find((p) => p.id === order.productId);
-                  if (!product) return null;
+                  // Listings live in ListingContext (created per seller), not the
+                  // static mockData catalog. Fall back instead of hiding the order.
+                  const product = listings.find((p) => p.id === order.productId)
+                    ?? { id: order.productId, name: "Listing unavailable", image: "" };
                   const completed = order.status === "Completed";
                   const cancelled = order.status === "Cancelled";
                   const reviewed = hasReviewedProduct(order.productId);

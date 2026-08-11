@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import OutlineIcon from "../components/OutlineIcon";
-import { products } from "../data/mockData";
+import { useListings } from "../context/ListingContext";
 import { useReviews } from "../context/ReviewContext";
 import { useOrders } from "../context/OrderContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
@@ -23,6 +23,7 @@ export default function Orders() {
   const savedOrdersState = readNavigationState("orders", { scrollTop: 0 });
   const { hasReviewedProduct } = useReviews();
   const { buyerOrders } = useOrders();
+  const { listings } = useListings();
   const orders = buyerOrders();
 
   useEffect(() => {
@@ -56,8 +57,12 @@ export default function Orders() {
               ) : (
                 <div className="flex flex-col gap-3 px-4">
                   {sectionOrders.map((order) => {
-                    const product = products.find((item) => item.id === order.productId);
-                    if (!product) return null;
+                    // Listings are created dynamically per seller (ListingContext), not
+                    // the static mockData catalog, so look them up there. Fall back to a
+                    // placeholder instead of hiding the order entirely if the listing was
+                    // since removed — an order should never disappear from the buyer's list.
+                    const product = listings.find((item) => item.id === order.productId)
+                      ?? { id: order.productId, name: "Listing unavailable", shop: "", image: "" };
                     const isCompleted = order.status === "Completed";
                     const isCancelled = order.status === "Cancelled";
                     const reviewed = hasReviewedProduct(order.productId);

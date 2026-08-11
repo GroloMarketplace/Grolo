@@ -11,6 +11,18 @@ const ORDER_STORAGE_KEY = "grolo-orders";
 const INVENTORY_STORAGE_KEY = "grolo-inventory";
 const INVENTORY_EVENT = "grolo-inventory-updated";
 
+// Order statuses that release any inventory reserved for the order back into
+// stock. Only orders that never reach a successful, completed state should
+// give up their reserved units.
+const INVENTORY_RESTORING_STATUSES = ["Cancelled", "Rejected", "Failed Payment", "Expired"];
+// Successfully fulfilled orders permanently consume their reserved inventory
+// and must never trigger a restoration, even if re-processed.
+const INVENTORY_FINAL_STATUSES = ["Delivered", "Completed", "Fulfilled", "Picked Up"];
+
+function restoresInventory(status) {
+  return INVENTORY_RESTORING_STATUSES.includes(status) && !INVENTORY_FINAL_STATUSES.includes(status);
+}
+
 function restorePersistedInventory(items) {
   try {
     const savedInventory = window.localStorage.getItem(INVENTORY_STORAGE_KEY);
@@ -176,7 +188,12 @@ export function OrderProvider({ children }) {
     ]);
   }, [orders]);
 
-  const cancelOrder = useCallback((orderId, fallbackOrder) => {
+  // Shared by every way an order can end without being fulfilled (buyer
+  // cancellation, seller rejection, payment failure, expiry). Whichever of
+  // INVENTORY_RESTORING_STATUSES is passed in, the reserved units are
+  // returned to stock exactly once per order via the `inventoryRestored`
+  // flag, regardless of who (buyer, seller, or admin) triggered it.
+  const cancelOrder = useCallback((orderId, fallbackOrder, status = "Cancelled", cancelledBy = "buyer") => {
     const matchesOrderId = (item) => String(item.id) === String(orderId)
       || String(item.id).replace(/^ORD-/, "") === String(orderId).replace(/^ORD-/, "");
     const orderIndex = orders.findIndex(matchesOrderId);
@@ -184,28 +201,29 @@ export function OrderProvider({ children }) {
     const resolvedOrderId = order?.id ?? orderId;
     const product = products.find((item) => item.id === order?.productId);
     const sellerId = order?.sellerId ?? product?.sellerId ?? "current-user";
-    if (!order || order.status === "Cancelled") return false;
+    if (!order || INVENTORY_RESTORING_STATUSES.includes(order.status)) return false;
 
     const seller = sellers[sellerId] ?? sellers["current-user"];
     console.info("Order cancellation", {
       orderId: resolvedOrderId,
       previousStatus: order.status,
-      newStatus: "Cancelled",
+      newStatus: status,
     });
-    const cancelledOrder = { ...order, buyer: order.buyer ?? currentUser.username, status: "Cancelled", inventoryRestored: true };
-    if (!order.inventoryRestored) restorePersistedInventory([order]);
+    const cancelledOrder = { ...order, buyer: order.buyer ?? currentUser.username, status, inventoryRestored: true };
+    if (!order.inventoryRestored && restoresInventory(status)) restorePersistedInventory([order]);
     const nextOrders = orderIndex >= 0
       ? orders.map((item, index) => index === orderIndex ? cancelledOrder : item)
       : [...orders, cancelledOrder];
     setOrders(nextOrders);
     saveOrders(nextOrders);
+    const actionLabel = status === "Cancelled" ? "cancelled" : status.toLowerCase();
     setOrderNotifications((prev) => [
       {
         id: `order-${resolvedOrderId}-cancelled-${Date.now()}`,
         name: seller?.name ?? product?.shop ?? "Store",
         avatar: seller?.avatar,
         time: "now",
-        action: `${order.id} • Your order was cancelled`,
+        action: `${order.id} • Your order was ${actionLabel}`,
         thumb: product?.image,
         type: "order",
         orderId: resolvedOrderId,
@@ -218,7 +236,7 @@ export function OrderProvider({ children }) {
         sellerId,
         orderId: resolvedOrderId,
         time: "now",
-        action: `${order.id.replace(/^ORD-/, "#")} was cancelled by the buyer.`,
+        action: `${order.id.replace(/^ORD-/, "#")} was ${actionLabel} by the ${cancelledBy}.`,
         type: "order",
       },
       ...prev,

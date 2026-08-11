@@ -131,11 +131,15 @@ export default function OrderConfirmation() {
         <Link
           to={`/orders/${orderNumber}`}
           state={{
+            // `orderNumber` is only ever assigned to orderItems[0]'s own order
+            // record (see createOrders), so this fallback must describe that
+            // single line item — never the combined quantity of a multi-item
+            // cart — or cancelling it would restore the wrong product's stock.
             order: {
               id: orderNumber,
               sellerId: state?.sellerId ?? orderItems[0]?.sellerId ?? "current-user",
               productId: orderItems[0]?.productId ?? orderItems[0]?.id,
-              quantity: orderItems.reduce((sum, item) => sum + item.quantity, 0),
+              quantity: orderItems[0]?.quantity ?? 0,
               status: "Seller Notified",
               total,
               fulfillmentMethod: selectedFulfillment,

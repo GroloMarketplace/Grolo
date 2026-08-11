@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
+import OutlineIcon from "../components/OutlineIcon";
 import { products } from "../data/mockData";
 import { useReviews } from "../context/ReviewContext";
 import { useOrders } from "../context/OrderContext";
@@ -70,7 +71,7 @@ export default function Orders() {
                       <div key={order.id} onClick={openOrderDetails} onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) openOrderDetails(); }} role="button" tabIndex={0} className="cursor-pointer border-b border-[#E6E6E6] p-4">
                         <div className="mb-3 flex items-center justify-between">
                           <span className="text-[12px] text-[#828282]">{order.id}</span>
-                          <span className={`rounded-full px-2 py-1 text-[12px] font-medium ${isCancelled ? "bg-[#FFF1F0] text-[#B42318]" : isCompleted ? "bg-[#CFF7D3] text-[#02542D]" : "bg-[#F5F5F5] text-[#828282]"}`}>{isCancelled ? "❌ Cancelled" : order.status}</span>
+                          <span className={`flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-medium ${isCancelled ? "bg-[#FFF1F0] text-[#B42318]" : isCompleted ? "bg-[#CFF7D3] text-[#02542D]" : "bg-[#F5F5F5] text-[#828282]"}`}>{isCancelled && <OutlineIcon name="cancel" size={12} />}{isCancelled ? "Cancelled" : order.status}</span>
                         </div>
                         <div className="flex w-full items-center gap-3 text-left">
                           <img src={product.image} alt={product.name} className="h-16 w-16 shrink-0 rounded-lg object-cover" />

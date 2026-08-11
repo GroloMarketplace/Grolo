@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import OutlineIcon from "../components/OutlineIcon";
+import ImpactIcon from "../components/ImpactIcon";
 import { ActivityCard, CommunityImpactTab, ReviewsTab, TrustStatusBadge } from "./BuyerProfile";
 import { useBuyerTrust } from "../context/BuyerTrustContext";
 import { communityPosts, events, notificationsFollowers, notificationsHighlights, products } from "../data/mockData";
@@ -105,7 +106,7 @@ export default function PublicProfile() {
             </div>
             <p className="mt-3 text-[14px] leading-[140%]">{profile.bio}</p>
             <div className="mt-4 flex gap-3"><button type="button" onClick={() => toggleFollow(userId)} className="flex-1 rounded-lg bg-[#498467] py-2.5 text-[14px] font-medium text-white">{isFollowing(userId) ? "Following" : "Follow"}</button><button type="button" onClick={handleMessage} className="flex-1 rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">Message</button></div>
-            <div className="mt-4 grid grid-cols-2 gap-2"><PublicStat label="Followers" value={getFollowerCount(userId)} /><PublicStat label="Following" value={0} /></div>
+            <div className="mt-4 grid grid-cols-2 gap-2"><PublicStat icon="users" label="Followers" value={getFollowerCount(userId)} /><PublicStat icon="user" label="Following" value={0} /></div>
           </div>
         </div>
         <div className="mt-4"><div className="sticky top-0 z-20 border-y border-[#E6E6E6] bg-white"><div className="flex">{["My Activity", "Community Impact", "Reviews"].map((tab, index) => <button key={tab} type="button" onClick={() => handleTabChange(index)} className={`relative flex-1 py-3 text-[14px] font-semibold ${activeTab === index ? "text-[#498467]" : "text-black/40"}`}>{tab}{activeTab === index && <span className="absolute bottom-0 left-8 right-8 h-0.5 bg-[#498467]" />}</button>)}</div></div><div className="w-full max-w-full overflow-hidden"><div ref={tabContentRef} className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"><div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4"><div className="flex w-full min-w-0 flex-col gap-4">{activity.map((item) => <ActivityCard key={item.id} activity={item} navigate={navigate} profile={profile} />)}</div></div><CommunityImpactTab metrics={metrics} publicView profileId={profile.username} /><ReviewsTab reviews={profileReviews} navigate={navigate} /></div></div></div>
@@ -114,6 +115,14 @@ export default function PublicProfile() {
   );
 }
 
-function PublicStat({ label, value }) {
-  return <div className="rounded-lg bg-[#F5FFF6] p-2"><div className="text-[18px] font-semibold text-[#498467]">{value}</div><div className="text-[11px] leading-[120%] text-[#498467]">{label}</div></div>;
+function PublicStat({ icon, label, value }) {
+  return (
+    <div className="rounded-lg bg-[#F5FFF6] p-2">
+      <div className="flex items-center gap-1.5">
+        {icon && <ImpactIcon type={icon} size={14} />}
+        <div className="text-[18px] font-semibold text-[#498467]">{value}</div>
+      </div>
+      <div className="text-[11px] leading-[120%] text-[#498467]">{label}</div>
+    </div>
+  );
 }

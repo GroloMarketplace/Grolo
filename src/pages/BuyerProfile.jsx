@@ -10,6 +10,7 @@ import { useFollow } from "../context/FollowContext";
 import { getBuyerImpactMetrics } from "../utils/buyerImpact";
 import { impactTimeline } from "../data/communityImpact";
 import OutlineIcon from "../components/OutlineIcon";
+import ImpactIcon from "../components/ImpactIcon";
 import { getBuyerTrustLevel, BUYER_TRUST_LEVELS } from "../data/buyerTrust";
 import TrustLevelIcon from "../components/TrustLevelIcon";
 import { useSavedItems } from "../context/SavedContext";
@@ -117,10 +118,10 @@ export default function BuyerProfile() {
             <p className="mt-3 text-[14px] leading-[140%]">{buyerProfile.bio}</p>
             <button type="button" onClick={() => setEditing((current) => !current)} className="mt-4 w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">{editing ? "Save Profile" : "Edit Profile"}</button>
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <BuyerStat label="Stores Followed" value={impactMetrics.storesFollowed} />
-              <button type="button" onClick={() => navigate("/saved")} className="text-left"><BuyerStat label="Saved Items" value={savedProductCount} /></button>
-              <BuyerStat label="Seller Reviews" value={sellerReviews.length} />
-              <BuyerStat label="Events Attended" value={impactMetrics.eventsAttended} />
+              <BuyerStat icon="users" label="Stores Followed" value={impactMetrics.storesFollowed} />
+              <button type="button" onClick={() => navigate("/saved")} className="text-left"><BuyerStat icon="heart" label="Saved Items" value={savedProductCount} /></button>
+              <BuyerStat icon="star" label="Seller Reviews" value={sellerReviews.length} />
+              <BuyerStat icon="calendar" label="Events Attended" value={impactMetrics.eventsAttended} />
             </div>
           </div>
 
@@ -201,11 +202,11 @@ export function CommunityImpactTab({ metrics, publicView = false, profileId = "y
   };
   const impactTotal = Object.values(safeMetrics).reduce((total, value) => total + (typeof value === "number" ? value : 0), 0);
   const impactStats = [
-    { label: "Local businesses supported", value: safeMetrics.businessesSupported },
-    { label: "Local purchases made", value: safeMetrics.purchasesMade },
-    { label: "Events attended", value: safeMetrics.eventsAttended },
-    { label: "Stores followed", value: safeMetrics.storesFollowed },
-    { label: "Seller reviews", value: safeMetrics.reviewsWritten },
+    { label: "Local businesses supported", value: safeMetrics.businessesSupported, icon: "store" },
+    { label: "Local purchases made", value: safeMetrics.purchasesMade, icon: "bag" },
+    { label: "Events attended", value: safeMetrics.eventsAttended, icon: "calendar" },
+    { label: "Stores followed", value: safeMetrics.storesFollowed, icon: "heart" },
+    { label: "Seller reviews", value: safeMetrics.reviewsWritten, icon: "star" },
   ];
   const impactBadges = [
     { name: "Local Supporter", progress: `${safeMetrics.purchasesMade} / 5 purchases completed`, value: safeMetrics.purchasesMade, goal: 5 },
@@ -222,7 +223,8 @@ export function CommunityImpactTab({ metrics, publicView = false, profileId = "y
       <div className="mt-4 grid grid-cols-2 gap-3">
         {impactStats.map((stat) => (
           <div key={stat.label} className="rounded-lg border border-[#E6E6E6] bg-white p-3">
-            <div className="text-[22px] font-semibold text-[#498467]">{stat.value}</div>
+            <ImpactIcon type={stat.icon} size={20} />
+            <div className="mt-2 text-[22px] font-semibold text-[#498467]">{stat.value}</div>
             <div className="text-[12px] leading-[130%] text-[#828282]">{stat.label}</div>
           </div>
         ))}
@@ -316,6 +318,14 @@ function PromotionPreview({ promotion, listing }) {
   return <><div className="mt-3 rounded-lg bg-[#F5FFF6] p-3"><p className="text-[12px] font-medium text-[#498467]">{promotion.title}</p><p className="mt-1 text-[14px] font-semibold">{listing.name}</p></div></>;
 }
 
-function BuyerStat({ label, value }) {
-  return <div className="rounded-lg bg-[#F5FFF6] p-2"><div className="text-[18px] font-semibold text-[#498467]">{value}</div><div className="text-[11px] leading-[120%] text-[#498467]">{label}</div></div>;
+function BuyerStat({ icon, label, value }) {
+  return (
+    <div className="rounded-lg bg-[#F5FFF6] p-2">
+      <div className="flex items-center gap-1.5">
+        {icon && <ImpactIcon type={icon} size={14} />}
+        <div className="text-[18px] font-semibold text-[#498467]">{value}</div>
+      </div>
+      <div className="text-[11px] leading-[120%] text-[#498467]">{label}</div>
+    </div>
+  );
 }

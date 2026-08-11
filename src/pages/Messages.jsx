@@ -134,7 +134,7 @@ export default function Messages() {
                       {m.name}
                     </Link>
                     <FoundingMemberBadge sellerId={messageSeller?.id} iconOnly />
-                    <span className="flex shrink-0 items-center gap-1 text-[#B56576]"><OutlineIcon name="location" size={13} />{m.location}</span>
+                    <span className="flex shrink-0 items-center gap-1 text-[#828282]"><OutlineIcon name="location" size={13} />{m.location}</span>
                   </div>
                   {isOrderConversation && <div className={`mt-1 flex min-w-0 items-center gap-1 text-[12px] ${getOrderStatusClass(orderStatus)}`}><span className="truncate">{orderStatus ? getOrderStatusLabel(orderStatus) : "Order"}</span><span aria-hidden="true">•</span><span className="shrink-0">Order #{String(orderNumber ?? "").replace(/^#/, "")}</span></div>}
                   <p className="mt-1 line-clamp-1 text-[14px]">{latestMessage?.text ?? ""}</p>

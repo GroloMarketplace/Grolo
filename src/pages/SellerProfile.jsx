@@ -174,7 +174,7 @@ export default function SellerProfile() {
               </div>
               <span className="text-[14px] text-[#828282]">({count} reviews)</span>
               <span className="text-[14px] text-[#828282]">•</span>
-              <span className="text-[14px] text-[#828282]">{getFollowerCount(seller.id)} followers</span>
+              <span className="flex items-center gap-1 text-[14px] text-[#828282]"><OutlineIcon name="users" size={14} />{getFollowerCount(seller.id)} followers</span>
             </div>
 
             {/* Action Buttons */}

@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
+import ImpactIcon from "../components/ImpactIcon";
 import { impactTimeline } from "../data/communityImpact";
 import { useEvents } from "../context/EventContext";
 import { useFollow } from "../context/FollowContext";
@@ -63,7 +64,7 @@ export default function CommunityImpact() {
           <div className="mt-3 grid grid-cols-2 gap-3">
             {impactStats.map((stat) => (
               <div key={stat.label} className="rounded-lg border border-[#E6E6E6] bg-white p-3">
-                <ImpactIcon type={stat.icon} />
+                <ImpactIcon type={stat.icon} size={20} />
                 <div className="mt-2 text-[22px] font-semibold text-[#498467]">{stat.value}</div>
                 <div className="text-[12px] leading-[130%] text-[#828282]">{stat.label}</div>
               </div>
@@ -112,22 +113,6 @@ export default function CommunityImpact() {
         </section>
       </div>
     </MobileScreenLayout>
-  );
-}
-
-function ImpactIcon({ type }) {
-  const paths = {
-    store: "M3 8.5 4.5 3h11L17 8.5M4 8.5h12v8H4v-8Zm3 8v-4h6v4",
-    bag: "M4 6.5h12l-1 10H5l-1-10Zm3 0a3 3 0 0 1 6 0",
-    calendar: "M4 5h12v12H4V5Zm3-2v4m6-4v4M4 8h12",
-    heart: "M10 16.5S3 12.5 3 7.8a3.3 3.3 0 0 1 6-1.9 3.3 3.3 0 0 1 6 1.9c0 4.7-7 8.7-7 8.7Z",
-    star: "m10 2 2.3 4.7 5.2.8-3.8 3.7.9 5.2-4.6-2.4-4.6 2.4.9-5.2-3.8-3.7 5.2-.8L10 2Z",
-  };
-
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-[#498467]">
-      <path d={paths[type]} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }
 

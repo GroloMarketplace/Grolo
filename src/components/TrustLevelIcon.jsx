@@ -52,9 +52,13 @@ const ICONS = {
   ),
 };
 
+// Stroke weight matches the rest of Grolo's icon system (OutlineIcon) so
+// Trust & Reputation badges feel consistent with location, profile, and
+// other custom Grolo icons. Falls back to the sprout icon for unknown names
+// so a bad/missing trust level never breaks profile rendering.
 export default function TrustLevelIcon({ name, className = "h-6 w-6", color = "#498467" }) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.35" className={className}>
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" className={className}>
       {ICONS[name] ?? ICONS.sprout}
     </svg>
   );

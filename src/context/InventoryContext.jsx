@@ -31,35 +31,40 @@ function persistInventory(nextInventory) {
 export function InventoryProvider({ children }) {
   const [inventory, setInventory] = useState(loadInventory);
 
+  // `OrderContext` restores inventory on cancellation by writing straight to
+  // localStorage and dispatching this event (it can't call this provider's
+  // hooks directly due to provider ordering) — that's the only source of
+  // this event, so only listen here; never dispatch it from below.
   useEffect(() => {
     const handleInventoryUpdate = (event) => setInventory(event.detail);
     window.addEventListener(INVENTORY_EVENT, handleInventoryUpdate);
     return () => window.removeEventListener(INVENTORY_EVENT, handleInventoryUpdate);
   }, []);
 
-  const getAvailable = useCallback((productId) => inventory[productId] ?? 0, [inventory]);
+  // Persisting here (rather than inside the setInventory updater below) keeps
+  // every updater a pure function of its input. An updater that also writes
+  // to localStorage and re-dispatches an event that this same provider
+  // listens to would let React's Strict Mode double-invocation of updaters
+  // compound: the first invocation's side effect could change `inventory`
+  // before the second invocation ran, silently applying a reduction twice.
+  useEffect(() => {
+    persistInventory(inventory);
+  }, [inventory]);
 
-  const updateInventory = useCallback((updater) => {
-    setInventory((current) => {
-      const next = updater(current);
-      persistInventory(next);
-      window.dispatchEvent(new CustomEvent(INVENTORY_EVENT, { detail: next }));
-      return next;
-    });
-  }, []);
+  const getAvailable = useCallback((productId) => inventory[productId] ?? 0, [inventory]);
 
   const updateAvailable = useCallback((productId, quantity) => {
     const normalized = Number.isInteger(Number(quantity)) && Number(quantity) >= 0
       ? Number(quantity)
       : 0;
-    updateInventory((current) => ({ ...current, [productId]: normalized }));
-  }, [updateInventory]);
+    setInventory((current) => ({ ...current, [productId]: normalized }));
+  }, []);
 
   const reduceAvailable = useCallback((items, operationId) => {
     const operationKey = operationId ? `grolo-inventory-reduction:${operationId}` : null;
     if (operationKey && window.sessionStorage.getItem(operationKey) === "done") return;
     if (operationKey) window.sessionStorage.setItem(operationKey, "done");
-    updateInventory((current) => {
+    setInventory((current) => {
       const next = { ...current };
       items.forEach((item) => {
         const productId = item.productId ?? item.id;
@@ -68,10 +73,10 @@ export function InventoryProvider({ children }) {
       });
       return next;
     });
-  }, [updateInventory]);
+  }, []);
 
   const restoreAvailable = useCallback((items) => {
-    updateInventory((current) => {
+    setInventory((current) => {
       const next = { ...current };
       items.forEach((item) => {
         const productId = item.productId ?? item.id;
@@ -79,7 +84,7 @@ export function InventoryProvider({ children }) {
       });
       return next;
     });
-  }, [updateInventory]);
+  }, []);
 
   const value = useMemo(
     () => ({ inventory, getAvailable, updateAvailable, reduceAvailable, restoreAvailable }),

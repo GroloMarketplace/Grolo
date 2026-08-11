@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { eventTypes } from "../data/mockData";
 import { useEvents } from "../context/EventContext";
 
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
 export default function CreateEvent() {
   const navigate = useNavigate();
   const { addEvent } = useEvents();
+  const fileInputRef = useRef(null);
+  const [imageError, setImageError] = useState("");
   const [formData, setFormData] = useState({
     title: "",
     type: "",
@@ -16,10 +20,28 @@ export default function CreateEvent() {
     endTime: "",
     location: "",
     description: "",
+    image: "",
   });
 
   const update = (field, value) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
+
+  const openImagePicker = () => fileInputRef.current?.click();
+
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setImageError("");
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setImageError("Unable to upload image. Please try again.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => update("image", reader.result);
+    reader.onerror = () => setImageError("Unable to upload image. Please try again.");
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -123,14 +145,44 @@ export default function CreateEvent() {
 
         <div>
           <label className="block text-[14px] font-medium mb-2">Event Image</label>
-          <div className="w-full px-4 py-8 rounded-lg border-2 border-dashed border-[#E6E6E6] flex flex-col items-center justify-center gap-2 bg-[#F5F5F5]">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#828282" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeLinecap="round" strokeLinejoin="round" />
-              <polyline points="17 8 12 3 7 8" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="12" y1="3" x2="12" y2="15" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <span className="text-[14px] text-[#828282]">Upload event image</span>
-          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleImageChange}
+            className="hidden"
+          />
+          {formData.image ? (
+            <div className="flex flex-col gap-2">
+              <img
+                src={formData.image}
+                alt="Event preview"
+                className="w-full h-[180px] rounded-lg object-cover"
+              />
+              <button
+                type="button"
+                onClick={openImagePicker}
+                className="w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]"
+              >
+                Change Image
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={openImagePicker}
+              className="w-full px-4 py-8 rounded-lg border-2 border-dashed border-[#E6E6E6] flex flex-col items-center justify-center gap-2 bg-[#F5F5F5]"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#828282" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeLinecap="round" strokeLinejoin="round" />
+                <polyline points="17 8 12 3 7 8" strokeLinecap="round" strokeLinejoin="round" />
+                <line x1="12" y1="3" x2="12" y2="15" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="text-[14px] text-[#828282]">Upload event image</span>
+              <span className="text-[12px] text-[#828282]">Optional · JPG, PNG, or WEBP · a default image will be used if skipped</span>
+            </button>
+          )}
+          {imageError && <p className="mt-2 text-[13px] font-medium text-red-600">{imageError}</p>}
         </div>
 
         <button

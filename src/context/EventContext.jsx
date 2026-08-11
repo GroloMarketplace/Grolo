@@ -7,6 +7,23 @@ const EventContext = createContext(null);
 
 const STORE_ID = "current-user";
 const RSVP_STORAGE_KEY = "grolo-event-attendees";
+const EVENTS_STORAGE_KEY = "grolo-events";
+
+function readEvents(storageKey) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(storageKey));
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistEvents(storageKey, events) {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(events));
+  } catch {
+  }
+}
 
 function readAttendees(currentUserId) {
   try {
@@ -69,8 +86,13 @@ export function formatEventTime(time) {
 export function EventProvider({ children }) {
   const { user } = useAuth();
   const currentUserId = user?.id ?? "current-user";
-  const [events, setEvents] = useState([]);
+  const storageKey = `${EVENTS_STORAGE_KEY}-${currentUserId}`;
+  const [events, setEvents] = useState(() => readEvents(storageKey) ?? []);
   const [attendees, setAttendees] = useState(() => readAttendees(currentUserId));
+
+  useEffect(() => {
+    setEvents(readEvents(storageKey) ?? []);
+  }, [storageKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,23 +170,27 @@ export function EventProvider({ children }) {
   );
 
   const addEvent = useCallback((event) => {
-    setEvents((prev) => [
-      {
-        likes: 0,
-        comments: 0,
-        reposts: 0,
-        shares: 0,
-        ...event,
-        id: `event-${Date.now()}`,
-        createdAt: event.createdAt ?? Date.now(),
-        sellerId: STORE_ID,
-        image:
-          event.image ||
-          "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80",
-      },
-      ...prev,
-    ]);
-  }, []);
+    setEvents((prev) => {
+      const next = [
+        {
+          likes: 0,
+          comments: 0,
+          reposts: 0,
+          shares: 0,
+          ...event,
+          id: `event-${Date.now()}`,
+          createdAt: event.createdAt ?? Date.now(),
+          sellerId: STORE_ID,
+          image:
+            event.image ||
+            "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80",
+        },
+        ...prev,
+      ];
+      persistEvents(storageKey, next);
+      return next;
+    });
+  }, [storageKey]);
 
   const eventSeller = useCallback((event) => sellers[event.sellerId], []);
 

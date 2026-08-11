@@ -25,7 +25,7 @@ import { readNavigationState, writeNavigationState } from "../hooks/navigationSt
 import { useListings } from "../context/ListingContext";
 import ReviewSummary from "../components/ReviewSummary";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
-import { isWithinDiscoveryRadius, discoveryRadiusLabel } from "../utils/locationRadius";
+import { discoveryRadiusLabel, resolveUserLocation, sortByDistance } from "../utils/locationRadius";
 import DistanceLabel from "../components/DistanceLabel";
 
 const TABS = ["Local", "Map", "History", "My Orders"];
@@ -113,7 +113,7 @@ export default function Search() {
 
       <div ref={scrollRef} className="overflow-y-auto flex-1 no-scrollbar">
         <div className="bg-white py-3 border-b border-black/5">
-          <p className="px-4 pb-2 text-[12px] text-[#828282]">Showing results within {discoveryRadiusLabel(buyerSettings.locationRadius ?? 25)}</p>
+          <p className="px-4 pb-2 text-[12px] text-[#828282]">Nearby results first, within {discoveryRadiusLabel(buyerSettings.locationRadius ?? 25)}</p>
           <SearchBar value={query} onChange={(event) => { queryRef.current = event.target.value; setQuery(event.target.value); }} />
         </div>
 
@@ -143,17 +143,17 @@ export default function Search() {
 
 function SearchResults({ products, query, navigate, onProduct, onBack, buyerSettings }) {
   const normalizedQuery = query.trim().toLowerCase();
-  const nearby = (content) => isWithinDiscoveryRadius(content, buyerSettings.latitude ? buyerSettings : buyerSettings.location, buyerSettings.locationRadius ?? 25);
-  const nearbyProducts = products.filter(nearby);
-  const nearbyEvents = events.filter(nearby);
-  const nearbyPosts = [...followingPosts, ...communityPosts].filter(nearby);
-  const nearbySellers = Object.values(sellers).filter((seller) => nearby(seller));
+  // Search covers all content; results are just sorted nearest-first so local
+  // matches surface at the top without hiding results outside the radius.
+  const userLocation = resolveUserLocation(buyerSettings);
+  const nearestFirst = (items) => sortByDistance(items, userLocation);
+  const allPosts = [...followingPosts, ...communityPosts];
   const matches = (value) => String(value ?? "").toLowerCase().includes(normalizedQuery);
-  const productResults = nearbyProducts.filter((product) => matches(`${product.name} ${product.description} ${product.shop}`));
-  const storeResults = nearbySellers.filter((seller) => matches(`${seller.name} ${seller.description} ${seller.location}`));
-  const eventResults = nearbyEvents.filter((event) => matches(`${event.title} ${event.description} ${event.type} ${event.location}`));
-  const postResults = nearbyPosts.filter((post, index, posts) => posts.findIndex((item) => item.id === post.id) === index && matches(`${post.body} ${post.name} ${post.classification}`));
-  const tradeResults = nearbyProducts.filter((product) => product.availableForTrade && matches(`${product.name} ${product.tradeAvailableFor} ${product.desiredTradeItems}`));
+  const productResults = nearestFirst(products.filter((product) => matches(`${product.name} ${product.description} ${product.shop}`)));
+  const storeResults = nearestFirst(Object.values(sellers).filter((seller) => matches(`${seller.name} ${seller.description} ${seller.location}`)));
+  const eventResults = nearestFirst(events.filter((event) => matches(`${event.title} ${event.description} ${event.type} ${event.location}`)));
+  const postResults = nearestFirst(allPosts.filter((post, index, posts) => posts.findIndex((item) => item.id === post.id) === index && matches(`${post.body} ${post.name} ${post.classification}`)));
+  const tradeResults = nearestFirst(products.filter((product) => product.availableForTrade && matches(`${product.name} ${product.tradeAvailableFor} ${product.desiredTradeItems}`)));
   const groups = [
     { title: "Products", items: productResults, render: (product) => <ProductSearchRow key={product.id} product={product} onProduct={onProduct} /> },
     { title: "Stores", items: storeResults, render: (seller) => <ResultRow key={seller.id} title={seller.name} subtitle={seller.location} content={seller} onClick={() => navigate(`/seller/${seller.id}`)} /> },

@@ -52,6 +52,18 @@ function imageReferenceMatches(first, second) {
   return first.split("?")[0] === second.split("?")[0];
 }
 
+// Promotions don't carry their own location, so resolve one from a linked
+// listing (falling back to the promotion itself) for radius filtering/sorting.
+function promotionLocationContent(promotion, listings) {
+  const product = listings.find((item) => promotion.productIds?.includes(item.id));
+  return {
+    ...promotion,
+    location: promotion.location ?? product?.location,
+    latitude: promotion.latitude ?? product?.latitude,
+    longitude: promotion.longitude ?? product?.longitude,
+  };
+}
+
 export default function Feed() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -306,7 +318,7 @@ function FollowingFeed({ followedSellers, location, radius, hiddenContentIds, on
   const listingsForPromotions = listings;
   const postsForItems = followedPosts;
   const listingsForItems = followedListings;
-  const promotions = activePromotions().filter((promotion) => followedSellers.includes(promotion.sellerId) && isWithinDiscoveryRadius(promotion, location, radius));
+  const promotions = activePromotions().filter((promotion) => followedSellers.includes(promotion.sellerId) && isWithinDiscoveryRadius(promotionLocationContent(promotion, listings), location, radius));
   const items = getFollowedItems({ posts: postsForItems, events, listings: listingsForItems, promotions, allListings: listingsForPromotions, hiddenContentIds, location });
 
   return (
@@ -346,8 +358,8 @@ function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu
   const events = upcomingEvents().filter((event) => isWithinDiscoveryRadius(event, location, radius));
   const nearbyListings = listings.filter((listing) => isWithinDiscoveryRadius(listing, location, radius));
   const nearbyPosts = posts.filter((post) => isWithinDiscoveryRadius(post, location, radius));
-  const currentPromotions = activePromotions().filter((promotion) => isWithinDiscoveryRadius(promotion, location, radius));
-  const items = getCommunityItems(filter, { events, listings: nearbyListings, posts: nearbyPosts, currentPromotions, isRegrown, hiddenContentIds });
+  const currentPromotions = activePromotions().filter((promotion) => isWithinDiscoveryRadius(promotionLocationContent(promotion, listings), location, radius));
+  const items = getCommunityItems(filter, { events, listings: nearbyListings, posts: nearbyPosts, currentPromotions, isRegrown, hiddenContentIds, location });
 
   const changeFilter = (nextFilter) => onFilterChange(nextFilter);
   const handlePointerEnd = (event) => {
@@ -399,7 +411,7 @@ function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu
   );
 }
 
-function getCommunityItems(filter, { events, listings, posts, currentPromotions, isRegrown, hiddenContentIds }) {
+function getCommunityItems(filter, { events, listings, posts, currentPromotions, isRegrown, hiddenContentIds, location }) {
   const listingItems = listings.map((product) => ({ type: "listing", id: `listing:${product.id}`, product }));
   const postItems = posts.map((post) => ({ type: "post", id: `post:${post.id}`, post }));
   const eventItems = events.map((event) => ({ type: "event", id: `event:${event.id}`, event }));
@@ -417,7 +429,8 @@ function getCommunityItems(filter, { events, listings, posts, currentPromotions,
       ? visibleItems.filter((item) => isRegrown(item.id))
       : visibleItems.filter((item) => item.type === filter.slice(0, -1).toLowerCase());
 
-  return filtered.sort((a, b) => contentTimestamp(b) - contentTimestamp(a));
+  // Closer content first; ties (or unknown distance) fall back to newest first.
+  return sortByDistance(filtered, location, feedItemContent, (a, b) => contentTimestamp(b) - contentTimestamp(a));
 }
 
 function contentTimestamp(item) {

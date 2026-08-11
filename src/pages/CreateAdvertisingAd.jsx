@@ -4,6 +4,8 @@ import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { useAdvertising } from "../context/AdvertisingContext";
 import { events, products, promotions } from "../data/mockData";
+import { useAuth } from "../context/AuthContext";
+import { uploadImage } from "../lib/imageStorage";
 
 const SELLER_ID = "current-user";
 const AD_TYPES = ["Store", "Product", "Event", "Promotion"];
@@ -23,6 +25,7 @@ export default function CreateAdvertisingAd() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { addAd, getAd, updateAd } = useAdvertising();
+  const { user } = useAuth();
   const editingAd = getAd(searchParams.get("adId"));
   const [formData, setFormData] = useState(() => editingAd ?? {
     title: "",
@@ -36,6 +39,7 @@ export default function CreateAdvertisingAd() {
     endsAt: "",
     badgeLabel: "Featured",
   });
+  const [imageError, setImageError] = useState("");
 
   const destinations = useMemo(() => {
     if (formData.type === "Product") return products.filter((product) => product.sellerId === SELLER_ID).map((product) => ({ id: product.id, label: product.name, destinationType: "Product listing" }));
@@ -74,9 +78,17 @@ export default function CreateAdvertisingAd() {
     updateField("destinationRoute", getDestinationRoute(type, destinationId));
   };
 
-  const handleImageUpload = (event) => {
+  const handleImageUpload = async (event) => {
     const file = event.target.files?.[0];
-    if (file) updateField("image", URL.createObjectURL(file));
+    event.target.value = "";
+    if (!file) return;
+    setImageError("");
+    try {
+      const { url } = await uploadImage(file, { userId: user?.id, kind: "promotion", folder: "advertising" });
+      updateField("image", url);
+    } catch (error) {
+      setImageError(error.message || "Unable to upload image. Please try again.");
+    }
   };
 
   const handleSubmit = (event) => {
@@ -102,7 +114,8 @@ export default function CreateAdvertisingAd() {
             <textarea required value={formData.description} onChange={(event) => updateField("description", event.target.value)} placeholder="Tell local shoppers what makes this special" rows="3" className={fieldClassName()} />
           </FormField>
           <FormField label="Upload image">
-            <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full text-[13px] text-[#828282] file:mr-3 file:rounded-lg file:border-0 file:bg-[#CFF7D3] file:px-3 file:py-2 file:text-[13px] file:font-medium file:text-[#02542D]" />
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageUpload} className="w-full text-[13px] text-[#828282] file:mr-3 file:rounded-lg file:border-0 file:bg-[#CFF7D3] file:px-3 file:py-2 file:text-[13px] file:font-medium file:text-[#02542D]" />
+            {imageError && <p role="alert" className="mt-2 text-[12px] text-red-600">{imageError}</p>}
           </FormField>
           <FormField label="Ad type">
             <select value={formData.type} onChange={(event) => handleTypeChange(event.target.value)} className={fieldClassName()}>

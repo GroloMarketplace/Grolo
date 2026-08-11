@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
+import { isTemporaryImageSource, uploadImageSource } from "../lib/imageStorage";
 
 const SellerSettingsContext = createContext(null);
 const CURRENT_USER_SELLER_ID = "current-user";
@@ -99,8 +100,28 @@ export function SellerSettingsProvider({ children }) {
         console.error("Unable to load seller profiles", error);
         return;
       }
+      const { data: ownProfile, error: ownProfileError } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      if (ownProfileError) console.error("Unable to load own seller profile", ownProfileError);
+      const rows = (data ?? []).map((row) => row.id === user.id && ownProfile ? ownProfile : row);
+      const migratedImages = {};
+      for (const [field, kind] of [["avatar_url", "avatar"], ["banner_url", "banner"]]) {
+        if (isTemporaryImageSource(ownProfile?.[field])) {
+          try {
+            const uploaded = await uploadImageSource(ownProfile[field], { userId: user.id, kind, folder: "profiles" });
+            if (uploaded) migratedImages[field] = uploaded.url;
+          } catch (migrationError) {
+            console.error(`Unable to migrate ${kind} image`, migrationError);
+          }
+        }
+      }
+      if (Object.keys(migratedImages).length) {
+        const { error: migrationError } = await supabase.from("profiles").update(migratedImages).eq("id", user.id);
+        if (migrationError) console.error("Unable to persist migrated seller images", migrationError);
+        else Object.assign(ownProfile, migratedImages);
+      }
       if (!cancelled) {
-        setProfiles(Object.fromEntries((data ?? []).map((row) => [row.id, sellerProfileFromRow(row)])));
+        const finalRows = rows.map((row) => row.id === user.id && ownProfile ? ownProfile : row);
+        setProfiles(Object.fromEntries(finalRows.map((row) => [row.id, sellerProfileFromRow(row)])));
       }
     }
 

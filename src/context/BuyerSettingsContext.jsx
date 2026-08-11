@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
+import { isTemporaryImageSource, uploadImageSource } from "../lib/imageStorage";
 
 const BuyerSettingsContext = createContext(null);
 
@@ -103,6 +104,22 @@ export function BuyerSettingsProvider({ children }) {
       if (error) {
         console.error("Unable to load buyer profile", error);
         return;
+      }
+      const migratedImages = {};
+      for (const [field, column, kind] of [["avatar_url", "avatar_url", "avatar"], ["banner_url", "banner_url", "banner"]]) {
+        if (isTemporaryImageSource(data?.[field])) {
+          try {
+            const uploaded = await uploadImageSource(data[field], { userId: user.id, kind, folder: "profiles" });
+            if (uploaded) migratedImages[column] = uploaded.url;
+          } catch (migrationError) {
+            console.error(`Unable to migrate ${kind} image`, migrationError);
+          }
+        }
+      }
+      if (Object.keys(migratedImages).length) {
+        const { error: migrationError } = await supabase.from("profiles").update(migratedImages).eq("id", user.id);
+        if (migrationError) console.error("Unable to persist migrated profile images", migrationError);
+        else Object.assign(data, migratedImages);
       }
       if (!cancelled) setSettings(settingsFromProfile(data, user));
     }

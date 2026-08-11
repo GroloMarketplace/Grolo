@@ -273,3 +273,37 @@ create policy "Users can view their own notifications"
 
 create policy "Users can update their own notifications"
   on notifications for update using (auth.uid() = recipient_id);
+
+-- Durable user-generated images. Public reads allow image URLs to render for other users;
+-- writes and replacements are restricted to the owning user's folder.
+insert into storage.buckets (id, name, public)
+values ('grolo-images', 'grolo-images', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists "Grolo users can upload own images" on storage.objects;
+create policy "Grolo users can upload own images"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'grolo-images'
+    and (storage.foldername(name))[1] = (select auth.uid()::text)
+  );
+
+drop policy if exists "Grolo users can update own images" on storage.objects;
+create policy "Grolo users can update own images"
+  on storage.objects for update to authenticated
+  using (
+    bucket_id = 'grolo-images'
+    and (storage.foldername(name))[1] = (select auth.uid()::text)
+  )
+  with check (
+    bucket_id = 'grolo-images'
+    and (storage.foldername(name))[1] = (select auth.uid()::text)
+  );
+
+drop policy if exists "Grolo users can delete own images" on storage.objects;
+create policy "Grolo users can delete own images"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'grolo-images'
+    and (storage.foldername(name))[1] = (select auth.uid()::text)
+  );

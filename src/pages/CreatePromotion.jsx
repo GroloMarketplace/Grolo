@@ -5,12 +5,15 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import { PROMOTION_TYPES, usePromotions } from "../context/PromotionContext";
 import { useListings } from "../context/ListingContext";
 import { useProfileMode } from "../context/ProfileModeContext";
+import { useAuth } from "../context/AuthContext";
+import { uploadImage } from "../lib/imageStorage";
 
 const SELLER_ID = "current-user";
 
 export default function CreatePromotion() {
   const navigate = useNavigate();
   const { addPromotion } = usePromotions();
+  const { user } = useAuth();
   const { listings } = useListings();
   const { storeOpenedAt } = useProfileMode();
   const sellerProducts = listings.filter((product) => product.sellerId === SELLER_ID && Number(product.createdAt) >= storeOpenedAt);
@@ -21,7 +24,9 @@ export default function CreatePromotion() {
     productIds: sellerProducts[0] ? [sellerProducts[0].id] : [],
     startsAt: new Date().toISOString().slice(0, 10),
     endsAt: "",
+    image: "",
   });
+  const [imageError, setImageError] = useState("");
 
   const updateField = (field, value) => {
     setFormData((current) => ({ ...current, [field]: value }));
@@ -34,6 +39,19 @@ export default function CreatePromotion() {
         ? current.productIds.filter((id) => id !== productId)
         : [...current.productIds, productId],
     }));
+  };
+
+  const handleImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setImageError("");
+    try {
+      const { url } = await uploadImage(file, { userId: user?.id, kind: "promotion", folder: "promotions" });
+      updateField("image", url);
+    } catch (error) {
+      setImageError(error.message || "Unable to upload image. Please try again.");
+    }
   };
 
   const handleSubmit = (event) => {
@@ -109,6 +127,13 @@ export default function CreatePromotion() {
               </label>
             ))}
           </div>
+        </div>
+
+        <div>
+          <label className="block text-[14px] font-medium mb-2">Promotion image</label>
+          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageUpload} className="w-full text-[13px] text-[#828282] file:mr-3 file:rounded-lg file:border-0 file:bg-[#CFF7D3] file:px-3 file:py-2 file:text-[13px] file:font-medium file:text-[#02542D]" />
+          {formData.image && <img src={formData.image} alt="Promotion preview" className="mt-3 h-32 w-full rounded-lg object-cover" />}
+          {imageError && <p role="alert" className="mt-2 text-[12px] text-red-600">{imageError}</p>}
         </div>
 
         <div className="flex gap-3">

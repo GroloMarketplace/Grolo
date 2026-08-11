@@ -8,6 +8,8 @@ import { useOrders } from "../context/OrderContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
+import { useAuth } from "../context/AuthContext";
+import { uploadImage, removeImage } from "../lib/imageStorage";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useSidebar } from "../hooks/useSidebar";
 import { buyerActions, getBuyerStatus, getSellerStatus } from "../data/communityStatus";
@@ -32,6 +34,7 @@ function SellerAccountSettings() {
   const routeLocation = useLocation();
   const { isSidebarOpen, closeSidebar } = useSidebar();
   const { sellerOrders } = useOrders();
+  const { user } = useAuth();
   const { getFollowerCount } = useFollow();
   const { getPaymentMethods, updatePaymentMethods, updateFulfillment } = usePaymentMethods();
   const { getSellerProfile, updateSellerProfile } = useSellerSettings();
@@ -92,25 +95,18 @@ function SellerAccountSettings() {
     ? values.filter((item) => item !== value)
     : [...values, value];
 
-  const handleFile = (event, setValue, kind) => {
+  const handleFile = async (event, setValue, kind) => {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
     const isBanner = kind === "banner";
     setUploadError("");
     setUploadWarning("");
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setUploadError("Please choose a JPG, PNG, or WEBP image.");
-      return;
-    }
-    if (file.size > (isBanner ? 5 : 3) * 1024 * 1024) {
-      setUploadError(`This image must be ${isBanner ? 5 : 3} MB or smaller.`);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setValue(reader.result);
+    try {
+      const previewUrl = URL.createObjectURL(file);
       const image = new Image();
       image.onload = () => {
+        URL.revokeObjectURL(previewUrl);
         if (isBanner) {
           const warnings = [];
           if (image.width < 1500 || image.height < 500) warnings.push("For best quality, use at least 1500 × 500 px.");
@@ -120,14 +116,19 @@ function SellerAccountSettings() {
           setUploadWarning("For a sharp profile picture, use at least 800 × 800 px.");
         }
       };
-      image.src = reader.result;
-    };
-    reader.onerror = () => setUploadError("We couldn't read that image. Please try again.");
-    reader.readAsDataURL(file);
+      image.onerror = () => URL.revokeObjectURL(previewUrl);
+      image.src = previewUrl;
+      const { url } = await uploadImage(file, { userId: user.id, kind });
+      setValue(url);
+    } catch (error) {
+      setUploadError(error.message || "We couldn't upload that image. Please try again.");
+    }
   };
 
   const handleSave = async () => {
     if (uploadError) return;
+    const previousAvatar = profile.avatar;
+    const previousBanner = profile.banner;
     try {
       await updateSellerProfile(SELLER_ID, {
         name,
@@ -140,6 +141,8 @@ function SellerAccountSettings() {
         vacationMessage,
         returnDate,
       });
+      if (previousAvatar && previousAvatar !== avatar) await removeImage(previousAvatar, user.id).catch((error) => console.error("Unable to remove previous avatar", error));
+      if (previousBanner && previousBanner !== banner) await removeImage(previousBanner, user.id).catch((error) => console.error("Unable to remove previous banner", error));
       updatePaymentMethods(SELLER_ID, methods, eTransferEmail);
       updateFulfillment(SELLER_ID, fulfillmentMethods, deliveryFee, deliveryRadius, pickupLocation, pickupNotes);
       setSaved(true);
@@ -252,6 +255,7 @@ function SellerAccountSettings() {
 function BuyerAccountSettings() {
   const navigate = useNavigate();
   const { canSeller } = useProfileMode();
+  const { user } = useAuth();
   const { isSidebarOpen, closeSidebar } = useSidebar();
   const { settings, updateSettings, refreshLocation } = useBuyerSettings();
   const [displayName, setDisplayName] = useState(settings.displayName);
@@ -275,12 +279,17 @@ function BuyerAccountSettings() {
     setShowLocationPublicly(settings.showLocationPublicly);
   }, [settings]);
 
-  const handleFile = (event) => {
+  const handleFile = async (event) => {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setAvatar(reader.result);
-    reader.readAsDataURL(file);
+    setLocationStatus("");
+    try {
+      const { url } = await uploadImage(file, { userId: user.id, kind: "avatar" });
+      setAvatar(url);
+    } catch (error) {
+      setLocationStatus(error.message || "We couldn't upload that image. Please try again.");
+    }
   };
 
   const handleRefreshLocation = async () => {
@@ -290,8 +299,10 @@ function BuyerAccountSettings() {
   };
 
   const handleSave = async () => {
+    const previousAvatar = settings.avatar;
     try {
       await updateSettings({ displayName, bio, location, locationRadius, avatar, notifications, showLocationPublicly });
+      if (previousAvatar && previousAvatar !== avatar) await removeImage(previousAvatar, user.id).catch((error) => console.error("Unable to remove previous avatar", error));
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2200);
     } catch (error) {

@@ -7,6 +7,7 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useFoundingMember } from "../context/FoundingMemberContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useAuth } from "../context/AuthContext";
+import { uploadImage, removeImage } from "../lib/imageStorage";
 
 const SELLER_ID = "current-user";
 const DRAFT_KEY = "grolo-open-store-draft";
@@ -64,19 +65,18 @@ export default function OpenStore() {
   const next = () => { setFormError(""); setStep((current) => current + 1); };
   const back = () => { setFormError(""); setStep((current) => Math.max(0, current - 1)); };
 
-  const handleFile = (event, key) => {
+  const handleFile = async (event, key) => {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
     const isBanner = key === "banner";
     setUploadError("");
     setUploadWarning("");
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return setUploadError("Please choose a JPG, PNG, or WEBP image.");
-    if (file.size > (isBanner ? 5 : 3) * 1024 * 1024) return setUploadError(`This image must be ${isBanner ? 5 : 3} MB or smaller.`);
-    const reader = new FileReader();
-    reader.onload = () => {
-      update(key, reader.result);
+    try {
+      const previewUrl = URL.createObjectURL(file);
       const image = new Image();
       image.onload = () => {
+        URL.revokeObjectURL(previewUrl);
         if (isBanner) {
           const ratio = image.width / image.height;
           const warnings = [];
@@ -87,10 +87,13 @@ export default function OpenStore() {
           setUploadWarning("For a sharp profile picture, use at least 800 × 800 px.");
         }
       };
-      image.src = reader.result;
-    };
-    reader.onerror = () => setUploadError("We couldn't read that image. Please try again.");
-    reader.readAsDataURL(file);
+      image.onerror = () => URL.revokeObjectURL(previewUrl);
+      image.src = previewUrl;
+      const { url } = await uploadImage(file, { userId: user.id, kind: isBanner ? "banner" : "avatar" });
+      update(key, url);
+    } catch (error) {
+      setUploadError(error.message || "We couldn't upload that image. Please try again.");
+    }
   };
 
   const launch = async () => {
@@ -101,8 +104,12 @@ export default function OpenStore() {
     }
     if (uploadError) return;
     const socialLinks = [form.instagram, form.facebook, form.x, form.website].filter(Boolean).join(" | ");
+    const previousAvatar = profile.avatar;
+    const previousBanner = profile.banner;
     try {
       await updateSellerProfile(SELLER_ID, { ...form, socialLinks });
+      if (previousAvatar && previousAvatar !== form.avatar) await removeImage(previousAvatar, user.id).catch((error) => console.error("Unable to remove previous avatar", error));
+      if (previousBanner && previousBanner !== form.banner) await removeImage(previousBanner, user.id).catch((error) => console.error("Unable to remove previous banner", error));
       await activateStore();
       try { localStorage.removeItem(storageKey); } catch { /* Ignore storage cleanup failures. */ }
       awardFoundingMember(SELLER_ID);

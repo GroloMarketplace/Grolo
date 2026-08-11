@@ -1,19 +1,33 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import { uploadImage } from "../lib/imageStorage";
 
 const MAX_PHOTOS = 5;
 
 export default function PhotoManager({ photos, onChange, label = "Photos" }) {
+  const { user } = useAuth();
   const fileInput = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const full = photos.length >= MAX_PHOTOS;
 
-  const handleFiles = (event) => {
+  const handleFiles = async (event) => {
     const files = Array.from(event.target.files ?? []);
-    const room = MAX_PHOTOS - photos.length;
-    onChange([
-      ...photos,
-      ...files.slice(0, room).map((file) => URL.createObjectURL(file)),
-    ]);
     event.target.value = "";
+    const room = MAX_PHOTOS - photos.length;
+    if (!files.length || room <= 0) return;
+    setUploadError("");
+    setUploading(true);
+    try {
+      const uploaded = await Promise.all(
+        files.slice(0, room).map((file) => uploadImage(file, { userId: user?.id, kind: "listing", folder: "listings" })),
+      );
+      onChange([...photos, ...uploaded.map(({ url }) => url)]);
+    } catch (error) {
+      setUploadError(error.message || "Unable to upload photos. Please try again.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const move = (from, to) => {
@@ -42,7 +56,7 @@ export default function PhotoManager({ photos, onChange, label = "Photos" }) {
       <input
         ref={fileInput}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
         multiple
         onChange={handleFiles}
         className="hidden"
@@ -51,7 +65,7 @@ export default function PhotoManager({ photos, onChange, label = "Photos" }) {
       <button
         type="button"
         onClick={() => fileInput.current?.click()}
-        disabled={full}
+        disabled={full || uploading}
         className="w-full px-4 py-8 rounded-lg border-2 border-dashed border-[#E6E6E6] flex flex-col items-center justify-center gap-2 bg-[#F5F5F5] disabled:opacity-50"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#828282" strokeWidth="2">
@@ -60,9 +74,10 @@ export default function PhotoManager({ photos, onChange, label = "Photos" }) {
           <line x1="12" y1="3" x2="12" y2="15" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <span className="text-[14px] text-[#828282]">
-          {full ? `Photo limit reached (${MAX_PHOTOS})` : "Upload photos"}
+          {uploading ? "Uploading photos…" : full ? `Photo limit reached (${MAX_PHOTOS})` : "Upload photos"}
         </span>
       </button>
+      {uploadError && <p role="alert" className="mt-2 text-[12px] text-red-600">{uploadError}</p>}
 
       {photos.length > 0 && (
         <div className="flex flex-col gap-2 mt-3">

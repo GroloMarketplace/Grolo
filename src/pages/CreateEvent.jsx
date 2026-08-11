@@ -4,12 +4,15 @@ import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { eventTypes } from "../data/mockData";
 import { useEvents } from "../context/EventContext";
+import { useAuth } from "../context/AuthContext";
+import { uploadImage } from "../lib/imageStorage";
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export default function CreateEvent() {
   const navigate = useNavigate();
   const { addEvent } = useEvents();
+  const { user } = useAuth();
   const fileInputRef = useRef(null);
   const [imageError, setImageError] = useState("");
   const [formData, setFormData] = useState({
@@ -28,19 +31,21 @@ export default function CreateEvent() {
 
   const openImagePicker = () => fileInputRef.current?.click();
 
-  const handleImageChange = (event) => {
+  const handleImageChange = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
     setImageError("");
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-      setImageError("Unable to upload image. Please try again.");
+      setImageError("Please choose a JPG, PNG, or WEBP image.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => update("image", reader.result);
-    reader.onerror = () => setImageError("Unable to upload image. Please try again.");
-    reader.readAsDataURL(file);
+    try {
+      const { url } = await uploadImage(file, { userId: user?.id, kind: "event", folder: "events" });
+      update("image", url);
+    } catch (error) {
+      setImageError(error.message || "Unable to upload image. Please try again.");
+    }
   };
 
   const handleSubmit = (e) => {

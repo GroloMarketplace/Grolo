@@ -11,6 +11,7 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import { formatListingPrice } from "../utils/listingDisplay";
 import AttachListingModal from "../components/AttachListingModal";
 import TradeBadge from "../components/TradeBadge";
+import { uploadImage } from "../lib/imageStorage";
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_PHOTOS = 5;
@@ -36,22 +37,23 @@ export default function CreatePost() {
 
   const openImagePicker = () => fileInputRef.current?.click();
 
-  const handleImageChange = (event) => {
+  const handleImageChange = async (event) => {
     const files = Array.from(event.target.files ?? []);
     event.target.value = "";
     if (!files.length) return;
     setImageError("");
     const room = MAX_PHOTOS - images.length;
-    files.slice(0, room).forEach((file) => {
-      if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-        setImageError("Unable to upload photo. Please try again.");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => setImages((current) => [...current, reader.result]);
-      reader.onerror = () => setImageError("Unable to upload photo. Please try again.");
-      reader.readAsDataURL(file);
-    });
+    const selected = files.slice(0, room);
+    if (selected.some((file) => !ACCEPTED_IMAGE_TYPES.includes(file.type))) {
+      setImageError("Please choose JPG, PNG, or WEBP images.");
+      return;
+    }
+    try {
+      const uploaded = await Promise.all(selected.map((file) => uploadImage(file, { userId: user?.id, kind: "post", folder: "posts" })));
+      setImages((current) => [...current, ...uploaded.map(({ url }) => url)]);
+    } catch (error) {
+      setImageError(error.message || "Unable to upload photos. Please try again.");
+    }
   };
 
   const removeImage = (index) => {

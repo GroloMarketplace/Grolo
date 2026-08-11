@@ -5,6 +5,7 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useAuth } from "../context/AuthContext";
 import ProfileAvatar from "../components/ProfileAvatar";
+import { uploadImage } from "../lib/imageStorage";
 
 const ONBOARDING_KEY = "grolo-onboarding-complete";
 const INTERESTS = [
@@ -64,22 +65,17 @@ export default function Onboarding() {
     setStep(2);
   };
 
-  const handleFile = (event) => {
+  const handleFile = async (event) => {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
     setError("");
-    if (!file.type.startsWith("image/")) {
-      setError("Please choose an image file.");
-      return;
+    try {
+      const { url } = await uploadImage(file, { userId: user?.id, kind: "avatar", folder: "profiles" });
+      update("avatar", url);
+    } catch (error) {
+      setError(error.message || "We couldn't upload that image. Please try again.");
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Profile pictures must be 5 MB or smaller.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => update("avatar", reader.result);
-    reader.onerror = () => setError("We couldn't read that image. Please try again.");
-    reader.readAsDataURL(file);
   };
 
   const finish = async () => {
@@ -105,14 +101,15 @@ export default function Onboarding() {
       setStep(1);
       return;
     }
-    const saved = updateSettings({
-      ...form,
-      email: form.email.trim(),
-      city: form.location.split(",")[0].trim(),
-      province: "Alberta",
-    });
-    if (!saved) {
-      setError("We couldn't save your profile. Please try again with a smaller photo.");
+    try {
+      await updateSettings({
+        ...form,
+        email: form.email.trim(),
+        city: form.location.split(",")[0].trim(),
+        province: "Alberta",
+      });
+    } catch (saveError) {
+      setError(saveError.message || "We couldn't save your profile. Please try again.");
       return;
     }
     localStorage.setItem(onboardingKey, "true");
@@ -135,7 +132,7 @@ export default function Onboarding() {
         {step === 1 && <ProfileStep form={form} update={update} error={error} onContinue={handleProfileContinue} />}
         {step === 2 && <PhotoStep form={form} update={update} handleFile={handleFile} error={error} onContinue={() => { setError(""); setStep(3); }} onSkip={() => { setError(""); setStep(3); }} />}
         {step === 3 && <InterestsStep interests={form.interests} toggleInterest={toggleInterest} onContinue={() => { setError(""); setStep(4); }} />}
-        {step === 4 && <LocationPermissionStep onAllow={async () => { await refreshLocation(); setStep(5); }} onNotNow={() => { updateSettings({ locationPermission: "denied" }); setStep(5); }} />}
+        {step === 4 && <LocationPermissionStep onAllow={async () => { await refreshLocation(); setStep(5); }} onNotNow={async () => { try { await updateSettings({ locationPermission: "denied" }); setStep(5); } catch (error) { setError(error.message || "We couldn't save your location preference."); } }} />}
         {step === 5 && <ReadyStep form={form} onEnter={finish} />}
       </div>
     </MobileScreenLayout>

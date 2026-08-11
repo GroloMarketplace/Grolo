@@ -58,7 +58,7 @@ export default function ShopHome() {
   const [pickupLocation, setPickupLocation] = useState(() => getPaymentMethods(seller.id).pickupLocation);
   const [pickupNotes, setPickupNotes] = useState(() => getPaymentMethods(seller.id).pickupNotes);
   const { sellerOrders } = useOrders();
-  const { upcomingEvents } = useEvents();
+  const { upcomingEvents, removeEvent } = useEvents();
   const { posts } = usePosts();
   const { promotionsForSeller } = usePromotions();
   const { isRegrown } = useRegrow();
@@ -76,13 +76,18 @@ export default function ShopHome() {
   const outOfStockSellerProducts = sellerProducts.filter((product) => getAvailable(product.id) <= 0);
   const sellerPosts = posts.filter((post) => post.sellerId === seller.id && createdBySeller(post));
   const [managedPosts, setManagedPosts] = useState(sellerPosts);
-  const [managedEvents, setManagedEvents] = useState(() => upcomingEvents(seller.id).filter(createdBySeller));
+  // Events are read straight from EventContext (which persists to localStorage)
+  // rather than kept in local component state, so edits/deletes made through
+  // the native Event Editor and elsewhere are always reflected immediately.
+  const sellerEvents = upcomingEvents(seller.id).filter(createdBySeller);
   const [activeTab, setActiveTab] = useState(0);
   const contentRef = useRef(null);
 
   useEffect(() => {
     if (routeLocation.state?.activeTab === "Listings") setActiveTab(0);
-  }, [routeLocation.state?.activeTab]);
+    if (routeLocation.state?.activeTab === "Events") setActiveTab(2);
+    if (routeLocation.state?.eventUpdated) showToast("Event Updated — Your event has been successfully updated.");
+  }, [routeLocation.state?.activeTab, routeLocation.state?.eventUpdated]);
   const tabs = ["Listings", "Posts", "Events", "Regrows"];
   const sellerPromotions = promotionsForSeller(seller.id).filter(createdBySeller);
   const sellerStatus = getSellerStatus({
@@ -93,7 +98,7 @@ export default function ShopHome() {
     marketplaceInteractions: 0,
     activeDays: 0,
     averageRating: 0,
-    communityContribution: managedEvents.length || sellerPromotions.length ? 1 : 0,
+    communityContribution: sellerEvents.length || sellerPromotions.length ? 1 : 0,
   });
 
   const showToast = (message) => {
@@ -157,10 +162,7 @@ export default function ShopHome() {
   };
 
   const handleEditEvent = (event) => {
-    const title = window.prompt("Edit event", event.title);
-    if (title?.trim()) {
-      setManagedEvents((current) => current.map((item) => item.id === event.id ? { ...item, title: title.trim() } : item));
-    }
+    navigate(`/edit-event/${event.id}`);
   };
 
   const handleDeleteEvent = (eventId) => {
@@ -173,7 +175,7 @@ export default function ShopHome() {
       showToast("Post deleted");
     }
     if (deleteRequest?.type === "event") {
-      setManagedEvents((current) => current.filter((event) => event.id !== deleteRequest.id));
+      removeEvent(deleteRequest.id);
       showToast("Event deleted");
     }
     setDeleteRequest(null);
@@ -397,8 +399,8 @@ export default function ShopHome() {
                 >
                 <ShopListingsTab products={activeSellerProducts} outOfStockProducts={outOfStockSellerProducts} promotions={sellerPromotions} navigate={navigate} onDelete={handleDeleteListing} onOpenPromotions={() => navigate(`/promotions/${seller.id}`)} />
                 <ShopPostsTab posts={managedPosts} onEdit={handleEditPost} onDelete={handleDeletePost} onCreate={handleCreatePost} />
-                <ShopEventsTab events={managedEvents} navigate={navigate} onEdit={handleEditEvent} onDelete={handleDeleteEvent} />
-                  <ShopRegrowsTab products={sellerProducts} posts={managedPosts} events={managedEvents} promotions={sellerPromotions} isRegrown={isRegrown} />
+                <ShopEventsTab events={sellerEvents} navigate={navigate} onEdit={handleEditEvent} onDelete={handleDeleteEvent} />
+                  <ShopRegrowsTab products={sellerProducts} posts={managedPosts} events={sellerEvents} promotions={sellerPromotions} isRegrown={isRegrown} />
                 </div>
               </div>
             </div>

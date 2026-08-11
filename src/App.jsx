@@ -57,6 +57,7 @@ import ProductReviews from "./pages/ProductReviews";
 import ShopOrders from "./pages/ShopOrders";
 import ShopEvents from "./pages/ShopEvents";
 import CreateEvent from "./pages/CreateEvent";
+import EditEvent from "./pages/EditEvent";
 import CreatePromotion from "./pages/CreatePromotion";
 import Promotions from "./pages/Promotions";
 import CommunityImpact from "./pages/CommunityImpact";
@@ -149,6 +150,18 @@ export default function App() {
             <PhoneFrame>
               <ProtectedRoute sellerOnly>
                 <CreateEvent />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
+        <Route
+          path="/edit-event/:eventId"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute sellerOnly>
+                <AppErrorBoundary label="Edit Event">
+                  <EditEvent />
+                </AppErrorBoundary>
               </ProtectedRoute>
             </PhoneFrame>
           }

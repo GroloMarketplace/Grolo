@@ -192,6 +192,28 @@ export function EventProvider({ children }) {
     });
   }, [storageKey]);
 
+  const updateEvent = useCallback((eventId, updates) => {
+    setEvents((current) => {
+      const next = current.map((event) => event.id === eventId
+        ? {
+          ...event,
+          ...updates,
+          image: updates.image || "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80",
+        }
+        : event);
+      persistEvents(storageKey, next);
+      return next;
+    });
+  }, [storageKey]);
+
+  const removeEvent = useCallback((eventId) => {
+    setEvents((current) => {
+      const next = current.filter((event) => event.id !== eventId);
+      persistEvents(storageKey, next);
+      return next;
+    });
+  }, [storageKey]);
+
   const eventSeller = useCallback((event) => sellers[event.sellerId], []);
 
   const value = {
@@ -200,6 +222,8 @@ export function EventProvider({ children }) {
     pastEvents,
     getEvent,
     addEvent,
+    updateEvent,
+    removeEvent,
     eventSeller,
     isAttending,
     getAttendeeCount,

@@ -93,7 +93,7 @@ export default function OpenStore() {
     reader.readAsDataURL(file);
   };
 
-  const launch = () => {
+  const launch = async () => {
     if (!form.name.trim() || !form.description.trim() || !form.location.trim() || !form.category) {
       setFormError("Complete your store name, description, location, and category before launching.");
       setStep(1);
@@ -101,15 +101,15 @@ export default function OpenStore() {
     }
     if (uploadError) return;
     const socialLinks = [form.instagram, form.facebook, form.x, form.website].filter(Boolean).join(" | ");
-    const profileSaved = updateSellerProfile(SELLER_ID, { ...form, socialLinks });
-    if (!profileSaved) {
-      setFormError("Your store could not be saved. Please try smaller images.");
-      return;
+    try {
+      await updateSellerProfile(SELLER_ID, { ...form, socialLinks });
+      await activateStore();
+      try { localStorage.removeItem(storageKey); } catch { /* Ignore storage cleanup failures. */ }
+      awardFoundingMember(SELLER_ID);
+      navigate("/shop", { replace: true });
+    } catch (error) {
+      setFormError(error.message || "Your store could not be saved.");
     }
-    try { localStorage.removeItem(storageKey); } catch { /* Ignore storage cleanup failures. */ }
-    awardFoundingMember(SELLER_ID);
-    activateStore();
-    navigate("/shop", { replace: true });
   };
 
   return (

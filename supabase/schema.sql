@@ -14,13 +14,37 @@ create table if not exists profiles (
   created_at timestamptz not null default now()
 );
 
+alter table profiles add column if not exists display_name text;
+alter table profiles add column if not exists username text unique;
+alter table profiles add column if not exists banner_url text;
+alter table profiles add column if not exists location text;
+alter table profiles add column if not exists location_radius numeric not null default 25;
+alter table profiles add column if not exists latitude double precision;
+alter table profiles add column if not exists longitude double precision;
+alter table profiles add column if not exists city text;
+alter table profiles add column if not exists province text;
+alter table profiles add column if not exists location_permission text not null default 'unknown';
+alter table profiles add column if not exists interests jsonb not null default '[]'::jsonb;
+alter table profiles add column if not exists buyer_notifications jsonb not null default '{}'::jsonb;
+alter table profiles add column if not exists seller_notifications jsonb not null default '{}'::jsonb;
+alter table profiles add column if not exists show_location_publicly boolean not null default false;
+alter table profiles add column if not exists store_description text;
+alter table profiles add column if not exists store_location text;
+alter table profiles add column if not exists vacation_mode boolean not null default false;
+alter table profiles add column if not exists vacation_message text;
+alter table profiles add column if not exists return_date text;
+alter table profiles add column if not exists social_links text;
+alter table profiles add column if not exists seller_status text not null default 'buyer';
+alter table profiles add column if not exists store_onboarding_status boolean not null default false;
+alter table profiles add column if not exists store_opened_at timestamptz;
+
 alter table profiles enable row level security;
 
 create policy "Profiles are viewable by everyone"
   on profiles for select using (true);
 
 create policy "Users can update their own profile"
-  on profiles for update using (auth.uid() = id);
+  on profiles for update using (auth.uid() = id) with check (auth.uid() = id);
 
 create policy "Users can insert their own profile"
   on profiles for insert with check (auth.uid() = id);

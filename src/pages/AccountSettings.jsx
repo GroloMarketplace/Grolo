@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
@@ -54,6 +54,18 @@ function SellerAccountSettings() {
   const [vacationMessage, setVacationMessage] = useState(profile.vacationMessage ?? "");
   const [returnDate, setReturnDate] = useState(profile.returnDate ?? "");
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setName(profile.name);
+    setDescription(profile.description || "");
+    setLocation(profile.location || "");
+    setAvatar(profile.avatar);
+    setBanner(profile.banner);
+    setNotifications(profile.notifications);
+    setVacationMode(profile.vacationMode ?? false);
+    setVacationMessage(profile.vacationMessage ?? "");
+    setReturnDate(profile.returnDate ?? "");
+  }, [profile]);
   const [uploadError, setUploadError] = useState("");
   const [uploadWarning, setUploadWarning] = useState("");
   const orders = sellerOrders(SELLER_ID);
@@ -114,27 +126,27 @@ function SellerAccountSettings() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (uploadError) return;
-    const profileSaved = updateSellerProfile(SELLER_ID, {
-      name,
-      description,
-      location,
-      avatar,
-      banner,
-      notifications,
-      vacationMode,
-      vacationMessage,
-      returnDate,
-    });
-    if (!profileSaved) {
-      setUploadError("Your profile image could not be saved. Please try a smaller image.");
-      return;
+    try {
+      await updateSellerProfile(SELLER_ID, {
+        name,
+        description,
+        location,
+        avatar,
+        banner,
+        notifications,
+        vacationMode,
+        vacationMessage,
+        returnDate,
+      });
+      updatePaymentMethods(SELLER_ID, methods, eTransferEmail);
+      updateFulfillment(SELLER_ID, fulfillmentMethods, deliveryFee, deliveryRadius, pickupLocation, pickupNotes);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2200);
+    } catch (error) {
+      setUploadError(error.message || "Your profile could not be saved.");
     }
-    updatePaymentMethods(SELLER_ID, methods, eTransferEmail);
-    updateFulfillment(SELLER_ID, fulfillmentMethods, deliveryFee, deliveryRadius, pickupLocation, pickupNotes);
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2200);
   };
 
   return (
@@ -253,6 +265,16 @@ function BuyerAccountSettings() {
   const [saved, setSaved] = useState(false);
   const status = getBuyerStatus({});
 
+  useEffect(() => {
+    setDisplayName(settings.displayName);
+    setBio(settings.bio);
+    setLocation(settings.location);
+    setLocationRadius(settings.locationRadius ?? 25);
+    setAvatar(settings.avatar);
+    setNotifications(settings.notifications);
+    setShowLocationPublicly(settings.showLocationPublicly);
+  }, [settings]);
+
   const handleFile = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -267,10 +289,14 @@ function BuyerAccountSettings() {
     setLocationStatus(result.ok ? "Location updated" : result.error || "Location unavailable");
   };
 
-  const handleSave = () => {
-    updateSettings({ displayName, bio, location, locationRadius, avatar, notifications, showLocationPublicly });
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2200);
+  const handleSave = async () => {
+    try {
+      await updateSettings({ displayName, bio, location, locationRadius, avatar, notifications, showLocationPublicly });
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2200);
+    } catch (error) {
+      setLocationStatus(error.message || "Your profile could not be saved.");
+    }
   };
 
   return (

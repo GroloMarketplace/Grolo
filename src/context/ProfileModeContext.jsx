@@ -1,64 +1,83 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { useAuth } from "./AuthContext";
+import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 
 const ProfileModeContext = createContext(null);
-const STORAGE_KEY = "grolo-profile-mode";
-const ACTIVE_STORAGE_KEY = "grolo-active-profile";
-const STORE_ACTIVE_KEY = "grolo-store-active";
-const STORE_OPENED_AT_KEY = "grolo-store-opened-at";
 
-function readStoreActive() {
-  try {
-    return localStorage.getItem(STORE_ACTIVE_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
-function readActiveProfile(storeActive) {
-  if (!storeActive) return "buyer";
-  try {
-    return localStorage.getItem(ACTIVE_STORAGE_KEY) || "buyer";
-  } catch {
-    return "buyer";
-  }
-}
-
-function readStoreOpenedAt(storeActive) {
-  if (!storeActive) return 0;
-  try {
-    const saved = Number(localStorage.getItem(STORE_OPENED_AT_KEY));
-    if (saved > 0) return saved;
-    const openedAt = Date.now();
-    localStorage.setItem(STORE_OPENED_AT_KEY, String(openedAt));
-    return openedAt;
-  } catch {
-    return Date.now();
-  }
+function profileIsSeller(profile) {
+  return Boolean(profile?.store_onboarding_status)
+    || ["active", "seller", "both"].includes(profile?.seller_status);
 }
 
 export function ProfileModeProvider({ children }) {
-  const [storeActive, setStoreActive] = useState(readStoreActive);
-  const [storeOpenedAt, setStoreOpenedAt] = useState(() => readStoreOpenedAt(readStoreActive()));
-  const [profileMode, setProfileModeState] = useState(() => readActiveProfile(readStoreActive()));
-  const accountType = storeActive ? "both" : "buyer";
+  const { user } = useAuth();
+  const [storeActive, setStoreActive] = useState(false);
+  const [storeOpenedAt, setStoreOpenedAt] = useState(0);
+  const [profileMode, setProfileModeState] = useState("buyer");
 
-  const activateStore = () => {
-    const openedAt = Date.now();
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfileMode() {
+      if (!user?.id) {
+        setStoreActive(false);
+        setStoreOpenedAt(0);
+        setProfileModeState("buyer");
+        return;
+      }
+      if (!isSupabaseConfigured) {
+        setStoreActive(false);
+        setStoreOpenedAt(0);
+        setProfileModeState("buyer");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("seller_status, store_onboarding_status, store_opened_at")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (error) {
+        console.error("Unable to load profile mode", error);
+        return;
+      }
+      if (cancelled) return;
+      const active = profileIsSeller(data);
+      setStoreActive(active);
+      setStoreOpenedAt(data?.store_opened_at ? new Date(data.store_opened_at).getTime() : 0);
+      setProfileModeState(active ? "seller" : "buyer");
+    }
+
+    loadProfileMode();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const activateStore = async () => {
+    if (!user?.id || !isSupabaseConfigured) {
+      throw new Error("Supabase is not configured or the user is not signed in.");
+    }
+    const openedAt = new Date().toISOString();
+    const { error } = await supabase
+      .from("profiles")
+      .upsert({
+        id: user.id,
+        seller_status: "active",
+        store_onboarding_status: true,
+        store_opened_at: openedAt,
+      }, { onConflict: "id" });
+    if (error) throw error;
     setStoreActive(true);
-    setStoreOpenedAt(openedAt);
+    setStoreOpenedAt(new Date(openedAt).getTime());
     setProfileModeState("seller");
-    localStorage.setItem(STORE_ACTIVE_KEY, "true");
-    localStorage.setItem(STORE_OPENED_AT_KEY, String(openedAt));
-    localStorage.setItem(STORAGE_KEY, "both");
-    localStorage.setItem(ACTIVE_STORAGE_KEY, "seller");
+    return true;
   };
 
   const setProfileMode = (mode) => {
     if (mode === "seller" && !storeActive) return;
     setProfileModeState(mode);
-    localStorage.setItem(ACTIVE_STORAGE_KEY, mode);
   };
 
+  const accountType = storeActive ? "both" : "buyer";
   const canBuyer = true;
   const canSeller = storeActive;
 

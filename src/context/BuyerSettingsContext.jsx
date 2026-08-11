@@ -86,25 +86,49 @@ function profileUpdates(updates) {
 }
 
 export function BuyerSettingsProvider({ children }) {
-  const { user } = useAuth();
-  const [settings, setSettings] = useState(() => settingsFromProfile(null, user));
+  const { user, profile: authenticatedProfile } = useAuth();
+  const [settings, setSettings] = useState(() => settingsFromProfile(authenticatedProfile, user));
+  const [profileLoading, setProfileLoading] = useState(Boolean(user?.id && isSupabaseConfigured));
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [profileFound, setProfileFound] = useState(false);
+  const [profileError, setProfileError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadProfile() {
+      setProfileError(null);
+      setProfileFound(false);
       if (!user?.id) {
         setSettings(settingsFromProfile(null, null));
+        setProfileLoading(false);
+        setProfileLoaded(true);
         return;
       }
       if (!isSupabaseConfigured) {
         setSettings(settingsFromProfile(null, user));
+        setProfileLoading(false);
+        setProfileLoaded(true);
+        return;
+      }
+      if (authenticatedProfile?.id === user.id) {
+        setSettings(settingsFromProfile(authenticatedProfile, user));
+        setProfileFound(true);
+        setProfileLoaded(true);
+        setProfileLoading(false);
         return;
       }
 
+      setProfileLoading(true);
+      setProfileLoaded(false);
       const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
       if (error) {
         console.error("Unable to load buyer profile", error);
+        if (!cancelled) {
+          setProfileError(error);
+          setProfileLoading(false);
+          setProfileLoaded(false);
+        }
         return;
       }
       const migratedImages = {};
@@ -123,12 +147,17 @@ export function BuyerSettingsProvider({ children }) {
         if (migrationError) console.error("Unable to persist migrated profile images", migrationError);
         else Object.assign(data, migratedImages);
       }
-      if (!cancelled) setSettings(settingsFromProfile(data, user));
+      if (!cancelled) {
+        setSettings(settingsFromProfile(data, user));
+        setProfileFound(Boolean(data));
+        setProfileLoaded(true);
+        setProfileLoading(false);
+      }
     }
 
     loadProfile();
     return () => { cancelled = true; };
-  }, [user?.id, user]);
+  }, [user?.id, user, authenticatedProfile]);
 
   const updateSettings = async (updates) => {
     if (!user?.id || !isSupabaseConfigured) {
@@ -151,6 +180,10 @@ export function BuyerSettingsProvider({ children }) {
       .single();
     if (error) throw error;
     setSettings(settingsFromProfile(data, user));
+    setProfileFound(true);
+    setProfileLoaded(true);
+    setProfileLoading(false);
+    setProfileError(null);
     return true;
   };
 
@@ -178,7 +211,7 @@ export function BuyerSettingsProvider({ children }) {
     );
   });
 
-  return <BuyerSettingsContext.Provider value={{ settings, updateSettings, refreshLocation }}>{children}</BuyerSettingsContext.Provider>;
+  return <BuyerSettingsContext.Provider value={{ settings, updateSettings, refreshLocation, profileLoading, profileLoaded, profileFound, profileError }}>{children}</BuyerSettingsContext.Provider>;
 }
 
 export function useBuyerSettings() {

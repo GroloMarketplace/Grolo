@@ -10,7 +10,7 @@ function isValidEmail(value) {
 
 export default function SignIn() {
   const navigate = useNavigate();
-  const { signInWithEmail, signInWithProvider, isAuthenticated, loading, onboardingComplete } = useAuth();
+  const { signInWithEmail, signInWithProvider, isAuthenticated, profileStatus, profileError, onboardingComplete } = useAuth();
   const [email, setEmail] = useState("");
   const [accountDeleted] = useState(() => {
     const deleted = sessionStorage.getItem("grolo-account-deleted") === "true";
@@ -21,8 +21,13 @@ export default function SignIn() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (isAuthenticated && !loading) navigate(onboardingComplete ? "/" : "/onboarding", { replace: true });
-  }, [isAuthenticated, loading, navigate, onboardingComplete]);
+    if (isAuthenticated && profileStatus === "loaded" && onboardingComplete !== null) {
+      navigate(onboardingComplete ? "/" : "/onboarding", { replace: true });
+    }
+    if (isAuthenticated && profileStatus === "error") {
+      setError(profileError?.message || "Unable to load your profile. Please try again.");
+    }
+  }, [isAuthenticated, navigate, onboardingComplete, profileError, profileStatus]);
 
   async function handleContinue() {
     const normalizedEmail = email.trim();

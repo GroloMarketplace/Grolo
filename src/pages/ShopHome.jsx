@@ -6,6 +6,7 @@ import Sidebar from "../components/Sidebar";
 import ProfileSwitcher from "../components/ProfileSwitcher";
 import { useSidebar } from "../hooks/useSidebar";
 import { useListings } from "../context/ListingContext";
+import { useAuth } from "../context/AuthContext";
 import SellerListingCard from "../components/SellerListingCard";
 import PromotionsBanner from "../components/PromotionsBanner";
 import { useOrders } from "../context/OrderContext";
@@ -37,7 +38,8 @@ export default function ShopHome() {
       navigate(routeLocation.pathname, { replace: true, state: null });
     }
   }, [routeLocation, openSidebar, navigate]);
-  const seller = { id: "current-user" };
+  const { user } = useAuth();
+  const seller = { id: user?.id ?? "current-user" };
   const { storeOpenedAt } = useProfileMode();
   const { getSellerProfile, updateSellerProfile } = useSellerSettings();
   const sellerProfile = getSellerProfile(seller.id);
@@ -64,14 +66,17 @@ export default function ShopHome() {
   const { isRegrown } = useRegrow();
   const { getFollowerCount } = useFollow();
   const { getAvailable } = useInventory();
-  const createdBySeller = (item) => Number(item.createdAt) >= storeOpenedAt;
+  const createdBySeller = (item) => {
+    const createdAt = typeof item.createdAt === "number" ? item.createdAt : Date.parse(item.createdAt);
+    return !Number.isNaN(createdAt) && createdAt >= storeOpenedAt;
+  };
   const storeOrders = sellerOrders(seller.id).filter(createdBySeller);
   const orderCounts = [
     { label: "New", count: storeOrders.filter((o) => ["Seller Notified", "Order Placed"].includes(o.status)).length },
     { label: "Preparing", count: storeOrders.filter((o) => ["In Progress", "Preparing"].includes(o.status)).length },
     { label: "Ready", count: storeOrders.filter((o) => o.status === "Ready for Pickup").length },
   ];
-  const sellerProducts = listings.filter((p) => (p.sellerId === seller.id || p.shop === storeName) && createdBySeller(p));
+  const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name);
   const activeSellerProducts = sellerProducts.filter((product) => getAvailable(product.id) > 0);
   const outOfStockSellerProducts = sellerProducts.filter((product) => getAvailable(product.id) <= 0);
   const sellerPosts = posts.filter((post) => post.sellerId === seller.id && createdBySeller(post));

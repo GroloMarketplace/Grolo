@@ -50,12 +50,15 @@ export default function SellerProfile() {
   const sellerProfile = getSellerProfile(seller.id);
   const foundingMember = getFoundingMember(seller.id);
   const sellerPaymentMethods = getPaymentMethods(seller.id);
-  const createdBySeller = (item) => Number(item.createdAt) >= storeOpenedAt;
+  const createdBySeller = (item) => {
+    const createdAt = typeof item.createdAt === "number" ? item.createdAt : Date.parse(item.createdAt);
+    return !Number.isNaN(createdAt) && createdAt >= storeOpenedAt;
+  };
   const sellerEvents = upcomingEvents(seller.id).filter(createdBySeller);
   const sellerPromotions = promotionsForSeller(seller.id).filter(createdBySeller);
   const sellerRatingData = sellerRating(seller.id);
   const { average, count } = sellerRatingData;
-  const sellerProducts = listings.filter((p) => (p.sellerId === seller.id || p.shop === seller.name) && createdBySeller(p));
+  const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name || p.shop === seller.name);
   const sellerOrdersForStatus = sellerOrders(seller.id).filter(createdBySeller);
   const sellerStatus = getSellerStatus({
     ordersFulfilled: sellerOrdersForStatus.filter((order) => order.status === "Completed").length,

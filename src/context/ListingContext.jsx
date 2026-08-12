@@ -1,54 +1,110 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthContext";
+import {
+  createListing as createListingRecord,
+  deleteListing as deleteListingRecord,
+  getListings,
+  importLegacyListings,
+  searchListings as searchListingRecords,
+  updateListing as updateListingRecord,
+} from "../lib/api/listings";
+import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const ListingContext = createContext(null);
 const STORAGE_KEY = "grolo-listings";
 
-function readListings(storageKey) {
+function readLegacyListings(storageKey) {
   try {
     const parsed = JSON.parse(localStorage.getItem(storageKey));
-    return Array.isArray(parsed) ? parsed : null;
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return null;
+    return [];
+  }
+}
+
+function clearLegacyListings(storageKey) {
+  try {
+    localStorage.removeItem(storageKey);
+  } catch {
   }
 }
 
 export function ListingProvider({ children }) {
   const { user } = useAuth();
   const storageKey = `${STORAGE_KEY}-${user?.id ?? "anonymous"}`;
-  const [listings, setListings] = useState(() => readListings(storageKey) ?? []);
+  const [listings, setListings] = useState([]);
+  const [loading, setLoading] = useState(isSupabaseConfigured);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    setListings(readListings(storageKey) ?? []);
-  }, [storageKey]);
+    let cancelled = false;
 
-  const addListing = (listing) => {
-    const createdListing = { ...listing, createdAt: listing.createdAt ?? Date.now() };
-    setListings((current) => {
-      const next = [createdListing, ...current];
-      localStorage.setItem(storageKey, JSON.stringify(next));
-      return next;
-    });
+    async function loadListings() {
+      if (!isSupabaseConfigured) {
+        setListings([]);
+        setLoading(false);
+        setError(new Error("Supabase is not configured."));
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      try {
+        if (user?.id) {
+          const legacyListings = readLegacyListings(storageKey);
+          if (legacyListings.length) {
+            await importLegacyListings(legacyListings, user.id);
+            clearLegacyListings(storageKey);
+          }
+        }
+        const nextListings = await getListings();
+        if (!cancelled) setListings(nextListings);
+      } catch (loadError) {
+        if (!cancelled) {
+          console.error("Unable to load listings", loadError);
+          setError(loadError);
+          setListings([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadListings();
+    return () => { cancelled = true; };
+  }, [storageKey, user?.id]);
+
+  const addListing = async (listing) => {
+    if (!user?.id) throw new Error("You must be signed in to create a listing.");
+    const createdListing = await createListingRecord(listing, user.id);
+    setListings((current) => [createdListing, ...current]);
     return createdListing;
   };
 
-  const updateListing = (listingId, updates) => {
-    setListings((current) => {
-      const next = current.map((listing) => listing.id === listingId ? { ...listing, ...updates } : listing);
-      localStorage.setItem(storageKey, JSON.stringify(next));
-      return next;
-    });
+  const updateListing = async (listingId, updates) => {
+    if (!user?.id) throw new Error("You must be signed in to update a listing.");
+    const updatedListing = await updateListingRecord(listingId, updates, user.id);
+    setListings((current) => current.map((listing) => (
+      listing.id === listingId || listing.databaseId === updatedListing.databaseId ? updatedListing : listing
+    )));
+    return updatedListing;
   };
 
-  const removeListing = (listingId) => {
-    setListings((current) => {
-      const next = current.filter((listing) => listing.id !== listingId);
-      localStorage.setItem(storageKey, JSON.stringify(next));
-      return next;
-    });
+  const removeListing = async (listingId) => {
+    if (!user?.id) throw new Error("You must be signed in to delete a listing.");
+    await deleteListingRecord(listingId);
+    setListings((current) => current.filter((listing) => listing.id !== listingId && listing.databaseId !== listingId));
   };
 
-  const value = useMemo(() => ({ listings, addListing, updateListing, removeListing }), [listings]);
+  const searchListings = useCallback(async (query) => {
+    if (!query?.trim()) return [];
+    return searchListingRecords(query.trim());
+  }, []);
+
+  const value = useMemo(
+    () => ({ listings, loading, error, addListing, updateListing, removeListing, searchListings }),
+    [listings, loading, error, searchListings],
+  );
   return <ListingContext.Provider value={value}>{children}</ListingContext.Provider>;
 }
 

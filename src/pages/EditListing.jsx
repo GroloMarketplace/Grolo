@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import PhotoManager from "../components/PhotoManager";
-import { products } from "../data/mockData";
 import { useInventory } from "../context/InventoryContext";
 import { useListings } from "../context/ListingContext";
 
@@ -11,58 +10,78 @@ export default function EditListing() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { listings, updateListing } = useListings();
-  const product = listings.find((listing) => listing.id === id) || products[0];
+  const product = listings.find((listing) => listing.id === id || listing.databaseId === id);
 
-  const [title, setTitle] = useState(product.name);
-  const [price, setPrice] = useState(product.price);
-  const [description, setDescription] = useState(product.description || "");
-  const [category, setCategory] = useState(product.category || "Produce");
-  const [availableForTrade, setAvailableForTrade] = useState(product.availableForTrade ?? false);
-  const [desiredTradeItems, setDesiredTradeItems] = useState(product.desiredTradeItems ?? "");
-  const [location, setLocation] = useState(product.location || "Kensington, Calgary");
-  const [photos, setPhotos] = useState(product.images ?? [product.image]);
-  const [quantityAvailable, setQuantityAvailable] = useState(product.quantityAvailable ?? 0);
+  const [title, setTitle] = useState("");
+  const [price, setPrice] = useState(0);
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("Produce");
+  const [availableForTrade, setAvailableForTrade] = useState(false);
+  const [desiredTradeItems, setDesiredTradeItems] = useState("");
+  const [location, setLocation] = useState("");
+  const [photos, setPhotos] = useState([]);
+  const [quantityAvailable, setQuantityAvailable] = useState(0);
+  const [saveError, setSaveError] = useState("");
   const { updateAvailable } = useInventory();
 
-  const handleSave = () => {
+  useEffect(() => {
+    if (!product) return;
+    setTitle(product.name || product.title || "");
+    setPrice(product.price ?? 0);
+    setDescription(product.description || "");
+    setCategory(product.category || "Produce");
+    setAvailableForTrade(product.availableForTrade ?? false);
+    setDesiredTradeItems(product.desiredTradeItems ?? "");
+    setLocation(product.location || "");
+    setPhotos(product.images?.length ? product.images : product.image ? [product.image] : []);
+    setQuantityAvailable(product.quantityAvailable ?? 0);
+  }, [product]);
+
+  const handleSave = async () => {
+    if (!product) return;
     const normalizedQuantity = Number.isInteger(Number(quantityAvailable)) && Number(quantityAvailable) >= 0
       ? Number(quantityAvailable)
       : 0;
-    updateListing(product.id, {
-      name: title,
-      price: Number(price),
-      quantityAvailable: normalizedQuantity,
-      description,
-      category,
-      availableForTrade,
-      desiredTradeItems: availableForTrade ? desiredTradeItems : "",
-      location,
-      images: photos,
-      image: photos[0],
-    });
-    updateAvailable(product.id, normalizedQuantity);
-    // Handle saving the listing
-    console.log("Saving listing:", {
-      title,
-      price,
-      quantityAvailable,
-      description,
-      category,
-      location,
-      images: photos,
-      image: photos[0],
-    });
-    navigate("/shop");
+    setSaveError("");
+    try {
+      const updatedListing = await updateListing(product.id, {
+        title,
+        name: title,
+        price: Number(price),
+        quantityAvailable: normalizedQuantity,
+        description,
+        category,
+        availableForTrade,
+        desiredTradeItems: availableForTrade ? desiredTradeItems : "",
+        location,
+        images: photos,
+        image: photos[0],
+      });
+      updateAvailable(updatedListing.id, normalizedQuantity);
+      navigate("/shop");
+    } catch (error) {
+      setSaveError(error.message || "Unable to save listing.");
+    }
   };
 
   const handleCancel = () => {
     navigate("/shop");
   };
 
+  if (!product) {
+    return (
+      <MobileScreenLayout>
+        <Header title="Edit Listing" onBack={() => navigate("/shop")} />
+        <div className="flex flex-1 items-center justify-center px-6 text-center text-[14px] text-[#828282]">Loading listing…</div>
+      </MobileScreenLayout>
+    );
+  }
+
   return (
     <MobileScreenLayout>
       <Header title="Edit Listing" onBack={() => navigate("/shop")} />
       <div className="overflow-y-auto flex-1 no-scrollbar p-4">
+        {saveError && <p role="alert" className="mb-4 text-[13px] text-red-600">{saveError}</p>}
         {/* Title */}
         <div className="mb-4">
           <label className="text-[14px] font-semibold mb-2 block">Title</label>

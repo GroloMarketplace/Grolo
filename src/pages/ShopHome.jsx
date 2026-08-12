@@ -106,9 +106,13 @@ export default function ShopHome() {
     window.setTimeout(() => setToastMessage(""), 2400);
   };
 
-  const handleDeleteListing = (productId) => {
-    removeListing(productId);
-    showToast("Listing deleted");
+  const handleDeleteListing = async (productId) => {
+    try {
+      await removeListing(productId);
+      showToast("Listing deleted");
+    } catch (error) {
+      showToast(error.message || "Unable to delete listing");
+    }
   };
 
   const handleEditStore = () => {

@@ -42,8 +42,9 @@ const ORDER_SECTIONS = [
 
 export default function Search() {
   const navigate = useNavigate();
-  const { listings } = useListings();
+  const { listings, searchListings } = useListings();
   const safeListings = Array.isArray(listings) ? listings.filter(Boolean) : [];
+  const [searchResults, setSearchResults] = useState(null);
   const { settings: buyerSettings = {} } = useBuyerSettings();
   const location = useLocation();
   const scrollRef = useRef(null);
@@ -72,6 +73,21 @@ export default function Search() {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
     writeNavigationState("search", { tab: "Local", query: "", scrollTop: 0 });
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    if (tab !== "Local" || !query.trim()) {
+      setSearchResults(null);
+      return () => { cancelled = true; };
+    }
+    searchListings(query)
+      .then((results) => { if (!cancelled) setSearchResults(results); })
+      .catch((error) => {
+        console.error("Unable to search listings", error);
+        if (!cancelled) setSearchResults([]);
+      });
+    return () => { cancelled = true; };
+  }, [query, searchListings, tab]);
 
   useEffect(() => {
     if (!location.state?.resetSearch) return;
@@ -118,7 +134,7 @@ export default function Search() {
           <SearchBar value={query} onChange={(event) => { queryRef.current = event.target.value; setQuery(event.target.value); }} />
         </div>
 
-        {tab === "Local" && query.trim() ? <SearchResults products={safeListings} query={query} navigate={navigate} onProduct={rememberProduct} onBack={returnToSearchHome} buyerSettings={buyerSettings} /> : tab === "Local" && (
+        {tab === "Local" && query.trim() ? <SearchResults products={searchResults ?? safeListings} query={query} navigate={navigate} onProduct={rememberProduct} onBack={returnToSearchHome} buyerSettings={buyerSettings} /> : tab === "Local" && (
           <>
             <CommunitySpotlightCarousel />
             <CategoryRow onCategory={(path) => { writeNavigationState("search", { tab, query, scrollTop: scrollRef.current?.scrollTop ?? 0, currentRoutePath: path }); navigate(path, { state: { fromSearch: true } }); }} />

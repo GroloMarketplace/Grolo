@@ -101,19 +101,49 @@ create policy "Categories are viewable by everyone"
 create table if not exists listings (
   id uuid primary key default gen_random_uuid(),
   seller_id uuid not null references profiles(id) on delete cascade,
-  category text references categories(name),
+  legacy_id text unique,
+  title text,
   name text not null,
-  price numeric(10, 2) not null,
-  tag text,
   description text,
+  category text references categories(name),
+  subcategory text,
+  price numeric(10, 2) not null default 0,
+  pricing_details text,
+  condition text,
+  inventory_quantity integer not null default 0 check (inventory_quantity >= 0),
+  trade_enabled boolean not null default false,
+  pickup_available boolean not null default true,
+  delivery_available boolean not null default false,
   image_url text,
+  image_urls jsonb not null default '[]'::jsonb,
+  location text,
+  status text not null default 'Active',
+  metadata jsonb not null default '{}'::jsonb,
   search_vector tsvector generated always as (
-    to_tsvector('english', coalesce(name, '') || ' ' || coalesce(description, ''))
+    to_tsvector('english', coalesce(title, name, '') || ' ' || coalesce(description, ''))
   ) stored,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
+alter table listings add column if not exists legacy_id text unique;
+alter table listings add column if not exists title text;
+alter table listings add column if not exists subcategory text;
+alter table listings add column if not exists pricing_details text;
+alter table listings add column if not exists condition text;
+alter table listings add column if not exists inventory_quantity integer not null default 0;
+alter table listings add column if not exists trade_enabled boolean not null default false;
+alter table listings add column if not exists pickup_available boolean not null default true;
+alter table listings add column if not exists delivery_available boolean not null default false;
+alter table listings add column if not exists image_urls jsonb not null default '[]'::jsonb;
+alter table listings add column if not exists location text;
+alter table listings add column if not exists status text not null default 'Active';
+alter table listings add column if not exists metadata jsonb not null default '{}'::jsonb;
+alter table listings add column if not exists updated_at timestamptz not null default now();
+
 create index if not exists listings_search_idx on listings using gin(search_vector);
+create index if not exists listings_seller_idx on listings (seller_id);
+create index if not exists listings_status_idx on listings (status);
 
 alter table listings enable row level security;
 

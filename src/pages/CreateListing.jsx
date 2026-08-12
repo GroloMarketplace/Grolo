@@ -57,13 +57,14 @@ export default function CreateListing() {
     desiredTradeItems: "",
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError("");
     const isService = formData.category === "Services";
     try {
     const listing = {
       id: `${formData.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`,
+      title: formData.title,
       name: formData.title,
       category: formData.category,
       price: isService ? formData.price : Number(formData.price),
@@ -91,14 +92,20 @@ export default function CreateListing() {
       rating: 0,
       reviewCount: 0,
     };
-    addListing(listing);
-    if (!isService) updateAvailable(listing.id, listing.quantityAvailable);
-    console.log("Listing Created:", listing.name);
+    const createdListing = await addListing(listing);
+    if (!isService) updateAvailable(createdListing.id, createdListing.quantityAvailable);
+    console.log("Listing Created:", createdListing.name);
     console.log("Listings Count:", listings.length + 1);
-    navigate(`/product/${listing.id}`, { state: { listingCreated: listing.id } });
+    navigate(`/product/${createdListing.id}`, { state: { listingCreated: createdListing.id } });
     } catch (error) {
-      console.error("Unable to create listing", error);
-      setSubmitError("Unable to create listing. Please try again.");
+      const diagnostics = {
+        code: error?.code ?? null,
+        message: error?.message ?? String(error),
+        details: error?.details ?? null,
+        hint: error?.hint ?? null,
+      };
+      console.error("Unable to create listing", diagnostics);
+      setSubmitError(JSON.stringify(diagnostics, null, 2));
     }
   };
 
@@ -114,7 +121,7 @@ export default function CreateListing() {
       />
       <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar pb-24">
         <form onSubmit={handleSubmit} className="flex flex-col gap-6 px-4 py-6 pb-8">
-          {submitError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-[14px] text-red-700">{submitError}</div>}
+          {submitError && <pre role="alert" className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] text-red-700">{submitError}</pre>}
           <div>
             <label className="block text-[14px] font-medium mb-2">Listing Title</label>
             <input

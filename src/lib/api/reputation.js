@@ -2,11 +2,20 @@ import { isSupabaseConfigured, supabase } from "../supabaseClient";
 
 const REVIEW_SELECT = "reviewee_id, reviewer_id, review_type, rating, status, deleted_at";
 const COMPLETED_ORDER_STATUS = "Completed";
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function requireSupabase() {
   if (!isSupabaseConfigured) {
     throw new Error("Supabase is not configured. See .env.example.");
   }
+}
+
+async function resolveReputationUserId(userId) {
+  if (typeof userId === "string" && UUID_PATTERN.test(userId)) return userId;
+  if (userId && !["current-user", "current-buyer"].includes(userId)) return null;
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  return data.user?.id ?? null;
 }
 
 function emptyDiagnostics({ badgeCount = 0, statusSource = "none", aggregateSource = "none" } = {}) {
@@ -84,14 +93,15 @@ function mapBadge(row) {
 
 export async function getUserBadges(userId) {
   requireSupabase();
-  if (!userId) {
-    return { userId: null, user_id: null, badges: [], earnedBadges: [], earned_badges: [], activeBadges: [], active_badges: [], diagnostics: emptyDiagnostics() };
+  const resolvedUserId = await resolveReputationUserId(userId);
+  if (!resolvedUserId) {
+    return { userId: userId ?? null, user_id: userId ?? null, badges: [], earnedBadges: [], earned_badges: [], activeBadges: [], active_badges: [], diagnostics: emptyDiagnostics() };
   }
 
   const { data, error } = await supabase
     .from("user_badges")
     .select("id, user_id, badge_id, status, awarded_at, expires_at, revoked_at, metadata, badge_definitions(id, code, name, description, icon, badge_type, criteria, active)")
-    .eq("user_id", userId)
+    .eq("user_id", resolvedUserId)
     .order("awarded_at", { ascending: false });
   if (error) throw error;
 
@@ -113,6 +123,71 @@ export async function getUserBadges(userId) {
     active_badges: activeBadges,
     diagnostics,
   };
+}
+
+function foundingMemberFromBadge(badge) {
+  if (!badge || badge.code !== "founding_member") return null;
+  const metadata = asObject(badge.metadata);
+  const registrationNumber = Number(metadata.registrationNumber ?? metadata.registration_number);
+  if (!Number.isInteger(registrationNumber) || registrationNumber < 1 || registrationNumber > 100) return null;
+  const awardedAt = metadata.awardedAt ?? metadata.awarded_at ?? badge.awardedAt ?? badge.awarded_at;
+  const memberSince = metadata.memberSince ?? metadata.member_since ?? awardedAt;
+  return {
+    ...metadata,
+    registrationNumber,
+    registration_number: registrationNumber,
+    awardedAt,
+    awarded_at: awardedAt,
+    memberSince,
+    member_since: memberSince,
+    reviewSubmitted: metadata.reviewSubmitted ?? metadata.review_submitted ?? true,
+    review_submitted: metadata.reviewSubmitted ?? metadata.review_submitted ?? true,
+    reserved: metadata.reserved ?? false,
+  };
+}
+
+export async function awardBadge(userIdOrOptions, badgeCode, metadata = {}) {
+  requireSupabase();
+  const options = userIdOrOptions && typeof userIdOrOptions === "object" ? userIdOrOptions : {};
+  const requestedUserId = options.userId ?? options.user_id ?? userIdOrOptions;
+  const requestedBadgeCode = options.badgeCode ?? options.badge_code ?? badgeCode;
+  const requestedMetadata = options.metadata ?? metadata;
+  const resolvedUserId = await resolveReputationUserId(requestedUserId);
+  if (!resolvedUserId || !requestedBadgeCode) return null;
+
+  const { data: definition, error: definitionError } = await supabase
+    .from("badge_definitions")
+    .select("id, code, name, description, icon, badge_type, criteria, active")
+    .eq("code", requestedBadgeCode)
+    .eq("active", true)
+    .maybeSingle();
+  if (definitionError) throw definitionError;
+  if (!definition) throw new Error(`Active badge definition not found: ${requestedBadgeCode}`);
+
+  const payload = {
+    user_id: resolvedUserId,
+    badge_id: definition.id,
+    status: options.status ?? "active",
+    awarded_at: options.awardedAt ?? options.awarded_at ?? new Date().toISOString(),
+    expires_at: options.expiresAt ?? options.expires_at ?? null,
+    metadata: asObject(requestedMetadata),
+  };
+  const { data, error } = await supabase
+    .from("user_badges")
+    .upsert(payload, { onConflict: "user_id,badge_id" })
+    .select("id, user_id, badge_id, status, awarded_at, expires_at, revoked_at, metadata, badge_definitions(id, code, name, description, icon, badge_type, criteria, active)")
+    .single();
+  if (error) throw error;
+  console.info("badge award source: supabase", { userId: resolvedUserId, badgeCode: requestedBadgeCode });
+  return mapBadge(data);
+}
+
+export async function getFoundingMember(userId) {
+  requireSupabase();
+  const badges = await getUserBadges(userId);
+  const member = foundingMemberFromBadge(badges.badges.find((badge) => badge.code === "founding_member"));
+  if (member) console.info("founding member source: supabase", { userId: userId ?? null });
+  return member;
 }
 
 async function getStatusRow(userId, audience) {

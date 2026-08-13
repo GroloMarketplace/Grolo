@@ -1,4 +1,6 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { awardBadge, getFoundingMember as getSupabaseFoundingMember } from "../lib/api/reputation";
+import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const FoundingMemberContext = createContext(null);
 const STORAGE_KEY = "grolo-founding-members";
@@ -9,11 +11,25 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function normalizeMember(member) {
+  if (!member) return null;
+  const memberSince = member.memberSince ?? member.member_since ?? member.awardedAt ?? member.awarded_at ?? today();
+  return {
+    ...member,
+    registrationNumber: member.registrationNumber ?? member.registration_number,
+    awardedAt: member.awardedAt ?? member.awarded_at,
+    memberSince,
+    reviewSubmitted: member.reviewSubmitted ?? member.review_submitted ?? true,
+    reserved: member.reserved ?? false,
+    expiresAt: getExpirationDate(memberSince),
+  };
+}
+
 function loadMembers() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     const members = saved ? { ...INITIAL_FOUNDING_MEMBERS, ...saved } : INITIAL_FOUNDING_MEMBERS;
-    return Object.fromEntries(Object.entries(members).map(([sellerId, member]) => [sellerId, { ...member, reviewSubmitted: true, reserved: false }]));
+    return Object.fromEntries(Object.entries(members).map(([sellerId, member]) => [sellerId, normalizeMember(member)]));
   } catch {
     return INITIAL_FOUNDING_MEMBERS;
   }
@@ -35,18 +51,46 @@ function getExpirationDate(createdAt) {
 
 export function FoundingMemberProvider({ children }) {
   const [members, setMembers] = useState(loadMembers);
+  const supabaseRequests = useRef(new Set());
 
-  const getFoundingMember = (sellerId) => {
-    const member = members[sellerId];
+  const requestSupabaseMember = useCallback((sellerId) => {
+    if (!sellerId || supabaseRequests.current.has(sellerId)) return;
+    if (!isSupabaseConfigured) {
+      supabaseRequests.current.add(sellerId);
+      console.info("founding member source: localStorage fallback", { sellerId });
+      return;
+    }
+    supabaseRequests.current.add(sellerId);
+    getSupabaseFoundingMember(sellerId)
+      .then((member) => {
+        if (member) {
+          const normalized = normalizeMember(member);
+          setMembers((current) => {
+            const next = { ...current, [sellerId]: normalized };
+            persistMembers(next);
+            return next;
+          });
+        } else {
+          console.info("founding member source: localStorage fallback", { sellerId });
+        }
+      })
+      .catch((error) => {
+        console.info("founding member source: localStorage fallback", { sellerId, error: error.message });
+      });
+  }, []);
+
+  const getFoundingMember = useCallback((sellerId) => {
+    requestSupabaseMember(sellerId);
+    const member = normalizeMember(members[sellerId]);
     if (!member || member.registrationNumber > MAX_FOUNDING_MEMBERS) return null;
-    const memberSince = member.memberSince ?? member.awardedAt ?? today();
-    return { ...member, reviewSubmitted: true, reserved: false, memberSince, expiresAt: getExpirationDate(memberSince) };
-  };
+    return member;
+  }, [members, requestSupabaseMember]);
 
-  const isFoundingMember = (sellerId) => Boolean(getFoundingMember(sellerId));
+  const isFoundingMember = useCallback((sellerId) => Boolean(getFoundingMember(sellerId)), [getFoundingMember]);
 
-  const awardFoundingMember = (sellerId, createdAt = today()) => {
-    if (members[sellerId]) return members[sellerId];
+  const awardFoundingMember = useCallback((sellerId, createdAt = today()) => {
+    const existing = members[sellerId];
+    if (existing) return existing;
     const usedNumbers = Object.values(members).map((member) => member.registrationNumber).filter(Boolean);
     const registrationNumber = Array.from({ length: MAX_FOUNDING_MEMBERS }, (_, index) => index + 1).find((number) => !usedNumbers.includes(number));
     if (!registrationNumber) return null;
@@ -54,10 +98,34 @@ export function FoundingMemberProvider({ children }) {
     const next = { ...members, [sellerId]: nextMember };
     setMembers(next);
     persistMembers(next);
-    return nextMember;
-  };
 
-  const value = useMemo(() => ({ isFoundingMember, getFoundingMember, awardFoundingMember }), [members]);
+    if (isSupabaseConfigured) {
+      awardBadge({
+        userId: sellerId,
+        badgeCode: "founding_member",
+        metadata: {
+          registrationNumber,
+          awardedAt: createdAt,
+          memberSince: createdAt,
+          reviewSubmitted: true,
+          reserved: false,
+        },
+        awardedAt: createdAt,
+      })
+        .then((badge) => {
+          const remoteMember = normalizeMember(badge?.metadata ? { ...badge.metadata, awardedAt: badge.awardedAt } : nextMember);
+          setMembers((current) => {
+            const updated = { ...current, [sellerId]: remoteMember };
+            persistMembers(updated);
+            return updated;
+          });
+        })
+        .catch((error) => console.info("founding member source: localStorage fallback", { sellerId, error: error.message }));
+    }
+    return nextMember;
+  }, [members]);
+
+  const value = useMemo(() => ({ isFoundingMember, getFoundingMember, awardFoundingMember }), [isFoundingMember, getFoundingMember, awardFoundingMember]);
   return <FoundingMemberContext.Provider value={value}>{children}</FoundingMemberContext.Provider>;
 }
 

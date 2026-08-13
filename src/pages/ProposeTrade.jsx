@@ -2,7 +2,6 @@ import { useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import { sellers } from "../data/mockData";
 import { useListings } from "../context/ListingContext";
 import { useMessages } from "../context/MessageContext";
 import { useAuth } from "../context/AuthContext";
@@ -12,6 +11,7 @@ import AttachListingModal from "../components/AttachListingModal";
 import { CompactBadgeStack, ReputationStatusPill, TrustMetricSummary } from "../components/ReputationSummary";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
+import { useResolvedListingWithSeller, useResolvedSeller } from "../hooks/useEntityResolution";
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_PHOTOS = 5;
@@ -25,8 +25,11 @@ export default function ProposeTrade() {
   const { settings: buyerProfile } = useBuyerSettings();
   const fileInputRef = useRef(null);
 
-  const listing = listings.find((item) => item.id === listingId);
-  const seller = listing ? sellers[listing.sellerId] ?? Object.values(sellers).find((s) => s.name === listing.shop) ?? { id: listing.sellerId, name: listing.shop } : null;
+  const localListing = listings.find((item) => [item.id, item.legacyId, item.databaseId].filter(Boolean).map(String).includes(String(listingId)));
+  const resolvedListing = useResolvedListingWithSeller(listingId);
+  const resolvedSeller = useResolvedSeller(localListing?.sellerId);
+  const listing = resolvedListing ?? localListing;
+  const seller = resolvedListing?.seller ?? resolvedSeller ?? (listing ? { id: listing.sellerId, name: listing.shop } : null);
 
   const buyerId = user?.id ?? "current-user";
   const myListings = listings.filter((item) => item.sellerId === buyerId && item.id !== listing?.id);

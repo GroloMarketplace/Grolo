@@ -3,15 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 import CarouselRow from "../components/CarouselRow";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import {
-  categories,
-  featuredCommunitySpotlights,
-  products,
-  sellers,
-  events,
-  communityPosts,
-  followingPosts,
-} from "../data/mockData";
+import { categories, featuredCommunitySpotlights, communityPosts, followingPosts } from "../data/mockData";
 import PromotionBadge from "../components/PromotionBadge";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
@@ -30,6 +22,7 @@ import { discoveryRadiusLabel, resolveUserLocation, sortByDistance } from "../ut
 import DistanceLabel from "../components/DistanceLabel";
 import { CompactReputationHeader } from "../components/ReputationSummary";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
+import { useResolvedMarketplaceEntities } from "../hooks/useEntityResolution";
 
 const TABS = ["Local", "Map", "History", "My Orders"];
 
@@ -46,6 +39,9 @@ export default function Search() {
   const navigate = useNavigate();
   const { listings, searchListings } = useListings();
   const safeListings = Array.isArray(listings) ? listings.filter(Boolean) : [];
+  const marketplaceEntities = useResolvedMarketplaceEntities({ includeEvents: true, includeMapLocations: false });
+  const resolvedSellers = marketplaceEntities?.sellers ?? [];
+  const resolvedEvents = marketplaceEntities?.events ?? [];
   const [searchResults, setSearchResults] = useState(null);
   const { settings: buyerSettings = {} } = useBuyerSettings();
   const location = useLocation();
@@ -136,23 +132,23 @@ export default function Search() {
           <SearchBar value={query} onChange={(event) => { queryRef.current = event.target.value; setQuery(event.target.value); }} />
         </div>
 
-        {tab === "Local" && query.trim() ? <SearchResults products={searchResults ?? safeListings} query={query} navigate={navigate} onProduct={rememberProduct} onBack={returnToSearchHome} buyerSettings={buyerSettings} /> : tab === "Local" && (
+        {tab === "Local" && query.trim() ? <SearchResults products={searchResults ?? safeListings} sellers={resolvedSellers} events={resolvedEvents} query={query} navigate={navigate} onProduct={rememberProduct} onBack={returnToSearchHome} buyerSettings={buyerSettings} /> : tab === "Local" && (
           <>
-            <CommunitySpotlightCarousel />
+            <CommunitySpotlightCarousel sellers={resolvedSellers} />
             <CategoryRow onCategory={(path) => { writeNavigationState("search", { tab, query, scrollTop: scrollRef.current?.scrollTop ?? 0, currentRoutePath: path }); navigate(path, { state: { fromSearch: true } }); }} />
             <CarouselRow
               title="Featured"
-              products={products}
+              products={safeListings}
               onSeeAll={() => { writeNavigationState("search", { tab, query, scrollTop: scrollRef.current?.scrollTop ?? 0, currentRoute: "featured" }); navigate("/featured"); }}
               onProductClick={rememberProduct}
             />
-            <TradingSection products={products} navigate={navigate} onProduct={rememberProduct} />
+            <TradingSection products={safeListings} navigate={navigate} onProduct={rememberProduct} />
           </>
         )}
 
         {tab === "Map" && <MapView />}
 
-        {tab === "History" && <History onProduct={rememberProduct} />}
+        {tab === "History" && <History products={safeListings} onProduct={rememberProduct} />}
 
         {tab === "My Orders" && <MyOrders />}
       </div>
@@ -160,7 +156,7 @@ export default function Search() {
   );
 }
 
-function SearchResults({ products, query, navigate, onProduct, onBack, buyerSettings }) {
+function SearchResults({ products, sellers, events, query, navigate, onProduct, onBack, buyerSettings }) {
   const normalizedQuery = query.trim().toLowerCase();
   // Search covers all content; results are just sorted nearest-first so local
   // matches surface at the top without hiding results outside the radius.
@@ -223,7 +219,7 @@ function ResultRow({ title, subtitle, content, onClick }) {
   return <button type="button" onClick={onClick} className="flex w-full items-center justify-between rounded-lg border border-[#E6E6E6] p-3 text-left hover:bg-[#F5FFF6]"><div className="min-w-0"><div className="truncate text-[14px] font-medium">{title}</div>{subtitle && <div className="mt-1 truncate text-[12px] text-[#828282]">{subtitle}</div>}{content && <DistanceLabel content={content} className="mt-1 block" />}</div><span className="ml-3 text-[20px] text-[#498467]">›</span></button>;
 }
 
-function History({ onProduct }) {
+function History({ products, onProduct }) {
   const navigate = useNavigate();
   const { savedItems } = useSavedItems();
   const { favoriteIds } = useFavorites();
@@ -295,7 +291,7 @@ function SavedHistoryCard({ item, onClick, listing, promotion }) {
   );
 }
 
-function CommunitySpotlightCarousel() {
+function CommunitySpotlightCarousel({ sellers }) {
   const navigate = useNavigate();
   const { ads } = useAdvertising();
   const touchStartX = useRef(null);
@@ -406,7 +402,7 @@ function CommunitySpotlightCarousel() {
         >
           {slides.map((spotlight, index) => {
             if (!spotlight) return null;
-            const seller = sellers[spotlight.sellerId] ?? { name: "", avatar: "" };
+            const seller = sellers.find((item) => item.id === spotlight.sellerId || item.legacyId === spotlight.sellerId) ?? { name: "", avatar: "" };
             return (
               <button
                 key={`${spotlight.id}-${index}`}

@@ -2,11 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import { products } from "../data/mockData";
 import { useReviews } from "../context/ReviewContext";
+import { useListings } from "../context/ListingContext";
+import { useAuth } from "../context/AuthContext";
 import ReputationSummary from "../components/ReputationSummary";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
+import { useResolvedStoreProfile } from "../hooks/useEntityResolution";
 
 const STORE_ID = "current-user";
 
@@ -16,20 +18,25 @@ export default function StoreReviews() {
   const [filter, setFilter] = useState("All");
   const [sortBy, setSortBy] = useState("Most Recent");
   const { reviewsForSeller, sellerRating, submittedReviews } = useReviews();
+  const { listings } = useListings();
+  const { user } = useAuth();
+  const requestedStoreId = user?.id ?? STORE_ID;
+  const storeProfile = useResolvedStoreProfile(requestedStoreId);
+  const resolvedStoreId = storeProfile?.id ?? STORE_ID;
 
   const filters = ["All", "5 Stars", "4 Stars", "3 Stars", "2 Stars", "1 Star"];
   const sortOptions = ["Most Recent", "Oldest", "Highest Rating", "Lowest Rating"];
 
-  const { average: averageRating, count: totalReviews } = sellerRating(STORE_ID);
-  const reputationSnapshot = useReputationSnapshot(STORE_ID);
+  const { average: averageRating, count: totalReviews } = sellerRating(resolvedStoreId);
+  const reputationSnapshot = useReputationSnapshot(resolvedStoreId);
   const hasReputation = Boolean(reputationSnapshot?.sellerStatus || reputationSnapshot?.activeBadges?.length);
 
   const ratingBreakdown = [5, 4, 3, 2, 1].map((stars) => ({
     stars,
-    count: submittedReviews.filter((review) => review.sellerId === STORE_ID && review.rating === stars).length,
+    count: submittedReviews.filter((review) => review.sellerId === resolvedStoreId && review.rating === stars).length,
   }));
 
-  const filteredReviews = reviewsForSeller(STORE_ID)
+  const filteredReviews = reviewsForSeller(resolvedStoreId)
     .filter((review) => filter === "All" || review.rating === parseInt(filter, 10))
     .sort((a, b) => {
       if (sortBy === "Most Recent") return b.createdAt.localeCompare(a.createdAt);
@@ -104,7 +111,7 @@ export default function StoreReviews() {
           <div className="px-4 py-3 border-b border-[#E6E6E6]">
             <div className="mb-2 flex items-center gap-2 text-[13px] font-medium text-[#498467]">
               Seller reputation
-              <FoundingMemberBadge sellerId={STORE_ID} iconOnly />
+              <FoundingMemberBadge sellerId={resolvedStoreId} iconOnly />
             </div>
             <ReputationSummary snapshot={reputationSnapshot} audience="seller" compact className="border-0 p-0" />
           </div>
@@ -146,7 +153,7 @@ export default function StoreReviews() {
         {/* Reviews List */}
         <div className="flex flex-col">
           {filteredReviews.map((review) => {
-            const product = products.find((p) => p.id === review.productId);
+            const product = listings.find((item) => [item.id, item.legacyId, item.databaseId].filter(Boolean).map(String).includes(String(review.productId)));
 
             return (
               <div

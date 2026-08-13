@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import SearchBar from "../components/SearchBar";
-import { sellers } from "../data/mockData";
 import { useListings } from "../context/ListingContext";
+import { useMessages } from "../context/MessageContext";
 import DistanceLabel from "../components/DistanceLabel";
 import { CompactReputationHeader } from "../components/ReputationSummary";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
+import { useResolvedSeller } from "../hooks/useEntityResolution";
 
 const TRADE_DIRECTIONS = ["Available For", "Looking For"];
 const TRADE_TYPES = ["Products", "Services"];
@@ -82,13 +83,15 @@ export default function Trading() {
   );
 }
 
-function TradeListingCard({ product, navigate, createTradeConversation }) {
-  const seller = sellers[product.sellerId];
+function TradeListingCard({ product, navigate }) {
+  const resolvedSeller = useResolvedSeller(product.sellerId);
+  const seller = resolvedSeller ?? { id: product.sellerId, name: product.shop, location: product.location };
+  const { createTradeConversation } = useMessages();
   const reputationSnapshot = useReputationSnapshot(seller?.id ?? product.sellerId);
 
   const handleProposeTrade = () => {
-    if (!seller) return;
-    const { id, draft, conversation } = createTradeConversation({ listing: product, seller });
+    if (!resolvedSeller) return;
+    const { id, draft, conversation } = createTradeConversation({ listing: product, seller: resolvedSeller });
     navigate(`/messages/${id}`, {
       state: {
         draft,

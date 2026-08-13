@@ -6,32 +6,26 @@ import OutlineIcon from "../components/OutlineIcon";
 import ImpactIcon from "../components/ImpactIcon";
 import { ActivityCard, CommunityImpactTab, ReviewsTab, TrustStatusBadge } from "./BuyerProfile";
 import { useBuyerTrust } from "../context/BuyerTrustContext";
-import { communityPosts, events, notificationsFollowers, notificationsHighlights, products } from "../data/mockData";
 import { getBuyerImpactMetrics } from "../utils/buyerImpact";
 import { useFollow } from "../context/FollowContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
+import { useResolvedPublicProfile } from "../hooks/useEntityResolution";
 
 const FALLBACK_AVATAR = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80";
 const PROFILE_BANNER = "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80";
 
-function getNotificationProfile(userId, state) {
-  const notification = [...notificationsHighlights, ...notificationsFollowers].find((item) => item.actorUserId === userId);
+function getFallbackProfile(userId, state) {
   return {
-    username: state?.actorUsername ?? notification?.actorUsername ?? notification?.name ?? userId,
-    avatar: state?.actorAvatar ?? notification?.avatar ?? FALLBACK_AVATAR,
+    username: state?.actorUsername ?? userId,
+    avatar: state?.actorAvatar ?? FALLBACK_AVATAR,
     bio: "Discovering local makers, businesses, and community moments around Calgary.",
     location: "Calgary",
   };
 }
 
 function buildPublicActivity() {
-  return [
-    { id: "public-post", type: "post", label: "Posted to the community", timestamp: "Today · 10:30 AM", post: communityPosts[5] ?? communityPosts[0] },
-    { id: "public-event", type: "event", label: "Attended a community event", timestamp: "2 days ago", event: events[0] },
-    { id: "public-regrow", type: "post", label: "Regrew a community post", timestamp: "3 days ago", post: communityPosts[0] },
-    { id: "public-review", type: "listing", label: "Reviewed a local product", timestamp: "5 days ago", listing: products[1] },
-  ];
+  return [];
 }
 
 export default function PublicProfile() {
@@ -41,13 +35,21 @@ export default function PublicProfile() {
   const { isFollowing, toggleFollow, getFollowerCount } = useFollow();
   const { reviewsForBuyer } = useBuyerTrust();
   const reputationSnapshot = useReputationSnapshot(userId);
-  const profile = getNotificationProfile(userId, state);
+  const resolvedProfile = useResolvedPublicProfile(userId);
+  const profile = resolvedProfile
+    ? {
+      username: resolvedProfile.username ?? resolvedProfile.name ?? userId,
+      avatar: resolvedProfile.avatar ?? FALLBACK_AVATAR,
+      bio: resolvedProfile.bio ?? resolvedProfile.description ?? "",
+      location: resolvedProfile.location ?? "",
+    }
+    : getFallbackProfile(userId, state);
   const profileReviews = reviewsForBuyer(profile.username).sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0));
   const activity = buildPublicActivity();
   const reputationMetrics = reputationSnapshot?.communityImpact?.metrics ?? {};
   const metrics = getBuyerImpactMetrics({
     orders: [],
-    events,
+    events: [],
     attendingEventIds: [],
     followedSellers: [],
     reviewsWritten: reputationMetrics.reviewsGiven ?? profileReviews.length,

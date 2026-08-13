@@ -6,7 +6,6 @@ import CarouselRow from "../components/CarouselRow";
 import StarRating from "../components/StarRating";
 import ImageGallery from "../components/ImageGallery";
 import PromotionBadge from "../components/PromotionBadge";
-import { sellers } from "../data/mockData";
 import { usePromotions } from "../context/PromotionContext";
 import { useFavorites } from "../hooks/useFavorites";
 import { useReviews } from "../context/ReviewContext";
@@ -23,6 +22,7 @@ import DistanceLabel from "../components/DistanceLabel";
 import TradeBadge from "../components/TradeBadge";
 import { CompactReputationHeader, TrustMetricSummary } from "../components/ReputationSummary";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
+import { useResolvedListingWithSeller, useResolvedSeller } from "../hooks/useEntityResolution";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -44,7 +44,9 @@ export default function ProductDetail() {
   const isService = product.category === "Services";
   const soldOut = !isService && available === 0;
   const tradePreferences = product.desiredTradeItems?.trim() ?? "";
-  const seller = sellers[product.sellerId] ?? Object.values(sellers).find((s) => s.name === product.shop);
+  const resolvedListing = useResolvedListingWithSeller(product);
+  const resolvedSeller = useResolvedSeller(product.sellerId);
+  const seller = resolvedListing?.seller ?? resolvedSeller;
   const { getSellerProfile } = useSellerSettings();
   const sellerProfile = getSellerProfile(seller?.id);
   const reputationSnapshot = useReputationSnapshot(seller?.id);

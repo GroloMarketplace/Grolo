@@ -2,6 +2,8 @@ import { createContext, useContext, useMemo, useState, useEffect } from "react";
 import { useOrders } from "./OrderContext";
 import { useEvents } from "./EventContext";
 import { useAuth } from "./AuthContext";
+import { getBuyerReviews } from "../lib/api/reviews";
+import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const BuyerTrustContext = createContext(null);
 const SELLER_REVIEW_STORAGE_KEY = "grolo-seller-buyer-reviews";
@@ -28,11 +30,55 @@ export function BuyerTrustProvider({ children }) {
   const [reviews, setReviews] = useState(() => readSellerReviews(storageKey));
 
   useEffect(() => {
+    let cancelled = false;
+    const localReviews = readSellerReviews(storageKey);
+    setReviews(localReviews);
+
+    if (!user?.id || !isSupabaseConfigured) {
+      console.info("review source: localStorage fallback", {
+        reviewCount: localReviews.length,
+        productReviewCount: 0,
+        sellerReviewCount: 0,
+        buyerReviewCount: localReviews.length,
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    getBuyerReviews()
+      .then((remoteReviews) => {
+        if (cancelled) return;
+        setReviews(remoteReviews);
+        console.info("review source: supabase", {
+          reviewCount: remoteReviews.length,
+          productReviewCount: 0,
+          sellerReviewCount: 0,
+          buyerReviewCount: remoteReviews.length,
+        });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.warn("review source: localStorage fallback", {
+          error: error?.message ?? String(error),
+          reviewCount: localReviews.length,
+          productReviewCount: 0,
+          sellerReviewCount: 0,
+          buyerReviewCount: localReviews.length,
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [storageKey, user?.id]);
+
+  useEffect(() => {
     try {
       localStorage.setItem(storageKey, JSON.stringify(reviews));
     } catch {
     }
-  }, [reviews]);
+  }, [storageKey, reviews]);
 
   const addReview = ({ buyer, orderId, sellerId, criteria = [], notes = "", rating = 0, productId }) => {
     setReviews((current) => [

@@ -7,6 +7,8 @@ import {
 } from "../data/mockData";
 import { useOrders } from "./OrderContext";
 import { useAuth } from "./AuthContext";
+import { getProductReviews, getSellerReviews } from "../lib/api/reviews";
+import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const ReviewContext = createContext(null);
 const REVIEW_STORAGE_KEY = "grolo-submitted-reviews";
@@ -82,6 +84,51 @@ export function ReviewProvider({ children }) {
   const identity = useMemo(() => getIdentity(user), [user]);
   const storageKey = `${REVIEW_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
   const [submittedReviews, setSubmittedReviews] = useState(() => readSubmittedReviews(identity, storageKey));
+
+  useEffect(() => {
+    let cancelled = false;
+    const localReviews = readSubmittedReviews(identity, storageKey);
+    setSubmittedReviews(localReviews);
+
+    if (!user?.id || !isSupabaseConfigured) {
+      console.info("review source: localStorage fallback", {
+        reviewCount: localReviews.length,
+        productReviewCount: localReviews.filter((review) => review.reviewType === "product" || !review.reviewType).length,
+        sellerReviewCount: localReviews.filter((review) => review.reviewType === "seller").length,
+        buyerReviewCount: localReviews.filter((review) => review.reviewType === "buyer").length,
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    Promise.all([getProductReviews(), getSellerReviews()])
+      .then(([productRows, sellerRows]) => {
+        if (cancelled) return;
+        const remoteReviews = [...productRows, ...sellerRows].map((review) => normalizeReview(review, identity));
+        setSubmittedReviews(remoteReviews);
+        console.info("review source: supabase", {
+          reviewCount: remoteReviews.length,
+          productReviewCount: productRows.length,
+          sellerReviewCount: sellerRows.length,
+          buyerReviewCount: 0,
+        });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.warn("review source: localStorage fallback", {
+          error: error?.message ?? String(error),
+          reviewCount: localReviews.length,
+          productReviewCount: localReviews.filter((review) => review.reviewType === "product" || !review.reviewType).length,
+          sellerReviewCount: localReviews.filter((review) => review.reviewType === "seller").length,
+          buyerReviewCount: localReviews.filter((review) => review.reviewType === "buyer").length,
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [identity, storageKey, user?.id]);
 
   useEffect(() => {
     try {

@@ -6,6 +6,7 @@ import {
   getSellerProfileById,
   getStoreProfile,
 } from "../lib/api/entities";
+import { getMarketplaceDiscovery, getMapLocations } from "../lib/api/discovery";
 
 function useResolved(load, key) {
   const [value, setValue] = useState(null);
@@ -72,4 +73,40 @@ export function useResolvedMarketplaceEntities(options = {}) {
   }, [key]);
 
   return entities;
+}
+
+export function useMarketplaceDiscovery() {
+  const [discovery, setDiscovery] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    getMarketplaceDiscovery()
+      .then((nextDiscovery) => {
+        if (!cancelled) setDiscovery(nextDiscovery);
+      })
+      .catch((error) => {
+        if (!cancelled) console.info("discovery resolution fallback", { error: error?.message ?? String(error) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return discovery;
+}
+
+export function useMapLocations() {
+  const [map, setMap] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    getMapLocations()
+      .then((nextMap) => {
+        if (!cancelled) setMap(nextMap);
+      })
+      .catch((error) => {
+        if (!cancelled) console.info("map resolution fallback", { error: error?.message ?? String(error) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return map;
 }

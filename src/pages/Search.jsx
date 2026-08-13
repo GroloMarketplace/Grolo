@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 import CarouselRow from "../components/CarouselRow";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import { categories, featuredCommunitySpotlights, communityPosts, followingPosts } from "../data/mockData";
 import PromotionBadge from "../components/PromotionBadge";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
@@ -22,7 +21,7 @@ import { discoveryRadiusLabel, resolveUserLocation, sortByDistance } from "../ut
 import DistanceLabel from "../components/DistanceLabel";
 import { CompactReputationHeader } from "../components/ReputationSummary";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
-import { useResolvedMarketplaceEntities } from "../hooks/useEntityResolution";
+import { useMarketplaceDiscovery } from "../hooks/useEntityResolution";
 
 const TABS = ["Local", "Map", "History", "My Orders"];
 
@@ -39,9 +38,13 @@ export default function Search() {
   const navigate = useNavigate();
   const { listings, searchListings } = useListings();
   const safeListings = Array.isArray(listings) ? listings.filter(Boolean) : [];
-  const marketplaceEntities = useResolvedMarketplaceEntities({ includeEvents: true, includeMapLocations: false });
-  const resolvedSellers = marketplaceEntities?.sellers ?? [];
-  const resolvedEvents = marketplaceEntities?.events ?? [];
+  const marketplaceDiscovery = useMarketplaceDiscovery();
+  const discoveryListings = marketplaceDiscovery?.listings ?? [];
+  const discoveryProducts = safeListings.length ? safeListings : discoveryListings;
+  const resolvedSellers = marketplaceDiscovery?.stores ?? [];
+  const resolvedEvents = marketplaceDiscovery?.events ?? [];
+  const resolvedCategories = marketplaceDiscovery?.categories ?? [];
+  const resolvedPosts = marketplaceDiscovery?.posts ?? [];
   const [searchResults, setSearchResults] = useState(null);
   const { settings: buyerSettings = {} } = useBuyerSettings();
   const location = useLocation();
@@ -132,23 +135,23 @@ export default function Search() {
           <SearchBar value={query} onChange={(event) => { queryRef.current = event.target.value; setQuery(event.target.value); }} />
         </div>
 
-        {tab === "Local" && query.trim() ? <SearchResults products={searchResults ?? safeListings} sellers={resolvedSellers} events={resolvedEvents} query={query} navigate={navigate} onProduct={rememberProduct} onBack={returnToSearchHome} buyerSettings={buyerSettings} /> : tab === "Local" && (
+        {tab === "Local" && query.trim() ? <SearchResults products={searchResults ?? discoveryProducts} sellers={resolvedSellers} events={resolvedEvents} posts={resolvedPosts} query={query} navigate={navigate} onProduct={rememberProduct} onBack={returnToSearchHome} buyerSettings={buyerSettings} /> : tab === "Local" && (
           <>
             <CommunitySpotlightCarousel sellers={resolvedSellers} />
-            <CategoryRow onCategory={(path) => { writeNavigationState("search", { tab, query, scrollTop: scrollRef.current?.scrollTop ?? 0, currentRoutePath: path }); navigate(path, { state: { fromSearch: true } }); }} />
+            <CategoryRow categories={resolvedCategories} onCategory={(path) => { writeNavigationState("search", { tab, query, scrollTop: scrollRef.current?.scrollTop ?? 0, currentRoutePath: path }); navigate(path, { state: { fromSearch: true } }); }} />
             <CarouselRow
               title="Featured"
-              products={safeListings}
+              products={discoveryProducts}
               onSeeAll={() => { writeNavigationState("search", { tab, query, scrollTop: scrollRef.current?.scrollTop ?? 0, currentRoute: "featured" }); navigate("/featured"); }}
               onProductClick={rememberProduct}
             />
-            <TradingSection products={safeListings} navigate={navigate} onProduct={rememberProduct} />
+            <TradingSection products={discoveryProducts} navigate={navigate} onProduct={rememberProduct} />
           </>
         )}
 
         {tab === "Map" && <MapView />}
 
-        {tab === "History" && <History products={safeListings} onProduct={rememberProduct} />}
+        {tab === "History" && <History products={discoveryProducts} onProduct={rememberProduct} />}
 
         {tab === "My Orders" && <MyOrders />}
       </div>
@@ -156,16 +159,16 @@ export default function Search() {
   );
 }
 
-function SearchResults({ products, sellers, events, query, navigate, onProduct, onBack, buyerSettings }) {
+function SearchResults({ products, sellers, events, posts, query, navigate, onProduct, onBack, buyerSettings }) {
   const normalizedQuery = query.trim().toLowerCase();
   // Search covers all content; results are just sorted nearest-first so local
   // matches surface at the top without hiding results outside the radius.
   const userLocation = resolveUserLocation(buyerSettings);
   const nearestFirst = (items) => sortByDistance(items, userLocation);
-  const allPosts = [...followingPosts, ...communityPosts];
+  const allPosts = posts ?? [];
   const matches = (value) => String(value ?? "").toLowerCase().includes(normalizedQuery);
   const productResults = nearestFirst(products.filter((product) => matches(`${product.name} ${product.description} ${product.shop}`)));
-  const storeResults = nearestFirst(Object.values(sellers).filter((seller) => matches(`${seller.name} ${seller.description} ${seller.location}`)));
+  const storeResults = nearestFirst(sellers.filter((seller) => matches(`${seller.name} ${seller.description} ${seller.location}`)));
   const eventResults = nearestFirst(events.filter((event) => matches(`${event.title} ${event.description} ${event.type} ${event.location}`)));
   const postResults = nearestFirst(allPosts.filter((post, index, posts) => posts.findIndex((item) => item.id === post.id) === index && matches(`${post.body} ${post.name} ${post.classification}`)));
   const tradeResults = nearestFirst(products.filter((product) => product.availableForTrade && matches(`${product.name} ${product.tradeAvailableFor} ${product.desiredTradeItems}`)));
@@ -315,12 +318,7 @@ function CommunitySpotlightCarousel({ sellers }) {
       destinationRoute: ad.destinationRoute,
       image: ad.image,
     }));
-  const organicSpotlights = featuredCommunitySpotlights.map((spotlight) => {
-    const destinationId = spotlight.type === "event" ? spotlight.eventId : spotlight.type === "product" ? spotlight.productId : spotlight.sellerId;
-    const destinationType = spotlight.type === "event" ? "Event detail page" : spotlight.type === "product" ? "Product listing" : "Store profile";
-    const destinationRoute = spotlight.type === "event" ? `/event/${destinationId}` : spotlight.type === "product" ? `/listing/${destinationId}` : `/seller/${destinationId}`;
-    return { ...spotlight, adType: spotlight.type, destinationId, destinationType, destinationRoute };
-  });
+  const organicSpotlights = [];
   const spotlights = [...paidSpotlights, ...organicSpotlights].slice(0, 10);
   const slides = spotlights.length > 0
     ? [spotlights[spotlights.length - 1], ...spotlights, spotlights[0]]
@@ -482,7 +480,7 @@ function TradingSection({ products: allProducts, navigate, onProduct }) {
   );
 }
 
-function CategoryRow({ onCategory }) {
+function CategoryRow({ categories, onCategory }) {
   return (
     <div className="py-2">
       <div className="flex items-center gap-2 px-4 py-2">

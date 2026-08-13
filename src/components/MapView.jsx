@@ -1,22 +1,25 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { mapLocations, products, sellers } from "../data/mockData";
 import {
   formatEventDate,
   formatEventTime,
-  useEvents,
 } from "../context/EventContext";
 import { useReviews } from "../context/ReviewContext";
 import { CompactReputationHeader } from "./ReputationSummary";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
+import { useMarketplaceDiscovery } from "../hooks/useEntityResolution";
 
 const FILTERS = ["All", "Stores", "Events", "Products", "Near Me"];
 const NEAR_ME_KM = 1;
 
 export default function MapView() {
   const navigate = useNavigate();
-  const { getEvent } = useEvents();
   const { sellerRating } = useReviews();
+  const discovery = useMarketplaceDiscovery();
+  const mapLocations = discovery?.mapLocations ?? [];
+  const products = discovery?.listings ?? [];
+  const sellers = discovery?.stores ?? [];
+  const events = discovery?.events ?? [];
   const [filter, setFilter] = useState("All");
   const [selectedId, setSelectedId] = useState(null);
 
@@ -24,13 +27,15 @@ export default function MapView() {
     const distance = `${location.distanceKm.toFixed(1)} km away`;
 
     if (location.kind === "store") {
-      const seller = sellers[location.sellerId];
-      const { average } = sellerRating(location.sellerId);
+      const seller = sellers.find((item) => item.id === location.sellerId || item.legacyId === location.sellerId);
+      if (!seller) return null;
+      const snapshotRating = seller.reputationSnapshot?.sellerStatus?.metrics?.averageRating ?? seller.reputationSnapshot?.sellerStatus?.metrics?.average_rating;
+      const { average } = sellerRating(seller.id);
       return {
         image: seller.avatar,
         title: seller.name,
         category: location.category,
-        rating: average,
+        rating: snapshotRating ?? average,
         distance,
         lines: [seller.location],
         reputationId: seller.id,
@@ -40,9 +45,9 @@ export default function MapView() {
     }
 
     if (location.kind === "event") {
-      const event = getEvent(location.eventId);
+      const event = events.find((item) => item.id === location.eventId || item.legacyId === location.eventId);
       if (!event) return null;
-      const seller = sellers[event.sellerId];
+      const seller = sellers.find((item) => item.id === event.sellerId || item.legacyId === event.sellerId);
       return {
         image: event.image,
         title: event.title,
@@ -58,12 +63,12 @@ export default function MapView() {
       };
     }
 
-    const product = products.find((p) => p.id === location.productId);
+    const product = products.find((item) => [item.id, item.legacyId, item.databaseId].filter(Boolean).map(String).includes(String(location.productId)));
     if (!product) return null;
     return {
       image: product.image,
       title: product.name,
-      category: `$${product.price.toFixed(2)}`,
+      category: `$${(Number(product.price) || 0).toFixed(2)}`,
       rating: product.rating,
       distance,
       lines: [product.shop],

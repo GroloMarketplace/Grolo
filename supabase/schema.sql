@@ -262,9 +262,15 @@ create policy "Reviews are viewable by everyone"
   on reviews for select using (status = 'published' and deleted_at is null);
 
 drop policy if exists "Users can manage their own reviews" on reviews;
-create policy "Users can manage their own reviews"
-  on reviews for all using (auth.uid() = reviewer_id)
+drop policy if exists "Users can update their own review content" on reviews;
+create policy "Users can update their own review content"
+  on reviews for update to authenticated
+  using (auth.uid() = reviewer_id)
   with check (auth.uid() = reviewer_id);
+
+-- Client inserts and deletes are disabled. Review creation must go through
+-- create_review(), which derives and validates ownership from auth.uid().
+revoke insert, delete on reviews from public;
 
 -- Conversations (buyer/seller conversation container).
 -- order_id is added as a UUID here and receives its foreign key after the
@@ -667,6 +673,145 @@ create unique index if not exists reviews_buyer_duplicate_idx
     and reviewer_id is not null
     and order_id is not null
     and reviewee_id is not null;
+
+create or replace function protect_review_immutable_fields()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.reviewer_id is distinct from old.reviewer_id
+    or new.review_type is distinct from old.review_type
+    or new.reviewee_id is distinct from old.reviewee_id
+    or new.listing_id is distinct from old.listing_id
+    or new.order_id is distinct from old.order_id
+    or new.order_item_id is distinct from old.order_item_id
+  then
+    raise exception 'Review ownership and target linkage are immutable.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if (new.status is distinct from old.status
+      or new.published_at is distinct from old.published_at
+      or new.deleted_at is distinct from old.deleted_at)
+    and current_user not in ('postgres', 'service_role', 'supabase_admin')
+    and coalesce(auth.jwt()->>'role', '') not in ('service_role', 'admin', 'moderator')
+  then
+    raise exception 'Review moderation fields can only be changed by a moderator.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_review_immutable_fields_trigger on reviews;
+create trigger protect_review_immutable_fields_trigger
+before update on reviews
+for each row execute function protect_review_immutable_fields();
+
+-- Creates a validated, published review. The caller cannot provide reviewer_id,
+-- seller/buyer identity, or unrelated order/listing linkage.
+create or replace function create_review(
+  p_review_type text,
+  p_rating smallint,
+  p_order_id uuid,
+  p_reviewee_id uuid default null,
+  p_listing_id uuid default null,
+  p_order_item_id uuid default null,
+  p_title text default null,
+  p_body text default null,
+  p_criteria jsonb default '{}'::jsonb,
+  p_photos jsonb default '[]'::jsonb
+)
+returns reviews
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_order orders;
+  v_review reviews;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication is required.' using errcode = 'insufficient_privilege';
+  end if;
+  if p_review_type not in ('product', 'seller', 'buyer') then
+    raise exception 'Review type is invalid.' using errcode = 'check_violation';
+  end if;
+  if p_rating is null or p_rating < 1 or p_rating > 5 then
+    raise exception 'Review rating must be between 1 and 5.' using errcode = 'check_violation';
+  end if;
+  if p_order_id is null then
+    raise exception 'A completed order is required.' using errcode = 'check_violation';
+  end if;
+  if p_criteria is null or jsonb_typeof(p_criteria) <> 'object' then
+    raise exception 'Review criteria must be a JSON object.' using errcode = 'check_violation';
+  end if;
+  if p_photos is null or jsonb_typeof(p_photos) <> 'array' then
+    raise exception 'Review photos must be a JSON array.' using errcode = 'check_violation';
+  end if;
+
+  select * into v_order
+  from orders
+  where id = p_order_id
+    and status = 'Completed'
+  for share;
+  if not found then
+    raise exception 'Reviews require a completed order.' using errcode = 'check_violation';
+  end if;
+
+  if p_review_type = 'product' then
+    if v_order.buyer_id <> auth.uid()
+      or p_listing_id is null
+      or p_order_item_id is null
+      or p_reviewee_id is not null
+      or not exists (
+        select 1
+        from order_items oi
+        where oi.id = p_order_item_id
+          and oi.order_id = p_order_id
+          and oi.listing_id = p_listing_id
+          and exists (
+            select 1 from listings l
+            where l.id = p_listing_id
+              and l.seller_id = v_order.seller_id
+          )
+      ) then
+      raise exception 'Product reviews require the buyer''s matching purchased listing and order item.'
+        using errcode = 'insufficient_privilege';
+    end if;
+  elsif p_review_type = 'seller' then
+    if v_order.buyer_id <> auth.uid()
+      or p_reviewee_id is distinct from v_order.seller_id
+      or p_listing_id is not null
+      or p_order_item_id is not null then
+      raise exception 'Seller reviews require the buyer and the seller from the completed order.'
+        using errcode = 'insufficient_privilege';
+    end if;
+  elsif p_review_type = 'buyer' then
+    if v_order.seller_id <> auth.uid()
+      or p_reviewee_id is distinct from v_order.buyer_id
+      or p_listing_id is not null
+      or p_order_item_id is not null then
+      raise exception 'Buyer reviews require the seller and the buyer from the completed order.'
+        using errcode = 'insufficient_privilege';
+    end if;
+  end if;
+
+  insert into reviews (
+    review_type, reviewer_id, reviewee_id, listing_id, order_id, order_item_id,
+    rating, title, body, criteria, photos, status, published_at
+  ) values (
+    p_review_type, auth.uid(), p_reviewee_id, p_listing_id, p_order_id, p_order_item_id,
+    p_rating, p_title, p_body, p_criteria, p_photos, 'published', now()
+  ) returning * into v_review;
+
+  return v_review;
+end;
+$$;
+
+revoke execute on function create_review(text, smallint, uuid, uuid, uuid, uuid, text, text, jsonb, jsonb) from public;
+grant execute on function create_review(text, smallint, uuid, uuid, uuid, uuid, text, text, jsonb, jsonb) to authenticated;
 
 -- Conversation relationships and indexes. These statements are migration-safe
 -- for databases that already contain the original conversations table.

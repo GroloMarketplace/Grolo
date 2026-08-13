@@ -191,22 +191,69 @@ create policy "Users can manage their own reviews"
   on reviews for all using (auth.uid() = reviewer_id)
   with check (auth.uid() = reviewer_id);
 
--- Conversations (1:1 between a buyer and a seller)
+-- Conversations (buyer/seller conversation container).
+-- order_id is added as a UUID here and receives its foreign key after the
+-- orders table is provisioned below because orders is declared later in this
+-- schema file.
 create table if not exists conversations (
   id uuid primary key default gen_random_uuid(),
   buyer_id uuid not null references profiles(id) on delete cascade,
   seller_id uuid not null references profiles(id) on delete cascade,
   listing_id uuid references listings(id) on delete set null,
+  conversation_type text not null default 'standard',
+  order_id uuid,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  preview text not null default '',
   updated_at timestamptz not null default now(),
-  unique (buyer_id, seller_id, listing_id)
+  constraint conversations_type_check
+    check (conversation_type in ('standard', 'service', 'order', 'trading', 'trade_proposal'))
 );
+
+alter table conversations add column if not exists conversation_type text not null default 'standard';
+alter table conversations add column if not exists order_id uuid;
+alter table conversations add column if not exists metadata jsonb not null default '{}'::jsonb;
+alter table conversations add column if not exists created_at timestamptz not null default now();
+alter table conversations add column if not exists preview text not null default '';
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.conversations'::regclass
+      and conname = 'conversations_type_check'
+  ) then
+    alter table conversations
+      add constraint conversations_type_check
+      check (conversation_type in ('standard', 'service', 'order', 'trading', 'trade_proposal'));
+  end if;
+end;
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.conversations'::regclass
+      and conname = 'conversations_metadata_object_check'
+  ) then
+    alter table conversations
+      add constraint conversations_metadata_object_check
+      check (jsonb_typeof(metadata) = 'object');
+  end if;
+end;
+$$;
 
 alter table conversations enable row level security;
 
+drop policy if exists "Participants can view their conversations" on conversations;
 create policy "Participants can view their conversations"
   on conversations for select
   using (auth.uid() = buyer_id or auth.uid() = seller_id);
 
+drop policy if exists "Participants can create conversations" on conversations;
 create policy "Participants can create conversations"
   on conversations for insert
   with check (auth.uid() = buyer_id or auth.uid() = seller_id);
@@ -368,6 +415,81 @@ create table if not exists order_items (
   unique (order_id, listing_id)
 );
 
+-- Conversation relationships and indexes. These statements are migration-safe
+-- for databases that already contain the original conversations table.
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint c
+    where c.conrelid = 'public.conversations'::regclass
+      and c.confrelid = 'public.orders'::regclass
+      and c.contype = 'f'
+      and pg_get_constraintdef(c.oid) like '%(order_id)%'
+  ) then
+    alter table conversations
+      add constraint conversations_order_id_fkey
+      foreign key (order_id)
+      references orders(id)
+      on delete set null;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint c
+    where c.conrelid = 'public.conversations'::regclass
+      and c.confrelid = 'public.listings'::regclass
+      and c.contype = 'f'
+      and pg_get_constraintdef(c.oid) like '%(listing_id)%'
+  ) then
+    alter table conversations
+      add constraint conversations_listing_id_fkey
+      foreign key (listing_id)
+      references listings(id)
+      on delete set null;
+  end if;
+end;
+$$;
+
+alter table conversations
+  drop constraint if exists conversations_buyer_id_seller_id_listing_id_key;
+
+create index if not exists conversations_buyer_idx
+  on conversations (buyer_id);
+
+create index if not exists conversations_seller_idx
+  on conversations (seller_id);
+
+create index if not exists conversations_order_idx
+  on conversations (order_id)
+  where order_id is not null;
+
+create index if not exists conversations_listing_idx
+  on conversations (listing_id)
+  where listing_id is not null;
+
+create index if not exists conversations_type_idx
+  on conversations (conversation_type);
+
+create index if not exists conversations_updated_idx
+  on conversations (updated_at desc);
+
+create unique index if not exists conversations_standard_pair_idx
+  on conversations (buyer_id, seller_id)
+  where conversation_type = 'standard'
+    and listing_id is null
+    and order_id is null;
+
+create unique index if not exists conversations_service_listing_idx
+  on conversations (buyer_id, seller_id, listing_id)
+  where conversation_type = 'service'
+    and listing_id is not null;
+
+create unique index if not exists conversations_order_unique_idx
+  on conversations (order_id)
+  where conversation_type = 'order'
+    and order_id is not null;
+
 create index if not exists orders_buyer_idx on orders (buyer_id);
 create index if not exists orders_seller_idx on orders (seller_id);
 create index if not exists orders_status_idx on orders (status);
@@ -392,6 +514,11 @@ for each row execute function set_updated_at();
 drop trigger if exists order_items_set_updated_at on order_items;
 create trigger order_items_set_updated_at
 before update on order_items
+for each row execute function set_updated_at();
+
+drop trigger if exists conversations_set_updated_at on conversations;
+create trigger conversations_set_updated_at
+before update on conversations
 for each row execute function set_updated_at();
 
 alter table orders enable row level security;

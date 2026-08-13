@@ -549,6 +549,8 @@ declare
   v_order orders;
   v_item jsonb;
   v_listing listings;
+  v_listing_id uuid;
+  v_legacy_order_id text;
   v_quantity integer;
   v_unit_price numeric(10, 2);
   v_subtotal numeric(10, 2) := 0;
@@ -578,6 +580,24 @@ begin
     raise exception 'Each listing may appear only once in an order.' using errcode = 'unique_violation';
   end if;
 
+  v_legacy_order_id := nullif(p_metadata->>'legacy_order_id', '');
+  if v_legacy_order_id is not null then
+    select * into v_order
+    from orders
+    where buyer_id = auth.uid()
+      and metadata->>'legacy_order_id' = v_legacy_order_id
+    for update;
+    if found then
+      return jsonb_build_object(
+        'order', to_jsonb(v_order),
+        'items', coalesce((select jsonb_agg(to_jsonb(item) || jsonb_build_object('product_id', listing.legacy_id) order by item.created_at)
+        from order_items item
+        join listings listing on listing.id = item.listing_id
+        where item.order_id = v_order.id), '[]'::jsonb)
+      );
+    end if;
+  end if;
+
   for v_item in select value from jsonb_array_elements(p_items)
   loop
     v_quantity := (v_item->>'quantity')::integer;
@@ -585,12 +605,23 @@ begin
       raise exception 'Order item quantity is invalid.' using errcode = 'check_violation';
     end if;
 
-    select * into v_listing
-    from listings
-    where id = (v_item->>'listing_id')::uuid
-      and seller_id = p_seller_id
-      and status = 'Active'
-    for update;
+    if (v_item->>'listing_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then
+      v_listing_id := (v_item->>'listing_id')::uuid;
+      select * into v_listing
+      from listings
+      where id = v_listing_id
+        and seller_id = p_seller_id
+        and status = 'Active'
+      for update;
+    else
+      select * into v_listing
+      from listings
+      where legacy_id = v_item->>'listing_id'
+        and seller_id = p_seller_id
+        and status = 'Active'
+      for update;
+      v_listing_id := v_listing.id;
+    end if;
     if not found then
       raise exception 'Order item listing is not owned by the selected seller or is unavailable.'
         using errcode = 'foreign_key_violation';
@@ -618,12 +649,17 @@ begin
 
   for v_item in select value from jsonb_array_elements(p_items)
   loop
-    select price into v_unit_price from listings
-    where id = (v_item->>'listing_id')::uuid;
+    if (v_item->>'listing_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then
+      v_listing_id := (v_item->>'listing_id')::uuid;
+    else
+      select id into v_listing_id from listings
+      where legacy_id = v_item->>'listing_id';
+    end if;
+    select price into v_unit_price from listings where id = v_listing_id;
     insert into order_items (order_id, listing_id, quantity, unit_price, line_total)
     values (
       v_order.id,
-      (v_item->>'listing_id')::uuid,
+      v_listing_id,
       (v_item->>'quantity')::integer,
       v_unit_price,
       (v_item->>'quantity')::integer * v_unit_price
@@ -632,7 +668,10 @@ begin
 
   return jsonb_build_object(
     'order', to_jsonb(v_order),
-    'items', coalesce((select jsonb_agg(to_jsonb(item) order by item.created_at) from order_items item where item.order_id = v_order.id), '[]'::jsonb)
+    'items', coalesce((select jsonb_agg(to_jsonb(item) || jsonb_build_object('product_id', listing.legacy_id) order by item.created_at)
+        from order_items item
+        join listings listing on listing.id = item.listing_id
+        where item.order_id = v_order.id), '[]'::jsonb)
   );
 end;
 $$;
@@ -670,7 +709,10 @@ begin
   if v_order.status = 'Cancelled' and v_order.inventory_restored then
     return jsonb_build_object(
       'order', to_jsonb(v_order),
-      'items', coalesce((select jsonb_agg(to_jsonb(item) order by item.created_at) from order_items item where item.order_id = v_order.id), '[]'::jsonb)
+      'items', coalesce((select jsonb_agg(to_jsonb(item) || jsonb_build_object('product_id', listing.legacy_id) order by item.created_at)
+        from order_items item
+        join listings listing on listing.id = item.listing_id
+        where item.order_id = v_order.id), '[]'::jsonb)
     );
   end if;
   if v_order.status not in ('Order Placed', 'Seller Notified') then
@@ -696,7 +738,10 @@ begin
 
   return jsonb_build_object(
     'order', to_jsonb(v_order),
-    'items', coalesce((select jsonb_agg(to_jsonb(item) order by item.created_at) from order_items item where item.order_id = v_order.id), '[]'::jsonb)
+    'items', coalesce((select jsonb_agg(to_jsonb(item) || jsonb_build_object('product_id', listing.legacy_id) order by item.created_at)
+        from order_items item
+        join listings listing on listing.id = item.listing_id
+        where item.order_id = v_order.id), '[]'::jsonb)
   );
 end;
 $$;
@@ -814,7 +859,12 @@ begin
       v_total,
       v_inventory_restored,
       coalesce(v_legacy_order->'metadata', '{}'::jsonb)
-        || jsonb_build_object('legacy_order_id', v_legacy_order_id, 'legacy_source', 'localStorage'),
+        || jsonb_build_object(
+          'legacy_order_id', v_legacy_order_id,
+          'legacy_source', 'localStorage',
+          'buyer', v_legacy_order->>'buyer',
+          'buyerAvatar', v_legacy_order->>'buyerAvatar'
+        ),
       v_created_at,
       v_created_at
     );

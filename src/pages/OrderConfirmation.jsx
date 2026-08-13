@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from "react";
 import Header from "../components/Header";
 import { useCart } from "../context/CartContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
-import { useInventory } from "../context/InventoryContext";
 import { useOrders } from "../context/OrderContext";
 
 function PaymentInstructions({ paymentSettings, total, orderNumber }) {
@@ -25,10 +24,9 @@ export default function OrderConfirmation() {
   const [isAnimated, setIsAnimated] = useState(false);
   const { state } = useLocation();
   const { items, removeItems } = useCart();
-  const { reduceAvailable } = useInventory();
-  const inventoryReduced = useRef(false);
   const cartItemsRemoved = useRef(false);
-  const orderCreated = useRef(false);
+  const orderCreationStarted = useRef(false);
+  const [orderError, setOrderError] = useState("");
   const { getPaymentMethods, fulfillmentMethod } = usePaymentMethods();
   const { createOrders } = useOrders();
   const orderItemsRef = useRef(null);
@@ -57,23 +55,27 @@ export default function OrderConfirmation() {
   useEffect(() => {
     // Trigger animation after component mounts
     setIsAnimated(true);
-    if (!inventoryReduced.current && orderItems.length > 0) {
-      reduceAvailable(orderItems, orderNumber);
-      inventoryReduced.current = true;
-    }
-    if (!cartItemsRemoved.current && orderItems.length > 0) {
-      removeItems(orderItems);
-      cartItemsRemoved.current = true;
-    }
-    if (orderItems.length > 0 && !orderCreated.current) {
-      createOrders(orderItems, {
-        orderId: orderNumber,
-        fulfillmentMethod: selectedFulfillment,
-        deliveryFee,
+    if (orderItems.length === 0 || orderCreationStarted.current) return;
+
+    orderCreationStarted.current = true;
+    createOrders(orderItems, {
+      orderId: orderNumber,
+      sellerId: state?.sellerId ?? orderItems[0]?.sellerId,
+      fulfillmentMethod: selectedFulfillment,
+      deliveryFee,
+    })
+      .then(() => {
+        if (!cartItemsRemoved.current) {
+          removeItems(orderItems);
+          cartItemsRemoved.current = true;
+        }
+      })
+      .catch((error) => {
+        orderCreationStarted.current = false;
+        console.error("Unable to create Supabase order", error);
+        setOrderError(error?.message ?? "Unable to create your order. Your cart was not changed.");
       });
-      orderCreated.current = true;
-    }
-  }, [orderItems, reduceAvailable, removeItems, createOrders, orderNumber, selectedFulfillment, deliveryFee]);
+  }, [orderItems, removeItems, createOrders, orderNumber, selectedFulfillment, deliveryFee]);
 
   return (
     <div className="flex h-full flex-col">
@@ -104,9 +106,15 @@ export default function OrderConfirmation() {
           Order Confirmed!
         </h1>
 
-        <p className="text-[14px] text-center text-black/70 mb-8">
-          Thank you for supporting local businesses. Your order has been placed successfully.
-        </p>
+        {orderError ? (
+          <p role="alert" className="mb-8 rounded-lg border border-[#F3B8B4] bg-[#FFF1F0] p-4 text-center text-[14px] text-[#B42318]">
+            {orderError}
+          </p>
+        ) : (
+          <p className="text-[14px] text-center text-black/70 mb-8">
+            Thank you for supporting local businesses. Your order has been placed successfully.
+          </p>
+        )}
 
         <div className="bg-[#F5F5F5] rounded-lg p-4 mb-8">
           <div className="flex justify-between mb-3">

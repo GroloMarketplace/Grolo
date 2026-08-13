@@ -6,7 +6,7 @@ import {
   sellers,
 } from "../data/mockData";
 import { restoreListingInventory } from "../lib/api/listings";
-import { getBuyerOrders, getSellerOrders, importLocalOrders, legacyOrdersFromRows } from "../lib/api/orders";
+import { createOrderWithItems, getBuyerOrders, getSellerOrders, importLocalOrders, legacyOrdersFromRows } from "../lib/api/orders";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const OrderContext = createContext(null);
@@ -133,27 +133,39 @@ export function OrderProvider({ children }) {
     [],
   );
 
-  const createOrders = useCallback((orderItems, orderDetails = {}) => {
-    const nextOrders = orderItems.map((item, index) => ({
-      id: index === 0 && orderDetails.orderId ? orderDetails.orderId : `ORD-${Math.random().toString(36).slice(2, 11).toUpperCase()}`,
-      sellerId: item.sellerId ?? products.find((product) => product.id === item.productId)?.sellerId,
-      productId: item.productId ?? item.id,
-      quantity: item.quantity,
-      total: item.price * item.quantity + (index === 0 ? Number(orderDetails.deliveryFee) || 0 : 0),
-      status: "Seller Notified",
-      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      buyer: user?.user_metadata?.username ?? currentUser.username,
-      buyerId: user?.id,
-      buyerAvatar: currentUser.avatar,
+  const createOrders = useCallback(async (orderItems, orderDetails = {}) => {
+    if (!isSupabaseConfigured || !user?.id) {
+      throw new Error("Supabase authentication is required to create an order.");
+    }
+    if (!orderItems?.length) return [];
+
+    const sellerId = orderDetails.sellerId
+      ?? orderItems[0].sellerId
+      ?? products.find((product) => product.id === orderItems[0].productId)?.sellerId;
+    if (!sellerId) throw new Error("Unable to determine the seller for this order.");
+
+    const response = await createOrderWithItems(sellerId, orderItems, {
+      orderId: orderDetails.orderId,
       fulfillmentMethod: orderDetails.fulfillmentMethod ?? "pickup",
-      createdAt: Date.now(),
-    }));
-    setOrders((current) => {
-      const mergedOrders = [...current, ...nextOrders];
-      saveOrders(mergedOrders);
-      return mergedOrders;
+      deliveryFee: orderDetails.deliveryFee,
+      metadata: {
+        legacy_source: "OrderContext",
+        buyer: user?.user_metadata?.username ?? currentUser.username,
+        buyerAvatar: currentUser.avatar,
+      },
     });
-    setLastCreatedOrder(nextOrders[0] ?? null);
+    const databaseOrder = {
+      ...(response?.order ?? {}),
+      items: response?.items ?? [],
+    };
+    const nextOrders = legacyOrdersFromRows([databaseOrder]);
+    if (!nextOrders.length) throw new Error("Supabase created an order without order items.");
+
+    setOrders((current) => [
+      ...current.filter((order) => order.databaseId !== nextOrders[0].databaseId),
+      ...nextOrders,
+    ]);
+    setLastCreatedOrder(nextOrders[0]);
     setOrderNotifications((previous) => [
       ...nextOrders.map((order) => {
         const product = products.find((item) => item.id === order.productId);
@@ -175,7 +187,7 @@ export function OrderProvider({ children }) {
     ]);
     console.info("Seller orders created", nextOrders.map((order) => ({ orderId: order.id, status: order.status, sellerId: order.sellerId })));
     return nextOrders;
-  }, []);
+  }, [user?.id, user?.user_metadata?.username]);
 
   const updateOrderStatus = useCallback((orderId, status) => {
     const order = orders.find((o) => o.id === orderId);

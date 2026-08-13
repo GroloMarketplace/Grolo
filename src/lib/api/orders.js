@@ -6,7 +6,7 @@ function requireSupabase() {
   }
 }
 
-const ORDER_SELECT = "*, order_items(*)";
+const ORDER_SELECT = "*, order_items(*, listings(legacy_id))";
 
 function logApiError(operation, error, context = {}) {
   console.error(`Supabase ${operation} error`, {
@@ -25,6 +25,7 @@ function orderItemFromRow(row) {
     databaseId: row.id,
     orderId: row.order_id ?? row.orderId,
     listingId: row.listing_id ?? row.listingId,
+    productId: row.product_id ?? row.listings?.legacy_id ?? row.listing_id ?? row.listingId,
     quantity: row.quantity,
     unitPrice: row.unit_price ?? row.unitPrice,
     lineTotal: row.line_total ?? row.lineTotal,
@@ -84,15 +85,19 @@ export function legacyOrderFromRow(row, itemRow, itemIndex = 0) {
       : [];
   const item = itemRow ?? items[itemIndex] ?? items[0] ?? {};
   const itemId = item.id ?? item.listing_id ?? item.listingId ?? "item";
+  const legacyId = row.metadata?.legacy_order_id ?? row.metadata?.legacyOrderId;
+  const orderId = row.id ?? row.databaseId;
   const createdAt = legacyCreatedAt(row.created_at ?? row.createdAt);
 
   return {
-    id: itemIndex === 0 ? row.id : `${row.id}:${itemId}`,
+    id: itemIndex === 0 ? legacyId ?? orderId : `${legacyId ?? orderId}:${itemId}`,
     databaseId: row.id ?? row.databaseId,
     orderId: row.id ?? row.databaseId,
-    productId: item.listing_id ?? item.listingId,
+    productId: item.product_id ?? item.productId ?? item.listings?.legacy_id ?? item.listing_id ?? item.listingId,
     quantity: Number(item.quantity) || 0,
     total: Number(row.total) || 0,
+    buyer: row.buyer ?? row.metadata?.buyer ?? row.buyer_id ?? row.buyerId ?? "Buyer",
+    buyerAvatar: row.buyerAvatar ?? row.metadata?.buyerAvatar,
     buyerId: row.buyer_id ?? row.buyerId,
     sellerId: row.seller_id ?? row.sellerId,
     status: row.status,
@@ -185,6 +190,35 @@ export async function createOrderItems(orderId, items) {
   }
   console.info("Supabase createOrderItems response", { orderId, count: data?.length ?? 0 });
   return (data ?? []).map(orderItemFromRow);
+}
+
+export async function createOrderWithItems(sellerId, items, { fulfillmentMethod = "pickup", deliveryFee = 0, orderId, metadata = {} } = {}) {
+  requireSupabase();
+  const payloadItems = (Array.isArray(items) ? items : []).map((item) => ({
+    listing_id: item.databaseId ?? item.listingId ?? item.productId ?? item.id,
+    quantity: Number(item.quantity) || 0,
+  }));
+  const payloadMetadata = {
+    ...metadata,
+    ...(orderId ? { legacy_order_id: orderId } : {}),
+  };
+  const { data, error } = await supabase.rpc("create_order_with_items", {
+    p_seller_id: sellerId,
+    p_fulfillment_method: fulfillmentMethod,
+    p_delivery_fee: Number(deliveryFee) || 0,
+    p_metadata: payloadMetadata,
+    p_items: payloadItems,
+  });
+  if (error) {
+    logApiError("createOrderWithItems", error, { sellerId, itemCount: payloadItems.length });
+    throw error;
+  }
+  console.info("Supabase create_order_with_items response", data);
+  console.info("Supabase order created", {
+    databaseOrderId: data?.order?.id ?? null,
+    createdItemCount: data?.items?.length ?? 0,
+  });
+  return data;
 }
 
 export async function importLocalOrders(userId) {

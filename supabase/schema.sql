@@ -447,3 +447,270 @@ create policy "Buyers can create items in their orders"
         and orders.buyer_id = auth.uid()
     )
   );
+
+-- Phase 5E.3.1 authorization and atomic operation preparation.
+-- Direct order inserts and order-item inserts are disabled. Order creation must
+-- use create_order_with_items so the order and its items commit together.
+drop policy if exists "Buyers can create their own orders" on orders;
+drop policy if exists "Buyers can create items in their orders" on order_items;
+revoke insert on orders from authenticated;
+revoke insert on order_items from authenticated;
+
+drop policy if exists "Sellers can update their own order statuses" on orders;
+create policy "Sellers can update their own order statuses"
+  on orders for update to authenticated
+  using (auth.uid() = seller_id)
+  with check (auth.uid() = seller_id);
+
+-- Only the cancellation function may perform a buyer cancellation. The
+-- function checks auth.uid() against buyer_id and locks the order before work.
+-- Dropping the old buyer update policy prevents a direct status update from
+-- bypassing inventory restoration.
+drop policy if exists "Buyers can cancel their own eligible orders" on orders;
+
+create or replace function protect_order_immutable_fields()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.buyer_id is distinct from old.buyer_id
+    or new.seller_id is distinct from old.seller_id
+    or new.subtotal is distinct from old.subtotal
+    or new.delivery_fee is distinct from old.delivery_fee
+    or new.total is distinct from old.total
+    or new.fulfillment_method is distinct from old.fulfillment_method
+    or new.created_at is distinct from old.created_at
+    or new.metadata is distinct from old.metadata
+  then
+    raise exception 'Order ownership, fulfillment, totals, and metadata are immutable after creation.'
+      using errcode = 'check_violation';
+  end if;
+
+  if new.status is distinct from old.status
+    and new.status = 'Cancelled'
+    and current_user = session_user
+  then
+    raise exception 'Orders can only be cancelled by the buyer cancellation operation.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if new.inventory_restored is distinct from old.inventory_restored
+    and current_user = session_user
+  then
+    raise exception 'inventory_restored can only be changed by the cancellation operation.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if old.inventory_restored and not new.inventory_restored then
+    raise exception 'inventory_restored cannot be reset.'
+      using errcode = 'check_violation';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_order_immutable_fields_trigger on orders;
+create trigger protect_order_immutable_fields_trigger
+before update on orders
+for each row execute function protect_order_immutable_fields();
+
+create or replace function prevent_order_item_updates()
+returns trigger
+language plpgsql
+as $$
+begin
+  raise exception 'Order items are immutable after creation.'
+    using errcode = 'insufficient_privilege';
+end;
+$$;
+
+drop trigger if exists prevent_order_item_updates_trigger on order_items;
+create trigger prevent_order_item_updates_trigger
+before update or delete on order_items
+for each row execute function prevent_order_item_updates();
+
+-- Atomically creates one order, reserves inventory, and creates all line
+-- items. The buyer and prices are taken from the authenticated session and the
+-- listings table; callers cannot supply either value.
+create or replace function create_order_with_items(
+  p_seller_id uuid,
+  p_fulfillment_method text default 'pickup',
+  p_delivery_fee numeric default 0,
+  p_metadata jsonb default '{}'::jsonb,
+  p_items jsonb default '[]'::jsonb
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_order orders;
+  v_item jsonb;
+  v_listing listings;
+  v_quantity integer;
+  v_unit_price numeric(10, 2);
+  v_subtotal numeric(10, 2) := 0;
+  v_delivery_fee numeric(10, 2) := coalesce(p_delivery_fee, 0);
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication is required.' using errcode = 'insufficient_privilege';
+  end if;
+  if p_seller_id is null or not exists (select 1 from profiles where id = p_seller_id) then
+    raise exception 'Seller profile not found.' using errcode = 'foreign_key_violation';
+  end if;
+  if p_fulfillment_method not in ('pickup', 'delivery') then
+    raise exception 'Fulfillment method is invalid.' using errcode = 'check_violation';
+  end if;
+  if v_delivery_fee < 0 then
+    raise exception 'Delivery fee cannot be negative.' using errcode = 'check_violation';
+  end if;
+  if p_items is null or jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
+    raise exception 'At least one order item is required.' using errcode = 'check_violation';
+  end if;
+  if exists (
+    select 1
+    from jsonb_array_elements(p_items) item
+    group by item->>'listing_id'
+    having count(*) > 1
+  ) then
+    raise exception 'Each listing may appear only once in an order.' using errcode = 'unique_violation';
+  end if;
+
+  for v_item in select value from jsonb_array_elements(p_items)
+  loop
+    v_quantity := (v_item->>'quantity')::integer;
+    if v_quantity is null or v_quantity <= 0 then
+      raise exception 'Order item quantity is invalid.' using errcode = 'check_violation';
+    end if;
+
+    select * into v_listing
+    from listings
+    where id = (v_item->>'listing_id')::uuid
+      and seller_id = p_seller_id
+      and status = 'Active'
+    for update;
+    if not found then
+      raise exception 'Order item listing is not owned by the selected seller or is unavailable.'
+        using errcode = 'foreign_key_violation';
+    end if;
+    if v_listing.inventory_quantity < v_quantity then
+      raise exception 'Insufficient inventory for listing %.', v_listing.id
+        using errcode = 'check_violation';
+    end if;
+
+    v_subtotal := v_subtotal + (v_quantity * v_listing.price);
+    update listings
+    set inventory_quantity = inventory_quantity - v_quantity,
+        updated_at = now()
+    where id = v_listing.id;
+  end loop;
+
+  insert into orders (
+    buyer_id, seller_id, fulfillment_method, status,
+    subtotal, delivery_fee, total, metadata
+  ) values (
+    auth.uid(), p_seller_id, p_fulfillment_method, 'Seller Notified',
+    v_subtotal, v_delivery_fee, v_subtotal + v_delivery_fee,
+    coalesce(p_metadata, '{}'::jsonb)
+  ) returning * into v_order;
+
+  for v_item in select value from jsonb_array_elements(p_items)
+  loop
+    select price into v_unit_price from listings
+    where id = (v_item->>'listing_id')::uuid;
+    insert into order_items (order_id, listing_id, quantity, unit_price, line_total)
+    values (
+      v_order.id,
+      (v_item->>'listing_id')::uuid,
+      (v_item->>'quantity')::integer,
+      v_unit_price,
+      (v_item->>'quantity')::integer * v_unit_price
+    );
+  end loop;
+
+  return jsonb_build_object(
+    'order', to_jsonb(v_order),
+    'items', coalesce((select jsonb_agg(to_jsonb(item) order by item.created_at) from order_items item where item.order_id = v_order.id), '[]'::jsonb)
+  );
+end;
+$$;
+
+revoke execute on function create_order_with_items(uuid, text, numeric, jsonb, jsonb) from public;
+grant execute on function create_order_with_items(uuid, text, numeric, jsonb, jsonb) to authenticated;
+
+-- Atomically cancels an eligible buyer order, restores every line item's
+-- inventory, and marks inventory_restored. The order lock makes the operation
+-- idempotent under concurrent cancellation requests.
+create or replace function cancel_order_with_inventory(p_order_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_order orders;
+  v_item record;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication is required.' using errcode = 'insufficient_privilege';
+  end if;
+
+  select * into v_order
+  from orders
+  where id = p_order_id
+  for update;
+  if not found then
+    raise exception 'Order not found.' using errcode = 'no_data_found';
+  end if;
+  if v_order.buyer_id <> auth.uid() then
+    raise exception 'Only the buyer can cancel this order.' using errcode = 'insufficient_privilege';
+  end if;
+  if v_order.status = 'Cancelled' and v_order.inventory_restored then
+    return jsonb_build_object(
+      'order', to_jsonb(v_order),
+      'items', coalesce((select jsonb_agg(to_jsonb(item) order by item.created_at) from order_items item where item.order_id = v_order.id), '[]'::jsonb)
+    );
+  end if;
+  if v_order.status not in ('Order Placed', 'Seller Notified') then
+    raise exception 'This order can no longer be cancelled.' using errcode = 'check_violation';
+  end if;
+
+  for v_item in
+    select listing_id, quantity
+    from order_items
+    where order_id = v_order.id
+    for update
+  loop
+    update listings
+    set inventory_quantity = inventory_quantity + v_item.quantity,
+        updated_at = now()
+    where id = v_item.listing_id;
+  end loop;
+
+  update orders
+  set status = 'Cancelled', inventory_restored = true, updated_at = now()
+  where id = v_order.id
+  returning * into v_order;
+
+  return jsonb_build_object(
+    'order', to_jsonb(v_order),
+    'items', coalesce((select jsonb_agg(to_jsonb(item) order by item.created_at) from order_items item where item.order_id = v_order.id), '[]'::jsonb)
+  );
+end;
+$$;
+
+revoke execute on function cancel_order_with_inventory(uuid) from public;
+grant execute on function cancel_order_with_inventory(uuid) to authenticated;
+
+-- Migration plan:
+-- 1. Apply this SQL after the Phase 5E.1 orders schema exists.
+-- 2. Deploy the future OrderContext/API call to create_order_with_items and
+--    cancel_order_with_inventory; do not call the old direct insert/update
+--    paths after that deployment.
+-- 3. Verify authenticated seller status updates, buyer-only cancellation,
+--    immutable order/order-item fields, rollback on item failure, and one-time
+--    inventory restoration in a staging database.
+-- 4. Only after verification, remove the legacy localStorage integration in a
+--    later phase.

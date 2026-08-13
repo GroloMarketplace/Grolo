@@ -221,48 +221,6 @@ export async function createOrderWithItems(sellerId, items, { fulfillmentMethod 
   return data;
 }
 
-export async function importLocalOrders(userId) {
-  requireSupabase();
-  const markerKey = `grolo-orders-migrated-${userId}`;
-  if (window.localStorage.getItem(markerKey)) {
-    return { alreadyMigrated: true, imported_count: 0, skipped_count: 0, duplicate_count: 0 };
-  }
-
-  const storageKey = `grolo-orders-${userId}`;
-  const rawOrders = window.localStorage.getItem(storageKey);
-  let localOrders = [];
-  if (rawOrders) {
-    try {
-      localOrders = JSON.parse(rawOrders);
-    } catch (error) {
-      throw new Error(`Unable to parse ${storageKey}: ${error.message}`);
-    }
-  }
-  if (!Array.isArray(localOrders)) {
-    throw new Error(`${storageKey} must contain an order array.`);
-  }
-
-  const { data, error } = await supabase.rpc("import_legacy_orders", {
-    p_orders: localOrders,
-  });
-  if (error) {
-    logApiError("importLocalOrders", error, { userId, count: localOrders.length });
-    throw error;
-  }
-
-  const result = data ?? { imported_count: 0, skipped_count: 0, duplicate_count: 0 };
-  window.localStorage.setItem(markerKey, JSON.stringify({
-    migratedAt: new Date().toISOString(),
-    ...result,
-  }));
-  console.info("Local order import", {
-    importedCount: result.imported_count ?? 0,
-    skippedCount: result.skipped_count ?? 0,
-    duplicateCount: result.duplicate_count ?? 0,
-  });
-  return result;
-}
-
 export async function getBuyerOrders(buyerId) {
   requireSupabase();
   const { data, error } = await supabase

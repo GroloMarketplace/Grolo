@@ -340,7 +340,7 @@ create policy "Grolo users can delete own images"
   );
 
 -- Orders (Phase 5E.1). Order persistence is provisioned independently of the
--- current localStorage-backed OrderContext so the UI can migrate later.
+-- application context so the UI can use Supabase as its source of truth.
 create table if not exists orders (
   id uuid primary key default gen_random_uuid(),
   buyer_id uuid not null references auth.users(id) on delete cascade,
@@ -751,151 +751,10 @@ $$;
 revoke execute on function cancel_order_with_inventory(uuid) from public;
 grant execute on function cancel_order_with_inventory(uuid) to authenticated;
 
--- Phase 5E.3.4 deterministic local-order import protection.
+-- The legacy_order_id index remains required for idempotent Supabase order
+-- creation retries. The one-time localStorage import function is retired.
 create unique index if not exists orders_legacy_import_idx
   on orders (buyer_id, (metadata->>'legacy_order_id'))
   where metadata ? 'legacy_order_id';
 
--- Imports legacy orders for the authenticated buyer only. Listing IDs may be
--- either listings.id UUIDs or listings.legacy_id values. Inventory is not
--- changed because legacy order creation already handled local inventory.
-create or replace function import_legacy_orders(p_orders jsonb)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public, pg_temp
-as $$
-declare
-  v_legacy_order jsonb;
-  v_legacy_order_id text;
-  v_product_id text;
-  v_listing listings;
-  v_quantity integer;
-  v_total numeric(10, 2);
-  v_delivery_fee numeric(10, 2);
-  v_subtotal numeric(10, 2);
-  v_unit_price numeric(10, 2);
-  v_created_at timestamptz;
-  v_inventory_restored boolean;
-  v_imported integer := 0;
-  v_skipped integer := 0;
-  v_duplicates integer := 0;
-begin
-  if auth.uid() is null then
-    raise exception 'Authentication is required.' using errcode = 'insufficient_privilege';
-  end if;
-  if p_orders is null or jsonb_typeof(p_orders) <> 'array' then
-    raise exception 'Legacy orders must be a JSON array.' using errcode = 'check_violation';
-  end if;
-
-  for v_legacy_order in select value from jsonb_array_elements(p_orders)
-  loop
-    v_legacy_order_id := nullif(v_legacy_order->>'id', '');
-    if v_legacy_order_id is null then
-      v_skipped := v_skipped + 1;
-      continue;
-    end if;
-
-    if exists (
-      select 1
-      from orders
-      where buyer_id = auth.uid()
-        and metadata->>'legacy_order_id' = v_legacy_order_id
-    ) then
-      v_duplicates := v_duplicates + 1;
-      continue;
-    end if;
-
-    v_product_id := nullif(v_legacy_order->>'productId', '');
-    if v_product_id is null then
-      v_skipped := v_skipped + 1;
-      continue;
-    end if;
-
-    if v_product_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then
-      select * into v_listing
-      from listings
-      where id = v_product_id::uuid;
-    else
-      select * into v_listing
-      from listings
-      where legacy_id = v_product_id;
-    end if;
-    if not found then
-      v_skipped := v_skipped + 1;
-      continue;
-    end if;
-
-    if coalesce(v_legacy_order->>'quantity', '') !~ '^[0-9]+$' then
-      v_skipped := v_skipped + 1;
-      continue;
-    end if;
-    v_quantity := (v_legacy_order->>'quantity')::integer;
-    if v_quantity <= 0 then
-      v_skipped := v_skipped + 1;
-      continue;
-    end if;
-
-    v_unit_price := v_listing.price;
-    v_delivery_fee := greatest(coalesce((v_legacy_order->>'deliveryFee')::numeric, 0), 0);
-    v_total := greatest(coalesce((v_legacy_order->>'total')::numeric, v_unit_price * v_quantity + v_delivery_fee), 0);
-    v_subtotal := greatest(v_total - v_delivery_fee, 0);
-    v_inventory_restored := coalesce((v_legacy_order->>'inventoryRestored')::boolean, false);
-    v_created_at := case
-      when (v_legacy_order->>'createdAt') ~ '^[0-9]+$'
-        then to_timestamp((v_legacy_order->>'createdAt')::numeric / 1000)
-      else coalesce((v_legacy_order->>'createdAt')::timestamptz, now())
-    end;
-
-    insert into orders (
-      buyer_id, seller_id, fulfillment_method, status,
-      subtotal, delivery_fee, total, inventory_restored, metadata, created_at, updated_at
-    ) values (
-      auth.uid(),
-      v_listing.seller_id,
-      case when v_legacy_order->>'fulfillmentMethod' in ('pickup', 'delivery')
-        then v_legacy_order->>'fulfillmentMethod' else 'pickup' end,
-      coalesce(nullif(v_legacy_order->>'status', ''), 'Seller Notified'),
-      v_subtotal,
-      v_delivery_fee,
-      v_total,
-      v_inventory_restored,
-      coalesce(v_legacy_order->'metadata', '{}'::jsonb)
-        || jsonb_build_object(
-          'legacy_order_id', v_legacy_order_id,
-          'legacy_source', 'localStorage',
-          'buyer', v_legacy_order->>'buyer',
-          'buyerAvatar', v_legacy_order->>'buyerAvatar'
-        ),
-      v_created_at,
-      v_created_at
-    );
-
-    insert into order_items (order_id, listing_id, quantity, unit_price, line_total)
-    select id, v_listing.id, v_quantity, v_unit_price, v_subtotal
-    from orders
-    where buyer_id = auth.uid()
-      and metadata->>'legacy_order_id' = v_legacy_order_id;
-
-    v_imported := v_imported + 1;
-  end loop;
-
-  return jsonb_build_object(
-    'imported_count', v_imported,
-    'skipped_count', v_skipped,
-    'duplicate_count', v_duplicates
-  );
-end;
-$$;
-
-revoke execute on function import_legacy_orders(jsonb) from public;
-grant execute on function import_legacy_orders(jsonb) to authenticated;
-
--- Migration plan:
--- 1. Apply this SQL after the Phase 5E.1 orders schema exists.
--- 2. The authenticated OrderContext startup reads grolo-orders-{userId}, calls
---    import_legacy_orders once, and writes grolo-orders-migrated-{userId} only
---    after the RPC succeeds.
--- 3. Verify legacy_id and UUID listing resolution, deterministic duplicates,
---    imported totals/dates/items, and imported/skipped/duplicate counts.
--- 4. Keep localStorage intact for the dual-read fallback; removal is deferred.
+drop function if exists import_legacy_orders(jsonb);

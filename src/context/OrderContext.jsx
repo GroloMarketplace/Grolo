@@ -5,33 +5,10 @@ import {
   products,
   sellers,
 } from "../data/mockData";
-import { restoreListingInventory } from "../lib/api/listings";
-import { cancelOrderWithInventory as cancelOrderWithInventoryInApi, createOrderWithItems, getBuyerOrders, getSellerOrders, importLocalOrders, legacyOrdersFromRows, updateOrderStatus as updateOrderStatusInApi } from "../lib/api/orders";
+import { cancelOrderWithInventory as cancelOrderWithInventoryInApi, createOrderWithItems, getBuyerOrders, getSellerOrders, legacyOrdersFromRows, updateOrderStatus as updateOrderStatusInApi } from "../lib/api/orders";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const OrderContext = createContext(null);
-const ORDER_STORAGE_KEY = "grolo-orders";
-
-// Order statuses that release any inventory reserved for the order back into
-// stock. Only orders that never reach a successful, completed state should
-// give up their reserved units.
-const INVENTORY_RESTORING_STATUSES = ["Cancelled", "Rejected", "Failed Payment", "Expired"];
-// Successfully fulfilled orders permanently consume their reserved inventory
-// and must never trigger a restoration, even if re-processed.
-const INVENTORY_FINAL_STATUSES = ["Delivered", "Completed", "Fulfilled", "Picked Up"];
-
-function restoresInventory(status) {
-  return INVENTORY_RESTORING_STATUSES.includes(status) && !INVENTORY_FINAL_STATUSES.includes(status);
-}
-
-function loadOrders(storageKey) {
-  try {
-    const savedOrders = window.localStorage.getItem(storageKey);
-    return savedOrders ? JSON.parse(savedOrders) : [];
-  } catch {
-    return [];
-  }
-}
 
 const PICKUP_NEXT_STATUS = {
   "Order Placed": ["Preparing"],
@@ -51,36 +28,22 @@ const DELIVERY_NEXT_STATUS = {
 
 export function OrderProvider({ children }) {
   const { user } = useAuth();
-  const storageKey = `${ORDER_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
   const [orders, setOrders] = useState([]);
 
   useEffect(() => {
     let active = true;
 
-    const loadLocalStorageFallback = (reason) => {
-      const fallbackOrders = loadOrders(storageKey);
-      if (!active) return;
-      setOrders(fallbackOrders);
-      console.info("order source: localStorage fallback", reason ?? "Supabase unavailable");
-    };
-
-    if (!user?.id || !isSupabaseConfigured) {
-      loadLocalStorageFallback();
+    if (!user?.id) {
+      setOrders([]);
       return () => {
         active = false;
       };
     }
 
-    const loadSupabaseOrders = () => Promise.all([
+    Promise.all([
       getBuyerOrders(user.id),
       getSellerOrders(user.id),
-    ]);
-
-    importLocalOrders(user.id)
-      .catch((error) => {
-        console.warn("Unable to import local orders", error);
-      })
-      .then(loadSupabaseOrders)
+    ])
       .then(([buyerRows, sellerRows]) => {
         const rowsById = new Map();
         [...buyerRows, ...sellerRows].forEach((row) => {
@@ -91,23 +54,17 @@ export function OrderProvider({ children }) {
         console.info("order source: supabase");
       })
       .catch((error) => {
-        console.warn("Unable to load orders from Supabase", error);
-        loadLocalStorageFallback(error?.message ?? "Supabase read failed");
+        if (!active) return;
+        setOrders([]);
+        console.error("Unable to load orders from Supabase", error);
       });
 
     return () => {
       active = false;
     };
-  }, [storageKey, user?.id]);
+  }, [user?.id]);
 
   const [lastCreatedOrder, setLastCreatedOrder] = useState(null);
-
-  const saveOrders = (nextOrders) => {
-    try {
-      window.localStorage.setItem(storageKey, JSON.stringify(nextOrders));
-    } catch {
-    }
-  };
   const [orderNotifications, setOrderNotifications] = useState([]);
   const [sellerOrderNotifications, setSellerOrderNotifications] = useState([]);
 
@@ -286,17 +243,15 @@ export function OrderProvider({ children }) {
     }
   }, [orders]);
 
-  // Buyer cancellation is transaction-backed when Supabase is available.
-  // The legacy localStorage path remains only for unconfigured environments.
+  // Buyer cancellation is transaction-backed through Supabase.
   const cancelOrder = useCallback(async (orderId, fallbackOrder, status = "Cancelled", cancelledBy = "buyer") => {
     const matchesOrderId = (item) => String(item.id) === String(orderId)
       || String(item.databaseId) === String(orderId)
       || String(item.id).replace(/^ORD-/, "") === String(orderId).replace(/^ORD-/, "");
-    const orderIndex = orders.findIndex(matchesOrderId);
-    const order = orderIndex >= 0 ? orders[orderIndex] : fallbackOrder;
+    const order = orders.find(matchesOrderId) ?? fallbackOrder;
     const databaseOrderId = order?.databaseId ?? order?.orderId ?? orderId;
     const previousStatus = order?.status ?? null;
-    const requestedStatus = "Cancelled";
+    const requestedStatus = status === "Cancelled" ? status : "Cancelled";
 
     console.info("cancellation requested", {
       databaseOrderId,
@@ -313,56 +268,6 @@ export function OrderProvider({ children }) {
       });
       return false;
     }
-
-    const applyLocalCancellation = () => {
-      if (INVENTORY_RESTORING_STATUSES.includes(order.status)) return false;
-      const product = products.find((item) => item.id === order.productId);
-      const sellerId = order.sellerId ?? product?.sellerId ?? "current-user";
-      const seller = sellers[sellerId] ?? sellers["current-user"];
-      const resolvedOrderId = order.id ?? orderId;
-      const cancelledOrder = {
-        ...order,
-        buyer: order.buyer ?? currentUser.username,
-        status,
-        inventoryRestored: true,
-      };
-      if (!order.inventoryRestored && restoresInventory(status)) {
-        restoreListingInventory([order]).catch((error) => console.error("Unable to restore listing inventory", error));
-      }
-      const nextOrders = orderIndex >= 0
-        ? orders.map((item, index) => index === orderIndex ? cancelledOrder : item)
-        : [...orders, cancelledOrder];
-      setOrders(nextOrders);
-      saveOrders(nextOrders);
-      const actionLabel = status === "Cancelled" ? "cancelled" : status.toLowerCase();
-      setOrderNotifications((prev) => [
-        {
-          id: `order-${resolvedOrderId}-cancelled-${Date.now()}`,
-          name: seller?.name ?? product?.shop ?? "Store",
-          avatar: seller?.avatar,
-          time: "now",
-          action: `${order.id} • Your order was ${actionLabel}`,
-          thumb: product?.image,
-          type: "order",
-          orderId: resolvedOrderId,
-        },
-        ...prev,
-      ]);
-      setSellerOrderNotifications((prev) => [
-        {
-          id: `seller-order-${resolvedOrderId}-cancelled-${Date.now()}`,
-          sellerId,
-          orderId: resolvedOrderId,
-          time: "now",
-          action: `${order.id.replace(/^ORD-/, "#")} was ${actionLabel} by the ${cancelledBy}.`,
-          type: "order",
-        },
-        ...prev,
-      ]);
-      return true;
-    };
-
-    if (!isSupabaseConfigured) return applyLocalCancellation();
 
     try {
       const response = await cancelOrderWithInventoryInApi(databaseOrderId, previousStatus);

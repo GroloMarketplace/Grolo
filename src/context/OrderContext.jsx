@@ -6,6 +6,8 @@ import {
   sellers,
 } from "../data/mockData";
 import { restoreListingInventory } from "../lib/api/listings";
+import { getBuyerOrders, getSellerOrders, legacyOrdersFromRows } from "../lib/api/orders";
+import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const OrderContext = createContext(null);
 const ORDER_STORAGE_KEY = "grolo-orders";
@@ -50,11 +52,47 @@ const DELIVERY_NEXT_STATUS = {
 export function OrderProvider({ children }) {
   const { user } = useAuth();
   const storageKey = `${ORDER_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
-  const [orders, setOrders] = useState(() => loadOrders(storageKey));
+  const [orders, setOrders] = useState([]);
 
   useEffect(() => {
-    setOrders(loadOrders(storageKey));
-  }, [storageKey]);
+    let active = true;
+
+    const loadLocalStorageFallback = (reason) => {
+      const fallbackOrders = loadOrders(storageKey);
+      if (!active) return;
+      setOrders(fallbackOrders);
+      console.info("order source: localStorage fallback", reason ?? "Supabase unavailable");
+    };
+
+    if (!user?.id || !isSupabaseConfigured) {
+      loadLocalStorageFallback();
+      return () => {
+        active = false;
+      };
+    }
+
+    Promise.all([
+      getBuyerOrders(user.id),
+      getSellerOrders(user.id),
+    ])
+      .then(([buyerRows, sellerRows]) => {
+        const rowsById = new Map();
+        [...buyerRows, ...sellerRows].forEach((row) => {
+          if (row?.id) rowsById.set(row.id, row);
+        });
+        if (!active) return;
+        setOrders(legacyOrdersFromRows([...rowsById.values()]));
+        console.info("order source: supabase");
+      })
+      .catch((error) => {
+        console.warn("Unable to load orders from Supabase", error);
+        loadLocalStorageFallback(error?.message ?? "Supabase read failed");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [storageKey, user?.id]);
 
   const [lastCreatedOrder, setLastCreatedOrder] = useState(null);
 

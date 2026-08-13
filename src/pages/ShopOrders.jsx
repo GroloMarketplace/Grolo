@@ -5,12 +5,11 @@ import { useListings } from "../context/ListingContext";
 import { useOrders } from "../context/OrderContext";
 import { getBuyerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useBuyerTrust } from "../context/BuyerTrustContext";
 import { useProfileMode } from "../context/ProfileModeContext";
-
-const STORE_ID = "current-user";
+import { useAuth } from "../context/AuthContext";
 
 const SECTIONS = [
   { title: "Pickup Orders · New", statuses: ["Seller Notified", "Order Placed"], fulfillmentMethod: "pickup" },
@@ -26,6 +25,7 @@ const SECTIONS = [
 
 export default function ShopOrders() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { sellerOrders, nextStatuses, updateOrderStatus } = useOrders();
   const { listings } = useListings();
   const { hasReviewedOrder, getBuyerTrust } = useBuyerTrust();
@@ -35,7 +35,20 @@ export default function ShopOrders() {
   const [statusToast, setStatusToast] = useState("");
   const scrollRef = useRef(null);
   const savedOrderState = readNavigationState("store-orders", { scrollTop: 0 });
-  const storeOrders = sellerOrders(STORE_ID).filter((order) => Number(order.createdAt) >= storeOpenedAt);
+  const sellerId = user?.id ?? "current-user";
+  const storeOrders = useMemo(
+    () => sellerOrders(sellerId).filter((order) => Number(order.createdAt) >= storeOpenedAt),
+    [sellerId, sellerOrders, storeOpenedAt],
+  );
+
+  useEffect(() => {
+    console.info("ShopOrders order source", {
+      sellerIdOnOrders: storeOrders.map((order) => ({ id: order.id, sellerId: order.sellerId })),
+      currentAuthenticatedSellerUuid: user?.id ?? null,
+      sellerOrdersFilterInput: sellerId,
+      visibleOrderCount: storeOrders.length,
+    });
+  }, [sellerId, storeOrders, user?.id]);
 
   const requestStatusChange = (order, status) => {
     if (status === "In Progress") {

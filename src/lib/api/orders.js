@@ -23,13 +23,13 @@ function orderItemFromRow(row) {
     ...row,
     id: row.id,
     databaseId: row.id,
-    orderId: row.order_id,
-    listingId: row.listing_id,
+    orderId: row.order_id ?? row.orderId,
+    listingId: row.listing_id ?? row.listingId,
     quantity: row.quantity,
-    unitPrice: row.unit_price,
-    lineTotal: row.line_total,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    unitPrice: row.unit_price ?? row.unitPrice,
+    lineTotal: row.line_total ?? row.lineTotal,
+    createdAt: row.created_at ?? row.createdAt,
+    updatedAt: row.updated_at ?? row.updatedAt,
   };
 }
 
@@ -77,25 +77,29 @@ function legacyDate(timestamp) {
 // entry while retaining the database order ID in databaseId/orderId.
 export function legacyOrderFromRow(row, itemRow, itemIndex = 0) {
   if (!row) return null;
-  const items = Array.isArray(row.order_items) ? row.order_items : [];
+  const items = Array.isArray(row.order_items)
+    ? row.order_items
+    : Array.isArray(row.items)
+      ? row.items
+      : [];
   const item = itemRow ?? items[itemIndex] ?? items[0] ?? {};
   const itemId = item.id ?? item.listing_id ?? item.listingId ?? "item";
-  const createdAt = legacyCreatedAt(row.created_at);
+  const createdAt = legacyCreatedAt(row.created_at ?? row.createdAt);
 
   return {
     id: itemIndex === 0 ? row.id : `${row.id}:${itemId}`,
-    databaseId: row.id,
-    orderId: row.id,
+    databaseId: row.id ?? row.databaseId,
+    orderId: row.id ?? row.databaseId,
     productId: item.listing_id ?? item.listingId,
     quantity: Number(item.quantity) || 0,
     total: Number(row.total) || 0,
-    buyerId: row.buyer_id,
-    sellerId: row.seller_id,
+    buyerId: row.buyer_id ?? row.buyerId,
+    sellerId: row.seller_id ?? row.sellerId,
     status: row.status,
-    fulfillmentMethod: row.fulfillment_method,
+    fulfillmentMethod: row.fulfillment_method ?? row.fulfillmentMethod,
     createdAt,
-    date: legacyDate(row.created_at),
-    inventoryRestored: Boolean(row.inventory_restored),
+    date: legacyDate(row.created_at ?? row.createdAt),
+    inventoryRestored: Boolean(row.inventory_restored ?? row.inventoryRestored),
     lineTotal: Number(item.line_total ?? item.lineTotal) || 0,
     unitPrice: Number(item.unit_price ?? item.unitPrice) || 0,
     orderItems: items.map(orderItemFromRow),

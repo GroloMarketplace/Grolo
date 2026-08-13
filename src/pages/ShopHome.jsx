@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -64,11 +64,29 @@ export default function ShopHome() {
   const { promotionsForSeller } = usePromotions();
   const { isRegrown } = useRegrow();
   const { getFollowerCount } = useFollow();
-  const createdBySeller = (item) => {
+  const createdBySeller = useCallback((item) => {
     const createdAt = typeof item.createdAt === "number" ? item.createdAt : Date.parse(item.createdAt);
     return !Number.isNaN(createdAt) && createdAt >= storeOpenedAt;
-  };
-  const storeOrders = sellerOrders(seller.id).filter(createdBySeller);
+  }, [storeOpenedAt]);
+  const storeOrders = useMemo(
+    () => sellerOrders(seller.id).filter(createdBySeller),
+    [createdBySeller, seller.id, sellerOrders],
+  );
+  const newOrders = useMemo(
+    () => storeOrders.filter((order) => ["Seller Notified", "Order Placed"].includes(order.status)),
+    [storeOrders],
+  );
+
+  useEffect(() => {
+    console.info("ShopHome order source", {
+      countedOrders: newOrders.map((order) => ({ id: order.id, sellerId: order.sellerId, status: order.status })),
+      sellerIdOnOrders: storeOrders.map((order) => ({ id: order.id, sellerId: order.sellerId })),
+      currentAuthenticatedSellerUuid: user?.id ?? null,
+      sellerOrdersFilterInput: seller.id,
+      visibleOrderCount: storeOrders.length,
+    });
+  }, [newOrders, seller.id, storeOrders, user?.id]);
+
   const orderCounts = [
     { label: "New", count: storeOrders.filter((o) => ["Seller Notified", "Order Placed"].includes(o.status)).length },
     { label: "Preparing", count: storeOrders.filter((o) => ["In Progress", "Preparing"].includes(o.status)).length },

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
-import { getConversations, getMessages, isCanonicalUuid, sendMessage, upsertConversationInDatabase } from "../lib/api/messages";
+import { databaseMessageToLegacyMessage, getConversations, getMessages, isCanonicalUuid, sendMessage, subscribeToMessages, upsertConversationInDatabase } from "../lib/api/messages";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const MessageContext = createContext(null);
@@ -47,6 +47,32 @@ export function MessageProvider({ children }) {
   const [messages, setMessages] = useState(() => loadMessages(storageKey));
   const pendingConversationWrites = useRef(new Map());
   const pendingMessageSends = useRef(new Set());
+  const realtimeSubscriptions = useRef(new Map());
+  const subscribeToConversationRef = useRef(null);
+
+  const cleanupRealtimeSubscriptions = () => {
+    realtimeSubscriptions.current.forEach((channel, conversationId) => {
+      channel.unsubscribe();
+      console.info("realtime subscription cleaned up", { conversationId });
+    });
+    realtimeSubscriptions.current.clear();
+  };
+
+  const subscribeToConversation = (conversationId) => {
+    if (!isCanonicalUuid(conversationId) || realtimeSubscriptions.current.has(conversationId)) return;
+    const channel = subscribeToMessages(conversationId, (payload) => {
+      const incomingMessage = databaseMessageToLegacyMessage(payload, { currentUserId: user?.id });
+      console.info("realtime message received", {
+        conversationId,
+        messageId: incomingMessage?.databaseId ?? incomingMessage?.id,
+        senderId: incomingMessage?.senderId,
+      });
+      mergeRealtimeMessage(conversationId, incomingMessage);
+    });
+    realtimeSubscriptions.current.set(conversationId, channel);
+    console.info("realtime subscription started", { conversationId });
+  };
+  subscribeToConversationRef.current = subscribeToConversation;
 
   useEffect(() => {
     let cancelled = false;
@@ -61,6 +87,7 @@ export function MessageProvider({ children }) {
       });
       return () => {
         cancelled = true;
+        cleanupRealtimeSubscriptions();
       };
     }
 
@@ -85,6 +112,10 @@ export function MessageProvider({ children }) {
           mappedConversationCount: mappedMessages.length,
         });
         setMessages(mappedMessages);
+        cleanupRealtimeSubscriptions();
+        hydratedConversations
+          .map((conversation) => conversation.databaseId ?? conversation.id)
+          .forEach((conversationId) => subscribeToConversationRef.current?.(conversationId));
       } catch (error) {
         if (cancelled) return;
         console.warn("Message source: localStorage fallback", {
@@ -99,6 +130,7 @@ export function MessageProvider({ children }) {
     loadSupabaseMessages();
     return () => {
       cancelled = true;
+      cleanupRealtimeSubscriptions();
     };
   }, [storageKey, user?.id]);
 
@@ -107,6 +139,43 @@ export function MessageProvider({ children }) {
       window.localStorage.setItem(storageKey, JSON.stringify(nextMessages));
     } catch {
     }
+  };
+
+  const mergeRealtimeMessage = (conversationId, incomingMessage) => {
+    if (!incomingMessage) return;
+    const incomingDatabaseMessageId = incomingMessage.databaseId ?? incomingMessage.id;
+    setMessages((current) => {
+      const conversationIndex = current.findIndex((conversation) => (
+        conversation.databaseId === conversationId || conversation.id === conversationId
+      ));
+      if (conversationIndex < 0) return current;
+      const conversation = current[conversationIndex];
+      const duplicate = conversation.messages?.some((message) => (
+        (incomingDatabaseMessageId && (message.databaseId === incomingDatabaseMessageId || message.id === incomingDatabaseMessageId))
+      ));
+      if (duplicate) {
+        console.info("realtime duplicate skipped", {
+          conversationId,
+          messageId: incomingDatabaseMessageId,
+          senderId: incomingMessage.senderId,
+        });
+        return current;
+      }
+      const nextConversation = normalizeConversation({
+        ...conversation,
+        messages: [...(conversation.messages ?? []), incomingMessage],
+        preview: incomingMessage.text,
+        timestamp: incomingMessage.timestamp,
+      });
+      const nextMessages = current.map((item, index) => index === conversationIndex ? nextConversation : item);
+      saveMessages(nextMessages);
+      console.info("realtime message merged", {
+        conversationId,
+        messageId: incomingDatabaseMessageId,
+        senderId: incomingMessage.senderId,
+      });
+      return nextMessages;
+    });
   };
 
   const saveConversationLocally = (conversation) => {
@@ -151,6 +220,7 @@ export function MessageProvider({ children }) {
         conversationType: mergedConversation.conversationType,
         conversationId: mergedConversation.id,
       });
+      subscribeToConversation(databaseConversation.databaseId);
       setMessages((current) => {
         const existing = current.find((item) => item.id === normalizedConversation.id)
           ?? current.find((item) => item.databaseId === databaseConversation.databaseId);
@@ -219,6 +289,18 @@ export function MessageProvider({ children }) {
           ?? current.find((conversation) => conversation.id === normalizedConversation.id)
           ?? current.find((conversation) => conversation.databaseId === normalizedConversation.databaseId)
           ?? normalizedConversation;
+        const savedDatabaseMessageId = savedMessage.databaseId ?? (isCanonicalUuid(savedMessage.id) ? savedMessage.id : null);
+        const duplicate = savedDatabaseMessageId && currentConversation.messages?.some((currentMessage) => (
+          currentMessage.databaseId === savedDatabaseMessageId || currentMessage.id === savedDatabaseMessageId
+        ));
+        if (duplicate) {
+          console.info("realtime duplicate skipped", {
+            conversationId: initialDatabaseConversationId ?? conversationId,
+            messageId: savedDatabaseMessageId,
+            senderId: savedMessage.senderId ?? user?.id,
+          });
+          return current;
+        }
         const threadMessages = [...(currentConversation.messages ?? []), savedMessage];
         const savedConversation = {
           ...normalizeConversation(currentConversation),

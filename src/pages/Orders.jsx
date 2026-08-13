@@ -7,6 +7,8 @@ import { useListings } from "../context/ListingContext";
 import { useReviews } from "../context/ReviewContext";
 import { useOrders } from "../context/OrderContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
+import { CompactReputationHeader } from "../components/ReputationSummary";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 
 const ORDER_SECTIONS = [
   { title: "Active Orders", statuses: ["Order Placed", "Preparing", "In Progress", "Seller Notified"] },
@@ -63,34 +65,7 @@ export default function Orders() {
                     // since removed — an order should never disappear from the buyer's list.
                     const product = listings.find((item) => item.id === order.productId)
                       ?? { id: order.productId, name: "Listing unavailable", shop: "", image: "" };
-                    const isCompleted = order.status === "Completed";
-                    const isCancelled = order.status === "Cancelled";
-                    const reviewed = hasReviewedProduct(order.productId);
-                    const openOrderDetails = () => {
-                      const route = `/orders/${order.id.replace(/^ORD-/, "")}`;
-                      console.info("Order card clicked", order.id);
-                      console.info("Order status", order.status);
-                      navigate(route);
-                    };
-                    return (
-                      <div key={order.id} onClick={openOrderDetails} onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) openOrderDetails(); }} role="button" tabIndex={0} className="cursor-pointer border-b border-[#E6E6E6] p-4">
-                        <div className="mb-3 flex items-center justify-between">
-                          <span className="text-[12px] text-[#828282]">{order.id}</span>
-                          <span className={`flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-medium ${isCancelled ? "bg-[#FFF1F0] text-[#B42318]" : isCompleted ? "bg-[#CFF7D3] text-[#02542D]" : "bg-[#F5F5F5] text-[#828282]"}`}>{isCancelled && <OutlineIcon name="cancel" size={12} />}{isCancelled ? "Cancelled" : order.status}</span>
-                        </div>
-                        <div className="flex w-full items-center gap-3 text-left">
-                          <img src={product.image} alt={product.name} className="h-16 w-16 shrink-0 rounded-lg object-cover" />
-                          <div className="flex-1">
-                            <div className="text-[14px] font-medium">{product.name}</div>
-                            <div className="text-[12px] text-[#828282]">{product.shop}</div>
-                            <div className="text-[12px] text-[#828282]">Qty {order.quantity} • {order.date}</div>
-                          </div>
-                          <div className="text-[14px] font-semibold">${order.total.toFixed(2)}</div>
-                        </div>
-                        {isCompleted && !reviewed && <button onClick={(event) => { event.stopPropagation(); navigate(`/leave-review/${product.id}`); }} className="mt-3 w-full rounded-lg bg-[#498467] py-2.5 text-[14px] font-medium text-white">Leave Review</button>}
-                        {isCompleted && reviewed && <button onClick={(event) => { event.stopPropagation(); navigate(`/product/${product.id}/reviews`); }} className="mt-3 w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">View Your Review</button>}
-                      </div>
-                    );
+                    return <OrderRow key={order.id} order={order} product={product} reviewed={hasReviewedProduct(order.productId)} navigate={navigate} />;
                   })}
                 </div>
               )}
@@ -99,5 +74,38 @@ export default function Orders() {
         })}
       </div>
     </MobileScreenLayout>
+  );
+}
+
+function OrderRow({ order, product, reviewed, navigate }) {
+  const isCompleted = order.status === "Completed";
+  const isCancelled = order.status === "Cancelled";
+  const reputationSnapshot = useReputationSnapshot(order.sellerId ?? product.sellerId);
+  const openOrderDetails = () => {
+    const route = `/orders/${order.id.replace(/^ORD-/, "")}`;
+    console.info("Order card clicked", order.id);
+    console.info("Order status", order.status);
+    navigate(route);
+  };
+
+  return (
+    <div onClick={openOrderDetails} onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) openOrderDetails(); }} role="button" tabIndex={0} className="cursor-pointer border-b border-[#E6E6E6] p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-[12px] text-[#828282]">{order.id}</span>
+        <span className={`flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-medium ${isCancelled ? "bg-[#FFF1F0] text-[#B42318]" : isCompleted ? "bg-[#CFF7D3] text-[#02542D]" : "bg-[#F5F5F5] text-[#828282]"}`}>{isCancelled && <OutlineIcon name="cancel" size={12} />}{isCancelled ? "Cancelled" : order.status}</span>
+      </div>
+      <div className="flex w-full items-center gap-3 text-left">
+        <img src={product.image} alt={product.name} className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+        <div className="min-w-0 flex-1">
+          <div className="text-[14px] font-medium">{product.name}</div>
+          <div className="text-[12px] text-[#828282]">{product.shop}</div>
+          <div className="text-[12px] text-[#828282]">Qty {order.quantity} • {order.date}</div>
+          <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-1 max-w-full" />
+        </div>
+        <div className="text-[14px] font-semibold">${order.total.toFixed(2)}</div>
+      </div>
+      {isCompleted && !reviewed && <button onClick={(event) => { event.stopPropagation(); navigate(`/leave-review/${product.id}`); }} className="mt-3 w-full rounded-lg bg-[#498467] py-2.5 text-[14px] font-medium text-white">Leave Review</button>}
+      {isCompleted && reviewed && <button onClick={(event) => { event.stopPropagation(); navigate(`/product/${product.id}/reviews`); }} className="mt-3 w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">View Your Review</button>}
+    </div>
   );
 }

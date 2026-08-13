@@ -5,8 +5,9 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import SearchBar from "../components/SearchBar";
 import { sellers } from "../data/mockData";
 import { useListings } from "../context/ListingContext";
-import { useMessages } from "../context/MessageContext";
 import DistanceLabel from "../components/DistanceLabel";
+import { CompactReputationHeader } from "../components/ReputationSummary";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 
 const TRADE_DIRECTIONS = ["Available For", "Looking For"];
 const TRADE_TYPES = ["Products", "Services"];
@@ -83,6 +84,7 @@ export default function Trading() {
 
 function TradeListingCard({ product, navigate, createTradeConversation }) {
   const seller = sellers[product.sellerId];
+  const reputationSnapshot = useReputationSnapshot(seller?.id ?? product.sellerId);
 
   const handleProposeTrade = () => {
     if (!seller) return;
@@ -103,6 +105,7 @@ function TradeListingCard({ product, navigate, createTradeConversation }) {
         <div className="flex flex-col gap-1 p-3">
           <h3 className="text-[18px] font-semibold">{product.name}</h3>
           <p className="text-[14px] text-[#498467]">{seller?.name ?? product.shop}</p>
+          <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-1 max-w-full" />
           <DistanceLabel content={product} />
           <div className="mt-2 rounded-lg bg-[#F5FFF6] p-3">
             <p className="text-[12px] font-medium text-[#498467]">Looking For</p>

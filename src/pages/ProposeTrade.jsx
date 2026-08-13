@@ -9,6 +9,9 @@ import { useAuth } from "../context/AuthContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { formatListingPrice } from "../utils/listingDisplay";
 import AttachListingModal from "../components/AttachListingModal";
+import { CompactBadgeStack, ReputationStatusPill, TrustMetricSummary } from "../components/ReputationSummary";
+import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_PHOTOS = 5;
@@ -103,11 +106,13 @@ export default function ProposeTrade() {
         <div className="mb-4 flex items-center gap-3 rounded-lg border border-[#E6E6E6] p-3">
           {listing.image && <img src={listing.image} alt={listing.name} className="h-12 w-12 rounded-lg object-cover" />}
           <div className="min-w-0 flex-1">
-            <p className="text-[12px] text-[#828282]">Requesting</p>
+            <p className="text-[12px] text-[#828282]">Requesting from {seller.name}</p>
             <p className="truncate text-[14px] font-semibold">{listing.name}</p>
             <p className="text-[13px] text-[#498467]">{formatListingPrice(listing)}</p>
+            <TradeParticipantReputation userId={seller.id} audience="seller" />
           </div>
         </div>
+        <TradeParticipantReputation userId={buyerId} audience="buyer" label="Your reputation" />
 
         <div className="mb-4">
           <label className="mb-2 block text-[14px] font-semibold">Trade Message</label>
@@ -209,5 +214,24 @@ export default function ProposeTrade() {
         />
       )}
     </MobileScreenLayout>
+  );
+}
+
+function TradeParticipantReputation({ userId, audience, label }) {
+  const reputationSnapshot = useReputationSnapshot(userId);
+  const status = audience === "seller" ? reputationSnapshot?.sellerStatus : reputationSnapshot?.buyerStatus;
+  const activeBadges = reputationSnapshot?.activeBadges ?? [];
+  if (!reputationSnapshot || (!status && !activeBadges.length)) return null;
+
+  return (
+    <div className="mt-2 rounded-md bg-[#F5FFF6] p-2" aria-label={`${label ?? (audience === "seller" ? "Seller" : "Buyer")} reputation`}>
+      <div className="flex min-w-0 items-center gap-1.5">
+        {label && <span className="mr-auto truncate text-[10px] font-medium text-[#498467]">{label}</span>}
+        <ReputationStatusPill status={status} audience={audience} />
+        <CompactBadgeStack badges={activeBadges} />
+        {audience === "seller" && <FoundingMemberBadge sellerId={userId} iconOnly />}
+      </div>
+      <TrustMetricSummary metrics={status?.metrics} audience={audience} compact />
+    </div>
   );
 }

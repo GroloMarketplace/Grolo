@@ -13,6 +13,8 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { getOrderStatusClass, getOrderStatusLabel } from "../utils/orderStatus";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
+import { CompactReputationHeader } from "../components/ReputationSummary";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 
 const TAB_NAMES = ["All", "Selling", "Buying", "Trading", "Orders"];
 
@@ -106,52 +108,59 @@ export default function Messages() {
             <button type="button" onClick={() => navigate("/")} className="mt-4 rounded-lg bg-[#498467] px-4 py-2.5 text-[13px] font-medium text-white">Explore Community</button>
           </div>
         ) : (
-          filteredMessages.map((m) => {
-            const latestMessage = m.messages?.[m.messages.length - 1];
-            const messageSeller = Object.values(sellers).find((seller) => seller.name === m.name);
-            const conversationProfile = getConversationProfile(m, getSellerProfile, buyerProfile);
-            const isOrderConversation = m.conversationType === "order" || Boolean(m.orderId || m.orderContext?.orderId);
-            const liveOrder = isOrderConversation ? orders.find((order) => order.id === (m.orderId ?? m.orderContext?.orderId)) : null;
-            const orderNumber = liveOrder?.id ?? m.orderContext?.orderNumber ?? m.orderId;
-            const orderStatus = liveOrder?.status ?? m.orderContext?.status;
-            return (
-              <div
-                key={m.id}
-                className="flex gap-3 px-4 py-3 border-b border-black/5 relative"
-              >
-              <button
-                onClick={() => navigate(`/messages/${m.id}`)}
-                className="flex-1 min-w-0 flex gap-3 text-left"
-              >
-                <ProfileAvatar profile={conversationProfile} size="w-8 h-8" className="shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap text-[14px]">
-                    <Link
-                      to={`/seller/${Object.values(sellers).find((s) => s.name === m.name)?.id || 'current-user'}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className={`min-w-0 truncate ${m.unread ? "font-bold" : "font-semibold"} text-[#498467] hover:underline`}
-                    >
-                      {m.name}
-                    </Link>
-                    <FoundingMemberBadge sellerId={messageSeller?.id} iconOnly />
-                    <span className="flex shrink-0 items-center gap-1 text-[#828282]"><OutlineIcon name="location" size={13} />{m.location}</span>
-                  </div>
-                  {isOrderConversation && <div className={`mt-1 flex min-w-0 items-center gap-1 text-[12px] ${getOrderStatusClass(orderStatus)}`}><span className="truncate">{orderStatus ? getOrderStatusLabel(orderStatus) : "Order"}</span><span aria-hidden="true">•</span><span className="shrink-0">Order #{String(orderNumber ?? "").replace(/^#/, "")}</span></div>}
-                  {isTradeConversation(m) && <div className="mt-1 flex items-center gap-1 text-[12px] font-medium text-[#498467]"><OutlineIcon name="trade" size={12} />Trade Proposal</div>}
-                  <p className="mt-1 line-clamp-1 text-[14px]">{latestMessage?.text ?? ""}</p>
-                </div>
-              </button>
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                <span className="text-[12px] text-[#828282]">{latestMessage?.timestamp ?? ""}</span>
-                {m.unread && (
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#498467] shrink-0" />
-                )}
-              </div>
-              </div>
-            );
-          })
+          filteredMessages.map((m) => (
+            <MessageRow
+              key={m.id}
+              message={m}
+              orders={orders}
+              navigate={navigate}
+              getSellerProfile={getSellerProfile}
+              buyerProfile={buyerProfile}
+            />
+          ))
         )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function MessageRow({ message, orders, navigate, getSellerProfile, buyerProfile }) {
+  const latestMessage = message.messages?.[message.messages.length - 1];
+  const messageSeller = Object.values(sellers).find((seller) => seller.name === message.name);
+  const conversationProfile = getConversationProfile(message, getSellerProfile, buyerProfile);
+  const participantId = messageSeller?.id ?? conversationProfile?.id;
+  const reputationSnapshot = useReputationSnapshot(participantId);
+  const isOrderConversation = message.conversationType === "order" || Boolean(message.orderId || message.orderContext?.orderId);
+  const liveOrder = isOrderConversation ? orders.find((order) => order.id === (message.orderId ?? message.orderContext?.orderId)) : null;
+  const orderNumber = liveOrder?.id ?? message.orderContext?.orderNumber ?? message.orderId;
+  const orderStatus = liveOrder?.status ?? message.orderContext?.status;
+
+  return (
+    <div className="flex gap-3 px-4 py-3 border-b border-black/5 relative">
+      <button onClick={() => navigate(`/messages/${message.id}`)} className="flex-1 min-w-0 flex gap-3 text-left">
+        <ProfileAvatar profile={conversationProfile} size="w-8 h-8" className="shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap text-[14px]">
+            <Link
+              to={`/seller/${messageSeller?.id || participantId || "current-user"}`}
+              onClick={(event) => event.stopPropagation()}
+              className={`min-w-0 truncate ${message.unread ? "font-bold" : "font-semibold"} text-[#498467] hover:underline`}
+            >
+              {message.name}
+            </Link>
+            <FoundingMemberBadge sellerId={messageSeller?.id} iconOnly />
+            <span className="flex shrink-0 items-center gap-1 text-[#828282]"><OutlineIcon name="location" size={13} />{message.location}</span>
+          </div>
+          <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-1 max-w-full" />
+          {isOrderConversation && <div className={`mt-1 flex min-w-0 items-center gap-1 text-[12px] ${getOrderStatusClass(orderStatus)}`}><span className="truncate">{orderStatus ? getOrderStatusLabel(orderStatus) : "Order"}</span><span aria-hidden="true">•</span><span className="shrink-0">Order #{String(orderNumber ?? "").replace(/^#/, "")}</span></div>}
+          {isTradeConversation(message) && <div className="mt-1 flex items-center gap-1 text-[12px] font-medium text-[#498467]"><OutlineIcon name="trade" size={12} />Trade Proposal</div>}
+          <p className="mt-1 line-clamp-1 text-[14px]">{latestMessage?.text ?? ""}</p>
+        </div>
+      </button>
+      <div className="flex flex-col items-end gap-1 shrink-0">
+        <span className="text-[12px] text-[#828282]">{latestMessage?.timestamp ?? ""}</span>
+        {message.unread && <div className="w-2.5 h-2.5 rounded-full bg-[#498467] shrink-0" />}
       </div>
     </div>
   );

@@ -21,6 +21,8 @@ import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import DistanceLabel from "../components/DistanceLabel";
 import TradeBadge from "../components/TradeBadge";
+import { CompactReputationHeader, TrustMetricSummary } from "../components/ReputationSummary";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -45,6 +47,7 @@ export default function ProductDetail() {
   const seller = sellers[product.sellerId] ?? Object.values(sellers).find((s) => s.name === product.shop);
   const { getSellerProfile } = useSellerSettings();
   const sellerProfile = getSellerProfile(seller?.id);
+  const reputationSnapshot = useReputationSnapshot(seller?.id);
   const vacationMode = sellerProfile?.vacationMode ?? false;
   const { getPaymentMethods } = usePaymentMethods();
   const sellerPaymentMethods = getPaymentMethods(seller?.id);
@@ -174,6 +177,8 @@ export default function ProductDetail() {
             )}
           </div>
           <FoundingMemberBadge sellerId={seller?.id} />
+          <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-3" />
+          {reputationSnapshot?.sellerStatus && <TrustMetricSummary metrics={reputationSnapshot.sellerStatus.metrics} audience="seller" compact />}
           {vacationMode && <div className="rounded-lg border border-[#D9D9D9] bg-[#F5FFF6] p-3 text-[14px] text-[#4F4F4F]">This store is temporarily not accepting orders.{sellerProfile.vacationMessage && <div className="mt-1 text-[13px] text-[#828282]">{sellerProfile.vacationMessage}</div>}</div>}
           <PaymentMethodsList paymentSettings={sellerPaymentMethods} />
           {!isService && <FulfillmentInfo paymentSettings={sellerPaymentMethods} />}

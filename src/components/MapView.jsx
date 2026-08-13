@@ -7,6 +7,8 @@ import {
   useEvents,
 } from "../context/EventContext";
 import { useReviews } from "../context/ReviewContext";
+import { CompactReputationHeader } from "./ReputationSummary";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 
 const FILTERS = ["All", "Stores", "Events", "Products", "Near Me"];
 const NEAR_ME_KM = 1;
@@ -31,6 +33,7 @@ export default function MapView() {
         rating: average,
         distance,
         lines: [seller.location],
+        reputationId: seller.id,
         action: "View Store",
         onOpen: () => navigate(`/seller/${seller.id}`),
       };
@@ -143,6 +146,7 @@ export default function MapView() {
                     {line}
                   </div>
                 ))}
+                <MapReputationContext userId={selected.item.reputationId} />
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[12px] text-[#828282]">
                     {selected.item.distance}
@@ -226,6 +230,7 @@ export default function MapView() {
                         {line}
                       </div>
                     ))}
+                    {location.kind === "store" && <MapReputationContext userId={item.reputationId} />}
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-[12px] text-[#828282]">
                         {item.distance}
@@ -255,6 +260,11 @@ export default function MapView() {
       </div>
     </div>
   );
+}
+
+function MapReputationContext({ userId }) {
+  const reputationSnapshot = useReputationSnapshot(userId);
+  return <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-1 max-w-full" />;
 }
 
 function MapBackdrop() {

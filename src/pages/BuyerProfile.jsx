@@ -22,6 +22,8 @@ import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import { EventAttendanceCount } from "../components/EventRsvp";
 import SellerReviewCard from "../components/SellerReviewCard";
+import ReputationSummary from "../components/ReputationSummary";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 
 const BUYER = {
   username: "remi",
@@ -37,6 +39,7 @@ export default function BuyerProfile() {
   const { followedSellers } = useFollow();
   const { buyerOrders } = useOrders();
   const { reviewsForBuyer, communityImpact } = useBuyerTrust();
+  const reputationSnapshot = useReputationSnapshot("current-user");
   const sellerReviews = (reviewsForBuyer?.("you") ?? []).sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0));
   const localImpactMetrics = getBuyerImpactMetrics({ orders: buyerOrders(), events: liveEvents, attendingEventIds, followedSellers, reviewsWritten: sellerReviews.length });
   const impactMetrics = {
@@ -128,6 +131,7 @@ export default function BuyerProfile() {
               <BuyerStat icon="star" label="Seller Reviews" value={sellerReviews.length} />
               <BuyerStat icon="calendar" label="Events Attended" value={impactMetrics.eventsAttended} />
             </div>
+            <ReputationSummary snapshot={reputationSnapshot} audience="buyer" className="mt-4" />
           </div>
 
         </div>

@@ -22,10 +22,12 @@ import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { usePosts } from "../context/PostContext";
+import { useReviews } from "../context/ReviewContext";
 import SellerProfileShareModal from "../components/SellerProfileShareModal";
 import ShareProfileButton from "../components/ShareProfileButton";
 import ConfirmationModal from "../components/ConfirmationModal";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
+import ReputationSummary from "../components/ReputationSummary";
 
 export default function ShopHome() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -62,6 +64,7 @@ export default function ShopHome() {
   const { sellerOrders } = useOrders();
   const { upcomingEvents, removeEvent } = useEvents();
   const { posts } = usePosts();
+  const { sellerRating } = useReviews();
   const { promotionsForSeller } = usePromotions();
   const { isRegrown } = useRegrow();
   const { getFollowerCount } = useFollow();
@@ -114,6 +117,7 @@ export default function ShopHome() {
   const tabs = ["Listings", "Posts", "Events", "Regrows"];
   const sellerPromotions = promotionsForSeller(seller.id).filter(createdBySeller);
   const remoteMetrics = reputationSnapshot?.sellerStatus?.metrics ?? {};
+  const localSellerRating = sellerRating(seller.id);
   const sellerStatus = getSellerStatus({
     listingsCreated: remoteMetrics.activeListingCount ?? sellerProducts.length,
     completedOrders: remoteMetrics.completedOrderCount ?? storeOrders.filter((order) => order.status === "Completed").length,
@@ -249,6 +253,7 @@ export default function ShopHome() {
                     )}
                     <InteractiveStatusBadge status={sellerStatus} className="mt-1" />
                     <FoundingMemberBadge sellerId={seller.id} />
+                    <ReputationSummary snapshot={reputationSnapshot} audience="seller" includeFoundingMember={false} className="mt-3" />
                     {isEditing ? (
                       <input
                         value={location}
@@ -332,13 +337,13 @@ export default function ShopHome() {
                         strokeWidth="1"
                       />
                     </svg>
-                    <span className="text-[14px] font-semibold">0</span>
+                    <span className="text-[14px] font-semibold">{remoteMetrics.averageRating ?? localSellerRating.average}</span>
                   </div>
                   <button
                     onClick={() => navigate("/my-shop/reviews")}
                     className="text-[14px] text-[#828282] hover:text-[#498467]"
                   >
-                    (0 reviews)
+                    ({remoteMetrics.reviewCount ?? localSellerRating.count} reviews)
                   </button>
                   <span className="text-[14px] text-[#828282]">•</span>
                   <span className="text-[14px] text-[#828282]">{getFollowerCount(seller.id)} followers</span>

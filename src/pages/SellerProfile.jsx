@@ -31,6 +31,7 @@ import ShareProfileButton from "../components/ShareProfileButton";
 import DistanceLabel from "../components/DistanceLabel";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
+import ReputationSummary from "../components/ReputationSummary";
 
 export default function SellerProfile() {
   const { sellerId } = useParams();
@@ -168,6 +169,8 @@ export default function SellerProfile() {
             <PaymentMethodsList paymentSettings={sellerPaymentMethods} />
 
             {/* Rating */}
+            <ReputationSummary snapshot={reputationSnapshot} audience="seller" includeFoundingMember={false} className="mt-3" />
+
             <div className="flex items-center gap-2 mt-3">
               <div className="flex items-center gap-1">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none">

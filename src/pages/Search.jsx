@@ -28,6 +28,8 @@ import ReviewSummary from "../components/ReviewSummary";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { discoveryRadiusLabel, resolveUserLocation, sortByDistance } from "../utils/locationRadius";
 import DistanceLabel from "../components/DistanceLabel";
+import { CompactReputationHeader } from "../components/ReputationSummary";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 
 const TABS = ["Local", "Map", "History", "My Orders"];
 
@@ -173,7 +175,7 @@ function SearchResults({ products, query, navigate, onProduct, onBack, buyerSett
   const tradeResults = nearestFirst(products.filter((product) => product.availableForTrade && matches(`${product.name} ${product.tradeAvailableFor} ${product.desiredTradeItems}`)));
   const groups = [
     { title: "Products", items: productResults, render: (product) => <ProductSearchRow key={product.id} product={product} onProduct={onProduct} /> },
-    { title: "Stores", items: storeResults, render: (seller) => <ResultRow key={seller.id} title={seller.name} subtitle={seller.location} content={seller} onClick={() => navigate(`/seller/${seller.id}`)} /> },
+    { title: "Stores", items: storeResults, render: (seller) => <SellerResultRow key={seller.id} seller={seller} onClick={() => navigate(`/seller/${seller.id}`)} /> },
     { title: "Events", items: eventResults, render: (event) => <ResultRow key={event.id} title={event.title} subtitle={event.location} content={event} onClick={() => navigate(`/event/${event.id}`)} /> },
     { title: "Posts", items: postResults, render: (post) => <ResultRow key={post.id} title={post.body} subtitle={post.name} onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })} /> },
     { title: "Trades", items: tradeResults, render: (product) => <ResultRow key={`trade-${product.id}`} title={`Looking to trade ${product.name}`} subtitle={`For ${product.desiredTradeItems || product.tradeAvailable}`} onClick={() => onProduct(product.id)} /> },
@@ -185,18 +187,35 @@ function SearchResults({ products, query, navigate, onProduct, onBack, buyerSett
 
 function ProductSearchRow({ product, onProduct }) {
   const openReviews = () => onProduct(product.id, `/product/${product.id}/reviews`);
+  const reputationSnapshot = useReputationSnapshot(product.sellerId);
   return (
     <div className="flex w-full items-center justify-between rounded-lg border border-[#E6E6E6] p-3 text-left">
       <button type="button" onClick={() => onProduct(product.id)} className="min-w-0 flex-1 text-left">
         <ServiceCategoryLabel listing={product} className="block" />
         <div className="truncate text-[14px] font-medium">{product.name}</div>
         <div className="mt-1 text-[12px] text-[#828282]">{product.shop}</div>
+        <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-1 max-w-full" />
         <DistanceLabel content={product} className="mt-1 block" />
         <div className="mt-1 text-[14px] font-semibold text-[#498467]">{formatListingPrice(product)}</div>
         <TradeBadge listing={product} compact className="mt-1" />
       </button>
       <ReviewSummary product={product} onClick={openReviews} />
     </div>
+  );
+}
+
+function SellerResultRow({ seller, onClick }) {
+  const reputationSnapshot = useReputationSnapshot(seller.id);
+  return (
+    <button type="button" onClick={onClick} className="flex w-full items-center justify-between rounded-lg border border-[#E6E6E6] p-3 text-left hover:bg-[#F5FFF6]">
+      <div className="min-w-0">
+        <div className="truncate text-[14px] font-medium">{seller.name}</div>
+        <div className="mt-1 truncate text-[12px] text-[#828282]">{seller.location}</div>
+        <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-1 max-w-full" />
+        <DistanceLabel content={seller} className="mt-1 block" />
+      </div>
+      <span className="ml-3 text-[20px] text-[#498467]">›</span>
+    </button>
   );
 }
 

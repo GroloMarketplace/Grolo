@@ -4,6 +4,9 @@ import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { products } from "../data/mockData";
 import { useReviews } from "../context/ReviewContext";
+import ReputationSummary from "../components/ReputationSummary";
+import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 
 const STORE_ID = "current-user";
 
@@ -18,6 +21,8 @@ export default function StoreReviews() {
   const sortOptions = ["Most Recent", "Oldest", "Highest Rating", "Lowest Rating"];
 
   const { average: averageRating, count: totalReviews } = sellerRating(STORE_ID);
+  const reputationSnapshot = useReputationSnapshot(STORE_ID);
+  const hasReputation = Boolean(reputationSnapshot?.sellerStatus || reputationSnapshot?.activeBadges?.length);
 
   const ratingBreakdown = [5, 4, 3, 2, 1].map((stars) => ({
     stars,
@@ -95,6 +100,15 @@ export default function StoreReviews() {
             </div>
           </div>
         </div>
+        {hasReputation && (
+          <div className="px-4 py-3 border-b border-[#E6E6E6]">
+            <div className="mb-2 flex items-center gap-2 text-[13px] font-medium text-[#498467]">
+              Seller reputation
+              <FoundingMemberBadge sellerId={STORE_ID} iconOnly />
+            </div>
+            <ReputationSummary snapshot={reputationSnapshot} audience="seller" compact className="border-0 p-0" />
+          </div>
+        )}
 
         {/* Filters */}
         <div className="flex gap-2 px-4 py-3 border-b border-[#E6E6E6] overflow-x-auto no-scrollbar">

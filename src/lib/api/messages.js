@@ -296,13 +296,15 @@ export async function getMessages(conversationId, userId) {
 
 export async function sendMessage({ conversationId, senderId, content }) {
   requireSupabase();
+  const authenticatedUserId = await getAuthenticatedUserId(senderId);
+  const resolvedConversationId = canonicalId(conversationId, "conversationId", true);
   const { data, error } = await supabase
     .from("messages")
-    .insert({ conversation_id: conversationId, sender_id: senderId, content })
-    .select()
+    .insert({ conversation_id: resolvedConversationId, sender_id: authenticatedUserId, content })
+    .select("id, conversation_id, sender_id, content, created_at")
     .single();
   if (error) throw error;
-  return data;
+  return databaseMessageToLegacyMessage(data, { currentUserId: authenticatedUserId });
 }
 
 export function subscribeToMessages(conversationId, onInsert) {

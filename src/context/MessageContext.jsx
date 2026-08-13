@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
-import { getConversations, getMessages, isCanonicalUuid, upsertConversationInDatabase } from "../lib/api/messages";
+import { getConversations, getMessages, isCanonicalUuid, sendMessage, upsertConversationInDatabase } from "../lib/api/messages";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const MessageContext = createContext(null);
@@ -45,6 +45,8 @@ export function MessageProvider({ children }) {
   const { user } = useAuth();
   const storageKey = `${MESSAGE_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
   const [messages, setMessages] = useState(() => loadMessages(storageKey));
+  const pendingConversationWrites = useRef(new Map());
+  const pendingMessageSends = useRef(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -128,14 +130,14 @@ export function MessageProvider({ children }) {
     const databasePayloadConversation = normalizedConversation.tradeProposal
       ? { ...normalizedConversation, conversationType: "trade_proposal" }
       : normalizedConversation;
-    upsertConversationInDatabase(databasePayloadConversation, {
+    const write = upsertConversationInDatabase(databasePayloadConversation, {
       buyerId: user.id,
       sellerId: normalizedConversation.sellerId ?? normalizedConversation.participantId,
       listingId: normalizedConversation.listingId,
       orderId: normalizedConversation.orderId,
       currentUserId: user.id,
     }).then((databaseConversation) => {
-      if (!databaseConversation) return;
+      if (!databaseConversation) return null;
       const mergedConversation = normalizeConversation({
         ...databaseConversation,
         ...normalizedConversation,
@@ -158,6 +160,7 @@ export function MessageProvider({ children }) {
         saveMessages(nextMessages);
         return nextMessages;
       });
+      return databaseConversation;
     }).catch((error) => {
       console.warn("Conversation persistence fallback", {
         conversationId: normalizedConversation.id,
@@ -165,7 +168,15 @@ export function MessageProvider({ children }) {
         error: error?.message ?? String(error),
       });
       saveConversationLocally(normalizedConversation);
+      return null;
     });
+    pendingConversationWrites.current.set(normalizedConversation.id, write);
+    write.finally(() => {
+      if (pendingConversationWrites.current.get(normalizedConversation.id) === write) {
+        pendingConversationWrites.current.delete(normalizedConversation.id);
+      }
+    });
+    return write;
   };
 
   const upsertConversation = (conversation) => {
@@ -183,28 +194,84 @@ export function MessageProvider({ children }) {
   };
 
   const appendMessage = (conversationId, message, pendingConversation) => {
-    setMessages((current) => {
-      const existing = current.find((conversation) => conversation.id === conversationId);
-      const baseConversation = existing ?? pendingConversation;
-      if (!baseConversation) return current;
-      const threadMessages = [...(baseConversation.messages ?? []), message];
-      console.info("Message saved", {
-        conversationId,
-        messageId: message.id,
-        firstMessageSaved: threadMessages.length === 1,
-      });
-      const savedConversation = {
-        ...normalizeConversation(baseConversation),
-        messages: threadMessages,
-        preview: message.text,
-        timestamp: message.timestamp,
-      };
-      const nextMessages = existing
-        ? current.map((conversation) => conversation.id === conversationId ? savedConversation : conversation)
-        : [savedConversation, ...current];
-      saveMessages(nextMessages);
-      return nextMessages;
+    const existing = messages.find((conversation) => conversation.id === conversationId)
+      ?? messages.find((conversation) => conversation.databaseId === conversationId);
+    const baseConversation = existing ?? pendingConversation;
+    if (!baseConversation) return;
+
+    const normalizedConversation = normalizeConversation(baseConversation);
+    const requestedContent = message.text ?? message.content ?? "";
+    const initialDatabaseConversationId = normalizedConversation.databaseId
+      ?? (isCanonicalUuid(conversationId) ? conversationId : null);
+    const sendKey = `${initialDatabaseConversationId ?? conversationId}:${requestedContent}`;
+    if (pendingMessageSends.current.has(sendKey)) return;
+    pendingMessageSends.current.add(sendKey);
+
+    console.info("Message send requested", {
+      conversationId: initialDatabaseConversationId ?? conversationId,
+      messageId: message.id,
+      senderId: user?.id ?? null,
     });
+
+    const updateState = (savedMessage) => {
+      setMessages((current) => {
+        const currentConversation = current.find((conversation) => conversation.id === conversationId)
+          ?? current.find((conversation) => conversation.id === normalizedConversation.id)
+          ?? current.find((conversation) => conversation.databaseId === normalizedConversation.databaseId)
+          ?? normalizedConversation;
+        const threadMessages = [...(currentConversation.messages ?? []), savedMessage];
+        const savedConversation = {
+          ...normalizeConversation(currentConversation),
+          messages: threadMessages,
+          preview: savedMessage.text ?? savedMessage.content ?? requestedContent,
+          timestamp: savedMessage.timestamp ?? savedMessage.createdAt ?? message.timestamp,
+        };
+        const nextMessages = current.some((conversation) => conversation.id === currentConversation.id)
+          ? current.map((conversation) => conversation.id === currentConversation.id ? savedConversation : conversation)
+          : [savedConversation, ...current];
+        saveMessages(nextMessages);
+        return nextMessages;
+      });
+    };
+
+    const send = async () => {
+      try {
+        let databaseConversationId = initialDatabaseConversationId;
+        if (!databaseConversationId) {
+          const pendingConversationWrite = pendingConversationWrites.current.get(normalizedConversation.id);
+          const databaseConversation = pendingConversationWrite ? await pendingConversationWrite : null;
+          databaseConversationId = databaseConversation?.databaseId ?? null;
+        }
+
+        if (!user?.id || !isSupabaseConfigured || !databaseConversationId) {
+          throw new Error("A canonical conversation UUID and authenticated user are required.");
+        }
+
+        const savedMessage = await sendMessage({
+          conversationId: databaseConversationId,
+          senderId: user.id,
+          content: requestedContent,
+        });
+        console.info("Message send succeeded", {
+          conversationId: databaseConversationId,
+          messageId: savedMessage?.databaseId ?? savedMessage?.id,
+          senderId: user.id,
+        });
+        updateState(savedMessage);
+      } catch (error) {
+        console.warn("Message send failed", {
+          conversationId: initialDatabaseConversationId ?? conversationId,
+          messageId: message.id,
+          senderId: user?.id ?? null,
+          error: error?.message ?? String(error),
+        });
+        updateState(message);
+      } finally {
+        pendingMessageSends.current.delete(sendKey);
+      }
+    };
+
+    return send();
   };
 
   const createOrderConversation = ({ order, product, seller, fulfillmentMethod }) => {

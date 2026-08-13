@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthContext";
-import { getConversations, getMessages, isCanonicalUuid } from "../lib/api/messages";
+import { getConversations, getMessages, isCanonicalUuid, upsertConversationInDatabase } from "../lib/api/messages";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const MessageContext = createContext(null);
@@ -107,6 +107,67 @@ export function MessageProvider({ children }) {
     }
   };
 
+  const saveConversationLocally = (conversation) => {
+    const normalizedConversation = normalizeConversation(conversation);
+    setMessages((current) => {
+      const existing = current.find((item) => item.id === normalizedConversation.id);
+      const nextMessages = existing
+        ? current.map((item) => item.id === normalizedConversation.id ? { ...item, ...normalizedConversation } : item)
+        : [normalizedConversation, ...current];
+      saveMessages(nextMessages);
+      return nextMessages;
+    });
+  };
+
+  const persistConversation = (conversation, { existing = false } = {}) => {
+    const normalizedConversation = normalizeConversation(conversation);
+    if (!user?.id || !isSupabaseConfigured) {
+      saveConversationLocally(normalizedConversation);
+      return;
+    }
+    const databasePayloadConversation = normalizedConversation.tradeProposal
+      ? { ...normalizedConversation, conversationType: "trade_proposal" }
+      : normalizedConversation;
+    upsertConversationInDatabase(databasePayloadConversation, {
+      buyerId: user.id,
+      sellerId: normalizedConversation.sellerId ?? normalizedConversation.participantId,
+      listingId: normalizedConversation.listingId,
+      orderId: normalizedConversation.orderId,
+      currentUserId: user.id,
+    }).then((databaseConversation) => {
+      if (!databaseConversation) return;
+      const mergedConversation = normalizeConversation({
+        ...databaseConversation,
+        ...normalizedConversation,
+        metadata: { ...databaseConversation.metadata, ...normalizedConversation.metadata },
+        messages: normalizedConversation.messages.length > 0
+          ? normalizedConversation.messages
+          : databaseConversation.messages,
+      });
+      console.info(existing ? "Conversation found existing" : "Conversation created", {
+        databaseConversationId: databaseConversation.databaseId,
+        conversationType: mergedConversation.conversationType,
+        conversationId: mergedConversation.id,
+      });
+      setMessages((current) => {
+        const existing = current.find((item) => item.id === normalizedConversation.id)
+          ?? current.find((item) => item.databaseId === databaseConversation.databaseId);
+        const nextMessages = existing
+          ? current.map((item) => item.id === existing.id ? { ...item, ...mergedConversation } : item)
+          : [mergedConversation, ...current];
+        saveMessages(nextMessages);
+        return nextMessages;
+      });
+    }).catch((error) => {
+      console.warn("Conversation persistence fallback", {
+        conversationId: normalizedConversation.id,
+        conversationType: normalizedConversation.conversationType,
+        error: error?.message ?? String(error),
+      });
+      saveConversationLocally(normalizedConversation);
+    });
+  };
+
   const upsertConversation = (conversation) => {
     setMessages((current) => {
       const existing = current.find((message) => message.id === conversation.id);
@@ -163,10 +224,12 @@ export function MessageProvider({ children }) {
     };
     const draft = `Hi ${seller.name}.\n\nI have a question about my order ${orderContext.orderNumber}.`;
     if (existing) {
+      const existingConversation = { ...existing, orderContext: existing.orderContext ?? orderContext };
+      persistConversation(existingConversation, { existing: true });
       return {
         id: existing.id,
         draft: existing.messages?.length ? "" : draft,
-        orderContext: existing.orderContext ?? orderContext,
+        orderContext: existingConversation.orderContext,
       };
     }
 
@@ -174,6 +237,7 @@ export function MessageProvider({ children }) {
       id: `order-${order.id}`,
       name: seller.name,
       sellerId: seller.id,
+      buyerId: user?.id ?? CURRENT_BUYER_ID,
       participantId: seller.id,
       location: seller.location,
       timestamp: "Just now",
@@ -185,10 +249,12 @@ export function MessageProvider({ children }) {
       orderContext,
       messages: [],
     };
+    persistConversation(conversation);
     return { id: conversation.id, draft, orderContext, conversation };
   };
 
   const createSellerConversation = ({ listing, seller }) => {
+    const buyerId = user?.id ?? CURRENT_BUYER_ID;
     const serviceContext = {
       listingId: listing.id,
       image: listing.images?.[0] ?? listing.image,
@@ -198,14 +264,14 @@ export function MessageProvider({ children }) {
       sellerName: seller.name,
     };
     const existing = messages.find((conversation) => (
-      conversation.buyerId === CURRENT_BUYER_ID
+      conversation.buyerId === buyerId
       && conversation.sellerId === seller.id
       && conversation.listingId === listing.id
       && conversation.conversationType === "service"
     ));
 
     console.info("Service conversation lookup", {
-      buyerId: CURRENT_BUYER_ID,
+      buyerId,
       sellerId: seller.id,
       serviceListingId: listing.id,
       matchedConversationId: existing?.id ?? null,
@@ -214,7 +280,8 @@ export function MessageProvider({ children }) {
     });
 
     if (existing) {
-      const updatedConversation = { ...existing, buyerId: CURRENT_BUYER_ID, listingId: listing.id, conversationType: "service", serviceContext };
+      const updatedConversation = { ...existing, buyerId, listingId: listing.id, conversationType: "service", serviceContext };
+      persistConversation(updatedConversation, { existing: true });
       setMessages((current) => {
         const nextMessages = current.map((conversation) => conversation.id === existing.id ? updatedConversation : conversation);
         saveMessages(nextMessages);
@@ -224,10 +291,10 @@ export function MessageProvider({ children }) {
     }
 
     const conversation = {
-      id: `service-${CURRENT_BUYER_ID}-${seller.id}-${listing.id}`,
+      id: `service-${buyerId}-${seller.id}-${listing.id}`,
       name: seller.name,
       sellerId: seller.id,
-      buyerId: CURRENT_BUYER_ID,
+      buyerId,
       participantId: seller.id,
       location: seller.location,
       timestamp: "Just now",
@@ -239,6 +306,7 @@ export function MessageProvider({ children }) {
       serviceContext,
       messages: [],
     };
+    persistConversation(conversation);
     setMessages((current) => {
       if (current.some((item) => item.id === conversation.id)) return current;
       const nextMessages = [conversation, ...current];
@@ -250,6 +318,7 @@ export function MessageProvider({ children }) {
 
   const createTradeConversation = ({ listing, seller }) => {
     const id = `trade-${listing.id}-${Date.now()}`;
+    const buyerId = user?.id ?? CURRENT_BUYER_ID;
     const tradePreferences = listing.desiredTradeItems?.trim() ?? "";
     const draft = tradePreferences
       ? `Hi ${seller.name}! I'd like to make a trade for your listing: ${listing.name}.\n\nI noticed you're looking for:\n${tradePreferences}\n\nLet me know if you're interested.`
@@ -258,6 +327,7 @@ export function MessageProvider({ children }) {
       id,
       name: seller.name,
       sellerId: seller.id,
+      buyerId,
       participantId: seller.id,
       location: seller.location,
       timestamp: "Just now",
@@ -278,11 +348,13 @@ export function MessageProvider({ children }) {
       },
       tradeThread: true,
     };
+    persistConversation(conversation);
     return { id, draft, conversation };
   };
 
   const createTradeProposal = ({ listing, seller, buyerName, message, offeredListing, photos }) => {
     const id = `trade-${listing.id}-${Date.now()}`;
+    const buyerId = user?.id ?? CURRENT_BUYER_ID;
     const tradeProposal = {
       buyerName: buyerName || "A buyer",
       requestedListing: {
@@ -311,6 +383,7 @@ export function MessageProvider({ children }) {
       id,
       name: seller.name,
       sellerId: seller.id,
+      buyerId,
       participantId: seller.id,
       location: seller.location,
       timestamp: "Just now",
@@ -333,6 +406,7 @@ export function MessageProvider({ children }) {
       tradeProposal,
       messages: [firstMessage],
     };
+    persistConversation(conversation);
     setMessages((current) => {
       const nextMessages = [conversation, ...current];
       saveMessages(nextMessages);

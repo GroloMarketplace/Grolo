@@ -174,6 +174,21 @@ export function legacyConversationToDatabasePayload(conversation, { buyerId, sel
   };
 }
 
+export async function upsertConversationInDatabase(conversation, { buyerId, sellerId, listingId, orderId, currentUserId } = {}) {
+  requireSupabase();
+  const payload = legacyConversationToDatabasePayload(conversation, { buyerId, sellerId, listingId, orderId });
+  const { data, error } = await supabase.rpc("upsert_conversation", {
+    p_seller_id: payload.seller_id,
+    p_conversation_type: payload.conversation_type,
+    p_listing_id: payload.listing_id ?? null,
+    p_order_id: payload.order_id ?? null,
+    p_metadata: payload.metadata,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return databaseConversationToLegacyConversation(row, { currentUserId: currentUserId ?? buyerId });
+}
+
 export function legacyMessageToDatabasePayload(message, { conversationId, senderId } = {}) {
   const source = message && typeof message === "object" ? message : {};
   const resolvedConversationId = canonicalId(conversationId ?? source.conversationId, "conversationId", true);

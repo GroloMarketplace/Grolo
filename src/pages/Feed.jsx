@@ -271,6 +271,7 @@ export default function Feed() {
               <CommunityFeed
                 key={`community-${feedVersion}`}
                 filter={communityFilter}
+                followedSellers={followedSellers}
                 onFilterChange={handleCommunityFilterChange}
                 onOpenDetail={openFeedDetail}
                 onComment={openComments}
@@ -349,7 +350,7 @@ function feedItemContent(item) {
   return item.post ?? item.event ?? item.product ?? item.promotion ?? {};
 }
 
-function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu, onShare, location, radius, hiddenContentIds }) {
+function CommunityFeed({ filter, followedSellers, onFilterChange, onOpenDetail, onComment, onMenu, onShare, location, radius, hiddenContentIds }) {
   const { upcomingEvents } = useEvents();
   const { listings } = useListings();
   const { posts } = usePosts();
@@ -360,7 +361,7 @@ function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu
   const nearbyListings = listings.filter((listing) => isWithinDiscoveryRadius(listing, location, radius));
   const nearbyPosts = posts.filter((post) => isWithinDiscoveryRadius(post, location, radius));
   const currentPromotions = activePromotions().filter((promotion) => isWithinDiscoveryRadius(promotionLocationContent(promotion, listings), location, radius));
-  const items = getCommunityItems(filter, { events, listings: nearbyListings, posts: nearbyPosts, currentPromotions, isRegrown, hiddenContentIds, location });
+  const items = getCommunityItems(filter, { events, listings: nearbyListings, posts: nearbyPosts, currentPromotions, followedSellers, isRegrown, hiddenContentIds, location });
 
   const changeFilter = (nextFilter) => onFilterChange(nextFilter);
   const handlePointerEnd = (event) => {
@@ -412,7 +413,7 @@ function CommunityFeed({ filter, onFilterChange, onOpenDetail, onComment, onMenu
   );
 }
 
-function getCommunityItems(filter, { events, listings, posts, currentPromotions, isRegrown, hiddenContentIds, location }) {
+function getCommunityItems(filter, { events, listings, posts, currentPromotions, followedSellers = [], isRegrown, hiddenContentIds, location }) {
   const listingItems = listings.map((product) => ({ type: "listing", id: `listing:${product.id}`, product }));
   const postItems = posts.map((post) => ({ type: "post", id: `post:${post.id}`, post }));
   const eventItems = events.map((event) => ({ type: "event", id: `event:${event.id}`, event }));
@@ -430,8 +431,20 @@ function getCommunityItems(filter, { events, listings, posts, currentPromotions,
       ? visibleItems.filter((item) => isRegrown(item.id))
       : visibleItems.filter((item) => item.type === filter.slice(0, -1).toLowerCase());
 
-  // Closer content first; ties (or unknown distance) fall back to newest first.
-  return sortByDistance(filtered, location, feedItemContent, (a, b) => contentTimestamp(b) - contentTimestamp(a));
+  const followed = new Set(followedSellers.map(String));
+  const rankFor = (item) => {
+    const content = feedItemContent(item);
+    if (followed.has(String(content.sellerId))) return 3;
+    if (item.type === "promotion" || content.promotion || item.product?.promotion) return 2;
+    if (item.type === "listing" || item.type === "event" || item.type === "post") return 1;
+    return 0;
+  };
+  return [3, 2, 1, 0].flatMap((rank) => sortByDistance(
+    filtered.filter((item) => rankFor(item) === rank),
+    location,
+    feedItemContent,
+    (a, b) => contentTimestamp(b) - contentTimestamp(a),
+  ));
 }
 
 function contentTimestamp(item) {

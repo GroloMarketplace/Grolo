@@ -7,6 +7,7 @@ import PromotionBadge from "../components/PromotionBadge";
 import { useSidebar } from "../hooks/useSidebar";
 import { products } from "../data/mockData";
 import { useSavedItems } from "../context/SavedContext";
+import { useListings } from "../context/ListingContext";
 import ReviewSummary from "../components/ReviewSummary";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { formatListingPrice } from "../utils/listingDisplay";
@@ -15,6 +16,7 @@ import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 export default function Saved() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
   const { savedItems } = useSavedItems();
+  const { listings } = useListings();
   const navigate = useNavigate();
   const scrollRef = useRef(null);
   const savedPageState = readNavigationState("saved", { scrollTop: 0 });
@@ -36,7 +38,7 @@ export default function Saved() {
   const savedListingIds = new Set(savedItems
     .filter((item) => item.type === "listing")
     .map((item) => item.sourceId ?? item.id.replace(/^listing:/, "")));
-  const savedListings = products.filter((product) => savedListingIds.has(product.id));
+  const savedListings = listings.filter((product) => savedListingIds.has(product.id) || savedListingIds.has(product.databaseId) || savedListingIds.has(product.legacyId));
   const hasSavedItems = savedPosts.length || savedEvents.length || savedListings.length || savedPromotions.length;
 
   return (

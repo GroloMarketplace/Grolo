@@ -52,11 +52,19 @@ create policy "Users can insert their own profile"
 
 -- Store follows. The composite key prevents duplicate follows.
 create table if not exists user_follows (
+  id uuid primary key default gen_random_uuid(),
   follower_id uuid not null references auth.users(id) on delete cascade,
+  vendor_id text not null,
   seller_id text not null,
   created_at timestamptz not null default now(),
-  primary key (follower_id, seller_id)
+  unique (follower_id, vendor_id)
 );
+
+alter table user_follows add column if not exists id uuid default gen_random_uuid();
+alter table user_follows add column if not exists vendor_id text;
+alter table user_follows add column if not exists seller_id text;
+update user_follows set vendor_id = coalesce(vendor_id, seller_id) where vendor_id is null;
+update user_follows set seller_id = coalesce(seller_id, vendor_id) where seller_id is null;
 
 alter table user_follows enable row level security;
 
@@ -235,11 +243,14 @@ create policy "Sellers can manage their own listings"
 
 -- Favorites
 create table if not exists favorites (
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references profiles(id) on delete cascade,
   listing_id uuid not null references listings(id) on delete cascade,
   created_at timestamptz not null default now(),
-  primary key (user_id, listing_id)
+  unique (user_id, listing_id)
 );
+
+alter table favorites add column if not exists id uuid default gen_random_uuid();
 
 alter table favorites enable row level security;
 

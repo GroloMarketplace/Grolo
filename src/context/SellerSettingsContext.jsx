@@ -76,7 +76,7 @@ function sellerUpdates(updates) {
 }
 
 export function SellerSettingsProvider({ children }) {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [profiles, setProfiles] = useState({});
 
   useEffect(() => {
@@ -161,6 +161,7 @@ export function SellerSettingsProvider({ children }) {
       .single();
     if (error) throw error;
     setProfiles((current) => ({ ...current, [user.id]: sellerProfileFromRow(data) }));
+    await refreshProfile(user.id);
     return true;
   };
 

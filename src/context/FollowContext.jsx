@@ -29,7 +29,7 @@ function persistFollowing(userKey, followedSellers) {
 function getFollowerCounts(rows) {
   return rows.reduce((counts, row) => ({
     ...counts,
-    [row.vendor_id ?? row.seller_id]: (counts[row.vendor_id ?? row.seller_id] ?? 0) + 1,
+    [row.seller_id]: (counts[row.seller_id] ?? 0) + 1,
   }), {});
 }
 
@@ -50,13 +50,13 @@ export function FollowProvider({ children }) {
       if (!isSupabaseConfigured) return;
       const { data, error } = await supabase
         .from("user_follows")
-        .select("follower_id, vendor_id, seller_id");
+        .select("follower_id, seller_id");
       if (error || cancelled) return;
 
       const rows = data ?? [];
       setFollowerCounts(getFollowerCounts(rows));
       if (user?.id) {
-        const followed = rows.filter((row) => row.follower_id === user.id).map((row) => row.vendor_id ?? row.seller_id);
+        const followed = rows.filter((row) => row.follower_id === user.id).map((row) => row.seller_id);
         const uniqueFollowed = [...new Set(followed)];
         setFollowedSellers(uniqueFollowed);
         persistFollowing(userKey, uniqueFollowed);
@@ -69,18 +69,26 @@ export function FollowProvider({ children }) {
     };
   }, [user?.id, userKey]);
 
-  const followSeller = (sellerId) => {
-    if (followedSellers.includes(sellerId)) return;
-    const next = [...followedSellers, sellerId];
+  const followSeller = async (sellerId) => {
+    if (followedSellers.includes(sellerId)) return true;
+    const previous = followedSellers;
+    const next = [...previous, sellerId];
     setFollowedSellers(next);
     setFollowerCounts((current) => ({ ...current, [sellerId]: (current[sellerId] ?? 0) + 1 }));
     persistFollowing(userKey, next);
 
-    if (isSupabaseConfigured && user?.id) {
-      supabase.from("user_follows").insert({ follower_id: user.id, vendor_id: sellerId, seller_id: sellerId }).then(({ error }) => {
-        if (error && error.code !== "23505") console.error("Unable to persist follow", error);
-      });
+    if (!isSupabaseConfigured || !user?.id) return true;
+    const { error } = await supabase
+      .from("user_follows")
+      .insert({ follower_id: user.id, seller_id: sellerId });
+    if (error && error.code !== "23505") {
+      setFollowedSellers(previous);
+      setFollowerCounts((current) => ({ ...current, [sellerId]: Math.max((current[sellerId] ?? 1) - 1, 0) }));
+      persistFollowing(userKey, previous);
+      console.error("Unable to persist follow", error);
+      return false;
     }
+    return true;
   };
 
   const unfollowSeller = (sellerId) => {
@@ -91,8 +99,13 @@ export function FollowProvider({ children }) {
     persistFollowing(userKey, next);
 
     if (isSupabaseConfigured && user?.id) {
-      supabase.from("user_follows").delete().eq("follower_id", user.id).eq("vendor_id", sellerId).then(({ error }) => {
-        if (error) console.error("Unable to persist unfollow", error);
+      supabase.from("user_follows").delete().eq("follower_id", user.id).eq("seller_id", sellerId).then(({ error }) => {
+        if (error) {
+          setFollowedSellers((current) => [...new Set([...current, sellerId])]);
+          setFollowerCounts((current) => ({ ...current, [sellerId]: (current[sellerId] ?? 0) + 1 }));
+          persistFollowing(userKey, [...new Set([...next, sellerId])]);
+          console.error("Unable to persist unfollow", error);
+        }
       });
     }
   };

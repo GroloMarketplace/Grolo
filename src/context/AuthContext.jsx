@@ -190,6 +190,32 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  async function refreshProfile(profileUserId = session?.user?.id) {
+    if (!isSupabaseConfigured || !profileUserId) return null;
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", profileUserId)
+      .maybeSingle();
+    if (error) {
+      console.error("Unable to refresh authenticated profile", error);
+      setProfileError(error);
+      setProfileStatus("error");
+      setOnboardingComplete(null);
+      throw error;
+    }
+    const nextOnboardingComplete = Boolean(data?.onboarding_completed || data?.id);
+    setProfile(data ?? null);
+    setOnboardingComplete(nextOnboardingComplete);
+    setProfileStatus("loaded");
+    setProfileError(null);
+    console.info("AuthContext profile refreshed", {
+      profileId: data?.id ?? null,
+      onboardingComplete: nextOnboardingComplete,
+    });
+    return data;
+  }
+
   async function signInWithEmail(email) {
     if (!isSupabaseConfigured) throw new Error("Supabase is not configured.");
     const requestId = ++otpRequestSequence;
@@ -249,6 +275,7 @@ export function AuthProvider({ children }) {
     profileLoading: profileStatus === "loading",
     profileLoaded: profileStatus === "loaded",
     profileError,
+    refreshProfile,
     onboardingComplete,
     isAuthenticated: Boolean(session),
     signInWithEmail,

@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import PhoneFrame from "./components/PhoneFrame";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
+import { NotificationProvider } from "./context/NotificationContext";
 import { FollowProvider } from "./context/FollowContext";
 import { ReviewProvider } from "./context/ReviewContext";
 import { OrderProvider } from "./context/OrderContext";
@@ -25,7 +26,8 @@ import { ListingProvider } from "./context/ListingContext";
 import { PostProvider } from "./context/PostContext";
 import AppErrorBoundary from "./components/AppErrorBoundary";
 import { EngagementProvider } from "./context/EngagementContext";
-import Feed, { Notifications } from "./pages/Feed";
+import Feed from "./pages/Feed";
+import NotificationCenter from "./pages/NotificationCenter";
 import Search from "./pages/Search";
 import Category from "./pages/Category";
 import Featured from "./pages/Featured";
@@ -78,6 +80,7 @@ export default function App() {
   return (
     <AppErrorBoundary>
       <AuthProvider>
+      <NotificationProvider>
       <ProfileModeProvider>
       <FollowProvider>
         <OrderProvider>
@@ -106,7 +109,7 @@ export default function App() {
         <Route path="/onboarding" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute><Onboarding /></ProtectedRoute></PhoneFrame>} />
         <Route path="/" element={<PhoneFrame><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
         <Route path="/home" element={<PhoneFrame><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
-        <Route path="/notifications" element={<PhoneFrame><AppErrorBoundary label="Notifications"><Notifications /></AppErrorBoundary></PhoneFrame>} />
+        <Route path="/notifications" element={<PhoneFrame><ProtectedRoute><AppErrorBoundary label="Notifications"><NotificationCenter /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
         <Route path="/shop" element={<PhoneFrame><AppErrorBoundary label="Seller Profile"><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></AppErrorBoundary></PhoneFrame>} />
         <Route path="/seller-profile" element={<PhoneFrame><AppErrorBoundary label="Seller Profile"><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></AppErrorBoundary></PhoneFrame>} />
         <Route path="/profile" element={<PhoneFrame><AppErrorBoundary label="Buyer Profile"><BuyerProfile /></AppErrorBoundary></PhoneFrame>} />
@@ -361,6 +364,7 @@ export default function App() {
         </OrderProvider>
       </FollowProvider>
       </ProfileModeProvider>
+      </NotificationProvider>
       </AuthProvider>
     </AppErrorBoundary>
   );

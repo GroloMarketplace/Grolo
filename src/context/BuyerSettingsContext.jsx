@@ -86,7 +86,7 @@ function profileUpdates(updates) {
 }
 
 export function BuyerSettingsProvider({ children }) {
-  const { user, profile: authenticatedProfile } = useAuth();
+  const { user, profile: authenticatedProfile, refreshProfile } = useAuth();
   const [settings, setSettings] = useState(() => settingsFromProfile(authenticatedProfile, user));
   const [profileLoading, setProfileLoading] = useState(Boolean(user?.id && isSupabaseConfigured));
   const [profileLoaded, setProfileLoaded] = useState(false);
@@ -164,6 +164,7 @@ export function BuyerSettingsProvider({ children }) {
       throw new Error("Supabase is not configured or the user is not signed in.");
     }
 
+    console.info("AuthContext profile before onboarding save", authenticatedProfile);
     const current = settings;
     const next = {
       ...current,
@@ -184,6 +185,8 @@ export function BuyerSettingsProvider({ children }) {
     setProfileLoaded(true);
     setProfileLoading(false);
     setProfileError(null);
+    const refreshedProfile = await refreshProfile(user.id);
+    console.info("AuthContext profile after onboarding save", refreshedProfile);
     return true;
   };
 

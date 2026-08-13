@@ -16,7 +16,16 @@ export default function ProtectedRoute({ children, sellerOnly = false, profileRe
   if (profileRequired && profileStatus === "error") {
     return <div role="alert" className="flex min-h-full items-center justify-center px-6 text-center text-[14px] text-red-600">{profileError?.message || "Unable to load your profile."}</div>;
   }
-  if (profileRequired && !profile) return <Navigate to="/onboarding" replace />;
+  if (profileRequired && !profile) {
+    console.info("ProtectedRoute redirect decision", {
+      pathname: location.pathname,
+      destination: "/onboarding",
+      profileRequired,
+      profileStatus,
+      hasProfile: false,
+    });
+    return <Navigate to="/onboarding" replace />;
+  }
   if (sellerOnly && !canSeller) return <Navigate to="/profile" replace />;
   return children;
 }

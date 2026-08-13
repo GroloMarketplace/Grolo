@@ -2,12 +2,14 @@ import { useNavigate } from "react-router-dom";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import { useNotifications } from "../context/NotificationContext";
 
 export default function Header({ title, titleContent, onBack, onMenu, right, postButton, shareButton, hideProfile = false }) {
   const navigate = useNavigate();
   const { settings: buyerSettings } = useBuyerSettings();
   const { profileMode } = useProfileMode();
   const { getSellerProfile } = useSellerSettings();
+  const { unreadCount } = useNotifications();
   const avatar = profileMode === "seller" ? getSellerProfile("current-user").avatar : buyerSettings.avatar;
 
   return (
@@ -53,13 +55,15 @@ export default function Header({ title, titleContent, onBack, onMenu, right, pos
         {postButton}
         {shareButton}
         {right ?? (!hideProfile && (
-          <button type="button" onClick={() => navigate("/account-settings")} aria-label="Open Account Settings" className="rounded-full">
-            <img
-              src={avatar}
-              alt="Profile"
-              className="w-6 h-6 rounded-full object-cover"
-            />
-          </button>
+          <>
+            <button type="button" onClick={() => navigate("/notifications")} aria-label={`Open Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`} className="relative p-1 text-[18px]">
+              <span aria-hidden="true">🔔</span>
+              {unreadCount > 0 && <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-[#D95D39] px-1 text-center text-[10px] font-semibold leading-4 text-white">{unreadCount > 99 ? "99+" : unreadCount}</span>}
+            </button>
+            <button type="button" onClick={() => navigate("/account-settings")} aria-label="Open Account Settings" className="rounded-full">
+              <img src={avatar} alt="Profile" className="w-6 h-6 rounded-full object-cover" />
+            </button>
+          </>
         ))}
       </div>
     </div>

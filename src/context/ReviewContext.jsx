@@ -15,6 +15,7 @@ import {
   visibleReviews,
 } from "../lib/api/reviews";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
+import { refreshUserReputation } from "../lib/api/reputation";
 
 const ReviewContext = createContext(null);
 
@@ -267,6 +268,10 @@ export function ReviewProvider({ children }) {
         reviewerId: createdReview?.reviewerId ?? user.id,
       });
       setSubmittedReviews((prev) => [createdReview, ...prev]);
+      const reviewId = createdReview?.databaseId ?? createdReview?.id ?? localReview.id;
+      const revieweeId = createdReview?.revieweeId ?? createdReview?.sellerId ?? sellerId;
+      void refreshUserReputation(identity.id, { eventKey: `published-review:${reviewId}:reviewer` });
+      void refreshUserReputation(revieweeId, { eventKey: `published-review:${reviewId}:reviewee` });
       return createdReview;
     }).catch((error) => {
       console.warn("review create failed", {

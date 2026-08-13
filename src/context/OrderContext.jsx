@@ -7,6 +7,7 @@ import {
 } from "../data/mockData";
 import { cancelOrderWithInventory as cancelOrderWithInventoryInApi, createOrderWithItems, getBuyerOrders, getSellerOrders, legacyOrdersFromRows, updateOrderStatus as updateOrderStatusInApi } from "../lib/api/orders";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
+import { refreshUserReputation } from "../lib/api/reputation";
 
 const OrderContext = createContext(null);
 
@@ -226,6 +227,13 @@ export function OrderProvider({ children }) {
           ...prev,
         ]);
       }
+      if (status === "Completed") {
+        const completedSellerId = updatedOrder.sellerId ?? products.find((item) => item.id === updatedOrder.productId)?.sellerId;
+        const completedBuyerId = updatedOrder.buyerId ?? user?.id;
+        const eventKey = `completed-order:${databaseOrderId}`;
+        void refreshUserReputation(completedBuyerId, { eventKey: `${eventKey}:buyer` });
+        void refreshUserReputation(completedSellerId, { eventKey: `${eventKey}:seller` });
+      }
       console.info("status update succeeded", {
         databaseOrderId,
         previousStatus,
@@ -241,7 +249,7 @@ export function OrderProvider({ children }) {
       });
       return false;
     }
-  }, [orders]);
+  }, [orders, user?.id]);
 
   // Buyer cancellation is transaction-backed through Supabase.
   const cancelOrder = useCallback(async (orderId, fallbackOrder, status = "Cancelled", cancelledBy = "buyer") => {

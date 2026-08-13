@@ -3,7 +3,7 @@ import { useOrders } from "./OrderContext";
 import { useEvents } from "./EventContext";
 import { useAuth } from "./AuthContext";
 import { createReviewInDatabase, getBuyerReviews, getBuyerTrustAggregate, visibleReviews } from "../lib/api/reviews";
-import { getReputationSnapshot } from "../lib/api/reputation";
+import { getReputationSnapshot, refreshUserReputation } from "../lib/api/reputation";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const BuyerTrustContext = createContext(null);
@@ -128,6 +128,9 @@ export function BuyerTrustProvider({ children }) {
         reviewerId: createdReview?.reviewerId ?? user.id,
       });
       setReviews((current) => [...current, createdReview]);
+      const reviewId = createdReview?.databaseId ?? createdReview?.id ?? localReview.id;
+      void refreshUserReputation(reviewerId, { eventKey: `published-buyer-review:${reviewId}:reviewer` });
+      void refreshUserReputation(createdReview?.revieweeId ?? revieweeId, { eventKey: `published-buyer-review:${reviewId}:reviewee` });
       return createdReview;
     }).catch((error) => {
       console.warn("buyer review failed", {

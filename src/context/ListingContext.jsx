@@ -9,6 +9,7 @@ import {
   updateListing as updateListingRecord,
 } from "../lib/api/listings";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
+import { refreshUserReputation } from "../lib/api/reputation";
 
 const ListingContext = createContext(null);
 const STORAGE_KEY = "grolo-listings";
@@ -78,6 +79,7 @@ export function ListingProvider({ children }) {
     if (!user?.id) throw new Error("You must be signed in to create a listing.");
     const createdListing = await createListingRecord(listing, user.id);
     setListings((current) => [createdListing, ...current]);
+    void refreshUserReputation(user.id, { eventKey: `listing-created:${createdListing?.databaseId ?? createdListing?.id}` });
     return createdListing;
   };
 

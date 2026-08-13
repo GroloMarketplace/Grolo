@@ -3,6 +3,7 @@ import { isSupabaseConfigured, supabase } from "../supabaseClient";
 const REVIEW_SELECT = "reviewee_id, reviewer_id, review_type, rating, criteria, status, deleted_at, created_at";
 const COMPLETED_ORDER_STATUS = "Completed";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const reputationRefreshes = new Map();
 
 function requireSupabase() {
   if (!isSupabaseConfigured) {
@@ -361,6 +362,53 @@ export async function getReputationSnapshot(userId) {
     community_impact: communityImpact,
     diagnostics,
   };
+}
+
+export async function refreshUserReputation(userId, { eventKey = "manual" } = {}) {
+  const refreshKey = `${userId ?? "anonymous"}:${eventKey}`;
+  const existingRefresh = reputationRefreshes.get(refreshKey);
+  if (existingRefresh) return existingRefresh;
+
+  const refresh = (async () => {
+    const requestedAt = new Date().toISOString();
+    console.info("reputation refresh requested", { userId: userId ?? null, eventKey, requestedAt });
+    try {
+      if (!isSupabaseConfigured) {
+        const diagnostics = { requested: true, refreshed: false, failed: true, reason: "supabase_unconfigured" };
+        console.info("reputation refresh failed", { userId: userId ?? null, eventKey, diagnostics });
+        return { userId: userId ?? null, snapshot: null, diagnostics };
+      }
+
+      const badges = await evaluateUserBadges(userId);
+      const status = await evaluateUserStatus(userId);
+      const snapshot = await getReputationSnapshot(userId);
+      const diagnostics = {
+        requested: true,
+        refreshed: true,
+        failed: false,
+        eventKey,
+        badgeDiagnostics: badges?.diagnostics ?? null,
+        statusDiagnostics: status?.diagnostics ?? null,
+        snapshotDiagnostics: snapshot?.diagnostics ?? null,
+      };
+      console.info("reputation refreshed", { userId: userId ?? null, eventKey, diagnostics });
+      return { userId: userId ?? null, snapshot, badges, status, diagnostics };
+    } catch (error) {
+      const diagnostics = {
+        requested: true,
+        refreshed: false,
+        failed: true,
+        eventKey,
+        error: error?.message ?? String(error),
+      };
+      console.info("reputation refresh failed", { userId: userId ?? null, eventKey, diagnostics });
+      return { userId: userId ?? null, snapshot: null, diagnostics };
+    }
+  })();
+
+  reputationRefreshes.set(refreshKey, refresh);
+  refresh.finally(() => reputationRefreshes.delete(refreshKey));
+  return refresh;
 }
 
 const AUTOMATED_BADGE_RULES = Object.freeze({

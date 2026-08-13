@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { sellers } from "../data/mockData";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
+import { refreshUserReputation } from "../lib/api/reputation";
 
 const EventContext = createContext(null);
 
@@ -138,7 +139,11 @@ export function EventProvider({ children }) {
           ? supabase.from("event_attendees").delete().eq("event_id", eventId).eq("user_id", user.id)
           : supabase.from("event_attendees").insert({ event_id: eventId, user_id: user.id });
         request.then(({ error }) => {
-          if (error) console.error("Unable to persist event attendance", error);
+          if (error) {
+            console.error("Unable to persist event attendance", error);
+          } else if (!removing) {
+            void refreshUserReputation(user?.id ?? currentUserId, { eventKey: `event-attendance:${eventId}:${user?.id ?? currentUserId}` });
+          }
         });
       }
 

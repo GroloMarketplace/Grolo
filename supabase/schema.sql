@@ -1443,3 +1443,99 @@ create unique index if not exists orders_legacy_import_idx
   where metadata ? 'legacy_order_id';
 
 drop function if exists import_legacy_orders(jsonb);
+
+-- Phase 7B reputation domain. These tables provide the durable foundation for
+-- reputation events, badge definitions, awarded badges, and status snapshots.
+create table if not exists reputation_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  actor_id uuid references auth.users(id) on delete set null,
+  event_type text not null,
+  entity_type text,
+  entity_id text,
+  value numeric not null default 0,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  constraint reputation_events_metadata_object_check
+    check (jsonb_typeof(metadata) = 'object')
+);
+
+create table if not exists badge_definitions (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  name text not null,
+  description text,
+  icon text,
+  badge_type text not null,
+  criteria jsonb not null default '{}'::jsonb,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  constraint badge_definitions_criteria_object_check
+    check (jsonb_typeof(criteria) = 'object')
+);
+
+create table if not exists user_badges (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  badge_id uuid not null references badge_definitions(id) on delete cascade,
+  status text not null default 'active',
+  awarded_at timestamptz not null default now(),
+  expires_at timestamptz,
+  revoked_at timestamptz,
+  metadata jsonb not null default '{}'::jsonb,
+  constraint user_badges_user_badge_unique unique (user_id, badge_id),
+  constraint user_badges_metadata_object_check
+    check (jsonb_typeof(metadata) = 'object')
+);
+
+create table if not exists user_reputation_status (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  audience text not null,
+  status_code text not null,
+  progress jsonb not null default '{}'::jsonb,
+  metrics jsonb not null default '{}'::jsonb,
+  calculated_at timestamptz not null default now(),
+  definition_version text not null default '1',
+  primary key (user_id, audience),
+  constraint user_reputation_status_progress_object_check
+    check (jsonb_typeof(progress) = 'object'),
+  constraint user_reputation_status_metrics_object_check
+    check (jsonb_typeof(metrics) = 'object')
+);
+
+create index if not exists reputation_events_user_idx
+  on reputation_events (user_id, created_at desc);
+create index if not exists reputation_events_actor_idx
+  on reputation_events (actor_id, created_at desc);
+create index if not exists reputation_events_type_idx
+  on reputation_events (event_type);
+create index if not exists reputation_events_entity_idx
+  on reputation_events (entity_type, entity_id);
+create index if not exists badge_definitions_active_idx
+  on badge_definitions (active);
+create index if not exists user_badges_user_idx
+  on user_badges (user_id, status);
+create index if not exists user_badges_badge_idx
+  on user_badges (badge_id, status);
+create index if not exists user_reputation_status_audience_idx
+  on user_reputation_status (audience, status_code);
+
+alter table reputation_events enable row level security;
+alter table badge_definitions enable row level security;
+alter table user_badges enable row level security;
+alter table user_reputation_status enable row level security;
+
+-- Initial badge catalog. Definitions are inserted without changing existing
+-- rows, allowing future criteria and presentation changes to be managed safely.
+insert into badge_definitions (code, name, description, icon, badge_type)
+values
+  ('founding_member', 'Founding Member', 'An early member of the Grolo community.', 'founding_member', 'community'),
+  ('trusted_buyer', 'Trusted Buyer', 'A buyer with a reliable marketplace history.', 'trusted_buyer', 'buyer'),
+  ('established_buyer', 'Established Buyer', 'A buyer with an established marketplace history.', 'established_buyer', 'buyer'),
+  ('community_champion', 'Community Champion', 'A member who actively contributes to the community.', 'community_champion', 'community'),
+  ('community_trusted', 'Community Trusted', 'A member recognized as trusted by the community.', 'community_trusted', 'community'),
+  ('grolo_ambassador', 'Grolo Ambassador', 'A member who represents and supports Grolo.', 'grolo_ambassador', 'community'),
+  ('community_growing', 'Community Growing', 'Recognition for a growing community presence.', 'community_growing', 'community'),
+  ('community_flourishing', 'Community Flourishing', 'Recognition for a flourishing community presence.', 'community_flourishing', 'community'),
+  ('grolo_partner', 'Grolo Partner', 'A trusted partner contributing to Grolo.', 'grolo_partner', 'partner')
+on conflict (code) do nothing;

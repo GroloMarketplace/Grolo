@@ -712,7 +712,8 @@ begin
       'items', coalesce((select jsonb_agg(to_jsonb(item) || jsonb_build_object('product_id', listing.legacy_id) order by item.created_at)
         from order_items item
         join listings listing on listing.id = item.listing_id
-        where item.order_id = v_order.id), '[]'::jsonb)
+        where item.order_id = v_order.id), '[]'::jsonb),
+      'inventory_already_restored', true
     );
   end if;
   if v_order.status not in ('Order Placed', 'Seller Notified') then
@@ -741,7 +742,8 @@ begin
     'items', coalesce((select jsonb_agg(to_jsonb(item) || jsonb_build_object('product_id', listing.legacy_id) order by item.created_at)
         from order_items item
         join listings listing on listing.id = item.listing_id
-        where item.order_id = v_order.id), '[]'::jsonb)
+        where item.order_id = v_order.id), '[]'::jsonb),
+    'inventory_restored', true
   );
 end;
 $$;

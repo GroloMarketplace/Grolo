@@ -6,7 +6,7 @@ import {
   sellers,
 } from "../data/mockData";
 import { restoreListingInventory } from "../lib/api/listings";
-import { createOrderWithItems, getBuyerOrders, getSellerOrders, importLocalOrders, legacyOrdersFromRows, updateOrderStatus as updateOrderStatusInApi } from "../lib/api/orders";
+import { cancelOrderWithInventory as cancelOrderWithInventoryInApi, createOrderWithItems, getBuyerOrders, getSellerOrders, importLocalOrders, legacyOrdersFromRows, updateOrderStatus as updateOrderStatusInApi } from "../lib/api/orders";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const OrderContext = createContext(null);
@@ -286,60 +286,160 @@ export function OrderProvider({ children }) {
     }
   }, [orders]);
 
-  // Shared by every way an order can end without being fulfilled (buyer
-  // cancellation, seller rejection, payment failure, expiry). Whichever of
-  // INVENTORY_RESTORING_STATUSES is passed in, the reserved units are
-  // returned to stock exactly once per order via the `inventoryRestored`
-  // flag, regardless of who (buyer, seller, or admin) triggered it.
-  const cancelOrder = useCallback((orderId, fallbackOrder, status = "Cancelled", cancelledBy = "buyer") => {
+  // Buyer cancellation is transaction-backed when Supabase is available.
+  // The legacy localStorage path remains only for unconfigured environments.
+  const cancelOrder = useCallback(async (orderId, fallbackOrder, status = "Cancelled", cancelledBy = "buyer") => {
     const matchesOrderId = (item) => String(item.id) === String(orderId)
+      || String(item.databaseId) === String(orderId)
       || String(item.id).replace(/^ORD-/, "") === String(orderId).replace(/^ORD-/, "");
     const orderIndex = orders.findIndex(matchesOrderId);
     const order = orderIndex >= 0 ? orders[orderIndex] : fallbackOrder;
-    const resolvedOrderId = order?.id ?? orderId;
-    const product = products.find((item) => item.id === order?.productId);
-    const sellerId = order?.sellerId ?? product?.sellerId ?? "current-user";
-    if (!order || INVENTORY_RESTORING_STATUSES.includes(order.status)) return false;
+    const databaseOrderId = order?.databaseId ?? order?.orderId ?? orderId;
+    const previousStatus = order?.status ?? null;
+    const requestedStatus = "Cancelled";
 
-    const seller = sellers[sellerId] ?? sellers["current-user"];
-    console.info("Order cancellation", {
-      orderId: resolvedOrderId,
-      previousStatus: order.status,
-      newStatus: status,
+    console.info("cancellation requested", {
+      databaseOrderId,
+      previousStatus,
+      newStatus: requestedStatus,
     });
-    const cancelledOrder = { ...order, buyer: order.buyer ?? currentUser.username, status, inventoryRestored: true };
-    if (!order.inventoryRestored && restoresInventory(status)) restoreListingInventory([order]).catch((error) => console.error("Unable to restore listing inventory", error));
-    const nextOrders = orderIndex >= 0
-      ? orders.map((item, index) => index === orderIndex ? cancelledOrder : item)
-      : [...orders, cancelledOrder];
-    setOrders(nextOrders);
-    saveOrders(nextOrders);
-    const actionLabel = status === "Cancelled" ? "cancelled" : status.toLowerCase();
-    setOrderNotifications((prev) => [
-      {
-        id: `order-${resolvedOrderId}-cancelled-${Date.now()}`,
-        name: seller?.name ?? product?.shop ?? "Store",
-        avatar: seller?.avatar,
-        time: "now",
-        action: `${order.id} • Your order was ${actionLabel}`,
-        thumb: product?.image,
-        type: "order",
-        orderId: resolvedOrderId,
-      },
-      ...prev,
-    ]);
-    setSellerOrderNotifications((prev) => [
-      {
-        id: `seller-order-${resolvedOrderId}-cancelled-${Date.now()}`,
-        sellerId,
-        orderId: resolvedOrderId,
-        time: "now",
-        action: `${order.id.replace(/^ORD-/, "#")} was ${actionLabel} by the ${cancelledBy}.`,
-        type: "order",
-      },
-      ...prev,
-    ]);
-    return true;
+
+    if (!order) {
+      console.error("cancellation failed", {
+        databaseOrderId,
+        previousStatus,
+        newStatus: requestedStatus,
+        reason: "Order not found",
+      });
+      return false;
+    }
+
+    const applyLocalCancellation = () => {
+      if (INVENTORY_RESTORING_STATUSES.includes(order.status)) return false;
+      const product = products.find((item) => item.id === order.productId);
+      const sellerId = order.sellerId ?? product?.sellerId ?? "current-user";
+      const seller = sellers[sellerId] ?? sellers["current-user"];
+      const resolvedOrderId = order.id ?? orderId;
+      const cancelledOrder = {
+        ...order,
+        buyer: order.buyer ?? currentUser.username,
+        status,
+        inventoryRestored: true,
+      };
+      if (!order.inventoryRestored && restoresInventory(status)) {
+        restoreListingInventory([order]).catch((error) => console.error("Unable to restore listing inventory", error));
+      }
+      const nextOrders = orderIndex >= 0
+        ? orders.map((item, index) => index === orderIndex ? cancelledOrder : item)
+        : [...orders, cancelledOrder];
+      setOrders(nextOrders);
+      saveOrders(nextOrders);
+      const actionLabel = status === "Cancelled" ? "cancelled" : status.toLowerCase();
+      setOrderNotifications((prev) => [
+        {
+          id: `order-${resolvedOrderId}-cancelled-${Date.now()}`,
+          name: seller?.name ?? product?.shop ?? "Store",
+          avatar: seller?.avatar,
+          time: "now",
+          action: `${order.id} • Your order was ${actionLabel}`,
+          thumb: product?.image,
+          type: "order",
+          orderId: resolvedOrderId,
+        },
+        ...prev,
+      ]);
+      setSellerOrderNotifications((prev) => [
+        {
+          id: `seller-order-${resolvedOrderId}-cancelled-${Date.now()}`,
+          sellerId,
+          orderId: resolvedOrderId,
+          time: "now",
+          action: `${order.id.replace(/^ORD-/, "#")} was ${actionLabel} by the ${cancelledBy}.`,
+          type: "order",
+        },
+        ...prev,
+      ]);
+      return true;
+    };
+
+    if (!isSupabaseConfigured) return applyLocalCancellation();
+
+    try {
+      const response = await cancelOrderWithInventoryInApi(databaseOrderId, previousStatus);
+      const databaseOrder = {
+        ...(response?.order ?? {}),
+        items: response?.items ?? [],
+      };
+      const mappedOrders = legacyOrdersFromRows([databaseOrder]);
+      const updatedOrders = mappedOrders.length
+        ? mappedOrders
+        : [{ ...order, status: requestedStatus, inventoryRestored: true }];
+      setOrders((current) => [
+        ...current.filter((item) => item.databaseId !== databaseOrderId),
+        ...updatedOrders,
+      ]);
+
+      const alreadyRestored = Boolean(response?.inventory_already_restored);
+      if (alreadyRestored) {
+        console.info("inventory already restored", {
+          databaseOrderId,
+          previousStatus,
+          newStatus: requestedStatus,
+        });
+      } else {
+        console.info("inventory restored", {
+          databaseOrderId,
+          previousStatus,
+          newStatus: requestedStatus,
+        });
+      }
+
+      if (!alreadyRestored) {
+        const updatedOrder = updatedOrders[0];
+        const product = products.find((item) => item.id === updatedOrder.productId);
+        const sellerId = updatedOrder.sellerId ?? product?.sellerId ?? "current-user";
+        const seller = sellers[sellerId] ?? sellers["current-user"];
+        setOrderNotifications((prev) => [
+          {
+            id: `order-${updatedOrder.id}-cancelled-${Date.now()}`,
+            name: seller?.name ?? product?.shop ?? "Store",
+            avatar: seller?.avatar,
+            time: "now",
+            action: `${updatedOrder.id} • Your order was cancelled`,
+            thumb: product?.image,
+            type: "order",
+            orderId: updatedOrder.id,
+          },
+          ...prev,
+        ]);
+        setSellerOrderNotifications((prev) => [
+          {
+            id: `seller-order-${updatedOrder.id}-cancelled-${Date.now()}`,
+            sellerId,
+            orderId: updatedOrder.id,
+            time: "now",
+            action: `${updatedOrder.id.replace(/^ORD-/, "#")} was cancelled by the ${cancelledBy}.`,
+            type: "order",
+          },
+          ...prev,
+        ]);
+      }
+
+      console.info("cancellation succeeded", {
+        databaseOrderId,
+        previousStatus,
+        newStatus: requestedStatus,
+      });
+      return true;
+    } catch (error) {
+      console.error("cancellation failed", {
+        databaseOrderId,
+        previousStatus,
+        newStatus: requestedStatus,
+        error: error?.message ?? error,
+      });
+      return false;
+    }
   }, [orders]);
 
   const value = {

@@ -336,6 +336,48 @@ export async function updateOrderStatus(orderId, status, previousStatus) {
   return orderFromRow(data);
 }
 
-export async function cancelOrder(orderId) {
-  return updateOrderStatus(orderId, "Cancelled");
+export async function cancelOrderWithInventory(orderId, previousStatus) {
+  requireSupabase();
+  console.info("cancellation requested", {
+    databaseOrderId: orderId,
+    previousStatus: previousStatus ?? null,
+    newStatus: "Cancelled",
+  });
+
+  const { data, error } = await supabase.rpc("cancel_order_with_inventory", {
+    p_order_id: orderId,
+  });
+  if (error) {
+    console.error("cancellation failed", {
+      databaseOrderId: orderId,
+      previousStatus: previousStatus ?? null,
+      newStatus: "Cancelled",
+    });
+    logApiError("cancelOrderWithInventory", error, { orderId, previousStatus });
+    throw error;
+  }
+
+  if (data?.inventory_already_restored) {
+    console.info("inventory already restored", {
+      databaseOrderId: orderId,
+      previousStatus: previousStatus ?? null,
+      newStatus: "Cancelled",
+    });
+  } else {
+    console.info("inventory restored", {
+      databaseOrderId: orderId,
+      previousStatus: previousStatus ?? null,
+      newStatus: "Cancelled",
+    });
+  }
+  console.info("cancellation succeeded", {
+    databaseOrderId: data?.order?.id ?? orderId,
+    previousStatus: previousStatus ?? null,
+    newStatus: data?.order?.status ?? "Cancelled",
+  });
+  return data;
+}
+
+export async function cancelOrder(orderId, previousStatus) {
+  return cancelOrderWithInventory(orderId, previousStatus);
 }

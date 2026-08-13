@@ -78,12 +78,12 @@ export default function OrderTracking() {
     });
   }, [currentStatus, id, order?.id]);
 
-  const confirmCancellation = () => {
+  const confirmCancellation = async () => {
     const currentOrderId = order?.id ?? id;
     const previousStatus = currentStatus;
     console.info("Order ID", currentOrderId);
     console.info("Previous Status", previousStatus);
-    const cancelled = cancelOrder(currentOrderId, order);
+    const cancelled = await cancelOrder(currentOrderId, order);
     console.info("New Status", cancelled ? "Cancelled" : previousStatus);
     if (cancelled) setCancellationSuccess(true);
     setShowCancelModal(false);

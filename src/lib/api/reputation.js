@@ -489,3 +489,146 @@ export async function evaluateUserBadges(userId) {
     },
   };
 }
+
+const BUYER_STATUS_RULES = [
+  { code: "building_trust", metrics: {} },
+  { code: "trusted_buyer", metrics: { completedTransactions: 5, sellerRecommendations: 2, wouldTransactAgain: 3 } },
+  { code: "established_buyer", metrics: { completedTransactions: 15, sellerRecommendations: 5, wouldTransactAgain: 10, accountAgeDays: 60 } },
+  { code: "community_champion", metrics: { completedTransactions: 35, sellerRecommendations: 10, wouldTransactAgain: 20, eventsAttended: 5 } },
+  { code: "community_trusted", metrics: { completedTransactions: 75, sellerRecommendations: 20, wouldTransactAgain: 40, eventsAttended: 10, accountAgeMonths: 6 } },
+  { code: "grolo_ambassador", metrics: { completedTransactions: 150, sellerRecommendations: 50, wouldTransactAgain: 75, eventsAttended: 20, accountAgeMonths: 12 } },
+];
+
+const SELLER_STATUS_RULES = [
+  { code: "community_seeding", metrics: {} },
+  { code: "community_growing", metrics: { listingsCreated: 5, completedSellerOrders: 1, followers: 5 } },
+  { code: "community_flourishing", metrics: { completedSellerOrders: 10, followers: 15, sellerReviews: 3, marketplaceInteractions: 10, activeDays: 30 } },
+  { code: "grolo_partner", metrics: { completedSellerOrders: 25, followers: 25, sellerReviews: 10, sellerRating: 4.5, activeDays: 90, communityContribution: 1 } },
+];
+
+function statusProgress(rules, index, metrics) {
+  const next = rules[index + 1];
+  if (!next) return { percent: 100, requirements: [] };
+  const requirements = Object.entries(next.metrics).map(([key, target]) => ({
+    key,
+    target,
+    value: metricValue(metrics, key),
+    met: metricValue(metrics, key) >= target,
+  }));
+  const percent = requirements.length
+    ? Math.round(requirements.reduce((sum, requirement) => sum + Math.min(requirement.value / requirement.target, 1), 0) / requirements.length * 100)
+    : 100;
+  return { percent, requirements };
+}
+
+function calculateStatus(rules, metrics) {
+  let index = 0;
+  rules.forEach((rule, ruleIndex) => {
+    if (isBadgeEligible(rule.code, metrics, { thresholds: rule.metrics })) index = ruleIndex;
+  });
+  return {
+    statusCode: rules[index].code,
+    progress: statusProgress(rules, index, metrics),
+    levelIndex: index,
+  };
+}
+
+function statusMetrics(snapshot, followers, eventsAttended, accountAgeDays) {
+  const buyer = snapshot?.buyerStatus?.metrics ?? {};
+  const seller = snapshot?.sellerStatus?.metrics ?? {};
+  const community = snapshot?.communityImpact?.metrics ?? {};
+  return {
+    buyer: {
+      completedTransactions: metricValue(buyer, "completedTransactions"),
+      sellerRecommendations: metricValue(buyer, "sellerRecommendations"),
+      wouldTransactAgain: metricValue(buyer, "wouldTransactAgain"),
+      accountAgeDays,
+      accountAgeMonths: Math.floor(accountAgeDays / 30),
+      eventsAttended,
+    },
+    seller: {
+      listingsCreated: metricValue(seller, "listingsCreated"),
+      completedSellerOrders: metricValue(seller, "completedSellerOrders"),
+      followers,
+      sellerReviews: metricValue(seller, "sellerReviews"),
+      sellerRating: metricValue(seller, "sellerRating"),
+      marketplaceInteractions: metricValue(seller, "marketplaceInteractions"),
+      activeDays: metricValue(seller, "activeDays"),
+      communityContribution: metricValue(seller, "communityContribution") || metricValue(community, "communityContribution"),
+    },
+  };
+}
+
+function sameStatusSnapshot(row, calculated) {
+  return row?.status_code === calculated.statusCode
+    && row?.definition_version === "1"
+    && JSON.stringify(row?.progress ?? {}) === JSON.stringify(calculated.progress)
+    && JSON.stringify(row?.metrics ?? {}) === JSON.stringify(calculated.metrics);
+}
+
+export async function evaluateUserStatus(userId) {
+  requireSupabase();
+  const resolvedUserId = await resolveReputationUserId(userId);
+  if (!resolvedUserId) return { userId: userId ?? null, buyer: null, seller: null, diagnostics: { evaluated: 0, updated: 0, unchanged: 0 } };
+
+  const [{ data: rows, error: rowsError }, snapshot, authResult, followersResult, eventsResult] = await Promise.all([
+    supabase.from("user_reputation_status").select("user_id, audience, status_code, progress, metrics, calculated_at, definition_version").eq("user_id", resolvedUserId).in("audience", ["buyer", "seller"]),
+    getReputationSnapshot(resolvedUserId),
+    supabase.auth.getUser(),
+    supabase.from("user_follows").select("follower_id", { count: "exact", head: true }).eq("seller_id", resolvedUserId),
+    supabase.from("event_attendees").select("event_id", { count: "exact", head: true }).eq("user_id", resolvedUserId),
+  ]);
+  if (rowsError) throw rowsError;
+  if (authResult.error) throw authResult.error;
+  if (followersResult.error) throw followersResult.error;
+  if (eventsResult.error) throw eventsResult.error;
+
+  const accountCreatedAt = authResult.data.user?.created_at ? new Date(authResult.data.user.created_at) : null;
+  const accountAgeDays = accountCreatedAt && !Number.isNaN(accountCreatedAt.getTime())
+    ? Math.max(Math.floor((Date.now() - accountCreatedAt.getTime()) / 86400000), 0)
+    : 0;
+  const metrics = statusMetrics(snapshot, followersResult.count ?? 0, eventsResult.count ?? 0, accountAgeDays);
+  const currentRows = new Map((rows ?? []).map((row) => [row.audience, row]));
+  const results = {};
+  let updated = 0;
+  let unchanged = 0;
+
+  for (const [audience, rules] of [["buyer", BUYER_STATUS_RULES], ["seller", SELLER_STATUS_RULES]]) {
+    const calculated = calculateStatus(rules, metrics[audience]);
+    const payload = {
+      user_id: resolvedUserId,
+      audience,
+      status_code: calculated.statusCode,
+      progress: calculated.progress,
+      metrics: metrics[audience],
+      calculated_at: new Date().toISOString(),
+      definition_version: "1",
+    };
+    const current = currentRows.get(audience);
+    console.info("status evaluated", { userId: resolvedUserId, audience, statusCode: calculated.statusCode, progress: calculated.progress });
+    if (sameStatusSnapshot(current, { ...calculated, metrics: metrics[audience] })) {
+      unchanged += 1;
+      results[audience] = { ...payload, calculated_at: current.calculated_at, unchanged: true };
+      console.info("status unchanged", { userId: resolvedUserId, audience, statusCode: calculated.statusCode });
+      continue;
+    }
+    const { data, error } = await supabase
+      .from("user_reputation_status")
+      .upsert(payload, { onConflict: "user_id,audience" })
+      .select("user_id, audience, status_code, progress, metrics, calculated_at, definition_version")
+      .single();
+    if (error) throw error;
+    updated += 1;
+    results[audience] = data;
+    console.info("status updated", { userId: resolvedUserId, audience, statusCode: calculated.statusCode });
+  }
+
+  return {
+    userId,
+    user_id: userId,
+    buyer: results.buyer,
+    seller: results.seller,
+    metrics,
+    diagnostics: { evaluated: 2, updated, unchanged },
+  };
+}

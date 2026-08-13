@@ -1553,6 +1553,17 @@ create policy "Reputation statuses are viewable by authenticated users"
   on user_reputation_status for select to authenticated
   using (true);
 
+drop policy if exists "Users can create their own reputation statuses" on user_reputation_status;
+create policy "Users can create their own reputation statuses"
+  on user_reputation_status for insert to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own reputation statuses" on user_reputation_status;
+create policy "Users can update their own reputation statuses"
+  on user_reputation_status for update to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
 -- Initial badge catalog. Definitions are inserted without changing existing
 -- rows, allowing future criteria and presentation changes to be managed safely.
 insert into badge_definitions (code, name, description, icon, badge_type)

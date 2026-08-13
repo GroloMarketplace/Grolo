@@ -55,6 +55,64 @@ export function orderFromRow(row) {
   };
 }
 
+function legacyCreatedAt(timestamp) {
+  if (!timestamp) return undefined;
+  const value = new Date(timestamp).getTime();
+  return Number.isNaN(value) ? undefined : value;
+}
+
+function legacyDate(timestamp) {
+  const value = legacyCreatedAt(timestamp);
+  return value === undefined
+    ? undefined
+    : new Date(value).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+}
+
+// Compatibility mapper for the existing OrderContext order shape. A database
+// order can contain several order_items, so each item becomes one legacy order
+// entry while retaining the database order ID in databaseId/orderId.
+export function legacyOrderFromRow(row, itemRow, itemIndex = 0) {
+  if (!row) return null;
+  const items = Array.isArray(row.order_items) ? row.order_items : [];
+  const item = itemRow ?? items[itemIndex] ?? items[0] ?? {};
+  const itemId = item.id ?? item.listing_id ?? item.listingId ?? "item";
+  const createdAt = legacyCreatedAt(row.created_at);
+
+  return {
+    id: itemIndex === 0 ? row.id : `${row.id}:${itemId}`,
+    databaseId: row.id,
+    orderId: row.id,
+    productId: item.listing_id ?? item.listingId,
+    quantity: Number(item.quantity) || 0,
+    total: Number(row.total) || 0,
+    buyerId: row.buyer_id,
+    sellerId: row.seller_id,
+    status: row.status,
+    fulfillmentMethod: row.fulfillment_method,
+    createdAt,
+    date: legacyDate(row.created_at),
+    inventoryRestored: Boolean(row.inventory_restored),
+    lineTotal: Number(item.line_total ?? item.lineTotal) || 0,
+    unitPrice: Number(item.unit_price ?? item.unitPrice) || 0,
+    orderItems: items.map(orderItemFromRow),
+  };
+}
+
+// Flattens database orders into the item-oriented collection expected by the
+// current OrderContext. This is intentionally not used by reads yet.
+export function legacyOrdersFromRows(rows) {
+  return (rows ?? []).flatMap((row) => {
+    const items = Array.isArray(row?.order_items) ? row.order_items : [];
+    return items.length
+      ? items.map((item, index) => legacyOrderFromRow(row, item, index))
+      : [legacyOrderFromRow(row)];
+  }).filter(Boolean);
+}
+
 function rowForOrder(order, buyerId) {
   return {
     buyer_id: buyerId ?? order.buyerId,

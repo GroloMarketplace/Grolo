@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo, useState, useEffect } from "react";
 import { useOrders } from "./OrderContext";
 import { useEvents } from "./EventContext";
 import { useAuth } from "./AuthContext";
-import { getBuyerReviews } from "../lib/api/reviews";
+import { createReviewInDatabase, getBuyerReviews } from "../lib/api/reviews";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const BuyerTrustContext = createContext(null);
@@ -81,21 +81,66 @@ export function BuyerTrustProvider({ children }) {
   }, [storageKey, reviews]);
 
   const addReview = ({ buyer, orderId, sellerId, criteria = [], notes = "", rating = 0, productId }) => {
-    setReviews((current) => [
-      ...current,
-      {
-        id: `buyer-trust-${Date.now()}`,
-        buyer,
-        buyerId: buyer === "you" ? "current-user" : buyer,
-        orderId,
-        sellerId,
-        rating: rating || (criteria.includes("Would Transact Again") ? 5 : 4),
-        criteria,
-        notes,
-        productId,
-        createdAt: new Date().toISOString(),
-      },
-    ]);
+    const order = orders.find((candidate) => (
+      candidate.id === orderId
+      || candidate.orderId === orderId
+      || candidate.databaseId === orderId
+    ));
+    const databaseOrderId = order?.databaseId ?? order?.orderId ?? orderId;
+    const revieweeId = order?.buyerId ?? (buyer && buyer.includes("-") ? buyer : null);
+    const reviewerId = user?.id ?? null;
+    const localReview = {
+      id: `buyer-trust-${Date.now()}`,
+      reviewType: "buyer",
+      buyer,
+      buyerId: buyer === "you" ? "current-user" : buyer,
+      orderId,
+      sellerId,
+      rating: rating || (criteria.includes("Would Transact Again") ? 5 : 4),
+      criteria,
+      notes,
+      productId,
+      createdAt: new Date().toISOString(),
+    };
+    const logContext = {
+      reviewId: localReview.id,
+      revieweeId,
+      orderId: databaseOrderId ?? null,
+      reviewerId,
+    };
+    console.info("buyer review requested", logContext);
+
+    const appendLocalReview = () => {
+      setReviews((current) => [...current, localReview]);
+      return localReview;
+    };
+
+    if (!user?.id || !isSupabaseConfigured) {
+      console.warn("buyer review failed", { ...logContext, error: "Supabase is not configured or user is unauthenticated." });
+      return Promise.resolve(appendLocalReview());
+    }
+
+    return createReviewInDatabase(localReview, {
+      reviewerId: user.id,
+      reviewType: "buyer",
+      revieweeId,
+      orderId: databaseOrderId,
+    }).then((createdReview) => {
+      console.info("buyer review succeeded", {
+        reviewId: createdReview?.databaseId ?? createdReview?.id,
+        revieweeId: createdReview?.revieweeId ?? revieweeId,
+        orderId: createdReview?.orderId ?? databaseOrderId,
+        reviewerId: createdReview?.reviewerId ?? user.id,
+      });
+      setReviews((current) => [...current, createdReview]);
+      return createdReview;
+    }).catch((error) => {
+      console.warn("buyer review failed", {
+        ...logContext,
+        error: error?.message ?? String(error),
+      });
+      return appendLocalReview();
+    });
   };
 
   const reviewsForBuyer = (buyer = "you") => reviews.filter((review) => buyerMatches(review, buyer));

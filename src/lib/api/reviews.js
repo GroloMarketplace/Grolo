@@ -52,12 +52,14 @@ function listingFor(row, listingsById) {
   return row.listing_id ? listingsById.get(row.listing_id) : null;
 }
 
-export function databaseReviewToLegacyReview(row, { profilesById = new Map(), listingsById = new Map() } = {}) {
+export function databaseReviewToLegacyReview(row, { profilesById = new Map(), listingsById = new Map(), ordersById = new Map() } = {}) {
   if (!row) return null;
   const reviewType = REVIEW_TYPES.has(row.review_type) ? row.review_type : "product";
   const reviewerProfile = profilesById.get(row.reviewer_id);
   const revieweeProfile = profilesById.get(row.reviewee_id);
   const listing = listingFor(row, listingsById);
+  const order = ordersById.get(row.order_id);
+  const legacyOrderId = order?.metadata?.legacy_order_id ?? order?.metadata?.legacyOrderId ?? row.order_id;
   const flags = databaseStatusToLegacyFlags(row);
   const sellerId = reviewType === "buyer"
     ? row.reviewer_id
@@ -88,7 +90,7 @@ export function databaseReviewToLegacyReview(row, { profilesById = new Map(), li
     listingId: listing?.legacy_id ?? row.listing_id,
     listing_id: row.listing_id,
     productId: listing?.legacy_id ?? row.listing_id,
-    orderId: row.order_id,
+    orderId: legacyOrderId,
     order_id: row.order_id,
     orderItemId: row.order_item_id,
     order_item_id: row.order_item_id,
@@ -154,19 +156,25 @@ export function legacyReviewToDatabasePayload(review, { reviewerId, reviewType, 
 async function attachReviewMetadata(rows) {
   const profileIds = [...new Set(rows.flatMap((row) => [row.reviewer_id, row.reviewee_id]).filter(Boolean))];
   const listingIds = [...new Set(rows.map((row) => row.listing_id).filter(Boolean))];
-  const [profileResult, listingResult] = await Promise.all([
+  const orderIds = [...new Set(rows.map((row) => row.order_id).filter(Boolean))];
+  const [profileResult, listingResult, orderResult] = await Promise.all([
     profileIds.length
       ? supabase.from("profiles").select("id, display_name, username, shop_name, avatar_url").in("id", profileIds)
       : Promise.resolve({ data: [], error: null }),
     listingIds.length
       ? supabase.from("listings").select("id, legacy_id, seller_id").in("id", listingIds)
       : Promise.resolve({ data: [], error: null }),
+    orderIds.length
+      ? supabase.from("orders").select("id, metadata").in("id", orderIds)
+      : Promise.resolve({ data: [], error: null }),
   ]);
   if (profileResult.error) throw profileResult.error;
   if (listingResult.error) throw listingResult.error;
+  if (orderResult.error) throw orderResult.error;
   return {
     profilesById: new Map((profileResult.data ?? []).map((profile) => [profile.id, profile])),
     listingsById: new Map((listingResult.data ?? []).map((listing) => [listing.id, listing])),
+    ordersById: new Map((orderResult.data ?? []).map((order) => [order.id, order])),
   };
 }
 
@@ -181,11 +189,13 @@ async function getAuthenticatedUserId(requestedReviewerId) {
   return authenticatedUserId;
 }
 
-export async function createReviewInDatabase(review, { reviewerId, listingId, orderId, orderItemId } = {}) {
+export async function createReviewInDatabase(review, { reviewerId, reviewType, revieweeId, listingId, orderId, orderItemId } = {}) {
   requireSupabase();
   const authenticatedReviewerId = await getAuthenticatedUserId(reviewerId);
   const payload = legacyReviewToDatabasePayload(review, {
     reviewerId: authenticatedReviewerId,
+    reviewType,
+    revieweeId,
     listingId,
     orderId,
     orderItemId,
@@ -212,7 +222,10 @@ export async function createReviewInDatabase(review, { reviewerId, listingId, or
     sellerId: mapped?.sellerId ?? review?.sellerId,
     reviewer: mapped?.reviewer ?? review?.reviewer,
     reviewerId: mapped?.reviewerId ?? authenticatedReviewerId,
-    buyerId: mapped?.buyerId ?? authenticatedReviewerId,
+    buyerId: review?.buyerId ?? mapped?.buyerId ?? authenticatedReviewerId,
+    orderId: review?.orderId ?? mapped?.orderId,
+    orderItemId: review?.orderItemId ?? mapped?.orderItemId,
+    reviewType: mapped?.reviewType ?? reviewType ?? review?.reviewType,
   };
 }
 

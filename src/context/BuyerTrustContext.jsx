@@ -2,20 +2,10 @@ import { createContext, useContext, useMemo, useState, useEffect } from "react";
 import { useOrders } from "./OrderContext";
 import { useEvents } from "./EventContext";
 import { useAuth } from "./AuthContext";
-import { createReviewInDatabase, getBuyerReviews, getBuyerTrustAggregate, reviewVisibilitySummary, visibleReviews } from "../lib/api/reviews";
+import { createReviewInDatabase, getBuyerReviews, getBuyerTrustAggregate, visibleReviews } from "../lib/api/reviews";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const BuyerTrustContext = createContext(null);
-const SELLER_REVIEW_STORAGE_KEY = "grolo-seller-buyer-reviews";
-
-function readSellerReviews(storageKey) {
-  try {
-    const saved = JSON.parse(localStorage.getItem(storageKey));
-    return Array.isArray(saved) ? saved : [];
-  } catch {
-    return [];
-  }
-}
 
 function buyerMatches(review, buyer) {
   const aliases = new Set([buyer, buyer === "you" ? "current-user" : null].filter(Boolean).map((value) => String(value).toLowerCase()));
@@ -26,23 +16,17 @@ export function BuyerTrustProvider({ children }) {
   const { orders } = useOrders();
   const { attendingEventIds } = useEvents();
   const { user } = useAuth();
-  const storageKey = `${SELLER_REVIEW_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
-  const [reviews, setReviews] = useState(() => readSellerReviews(storageKey));
+  const [reviews, setReviews] = useState([]);
   const [trustAggregate, setTrustAggregate] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
-    const localReviews = readSellerReviews(storageKey);
-    setReviews(visibleReviews(localReviews));
+    setReviews([]);
+    setTrustAggregate(null);
 
     if (!user?.id || !isSupabaseConfigured) {
-      setTrustAggregate(null);
-      console.info("review source: localStorage fallback", {
-        ...reviewVisibilitySummary(localReviews),
-        reviewCount: localReviews.length,
-        productReviewCount: 0,
-        sellerReviewCount: 0,
-        buyerReviewCount: localReviews.length,
+      console.warn("review source: supabase read failed", {
+        error: "Supabase authentication or configuration is unavailable.",
       });
       return () => {
         cancelled = true;
@@ -58,7 +42,7 @@ export function BuyerTrustProvider({ children }) {
             if (!cancelled) setTrustAggregate(aggregate);
           })
           .catch((aggregateError) => {
-            console.warn("buyer trust aggregate fallback: local calculations", {
+            console.warn("buyer trust aggregate source: supabase failed", {
               error: aggregateError?.message ?? String(aggregateError),
             });
           });
@@ -71,28 +55,15 @@ export function BuyerTrustProvider({ children }) {
       })
       .catch((error) => {
         if (cancelled) return;
-        setTrustAggregate(null);
-        console.warn("review source: localStorage fallback", {
-          ...reviewVisibilitySummary(localReviews),
+        console.warn("review source: supabase read failed", {
           error: error?.message ?? String(error),
-          reviewCount: localReviews.length,
-          productReviewCount: 0,
-          sellerReviewCount: 0,
-          buyerReviewCount: localReviews.length,
         });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [storageKey, user?.id]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(reviews));
-    } catch {
-    }
-  }, [storageKey, reviews]);
+  }, [user?.id]);
 
   const addReview = ({ buyer, orderId, sellerId, criteria = [], notes = "", rating = 0, productId }) => {
     const order = orders.find((candidate) => (
@@ -124,14 +95,9 @@ export function BuyerTrustProvider({ children }) {
     };
     console.info("buyer review requested", logContext);
 
-    const appendLocalReview = () => {
-      setReviews((current) => [...current, localReview]);
-      return localReview;
-    };
-
     if (!user?.id || !isSupabaseConfigured) {
       console.warn("buyer review failed", { ...logContext, error: "Supabase is not configured or user is unauthenticated." });
-      return Promise.resolve(appendLocalReview());
+      return Promise.resolve(null);
     }
 
     return createReviewInDatabase(localReview, {
@@ -153,7 +119,7 @@ export function BuyerTrustProvider({ children }) {
         ...logContext,
         error: error?.message ?? String(error),
       });
-      return appendLocalReview();
+      return null;
     });
   };
 

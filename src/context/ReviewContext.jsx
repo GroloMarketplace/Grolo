@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   currentUser,
-  productReviews,
   products,
   sellers,
 } from "../data/mockData";
@@ -13,13 +12,11 @@ import {
   getProductReviews,
   getSellerRatingAggregates,
   getSellerReviews,
-  reviewVisibilitySummary,
   visibleReviews,
 } from "../lib/api/reviews";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const ReviewContext = createContext(null);
-const REVIEW_STORAGE_KEY = "grolo-submitted-reviews";
 
 function getIdentity(user) {
   return {
@@ -46,28 +43,6 @@ function normalizeReview(review, identity = getIdentity()) {
   };
 }
 
-function readSubmittedReviews(identity, storageKey) {
-  try {
-    const savedValues = [localStorage.getItem(storageKey)];
-    const savedReviews = savedValues.flatMap((value) => {
-      if (!value) return [];
-      try {
-        const parsed = JSON.parse(value);
-        if (Array.isArray(parsed)) return parsed;
-        if (Array.isArray(parsed?.reviews)) return parsed.reviews;
-        if (Array.isArray(parsed?.data)) return parsed.data;
-        return [];
-      } catch {
-        return [];
-      }
-    });
-    const uniqueReviews = [...new Map(savedReviews.map((review, index) => [review?.id ?? `legacy-review-${index}`, review])).values()];
-    return uniqueReviews.map((review) => normalizeReview(review, identity));
-  } catch {
-    return [];
-  }
-}
-
 function buyerAliases(reviewer, reviewerId) {
   return new Set([reviewer, reviewerId].filter(Boolean).map((value) => String(value).trim().toLowerCase()));
 }
@@ -90,25 +65,19 @@ export function ReviewProvider({ children }) {
   const { orders } = useOrders();
   const { user } = useAuth();
   const identity = useMemo(() => getIdentity(user), [user]);
-  const storageKey = `${REVIEW_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
-  const [submittedReviews, setSubmittedReviews] = useState(() => readSubmittedReviews(identity, storageKey));
+  const [submittedReviews, setSubmittedReviews] = useState([]);
   const [productAggregates, setProductAggregates] = useState(new Map());
   const [sellerAggregates, setSellerAggregates] = useState(new Map());
 
   useEffect(() => {
     let cancelled = false;
-    const localReviews = readSubmittedReviews(identity, storageKey);
-    setSubmittedReviews(visibleReviews(localReviews));
+    setSubmittedReviews([]);
+    setProductAggregates(new Map());
+    setSellerAggregates(new Map());
 
     if (!user?.id || !isSupabaseConfigured) {
-      setProductAggregates(new Map());
-      setSellerAggregates(new Map());
-      console.info("review source: localStorage fallback", {
-        ...reviewVisibilitySummary(localReviews),
-        reviewCount: localReviews.length,
-        productReviewCount: localReviews.filter((review) => review.reviewType === "product" || !review.reviewType).length,
-        sellerReviewCount: localReviews.filter((review) => review.reviewType === "seller").length,
-        buyerReviewCount: localReviews.filter((review) => review.reviewType === "buyer").length,
+      console.warn("review source: supabase read failed", {
+        error: "Supabase authentication or configuration is unavailable.",
       });
       return () => {
         cancelled = true;
@@ -141,7 +110,7 @@ export function ReviewProvider({ children }) {
             setSellerAggregates(sellerMap);
           })
           .catch((aggregateError) => {
-            console.warn("review aggregate fallback: local calculations", {
+            console.warn("review aggregate source: supabase failed", {
               error: aggregateError?.message ?? String(aggregateError),
             });
           });
@@ -154,32 +123,18 @@ export function ReviewProvider({ children }) {
       })
       .catch((error) => {
         if (cancelled) return;
-        setProductAggregates(new Map());
-        setSellerAggregates(new Map());
-        console.warn("review source: localStorage fallback", {
-          ...reviewVisibilitySummary(localReviews),
+        console.warn("review source: supabase read failed", {
           error: error?.message ?? String(error),
-          reviewCount: localReviews.length,
-          productReviewCount: localReviews.filter((review) => review.reviewType === "product" || !review.reviewType).length,
-          sellerReviewCount: localReviews.filter((review) => review.reviewType === "seller").length,
-          buyerReviewCount: localReviews.filter((review) => review.reviewType === "buyer").length,
         });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [identity, storageKey, user?.id]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(submittedReviews));
-    } catch {
-    }
-  }, [storageKey, submittedReviews]);
+  }, [identity, user?.id]);
 
   const allReviews = useMemo(
-    () => visibleReviews([...submittedReviews, ...productReviews]),
+    () => visibleReviews(submittedReviews),
     [submittedReviews],
   );
 
@@ -293,14 +248,9 @@ export function ReviewProvider({ children }) {
     };
     console.info("review create requested", logContext);
 
-    const appendLocalReview = () => {
-      setSubmittedReviews((prev) => [localReview, ...prev]);
-      return localReview;
-    };
-
     if (!user?.id || !isSupabaseConfigured) {
       console.warn("review create failed", { ...logContext, error: "Supabase is not configured or user is unauthenticated." });
-      return Promise.resolve(appendLocalReview());
+      return Promise.resolve(null);
     }
 
     return createReviewInDatabase(localReview, {
@@ -323,7 +273,7 @@ export function ReviewProvider({ children }) {
         ...logContext,
         error: error?.message ?? String(error),
       });
-      return appendLocalReview();
+      return null;
     });
   }, [identity, orders, user?.id]);
 

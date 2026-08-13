@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo, useState, useEffect } from "react";
 import { useOrders } from "./OrderContext";
 import { useEvents } from "./EventContext";
 import { useAuth } from "./AuthContext";
-import { createReviewInDatabase, getBuyerReviews } from "../lib/api/reviews";
+import { createReviewInDatabase, getBuyerReviews, getBuyerTrustAggregate } from "../lib/api/reviews";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const BuyerTrustContext = createContext(null);
@@ -28,6 +28,7 @@ export function BuyerTrustProvider({ children }) {
   const { user } = useAuth();
   const storageKey = `${SELLER_REVIEW_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
   const [reviews, setReviews] = useState(() => readSellerReviews(storageKey));
+  const [trustAggregate, setTrustAggregate] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,6 +36,7 @@ export function BuyerTrustProvider({ children }) {
     setReviews(localReviews);
 
     if (!user?.id || !isSupabaseConfigured) {
+      setTrustAggregate(null);
       console.info("review source: localStorage fallback", {
         reviewCount: localReviews.length,
         productReviewCount: 0,
@@ -50,6 +52,15 @@ export function BuyerTrustProvider({ children }) {
       .then((remoteReviews) => {
         if (cancelled) return;
         setReviews(remoteReviews);
+        getBuyerTrustAggregate(user.id)
+          .then((aggregate) => {
+            if (!cancelled) setTrustAggregate(aggregate);
+          })
+          .catch((aggregateError) => {
+            console.warn("buyer trust aggregate fallback: local calculations", {
+              error: aggregateError?.message ?? String(aggregateError),
+            });
+          });
         console.info("review source: supabase", {
           reviewCount: remoteReviews.length,
           productReviewCount: 0,
@@ -59,6 +70,7 @@ export function BuyerTrustProvider({ children }) {
       })
       .catch((error) => {
         if (cancelled) return;
+        setTrustAggregate(null);
         console.warn("review source: localStorage fallback", {
           error: error?.message ?? String(error),
           reviewCount: localReviews.length,
@@ -154,16 +166,27 @@ export function BuyerTrustProvider({ children }) {
     const accountAgeMonths = accountCreatedAt
       ? Math.max((now.getFullYear() - accountCreatedAt.getFullYear()) * 12 + now.getMonth() - accountCreatedAt.getMonth() - (now.getDate() < accountCreatedAt.getDate() ? 1 : 0), 0)
       : 0;
+    const isCurrentBuyer = buyer === "you"
+      || buyer === user?.id
+      || buyer === user?.user_metadata?.username;
     return {
-      completedTransactions: orders.filter((order) => (order.buyer === buyer || (buyer === "you" && !order.buyerId && order.buyer === "you")) && order.status === "Completed").length,
-      sellerRecommendations: buyerReviews.filter((review) => review.criteria?.length > 0).length,
-      wouldTransactAgain: buyerReviews.filter((review) => review.criteria?.includes("Would Transact Again")).length,
+      completedTransactions: isCurrentBuyer && trustAggregate
+        ? trustAggregate.completedTransactionCount
+        : orders.filter((order) => (order.buyer === buyer || (buyer === "you" && !order.buyerId && order.buyer === "you")) && order.status === "Completed").length,
+      sellerRecommendations: isCurrentBuyer && trustAggregate
+        ? trustAggregate.sellerRecommendationCount
+        : buyerReviews.filter((review) => review.criteria?.length > 0).length,
+      wouldTransactAgain: isCurrentBuyer && trustAggregate
+        ? trustAggregate.wouldTransactAgainCount
+        : buyerReviews.filter((review) => review.criteria?.includes("Would Transact Again")).length,
       eventsAttended: buyer === "you" ? attendingEventIds.length : 0,
       accountAgeDays: buyer === "you" ? accountAgeDays : 0,
       accountAgeMonths: buyer === "you" ? accountAgeMonths : 0,
-      sellerReviews: buyerReviews.length,
-      reviewsWritten: buyerReviews.length,
-      reliable: buyerReviews.length > 0 && buyerReviews.every((review) => review.criteria?.includes("Would Transact Again")),
+      sellerReviews: isCurrentBuyer && trustAggregate ? trustAggregate.buyerReviewCount : buyerReviews.length,
+      reviewsWritten: isCurrentBuyer && trustAggregate ? trustAggregate.buyerReviewCount : buyerReviews.length,
+      reliable: (isCurrentBuyer && trustAggregate
+        ? trustAggregate.buyerReviewCount > 0 && trustAggregate.wouldTransactAgainCount === trustAggregate.buyerReviewCount
+        : buyerReviews.length > 0 && buyerReviews.every((review) => review.criteria?.includes("Would Transact Again"))),
     };
   };
   const hasReviewedOrder = (orderId) => reviews.some((review) => review.orderId === orderId);

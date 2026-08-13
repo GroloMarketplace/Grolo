@@ -178,6 +178,107 @@ async function attachReviewMetadata(rows) {
   };
 }
 
+function ratingAggregate(rows, key) {
+  const groups = new Map();
+  rows.forEach((row) => {
+    const groupKey = row[key];
+    if (!groupKey) return;
+    const group = groups.get(groupKey) ?? { key: groupKey, sum: 0, count: 0, breakdown: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } };
+    const rating = Number(row.rating) || 0;
+    group.sum += rating;
+    group.count += 1;
+    if (group.breakdown[rating] != null) group.breakdown[rating] += 1;
+    groups.set(groupKey, group);
+  });
+  return [...groups.values()].map((group) => ({
+    [key]: group.key,
+    average: group.count ? Number((group.sum / group.count).toFixed(1)) : 0,
+    count: group.count,
+    breakdown: group.breakdown,
+  }));
+}
+
+export async function getProductRatingAggregates() {
+  requireSupabase();
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("listing_id, rating")
+    .eq("review_type", "product")
+    .eq("status", "published")
+    .is("deleted_at", null);
+  if (error) throw error;
+  const aggregates = ratingAggregate(data ?? [], "listing_id");
+  console.info("product aggregate source: supabase", {
+    aggregateReviewCount: (data ?? []).length,
+    aggregateAverageRating: aggregates.length
+      ? Number(((data ?? []).reduce((sum, row) => sum + (Number(row.rating) || 0), 0) / data.length).toFixed(1))
+      : 0,
+  });
+  return aggregates;
+}
+
+export async function getSellerRatingAggregates() {
+  requireSupabase();
+  const [{ data: reviews, error: reviewsError }, { data: orders, error: ordersError }] = await Promise.all([
+    supabase
+      .from("reviews")
+      .select("reviewee_id, rating")
+      .eq("review_type", "seller")
+      .eq("status", "published")
+      .is("deleted_at", null),
+    supabase
+      .from("orders")
+      .select("seller_id")
+      .eq("status", "Completed"),
+  ]);
+  if (reviewsError) throw reviewsError;
+  if (ordersError) throw ordersError;
+  const aggregates = ratingAggregate(reviews ?? [], "reviewee_id").map((aggregate) => ({
+    ...aggregate,
+    completedOrderCount: (orders ?? []).filter((order) => order.seller_id === aggregate.reviewee_id).length,
+  }));
+  console.info("seller aggregate source: supabase", {
+    aggregateReviewCount: (reviews ?? []).length,
+    aggregateAverageRating: aggregates.length
+      ? Number(((reviews ?? []).reduce((sum, row) => sum + (Number(row.rating) || 0), 0) / reviews.length).toFixed(1))
+      : 0,
+  });
+  return aggregates;
+}
+
+export async function getBuyerTrustAggregate(buyerId) {
+  requireSupabase();
+  if (!buyerId) return null;
+  const [{ data: reviews, error: reviewsError }, { data: orders, error: ordersError }] = await Promise.all([
+    supabase
+      .from("reviews")
+      .select("reviewee_id, criteria, order_id")
+      .eq("review_type", "buyer")
+      .eq("reviewee_id", buyerId)
+      .eq("status", "published")
+      .is("deleted_at", null),
+    supabase
+      .from("orders")
+      .select("id")
+      .eq("buyer_id", buyerId)
+      .eq("status", "Completed"),
+  ]);
+  if (reviewsError) throw reviewsError;
+  if (ordersError) throw ordersError;
+  const buyerReviews = reviews ?? [];
+  const aggregate = {
+    buyerReviewCount: buyerReviews.length,
+    sellerRecommendationCount: buyerReviews.filter((review) => review.criteria && Object.keys(review.criteria).length > 0).length,
+    wouldTransactAgainCount: buyerReviews.filter((review) => Boolean(review.criteria?.["Would Transact Again"])).length,
+    completedTransactionCount: (orders ?? []).length,
+  };
+  console.info("buyer trust aggregate source: supabase", {
+    aggregateReviewCount: aggregate.buyerReviewCount,
+    aggregateAverageRating: 0,
+  });
+  return aggregate;
+}
+
 async function getAuthenticatedUserId(requestedReviewerId) {
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;

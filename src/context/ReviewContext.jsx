@@ -7,7 +7,13 @@ import {
 } from "../data/mockData";
 import { useOrders } from "./OrderContext";
 import { useAuth } from "./AuthContext";
-import { createReviewInDatabase, getProductReviews, getSellerReviews } from "../lib/api/reviews";
+import {
+  createReviewInDatabase,
+  getProductRatingAggregates,
+  getProductReviews,
+  getSellerRatingAggregates,
+  getSellerReviews,
+} from "../lib/api/reviews";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const ReviewContext = createContext(null);
@@ -84,6 +90,8 @@ export function ReviewProvider({ children }) {
   const identity = useMemo(() => getIdentity(user), [user]);
   const storageKey = `${REVIEW_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
   const [submittedReviews, setSubmittedReviews] = useState(() => readSubmittedReviews(identity, storageKey));
+  const [productAggregates, setProductAggregates] = useState(new Map());
+  const [sellerAggregates, setSellerAggregates] = useState(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +99,8 @@ export function ReviewProvider({ children }) {
     setSubmittedReviews(localReviews);
 
     if (!user?.id || !isSupabaseConfigured) {
+      setProductAggregates(new Map());
+      setSellerAggregates(new Map());
       console.info("review source: localStorage fallback", {
         reviewCount: localReviews.length,
         productReviewCount: localReviews.filter((review) => review.reviewType === "product" || !review.reviewType).length,
@@ -107,6 +117,31 @@ export function ReviewProvider({ children }) {
         if (cancelled) return;
         const remoteReviews = [...productRows, ...sellerRows].map((review) => normalizeReview(review, identity));
         setSubmittedReviews(remoteReviews);
+        Promise.all([getProductRatingAggregates(), getSellerRatingAggregates()])
+          .then(([productRowsAggregate, sellerRowsAggregate]) => {
+            if (cancelled) return;
+            const productMap = new Map();
+            productRowsAggregate.forEach((aggregate) => {
+              productMap.set(aggregate.listing_id, aggregate);
+              remoteReviews
+                .filter((review) => review.listing_id === aggregate.listing_id)
+                .forEach((review) => productMap.set(review.productId, aggregate));
+            });
+            const sellerMap = new Map();
+            sellerRowsAggregate.forEach((aggregate) => {
+              sellerMap.set(aggregate.reviewee_id, aggregate);
+              remoteReviews
+                .filter((review) => review.reviewee_id === aggregate.reviewee_id || review.sellerId === aggregate.reviewee_id)
+                .forEach((review) => sellerMap.set(review.sellerId, aggregate));
+            });
+            setProductAggregates(productMap);
+            setSellerAggregates(sellerMap);
+          })
+          .catch((aggregateError) => {
+            console.warn("review aggregate fallback: local calculations", {
+              error: aggregateError?.message ?? String(aggregateError),
+            });
+          });
         console.info("review source: supabase", {
           reviewCount: remoteReviews.length,
           productReviewCount: productRows.length,
@@ -116,6 +151,8 @@ export function ReviewProvider({ children }) {
       })
       .catch((error) => {
         if (cancelled) return;
+        setProductAggregates(new Map());
+        setSellerAggregates(new Map());
         console.warn("review source: localStorage fallback", {
           error: error?.message ?? String(error),
           reviewCount: localReviews.length,
@@ -165,24 +202,28 @@ export function ReviewProvider({ children }) {
 
   const productRating = useCallback(
     (productId) => {
+      const aggregate = productAggregates.get(productId);
+      if (aggregate) return aggregate;
       const product = products.find((p) => p.id === productId);
       const added = submittedReviews
         .filter((r) => r.productId === productId)
         .map((r) => r.rating);
       return averageWith(product?.rating ?? 0, product?.reviewCount ?? 0, added);
     },
-    [submittedReviews],
+    [productAggregates, submittedReviews],
   );
 
   const sellerRating = useCallback(
     (sellerId) => {
+      const aggregate = sellerAggregates.get(sellerId);
+      if (aggregate) return aggregate;
       const seller = sellers[sellerId];
       const added = submittedReviews
         .filter((r) => r.sellerId === sellerId)
         .map((r) => r.rating);
       return averageWith(seller?.rating ?? 0, seller?.reviewCount ?? 0, added);
     },
-    [submittedReviews],
+    [sellerAggregates, submittedReviews],
   );
 
   const completedOrderForProduct = useCallback(

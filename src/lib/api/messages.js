@@ -192,26 +192,91 @@ export function legacyMessageToDatabasePayload(message, { conversationId, sender
   return databaseId ? { id: databaseId, ...payload } : payload;
 }
 
-export async function getConversations(userId) {
-  requireSupabase();
-  const { data, error } = await supabase
-    .from("conversations")
-    .select("*, messages(content, created_at)")
-    .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
-    .order("updated_at", { ascending: false });
+async function getAuthenticatedUserId(requestedUserId) {
+  const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
-  return data;
+  const authenticatedUserId = data.user?.id;
+  if (!authenticatedUserId) {
+    throw new Error("Authentication is required to read conversations.");
+  }
+  if (requestedUserId && requestedUserId !== authenticatedUserId) {
+    throw new Error("Conversation reads must use the authenticated user.");
+  }
+  return authenticatedUserId;
 }
 
-export async function getMessages(conversationId) {
+function sortMessages(messages) {
+  return [...(Array.isArray(messages) ? messages : [])].sort((left, right) => {
+    const leftTime = new Date(left.created_at ?? 0).getTime();
+    const rightTime = new Date(right.created_at ?? 0).getTime();
+    return leftTime - rightTime || String(left.id ?? "").localeCompare(String(right.id ?? ""));
+  });
+}
+
+async function attachParticipantProfiles(conversations) {
+  const participantIds = [...new Set(conversations.flatMap((conversation) => [conversation.buyer_id, conversation.seller_id]).filter(Boolean))];
+  if (participantIds.length === 0) return conversations;
+
+  const { data: profiles, error } = await supabase
+    .from("profiles")
+    .select("id, display_name, username, shop_name, avatar_url, location")
+    .in("id", participantIds);
+  if (error) throw error;
+
+  const profilesById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+  return conversations.map((conversation) => ({
+    ...conversation,
+    buyer_profile: profilesById.get(conversation.buyer_id) ?? null,
+    seller_profile: profilesById.get(conversation.seller_id) ?? null,
+  }));
+}
+
+export async function getConversations(userId) {
   requireSupabase();
+  const authenticatedUserId = await getAuthenticatedUserId(userId);
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("id, buyer_id, seller_id, listing_id, order_id, conversation_type, metadata, preview, created_at, updated_at, messages(id, conversation_id, sender_id, content, created_at)")
+    .or(`buyer_id.eq.${authenticatedUserId},seller_id.eq.${authenticatedUserId}`)
+    .order("updated_at", { ascending: false });
+  if (error) throw error;
+
+  const conversations = await attachParticipantProfiles((data ?? []).map((conversation) => ({
+    ...conversation,
+    messages: sortMessages(conversation.messages),
+  })));
+  const messageReadCount = conversations.reduce((count, conversation) => count + conversation.messages.length, 0);
+  const mappedConversations = conversations
+    .map((conversation) => databaseConversationToLegacyConversation(conversation, { currentUserId: authenticatedUserId }))
+    .filter(Boolean);
+
+  console.info("Supabase conversation read", {
+    conversationReadCount: conversations.length,
+    messageReadCount,
+    mappedConversationCount: mappedConversations.length,
+  });
+  return mappedConversations;
+}
+
+export async function getMessages(conversationId, userId) {
+  requireSupabase();
+  const authenticatedUserId = await getAuthenticatedUserId(userId);
   const { data, error } = await supabase
     .from("messages")
-    .select("*")
+    .select("id, conversation_id, sender_id, content, created_at")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
   if (error) throw error;
-  return data;
+
+  const mappedMessages = (data ?? [])
+    .map((message) => databaseMessageToLegacyMessage(message, { currentUserId: authenticatedUserId }))
+    .filter(Boolean);
+  console.info("Supabase message read", {
+    conversationId,
+    messageReadCount: data?.length ?? 0,
+    mappedMessageCount: mappedMessages.length,
+  });
+  return mappedMessages;
 }
 
 export async function sendMessage({ conversationId, senderId, content }) {

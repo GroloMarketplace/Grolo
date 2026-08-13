@@ -53,8 +53,9 @@ export default function ProductDetail() {
   const vacationMode = sellerProfile?.vacationMode ?? false;
   const { getPaymentMethods } = usePaymentMethods();
   const sellerPaymentMethods = getPaymentMethods(seller?.id);
-  const { promotionsForProduct } = usePromotions();
-  const promotion = promotionsForProduct(product.id)[0];
+  const { getListingPricing } = usePromotions();
+  const pricing = getListingPricing(product);
+  const promotion = pricing.promotion;
   const { reviewsForProduct, productRating, canReviewProduct } = useReviews();
   const { average, count } = productRating(product.id);
   const productReviewList = reviewsForProduct(product.id);
@@ -146,8 +147,13 @@ export default function ProductDetail() {
                   </span>
                 </div>
               )}
-              <div className="flex items-end">
-                {isService ? <span className="text-[24px] font-bold text-[#498467]">{formatListingPrice(product)}</span> : <>
+              <div className="flex flex-wrap items-baseline gap-3">
+                {pricing.discountedPrice < pricing.originalPrice ? (
+                  <>
+                    <span className="text-[24px] font-bold text-[#498467]">${pricing.discountedPrice.toFixed(2)}</span>
+                    <span className="text-[16px] text-[#757575] line-through">${pricing.originalPrice.toFixed(2)}</span>
+                  </>
+                ) : isService ? <span className="text-[24px] font-bold text-[#498467]">{formatListingPrice(product)}</span> : <>
                   <span className="text-[24px] font-bold">$</span>
                   <span className="text-[48px] font-bold leading-none">{Math.floor(Number(product.price) || 0)}</span>
                 </>}

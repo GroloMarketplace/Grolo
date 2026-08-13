@@ -12,7 +12,7 @@ import { getActiveCartItems, groupCartItemsByStore } from "../utils/cartGrouping
 
 export default function Cart() {
   const navigate = useNavigate();
-  const { items, updateQuantity, removeItems: removeCartItems, restoreItems, addToCart } = useCart();
+  const { items, updateQuantity, getItemPricing, removeItems: removeCartItems, restoreItems, addToCart } = useCart();
   const { items: savedForLaterItems, addItems, removeItems: removeSavedForLater } = useSavedForLater();
   const { listings } = useListings();
   const [undoItem, setUndoItem] = useState(null);
@@ -78,7 +78,7 @@ export default function Cart() {
   const savedForLaterActiveItems = savedForLaterStatus.filter(({ available }) => available > 0).map(({ item }) => item);
   const savedForLaterSoldOutItems = savedForLaterStatus.filter(({ available }) => available <= 0);
   const activeTotalQuantity = activeItems.reduce((sum, item) => sum + item.quantity, 0);
-  const activeSubtotal = activeItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const activeSubtotal = activeItems.reduce((sum, item) => sum + getItemPricing(item).discountedPrice * item.quantity, 0);
   const canCheckout = activeItems.length > 0;
   const storeGroups = groupCartItemsByStore(activeItems, listings);
   const storeNames = storeGroups.map(([sellerId]) => sellers[sellerId]?.name ?? sellerId);
@@ -113,7 +113,7 @@ export default function Cart() {
               </div>
               {getSellerProfile(sellerId)?.vacationMode && <div className="mt-3 rounded-lg bg-[#F5FFF6] p-3 text-[13px] text-[#4F4F4F]">This store is temporarily not accepting orders.</div>}
               <div className="mt-3 text-[12px] font-medium">ITEMS</div>
-              <div className="mt-3 flex flex-col gap-4">{storeItems.map((item) => <CartItem key={item.id} item={item} updateQuantity={updateQuantity} removeItem={() => removeCartItem(item)} saveForLater={() => { addItems([item]); removeCartItems([item]); }} available={getRealInventory(item)} onProductClick={() => openProduct(item)} />)}</div>
+              <div className="mt-3 flex flex-col gap-4">{storeItems.map((item) => <CartItem key={item.id} item={item} pricing={getItemPricing(item)} updateQuantity={updateQuantity} removeItem={() => removeCartItem(item)} saveForLater={() => { addItems([item]); removeCartItems([item]); }} available={getRealInventory(item)} onProductClick={() => openProduct(item)} />)}</div>
             </div>
           ))}
         </CartSection>}
@@ -205,7 +205,7 @@ function SavedForLaterCard({ item, available, onMove, onRemove, onViewListing, o
   );
 }
 
-function CartItem({ item, updateQuantity, removeItem, saveForLater, available, onProductClick }) {
+function CartItem({ item, pricing, updateQuantity, removeItem, saveForLater, available, onProductClick }) {
   return (
     <SwipeToDelete onDelete={removeItem}>
       <div role="link" tabIndex="0" className="flex gap-3 cursor-pointer" onClick={(event) => { if (!event.target.closest("button")) onProductClick("card"); }} onKeyDown={(event) => { if ((event.key === "Enter" || event.key === " ") && !event.target.closest("button")) onProductClick("card"); }}>
@@ -225,7 +225,10 @@ function CartItem({ item, updateQuantity, removeItem, saveForLater, available, o
           </div>
           <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); saveForLater(); }} className="mt-2 text-[12px] font-medium text-[#498467]">Save for Later</button>
         </div>
-        <button type="button" onClick={(event) => { event.stopPropagation(); onProductClick("price"); }} className="shrink-0 text-[14px]">${item.price.toFixed(2)}</button>
+        <button type="button" onClick={(event) => { event.stopPropagation(); onProductClick("price"); }} className="shrink-0 text-right text-[14px]">
+          {pricing.discountedPrice < pricing.originalPrice && <span className="mr-1 text-[11px] text-[#828282] line-through">${pricing.originalPrice.toFixed(2)}</span>}
+          ${pricing.discountedPrice.toFixed(2)}
+        </button>
       </div>
     </SwipeToDelete>
   );

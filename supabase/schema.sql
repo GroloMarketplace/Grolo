@@ -111,6 +111,42 @@ create policy "Sellers can manage their own events"
   on events for all using (auth.uid() = seller_id)
   with check (auth.uid() = seller_id);
 
+-- Promotions are owned by real seller profiles and loaded on every session.
+create table if not exists promotions (
+  id uuid primary key default gen_random_uuid(),
+  seller_id uuid not null references profiles(id) on delete cascade,
+  listing_id text,
+  listing_ids jsonb not null default '[]'::jsonb,
+  title text not null,
+  description text not null default '',
+  promotion_type text not null default 'limited',
+  discount_type text not null default 'limited',
+  discount_value numeric(10, 2),
+  start_date date not null default current_date,
+  end_date date,
+  status text not null default 'active',
+  image_url text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table promotions add column if not exists listing_ids jsonb not null default '[]'::jsonb;
+alter table promotions add column if not exists description text not null default '';
+alter table promotions add column if not exists promotion_type text not null default 'limited';
+alter table promotions add column if not exists discount_type text not null default 'limited';
+alter table promotions add column if not exists image_url text;
+alter table promotions add column if not exists updated_at timestamptz not null default now();
+create index if not exists promotions_seller_idx on promotions (seller_id);
+create index if not exists promotions_dates_idx on promotions (start_date, end_date);
+alter table promotions enable row level security;
+drop policy if exists "Promotions are viewable by everyone" on promotions;
+create policy "Promotions are viewable by everyone"
+  on promotions for select using (true);
+drop policy if exists "Sellers can manage their own promotions" on promotions;
+create policy "Sellers can manage their own promotions"
+  on promotions for all using (auth.uid() = seller_id)
+  with check (auth.uid() = seller_id);
+
 -- Event attendance. The composite key guarantees one attendance record per user/event.
 create table if not exists event_attendees (
   event_id text not null,
@@ -637,10 +673,50 @@ create table if not exists order_items (
   quantity integer not null check (quantity > 0),
   unit_price numeric(10, 2) not null check (unit_price >= 0),
   line_total numeric(10, 2) not null check (line_total >= 0),
+  original_price numeric(10, 2),
+  discounted_price numeric(10, 2),
+  promotion_id uuid references promotions(id) on delete set null,
+  promotion_title text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (order_id, listing_id)
 );
+
+alter table order_items add column if not exists original_price numeric(10, 2);
+alter table order_items add column if not exists discounted_price numeric(10, 2);
+alter table order_items add column if not exists promotion_id uuid references promotions(id) on delete set null;
+alter table order_items add column if not exists promotion_title text;
+
+-- Payment records are durable and independently queryable for buyer/seller history.
+create table if not exists payments (
+  payment_id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references orders(id) on delete cascade,
+  buyer_id uuid not null references auth.users(id) on delete cascade,
+  seller_id uuid not null references profiles(id) on delete restrict,
+  amount numeric(10, 2) not null default 0 check (amount >= 0),
+  payment_status text not null default 'pending',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (order_id)
+);
+
+create index if not exists payments_buyer_idx on payments (buyer_id, created_at desc);
+create index if not exists payments_seller_idx on payments (seller_id, created_at desc);
+create index if not exists payments_status_idx on payments (payment_status);
+alter table payments enable row level security;
+drop policy if exists "Users can view related payments" on payments;
+create policy "Users can view related payments"
+  on payments for select to authenticated
+  using (auth.uid() = buyer_id or auth.uid() = seller_id);
+drop policy if exists "Buyers can create their own payments" on payments;
+create policy "Buyers can create their own payments"
+  on payments for insert to authenticated
+  with check (auth.uid() = buyer_id);
+drop policy if exists "Payment status is service managed" on payments;
+create policy "Payment status is service managed"
+  on payments for update to authenticated
+  using (auth.uid() = buyer_id or auth.uid() = seller_id)
+  with check (auth.uid() = buyer_id or auth.uid() = seller_id);
 
 -- Review relationships and indexes. Orders and order_items are declared above,
 -- so these foreign keys can be added safely for both new and existing databases.
@@ -1281,6 +1357,12 @@ declare
   v_legacy_order_id text;
   v_quantity integer;
   v_unit_price numeric(10, 2);
+  v_original_price numeric(10, 2);
+  v_discounted_price numeric(10, 2);
+  v_promotion_id uuid;
+  v_promotion_title text;
+  v_promotion_type text;
+  v_discount_value numeric(10, 2);
   v_subtotal numeric(10, 2) := 0;
   v_delivery_fee numeric(10, 2) := coalesce(p_delivery_fee, 0);
 begin
@@ -1359,7 +1441,35 @@ begin
         using errcode = 'check_violation';
     end if;
 
-    v_subtotal := v_subtotal + (v_quantity * v_listing.price);
+    v_original_price := v_listing.price;
+    v_discounted_price := v_original_price;
+    v_promotion_id := null;
+    v_promotion_title := null;
+    v_promotion_type := null;
+    v_discount_value := null;
+    select id, title, coalesce(promotion_type, discount_type), discount_value
+      into v_promotion_id, v_promotion_title, v_promotion_type, v_discount_value
+      from promotions
+      where seller_id = p_seller_id
+        and status = 'active'
+        and current_date >= start_date
+        and (end_date is null or current_date <= end_date)
+        and (
+          listing_id = coalesce(v_listing.legacy_id, v_listing.id::text)
+          or listing_ids @> jsonb_build_array(coalesce(v_listing.legacy_id, v_listing.id::text))
+          or listing_ids @> jsonb_build_array(v_listing.id::text)
+        )
+      order by created_at desc
+      limit 1;
+    if v_promotion_id is not null then
+      v_discounted_price := case
+        when v_promotion_type = 'percentage' then v_original_price * (1 - least(100, greatest(0, coalesce(v_discount_value, 0))) / 100)
+        when v_promotion_type in ('dollar', 'fixed', 'fixed_amount') then v_original_price - greatest(0, coalesce(v_discount_value, 0))
+        else v_original_price
+      end;
+      v_discounted_price := greatest(0, round(v_discounted_price, 2));
+    end if;
+    v_subtotal := v_subtotal + (v_quantity * v_discounted_price);
     update listings
     set inventory_quantity = inventory_quantity - v_quantity,
         updated_at = now()
@@ -1383,14 +1493,46 @@ begin
       select id into v_listing_id from listings
       where legacy_id = v_item->>'listing_id';
     end if;
-    select price into v_unit_price from listings where id = v_listing_id;
-    insert into order_items (order_id, listing_id, quantity, unit_price, line_total)
+    select * into v_listing from listings where id = v_listing_id;
+    v_original_price := v_listing.price;
+    v_discounted_price := v_original_price;
+    v_promotion_id := null;
+    v_promotion_title := null;
+    v_promotion_type := null;
+    v_discount_value := null;
+    select id, title, coalesce(promotion_type, discount_type), discount_value
+      into v_promotion_id, v_promotion_title, v_promotion_type, v_discount_value
+      from promotions
+      where seller_id = v_listing.seller_id
+        and status = 'active'
+        and current_date >= start_date
+        and (end_date is null or current_date <= end_date)
+        and (
+          listing_id = coalesce(v_listing.legacy_id, v_listing.id::text)
+          or listing_ids @> jsonb_build_array(coalesce(v_listing.legacy_id, v_listing.id::text))
+          or listing_ids @> jsonb_build_array(v_listing.id::text)
+        )
+      order by created_at desc
+      limit 1;
+    if v_promotion_id is not null then
+      v_discounted_price := case
+        when v_promotion_type = 'percentage' then v_original_price * (1 - least(100, greatest(0, coalesce(v_discount_value, 0))) / 100)
+        when v_promotion_type in ('dollar', 'fixed', 'fixed_amount') then v_original_price - greatest(0, coalesce(v_discount_value, 0))
+        else v_original_price
+      end;
+      v_discounted_price := greatest(0, round(v_discounted_price, 2));
+    end if;
+    insert into order_items (order_id, listing_id, quantity, unit_price, line_total, original_price, discounted_price, promotion_id, promotion_title)
     values (
       v_order.id,
       v_listing_id,
       (v_item->>'quantity')::integer,
-      v_unit_price,
-      (v_item->>'quantity')::integer * v_unit_price
+      v_discounted_price,
+      (v_item->>'quantity')::integer * v_discounted_price,
+      v_original_price,
+      v_discounted_price,
+      v_promotion_id,
+      v_promotion_title
     );
   end loop;
 

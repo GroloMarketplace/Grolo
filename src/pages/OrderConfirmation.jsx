@@ -23,7 +23,7 @@ export default function OrderConfirmation() {
   const navigate = useNavigate();
   const [isAnimated, setIsAnimated] = useState(false);
   const { state } = useLocation();
-  const { items, removeItems } = useCart();
+  const { items, getItemPricing, removeItems } = useCart();
   const cartItemsRemoved = useRef(false);
   const orderCreationStarted = useRef(false);
   const [orderError, setOrderError] = useState("");
@@ -34,7 +34,7 @@ export default function OrderConfirmation() {
   const orderItems = orderItemsRef.current ?? (orderItemsRef.current = (state?.sellerId
     ? items.filter((item) => (item.sellerId ?? "current-user") === state.sellerId)
     : items).filter((item) => Number(item.quantity) > 0));
-  const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = orderItems.reduce((sum, item) => sum + getItemPricing(item).discountedPrice * item.quantity, 0);
   const paymentSettings = getPaymentMethods(state?.sellerId ?? orderItems[0]?.sellerId ?? "current-user");
   const requestedFulfillment = state?.fulfillmentMethod ?? fulfillmentMethod;
   const selectedFulfillment = paymentSettings.fulfillmentMethods.includes(requestedFulfillment) ? requestedFulfillment : paymentSettings.fulfillmentMethods[0] ?? "pickup";
@@ -58,7 +58,19 @@ export default function OrderConfirmation() {
     if (orderItems.length === 0 || orderCreationStarted.current) return;
 
     orderCreationStarted.current = true;
-    createOrders(orderItems, {
+    const pricedOrderItems = orderItems.map((item) => {
+      const pricing = getItemPricing(item);
+      return {
+        ...item,
+        price: pricing.discountedPrice,
+        unitPrice: pricing.discountedPrice,
+        originalPrice: pricing.originalPrice,
+        discountedPrice: pricing.discountedPrice,
+        promotionId: pricing.promotion?.id ?? null,
+        promotionTitle: pricing.promotion?.title ?? null,
+      };
+    });
+    createOrders(pricedOrderItems, {
       orderId: orderNumber,
       sellerId: state?.sellerId ?? orderItems[0]?.sellerId,
       fulfillmentMethod: selectedFulfillment,
@@ -75,7 +87,7 @@ export default function OrderConfirmation() {
         console.error("Unable to create Supabase order", error);
         setOrderError(error?.message ?? "Unable to create your order. Your cart was not changed.");
       });
-  }, [orderItems, removeItems, createOrders, orderNumber, selectedFulfillment, deliveryFee, state?.sellerId]);
+  }, [orderItems, getItemPricing, removeItems, createOrders, orderNumber, selectedFulfillment, deliveryFee, state?.sellerId]);
 
   return (
     <div className="flex h-full flex-col">

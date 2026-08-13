@@ -494,11 +494,12 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
       <VacationBadge sellerId={product.sellerId} />
       <button type="button" onClick={openProduct} className="relative mt-3 block w-full text-left">
         <img src={product.image} alt={product.name} className="aspect-square w-full rounded object-cover" />
+        {product.promotion && <PromotionBadge promotion={product.promotion} className="absolute left-2 top-2" />}
         {paidAd && <span className="absolute right-2 top-2 rounded-full bg-[#CFF7D3] px-2 py-1 text-[12px] font-medium text-[#02542D] shadow-sm">{paidAd.badgeLabel ?? paidAd.label ?? paidAd.placementLabel ?? "Featured"}</span>}
       </button>
       <button type="button" onClick={openProduct} className="mt-2 block text-left">
         <h3 className="text-[16px] font-semibold">{product.name}</h3>
-        <p className="text-[14px] text-[#498467]">{formatListingPrice(product)}</p>
+        {product.discountedPrice < product.originalPrice ? <p className="text-[14px] text-[#498467]">${product.discountedPrice.toFixed(2)} <span className="text-[11px] text-[#828282] line-through">${product.originalPrice.toFixed(2)}</span></p> : <p className="text-[14px] text-[#498467]">{formatListingPrice(product)}</p>}
         <TradeBadge listing={product} compact className="mt-1" />
       </button>
       <ReviewSummary product={product} onClick={openReviews} />

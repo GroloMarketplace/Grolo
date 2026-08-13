@@ -10,6 +10,7 @@ import {
 } from "../lib/api/listings";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { refreshUserReputation } from "../lib/api/reputation";
+import { usePromotions } from "./PromotionContext";
 
 const ListingContext = createContext(null);
 const STORAGE_KEY = "grolo-listings";
@@ -32,8 +33,10 @@ function clearLegacyListings(storageKey) {
 
 export function ListingProvider({ children }) {
   const { user } = useAuth();
+  const { getListingPricing } = usePromotions();
   const storageKey = `${STORAGE_KEY}-${user?.id ?? "anonymous"}`;
   const [listings, setListings] = useState([]);
+  const [archivedListings, setArchivedListings] = useState([]);
   const [loading, setLoading] = useState(isSupabaseConfigured);
   const [error, setError] = useState(null);
 
@@ -43,6 +46,7 @@ export function ListingProvider({ children }) {
     async function loadListings() {
       if (!isSupabaseConfigured) {
         setListings([]);
+        setArchivedListings([]);
         setLoading(false);
         setError(new Error("Supabase is not configured."));
         return;
@@ -59,12 +63,17 @@ export function ListingProvider({ children }) {
           }
         }
         const nextListings = await getListings();
-        if (!cancelled) setListings(nextListings);
+        const sellerListings = user?.id ? await getListings({ sellerId: user.id, includeArchived: true }) : [];
+        if (!cancelled) {
+          setListings(nextListings);
+          setArchivedListings(sellerListings.filter((listing) => listing.status === "Archived"));
+        }
       } catch (loadError) {
         if (!cancelled) {
           console.error("Unable to load listings", loadError);
           setError(loadError);
           setListings([]);
+          setArchivedListings([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -94,8 +103,12 @@ export function ListingProvider({ children }) {
 
   const removeListing = async (listingId) => {
     if (!user?.id) throw new Error("You must be signed in to delete a listing.");
-    await deleteListingRecord(listingId);
+    const result = await deleteListingRecord(listingId);
     setListings((current) => current.filter((listing) => listing.id !== listingId && listing.databaseId !== listingId));
+    if (result?.archived && result.listing) {
+      setArchivedListings((current) => [result.listing, ...current.filter((listing) => listing.id !== result.listing.id)]);
+    }
+    return result;
   };
 
   const searchListings = useCallback(async (query) => {
@@ -103,9 +116,24 @@ export function ListingProvider({ children }) {
     return searchListingRecords(query.trim());
   }, []);
 
+  const priceListings = useCallback((source) => source.map((listing) => {
+    const pricing = getListingPricing(listing);
+    return {
+      ...listing,
+      originalPrice: pricing.originalPrice,
+      discountedPrice: pricing.discountedPrice,
+      promotion: pricing.promotion,
+      promotionId: pricing.promotion?.id ?? null,
+      promotionTitle: pricing.promotion?.title ?? null,
+      discountPercent: pricing.discountPercent,
+    };
+  }), [getListingPricing]);
+  const pricedListings = useMemo(() => priceListings(listings), [listings, priceListings]);
+  const pricedArchivedListings = useMemo(() => priceListings(archivedListings), [archivedListings, priceListings]);
+
   const value = useMemo(
-    () => ({ listings, loading, error, addListing, updateListing, removeListing, searchListings }),
-    [listings, loading, error, searchListings],
+    () => ({ listings: pricedListings, archivedListings: pricedArchivedListings, loading, error, addListing, updateListing, removeListing, searchListings }),
+    [pricedListings, pricedArchivedListings, loading, error, searchListings],
   );
   return <ListingContext.Provider value={value}>{children}</ListingContext.Provider>;
 }

@@ -9,8 +9,8 @@ import DistanceLabel from "./DistanceLabel";
 import TradeBadge from "./TradeBadge";
 
 export default function ProductCard({ product, onClick }) {
-  const { promotionsForProduct } = usePromotions();
-  const promotion = promotionsForProduct(product.id)[0];
+  const { getListingPricing } = usePromotions();
+  const pricing = getListingPricing(product);
   const { getSellerProfile } = useSellerSettings();
   const vacationMode = getSellerProfile(product.sellerId)?.vacationMode;
 
@@ -30,7 +30,7 @@ export default function ProductCard({ product, onClick }) {
           alt={product.name}
           className="w-[148px] h-[148px] rounded-lg object-cover"
         />
-        <PromotionBadge promotion={promotion} className="absolute left-2 top-2" />
+        {pricing.promotion && <PromotionBadge promotion={pricing.promotion} className="absolute left-2 top-2" />}
         {vacationMode && <span className="absolute bottom-2 left-2 rounded-full bg-white/90 px-2 py-1 text-[10px] font-medium text-[#4F4F4F]">Temporarily Closed</span>}
       </div>
       <div className="flex flex-col gap-0.5">
@@ -43,9 +43,12 @@ export default function ProductCard({ product, onClick }) {
         <div className="text-[14px] text-black line-clamp-2">
           {product.name}
         </div>
-        <div className="text-[16px] font-medium text-black">
-          {formatListingPrice(product)}
-        </div>
+        {pricing.promotion && pricing.discountedPrice < pricing.originalPrice ? (
+          <div className="flex items-baseline gap-2 text-[16px] font-medium">
+            <span className="text-black">${pricing.discountedPrice.toFixed(2)}</span>
+            <span className="text-[12px] text-black/50 line-through">${pricing.originalPrice.toFixed(2)}</span>
+          </div>
+        ) : <div className="text-[16px] font-medium text-black">{formatListingPrice(product)}</div>}
         <TradeBadge listing={product} compact />
       </div>
     </Link>

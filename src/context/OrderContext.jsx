@@ -8,6 +8,7 @@ import {
 import { cancelOrderWithInventory as cancelOrderWithInventoryInApi, createOrderWithItems, getBuyerOrders, getSellerOrders, legacyOrdersFromRows, updateOrderStatus as updateOrderStatusInApi } from "../lib/api/orders";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { refreshUserReputation } from "../lib/api/reputation";
+import { createPayment, getPaymentsForUser } from "../lib/api/payments";
 
 const OrderContext = createContext(null);
 
@@ -30,34 +31,38 @@ const DELIVERY_NEXT_STATUS = {
 export function OrderProvider({ children }) {
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
+  const [payments, setPayments] = useState([]);
 
   useEffect(() => {
     let active = true;
 
     if (!user?.id) {
       setOrders([]);
+      setPayments([]);
       return () => {
         active = false;
       };
     }
 
-    Promise.all([
+    Promise.allSettled([
       getBuyerOrders(user.id),
       getSellerOrders(user.id),
+      getPaymentsForUser(user.id),
     ])
-      .then(([buyerRows, sellerRows]) => {
+      .then(([buyerResult, sellerResult, paymentResult]) => {
+        const buyerRows = buyerResult.status === "fulfilled" ? buyerResult.value : [];
+        const sellerRows = sellerResult.status === "fulfilled" ? sellerResult.value : [];
+        const paymentRows = paymentResult.status === "fulfilled" ? paymentResult.value : [];
         const rowsById = new Map();
         [...buyerRows, ...sellerRows].forEach((row) => {
           if (row?.id) rowsById.set(row.id, row);
         });
         if (!active) return;
         setOrders(legacyOrdersFromRows([...rowsById.values()]));
+        setPayments(paymentRows);
         console.info("order source: supabase");
-      })
-      .catch((error) => {
-        if (!active) return;
-        setOrders([]);
-        console.error("Unable to load orders from Supabase", error);
+        console.info("payment source: supabase", { count: paymentRows.length });
+        if (paymentResult.status === "rejected") console.error("Unable to load payments from Supabase", paymentResult.reason);
       });
 
     return () => {
@@ -116,7 +121,19 @@ export function OrderProvider({ children }) {
       ...(response?.order ?? {}),
       items: response?.items ?? [],
     };
-    const nextOrders = legacyOrdersFromRows([databaseOrder]);
+    let payment = null;
+    try {
+      payment = await createPayment({
+        orderId: databaseOrder.id,
+        buyerId: user.id,
+        sellerId,
+        amount: databaseOrder.total,
+      });
+      setPayments((current) => [payment, ...current.filter((item) => item.orderId !== payment.orderId)]);
+    } catch (error) {
+      console.error("Unable to persist payment record", error);
+    }
+    const nextOrders = legacyOrdersFromRows([{ ...databaseOrder, payment: payment ?? null }]);
     if (!nextOrders.length) throw new Error("Supabase created an order without order items.");
 
     setOrders((current) => [
@@ -357,6 +374,7 @@ export function OrderProvider({ children }) {
 
   const value = {
     orders,
+    payments,
     buyerOrders,
     sellerOrders,
     createOrders,

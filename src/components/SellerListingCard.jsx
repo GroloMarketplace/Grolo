@@ -9,14 +9,15 @@ import ConfirmationModal from "./ConfirmationModal";
 import DistanceLabel from "./DistanceLabel";
 import TradeBadge from "./TradeBadge";
 
-export default function SellerListingCard({ product, onDelete }) {
+export default function SellerListingCard({ product, onDelete, archived = false, hasOrderHistory = false }) {
   const navigate = useNavigate();
-  const { promotionsForProduct } = usePromotions();
-  const promotion = promotionsForProduct(product.id)[0];
+  const { getListingPricing } = usePromotions();
+  const pricing = getListingPricing(product);
+  const promotion = pricing.promotion;
   const available = Number(product.quantityAvailable) || 0;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [status] = useState(product.status || "Active");
-  const displayStatus = available === 0 ? "Sold" : status;
+  const displayStatus = archived ? "Archived" : available === 0 ? "Sold" : status;
 
   const handleEdit = () => {
     navigate(`/edit-listing/${product.id}`);
@@ -45,6 +46,7 @@ export default function SellerListingCard({ product, onDelete }) {
     Active: "bg-[#498467] text-white",
     Sold: "bg-[#828282] text-white",
     Draft: "bg-[#E6E6E6] text-black",
+    Archived: "bg-[#E6E6E6] text-[#4F4F4F]",
   };
 
   return (
@@ -80,9 +82,7 @@ export default function SellerListingCard({ product, onDelete }) {
           <div className="text-[14px] text-black line-clamp-2">
             {product.name}
           </div>
-          <div className="text-[16px] font-medium text-black">
-            {formatListingPrice(product)}
-          </div>
+          {pricing.discountedPrice < pricing.originalPrice ? <div className="flex items-baseline gap-2 text-[16px] font-medium"><span>${pricing.discountedPrice.toFixed(2)}</span><span className="text-[12px] text-[#828282] line-through">${pricing.originalPrice.toFixed(2)}</span></div> : <div className="text-[16px] font-medium text-black">{formatListingPrice(product)}</div>}
           <TradeBadge listing={product} compact />
           <ReviewSummary product={product} />
           <div className="text-[12px] text-[#828282]">{available} Available</div>
@@ -146,8 +146,7 @@ export default function SellerListingCard({ product, onDelete }) {
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-2 mt-1">
+        {!archived && <div className="flex gap-2 mt-1">
           <button
             onClick={handleEdit}
             className="flex-1 text-[12px] font-medium text-[#498467] border border-[#498467] rounded py-1"
@@ -160,11 +159,11 @@ export default function SellerListingCard({ product, onDelete }) {
           >
             Delete
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Delete Confirmation Modal */}
-      {showDeleteModal && <ConfirmationModal title="Delete Listing?" message="Are you sure you want to delete this listing? This action cannot be undone." confirmLabel="Delete Listing" onCancel={handleDeleteCancel} onConfirm={handleDeleteConfirm} />}
+      {showDeleteModal && <ConfirmationModal title="Delete Listing?" message={hasOrderHistory ? "This listing has previous orders and will be archived instead of permanently deleted." : "Are you sure you want to delete this listing? This action cannot be undone."} confirmLabel="Delete Listing" onCancel={handleDeleteCancel} onConfirm={handleDeleteConfirm} />}
     </>
   );
 }

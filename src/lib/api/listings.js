@@ -82,19 +82,22 @@ export function listingFromRow(row) {
     shop: row.profiles?.shop_name ?? "",
     location: row.location ?? "",
     status: row.status ?? "Active",
+    isActive: (row.status ?? "Active") !== "Archived",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...metadata,
   };
 }
 
-export async function getListings({ category, limit } = {}) {
+export async function getListings({ category, limit, sellerId, includeArchived = false } = {}) {
   requireSupabase();
   let query = supabase
     .from("listings")
     .select(LISTING_SELECT)
     .order("created_at", { ascending: false });
   if (category) query = query.eq("category", category);
+  if (sellerId) query = query.eq("seller_id", sellerId);
+  if (!includeArchived) query = query.eq("status", "Active");
   if (limit) query = query.limit(limit);
   const { data, error } = await query;
   if (error) throw error;
@@ -118,6 +121,7 @@ export async function searchListings(queryText) {
     .from("listings")
     .select(LISTING_SELECT)
     .textSearch("search_vector", queryText, { type: "websearch" })
+    .eq("status", "Active")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map(listingFromRow);
@@ -189,9 +193,28 @@ export async function updateListing(listingId, updates, sellerId) {
 export async function deleteListing(listingId) {
   requireSupabase();
   const existing = await getListingById(listingId);
-  if (!existing) return;
+  if (!existing) return { archived: false, listing: null };
+
+  const { count, error: orderLookupError } = await supabase
+    .from("order_items")
+    .select("id", { count: "exact", head: true })
+    .eq("listing_id", existing.databaseId);
+  if (orderLookupError) throw orderLookupError;
+
+  if ((count ?? 0) > 0) {
+    const { data, error } = await supabase
+      .from("listings")
+      .update({ status: "Archived", updated_at: new Date().toISOString() })
+      .eq("id", existing.databaseId)
+      .select(LISTING_SELECT)
+      .single();
+    if (error) throw error;
+    return { archived: true, listing: listingFromRow(data) };
+  }
+
   const { error } = await supabase.from("listings").delete().eq("id", existing.databaseId);
   if (error) throw error;
+  return { archived: false, listing: existing };
 }
 
 export async function restoreListingInventory(items) {

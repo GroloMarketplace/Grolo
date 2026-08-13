@@ -5,6 +5,7 @@ import CarouselRow from "../components/CarouselRow";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import PromotionBadge from "../components/PromotionBadge";
 import { formatListingPrice } from "../utils/listingDisplay";
+import { usePromotions } from "../context/PromotionContext";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import { useFavorites } from "../hooks/useFavorites";
 import { useSavedItems } from "../context/SavedContext";
@@ -187,15 +188,17 @@ function SearchResults({ products, sellers, events, posts, query, navigate, onPr
 function ProductSearchRow({ product, onProduct }) {
   const openReviews = () => onProduct(product.id, `/product/${product.id}/reviews`);
   const reputationSnapshot = useReputationSnapshot(product.sellerId);
+  const { getListingPricing } = usePromotions();
+  const pricing = getListingPricing(product);
   return (
     <div className="flex w-full items-center justify-between rounded-lg border border-[#E6E6E6] p-3 text-left">
       <button type="button" onClick={() => onProduct(product.id)} className="min-w-0 flex-1 text-left">
         <ServiceCategoryLabel listing={product} className="block" />
-        <div className="truncate text-[14px] font-medium">{product.name}</div>
+        <div className="flex items-center gap-2"><div className="truncate text-[14px] font-medium">{product.name}</div>{pricing.promotion && <PromotionBadge promotion={pricing.promotion} />}</div>
         <div className="mt-1 text-[12px] text-[#828282]">{product.shop}</div>
         <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-1 max-w-full" />
         <DistanceLabel content={product} className="mt-1 block" />
-        <div className="mt-1 text-[14px] font-semibold text-[#498467]">{formatListingPrice(product)}</div>
+        {pricing.discountedPrice < pricing.originalPrice ? <div className="mt-1 text-[14px] font-semibold text-[#498467]">${pricing.discountedPrice.toFixed(2)} <span className="text-[11px] font-normal text-[#828282] line-through">${pricing.originalPrice.toFixed(2)}</span></div> : <div className="mt-1 text-[14px] font-semibold text-[#498467]">{formatListingPrice(product)}</div>}
         <TradeBadge listing={product} compact className="mt-1" />
       </button>
       <ReviewSummary product={product} onClick={openReviews} />

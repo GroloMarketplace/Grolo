@@ -8,6 +8,7 @@ import { categories, sellers } from "../data/mockData";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import { useListings } from "../context/ListingContext";
 import DistanceLabel from "../components/DistanceLabel";
+import PromotionBadge from "../components/PromotionBadge";
 import TradeBadge from "../components/TradeBadge";
 
 function getCategoryName(value) {
@@ -103,11 +104,14 @@ function CategoryProductCard({ product, onProduct }) {
   return (
     <article className="min-w-0">
       <Link to={`/product/${product.id}`} onClick={() => onProduct?.(product.id)} className="block">
-        <img
-          src={product.image}
-          alt={product.name}
-          className="aspect-square w-full rounded-lg object-cover"
-        />
+        <div className="relative">
+          <img
+            src={product.image}
+            alt={product.name}
+            className="aspect-square w-full rounded-lg object-cover"
+          />
+          {product.promotion && <PromotionBadge promotion={product.promotion} className="absolute left-2 top-2" />}
+        </div>
       </Link>
       <div className="flex flex-col gap-1 pt-2">
         <ServiceCategoryLabel listing={product} />
@@ -127,7 +131,7 @@ function CategoryProductCard({ product, onProduct }) {
           <span>{product.rating?.toFixed(1) ?? "New"}</span>
           {product.reviewCount && <span>({product.reviewCount})</span>}
         </div>
-        <span className="text-[16px] font-semibold">${product.price.toFixed(2)}</span>
+        {product.discountedPrice < product.originalPrice ? <span className="text-[16px] font-semibold text-[#498467]">${product.discountedPrice.toFixed(2)} <span className="text-[11px] font-normal text-[#828282] line-through">${product.originalPrice.toFixed(2)}</span></span> : <span className="text-[16px] font-semibold">${product.price.toFixed(2)}</span>}
         <TradeBadge listing={product} compact />
       </div>
     </article>

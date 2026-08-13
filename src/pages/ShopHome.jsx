@@ -45,7 +45,7 @@ export default function ShopHome() {
   const { storeOpenedAt } = useProfileMode();
   const { getSellerProfile, updateSellerProfile } = useSellerSettings();
   const sellerProfile = getSellerProfile(seller.id);
-  const { listings, removeListing } = useListings();
+  const { listings, archivedListings, removeListing } = useListings();
   const [isEditing, setIsEditing] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [deleteRequest, setDeleteRequest] = useState(null);
@@ -136,8 +136,8 @@ export default function ShopHome() {
 
   const handleDeleteListing = async (productId) => {
     try {
-      await removeListing(productId);
-      showToast("Listing deleted");
+      const result = await removeListing(productId);
+      showToast(result?.archived ? "Listing archived" : "Listing deleted");
     } catch (error) {
       showToast(error.message || "Unable to delete listing");
     }
@@ -430,7 +430,7 @@ export default function ShopHome() {
                   onScroll={handleContentScroll}
                   className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
                 >
-                <ShopListingsTab products={activeSellerProducts} outOfStockProducts={outOfStockSellerProducts} promotions={sellerPromotions} navigate={navigate} onDelete={handleDeleteListing} onOpenPromotions={() => navigate(`/promotions/${seller.id}`)} />
+                <ShopListingsTab products={activeSellerProducts} outOfStockProducts={outOfStockSellerProducts} archivedProducts={archivedListings.filter((product) => product.sellerId === seller.id)} hasOrderHistory={(product) => storeOrders.some((order) => order.productId === product.id || order.orderItems?.some((item) => item.productId === product.id || item.listingId === product.databaseId))} promotions={sellerPromotions} navigate={navigate} onDelete={handleDeleteListing} onOpenPromotions={() => navigate(`/promotions/${seller.id}`)} />
                 <ShopPostsTab posts={managedPosts} onEdit={handleEditPost} onDelete={handleDeletePost} onCreate={handleCreatePost} />
                 <ShopEventsTab events={sellerEvents} navigate={navigate} onEdit={handleEditEvent} onDelete={handleDeleteEvent} />
                   <ShopRegrowsTab products={sellerProducts} posts={managedPosts} events={sellerEvents} promotions={sellerPromotions} isRegrown={isRegrown} />
@@ -466,7 +466,7 @@ function ShopEmptyTab({ children }) {
   return <div className="py-10 text-center text-[14px] text-[#828282]">{children}</div>;
 }
 
-function ShopListingsTab({ products, outOfStockProducts, promotions, navigate, onDelete, onOpenPromotions }) {
+function ShopListingsTab({ products, outOfStockProducts, archivedProducts, hasOrderHistory, promotions, navigate, onDelete, onOpenPromotions }) {
   return (
     <ShopTabPanel>
       <div className="mb-3 flex items-center justify-between">
@@ -477,8 +477,9 @@ function ShopListingsTab({ products, outOfStockProducts, promotions, navigate, o
         </div>
       </div>
       {promotions.length > 0 && <PromotionsBanner count={promotions.length} onClick={onOpenPromotions} />}
-      {products.length === 0 ? <ShopEmptyTab>No listings yet. Create your first listing to start selling on Grolo.</ShopEmptyTab> : <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{products.map((product) => <SellerListingCard key={product.id} product={product} onDelete={onDelete} />)}</div>}
-      {outOfStockProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Out of Stock</h2><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{outOfStockProducts.map((product) => <SellerListingCard key={product.id} product={product} onDelete={onDelete} />)}</div></section>}
+      {products.length === 0 ? <ShopEmptyTab>No listings yet. Create your first listing to start selling on Grolo.</ShopEmptyTab> : <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{products.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div>}
+      {outOfStockProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Out of Stock</h2><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{outOfStockProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>}
+      {archivedProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Archived Listings</h2><p className="mb-3 text-[13px] text-[#828282]">Listings with previous orders are retained here for historical records.</p><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{archivedProducts.map((product) => <SellerListingCard key={product.id} product={product} archived />)}</div></section>}
     </ShopTabPanel>
   );
 }

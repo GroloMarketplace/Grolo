@@ -6,7 +6,7 @@ function requireSupabase() {
   }
 }
 
-const ORDER_SELECT = "*, order_items(*, listings(legacy_id))";
+const ORDER_SELECT = "*, order_items(*, listings(legacy_id)), payments(*)";
 
 function logApiError(operation, error, context = {}) {
   console.error(`Supabase ${operation} error`, {
@@ -29,6 +29,10 @@ function orderItemFromRow(row) {
     quantity: row.quantity,
     unitPrice: row.unit_price ?? row.unitPrice,
     lineTotal: row.line_total ?? row.lineTotal,
+    originalPrice: row.original_price ?? row.originalPrice,
+    discountedPrice: row.discounted_price ?? row.discountedPrice,
+    promotionId: row.promotion_id ?? row.promotionId,
+    promotionTitle: row.promotion_title ?? row.promotionTitle,
     createdAt: row.created_at ?? row.createdAt,
     updatedAt: row.updated_at ?? row.updatedAt,
   };
@@ -53,6 +57,9 @@ export function orderFromRow(row) {
     items,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    payment: row.payments?.[0] ?? null,
+    paymentId: row.payments?.[0]?.payment_id ?? null,
+    paymentStatus: row.payments?.[0]?.payment_status ?? null,
   };
 }
 
@@ -105,8 +112,15 @@ export function legacyOrderFromRow(row, itemRow, itemIndex = 0) {
     createdAt,
     date: legacyDate(row.created_at ?? row.createdAt),
     inventoryRestored: Boolean(row.inventory_restored ?? row.inventoryRestored),
+    payment: row.payments?.[0] ?? row.payment ?? null,
+    paymentId: row.payments?.[0]?.payment_id ?? row.paymentId ?? null,
+    paymentStatus: row.payments?.[0]?.payment_status ?? row.paymentStatus ?? null,
     lineTotal: Number(item.line_total ?? item.lineTotal) || 0,
     unitPrice: Number(item.unit_price ?? item.unitPrice) || 0,
+    originalPrice: Number(item.original_price ?? item.originalPrice ?? item.unit_price ?? item.unitPrice) || 0,
+    discountedPrice: Number(item.discounted_price ?? item.discountedPrice ?? item.unit_price ?? item.unitPrice) || 0,
+    promotionId: item.promotion_id ?? item.promotionId ?? null,
+    promotionTitle: item.promotion_title ?? item.promotionTitle ?? null,
     orderItems: items.map(orderItemFromRow),
   };
 }
@@ -149,6 +163,10 @@ function rowForOrderItem(item, orderId) {
     quantity,
     unit_price: unitPrice,
     line_total: Number(item.lineTotal ?? unitPrice * quantity) || 0,
+    original_price: item.originalPrice ?? item.price ?? unitPrice,
+    discounted_price: item.discountedPrice ?? unitPrice,
+    promotion_id: item.promotionId ?? null,
+    promotion_title: item.promotionTitle ?? null,
   };
 }
 
@@ -197,6 +215,10 @@ export async function createOrderWithItems(sellerId, items, { fulfillmentMethod 
   const payloadItems = (Array.isArray(items) ? items : []).map((item) => ({
     listing_id: item.databaseId ?? item.listingId ?? item.productId ?? item.id,
     quantity: Number(item.quantity) || 0,
+    original_price: item.originalPrice,
+    discounted_price: item.discountedPrice,
+    promotion_id: item.promotionId,
+    promotion_title: item.promotionTitle,
   }));
   const payloadMetadata = {
     ...metadata,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -8,15 +8,17 @@ import { useProfileMode } from "../context/ProfileModeContext";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage } from "../lib/imageStorage";
 
-const SELLER_ID = "current-user";
-
 export default function CreatePromotion() {
   const navigate = useNavigate();
   const { addPromotion } = usePromotions();
   const { user } = useAuth();
-  const { listings } = useListings();
+  const { listings, loading: listingsLoading, error: listingsError } = useListings();
   const { storeOpenedAt } = useProfileMode();
-  const sellerProducts = listings.filter((product) => product.sellerId === SELLER_ID && Number(product.createdAt) >= storeOpenedAt);
+  const sellerProducts = useMemo(() => listings.filter((product) => {
+    if (product.sellerId !== user?.id) return false;
+    const createdAt = typeof product.createdAt === "number" ? product.createdAt : Date.parse(product.createdAt);
+    return !storeOpenedAt || (Number.isFinite(createdAt) && createdAt >= storeOpenedAt);
+  }), [listings, storeOpenedAt, user?.id]);
   const [formData, setFormData] = useState({
     title: "",
     type: "percentage",
@@ -27,6 +29,16 @@ export default function CreatePromotion() {
     image: "",
   });
   const [imageError, setImageError] = useState("");
+
+  useEffect(() => {
+    const availableIds = sellerProducts.map((product) => product.id);
+    setFormData((current) => {
+      const selectedIds = current.productIds.filter((id) => availableIds.includes(id));
+      return selectedIds.length || !availableIds.length
+        ? { ...current, productIds: selectedIds }
+        : { ...current, productIds: [availableIds[0]] };
+    });
+  }, [sellerProducts]);
 
   const updateField = (field, value) => {
     setFormData((current) => ({ ...current, [field]: value }));
@@ -54,10 +66,20 @@ export default function CreatePromotion() {
     }
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    addPromotion({ ...formData, sellerId: SELLER_ID });
-    navigate("/shop");
+    try {
+      const selectedProducts = sellerProducts.filter((product) => formData.productIds.includes(product.id));
+      const realListingIds = selectedProducts.map((product) => product.databaseId ?? product.id);
+      await addPromotion({
+        ...formData,
+        listingId: realListingIds[0] ?? null,
+        productIds: realListingIds,
+      });
+      navigate("/shop");
+    } catch (error) {
+      setImageError(error.message || "Unable to create promotion.");
+    }
   };
 
   const needsValue = formData.type === "percentage" || formData.type === "dollar";
@@ -65,7 +87,7 @@ export default function CreatePromotion() {
   return (
     <MobileScreenLayout>
       <Header title="Create Promotion" onBack={() => navigate("/shop")} />
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-4 py-6">
+      <form onSubmit={handleSubmit} className="min-h-0 flex-1 overflow-y-auto no-scrollbar flex flex-col gap-5 px-4 py-6 pb-12">
         <div>
           <label className="block text-[14px] font-medium mb-2">Promotion name</label>
           <input
@@ -114,19 +136,30 @@ export default function CreatePromotion() {
 
         <div>
           <label className="block text-[14px] font-medium mb-2">Apply to listings</label>
-          <div className="flex flex-col gap-2">
-            {sellerProducts.map((product) => (
-              <label key={product.id} className="flex items-center gap-3 rounded-lg border border-[#E6E6E6] p-3">
-                <input
-                  type="checkbox"
-                  checked={formData.productIds.includes(product.id)}
-                  onChange={() => toggleProduct(product.id)}
-                  className="accent-[#498467]"
-                />
-                <span className="text-[14px]">{product.name}</span>
-              </label>
-            ))}
-          </div>
+          {listingsLoading ? (
+            <p className="rounded-lg bg-[#F5F5F5] p-3 text-[13px] text-[#828282]">Loading your listings...</p>
+          ) : listingsError ? (
+            <p className="rounded-lg bg-[#FFF1F0] p-3 text-[13px] text-[#B42318]">Unable to load your listings. Please refresh and try again.</p>
+          ) : sellerProducts.length === 0 ? (
+            <p className="rounded-lg bg-[#F5F5F5] p-3 text-[13px] text-[#828282]">No listings are available for this promotion.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {sellerProducts.map((product) => {
+                const selected = formData.productIds.includes(product.id);
+                return (
+                  <label key={product.id} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${selected ? "border-[#498467] bg-[#F5FFF6]" : "border-[#E6E6E6]"}`}>
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleProduct(product.id)}
+                      className="h-4 w-4 accent-[#498467]"
+                    />
+                    <span className="text-[14px]">{product.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div>

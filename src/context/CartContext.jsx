@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { useListings } from "./ListingContext";
+import { usePromotions } from "./PromotionContext";
 
 const CartContext = createContext(null);
 const CART_STORAGE_KEY = "grolo-cart";
@@ -24,6 +25,7 @@ function persistCart(storageKey, nextItems) {
 export function CartProvider({ children }) {
   const { user } = useAuth();
   const { listings } = useListings();
+  const { getListingPricing } = usePromotions();
   const storageKey = `${CART_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
   const [items, setItems] = useState(() => loadCart(storageKey));
 
@@ -54,9 +56,16 @@ export function CartProvider({ children }) {
       const nextQuantity = (existing?.quantity ?? 0) + quantity;
       const cappedQuantity = Math.min(available, nextQuantity);
       if (cappedQuantity < 1) return current;
+      const pricing = getListingPricing(listing);
+      const pricedFields = {
+        originalPrice: pricing.originalPrice,
+        discountedPrice: pricing.discountedPrice,
+        promotionId: pricing.promotion?.id ?? null,
+        promotionTitle: pricing.promotion?.title ?? null,
+      };
       const nextItems = existing
-        ? current.map((item) => item.productId === product.id ? { ...item, quantity: cappedQuantity } : item)
-        : [...current, { ...product, productId: product.id, id: `cart-${product.id}`, quantity: cappedQuantity }];
+        ? current.map((item) => item.productId === product.id ? { ...item, ...pricedFields, quantity: cappedQuantity } : item)
+        : [...current, { ...product, ...pricedFields, price: pricing.discountedPrice, productId: product.id, id: `cart-${product.id}`, quantity: cappedQuantity }];
       persistCart(storageKey, nextItems);
       return nextItems;
     });
@@ -80,18 +89,23 @@ export function CartProvider({ children }) {
     });
   };
 
+  const getItemPricing = useCallback((item) => {
+    const listing = listings.find((candidate) => candidate.id === item.productId || candidate.databaseId === item.productId) ?? item;
+    return getListingPricing(listing);
+  }, [listings, getListingPricing]);
+
   const totalQuantity = useMemo(
     () => items.reduce((sum, item) => sum + item.quantity, 0),
     [items],
   );
 
   const subtotal = useMemo(
-    () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    [items],
+    () => items.reduce((sum, item) => sum + getItemPricing(item).discountedPrice * item.quantity, 0),
+    [items, getItemPricing],
   );
 
   return (
-    <CartContext.Provider value={{ items, updateQuantity, addToCart, removeItems, restoreItems, totalQuantity, subtotal }}>
+    <CartContext.Provider value={{ items, updateQuantity, addToCart, getItemPricing, removeItems, restoreItems, totalQuantity, subtotal }}>
       {children}
     </CartContext.Provider>
   );

@@ -338,3 +338,112 @@ create policy "Grolo users can delete own images"
     bucket_id = 'grolo-images'
     and (storage.foldername(name))[1] = (select auth.uid()::text)
   );
+
+-- Orders (Phase 5E.1). Order persistence is provisioned independently of the
+-- current localStorage-backed OrderContext so the UI can migrate later.
+create table if not exists orders (
+  id uuid primary key default gen_random_uuid(),
+  buyer_id uuid not null references auth.users(id) on delete cascade,
+  seller_id uuid not null references profiles(id) on delete restrict,
+  fulfillment_method text not null default 'pickup' check (fulfillment_method in ('pickup', 'delivery')),
+  status text not null default 'Seller Notified',
+  subtotal numeric(10, 2) not null default 0 check (subtotal >= 0),
+  delivery_fee numeric(10, 2) not null default 0 check (delivery_fee >= 0),
+  total numeric(10, 2) not null default 0 check (total >= 0),
+  inventory_restored boolean not null default false,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists order_items (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references orders(id) on delete cascade,
+  listing_id uuid not null references listings(id) on delete restrict,
+  quantity integer not null check (quantity > 0),
+  unit_price numeric(10, 2) not null check (unit_price >= 0),
+  line_total numeric(10, 2) not null check (line_total >= 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (order_id, listing_id)
+);
+
+create index if not exists orders_buyer_idx on orders (buyer_id);
+create index if not exists orders_seller_idx on orders (seller_id);
+create index if not exists orders_status_idx on orders (status);
+create index if not exists order_items_order_idx on order_items (order_id);
+create index if not exists order_items_listing_idx on order_items (listing_id);
+
+create or replace function set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists orders_set_updated_at on orders;
+create trigger orders_set_updated_at
+before update on orders
+for each row execute function set_updated_at();
+
+drop trigger if exists order_items_set_updated_at on order_items;
+create trigger order_items_set_updated_at
+before update on order_items
+for each row execute function set_updated_at();
+
+alter table orders enable row level security;
+alter table order_items enable row level security;
+
+drop policy if exists "Buyers can read their own orders" on orders;
+create policy "Buyers can read their own orders"
+  on orders for select to authenticated
+  using (auth.uid() = buyer_id);
+
+drop policy if exists "Sellers can read orders containing their listings" on orders;
+create policy "Sellers can read orders containing their listings"
+  on orders for select to authenticated
+  using (auth.uid() = seller_id);
+
+drop policy if exists "Buyers can create their own orders" on orders;
+create policy "Buyers can create their own orders"
+  on orders for insert to authenticated
+  with check (auth.uid() = buyer_id);
+
+drop policy if exists "Buyers can read items in their orders" on order_items;
+create policy "Buyers can read items in their orders"
+  on order_items for select to authenticated
+  using (
+    exists (
+      select 1
+      from orders
+      where orders.id = order_items.order_id
+        and orders.buyer_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Sellers can read items for their listings" on order_items;
+create policy "Sellers can read items for their listings"
+  on order_items for select to authenticated
+  using (
+    exists (
+      select 1
+      from listings
+      where listings.id = order_items.listing_id
+        and listings.seller_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Buyers can create items in their orders" on order_items;
+create policy "Buyers can create items in their orders"
+  on order_items for insert to authenticated
+  with check (
+    exists (
+      select 1
+      from orders
+      where orders.id = order_items.order_id
+        and orders.buyer_id = auth.uid()
+    )
+  );

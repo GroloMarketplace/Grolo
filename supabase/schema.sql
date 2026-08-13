@@ -172,21 +172,96 @@ create policy "Users can manage their own favorites"
   with check (auth.uid() = user_id);
 
 -- Reviews
+-- Product review: a buyer reviews a listing/order item after a completed order.
+-- Seller review: a buyer reviews the seller after a completed order.
+-- Buyer review: a seller reviews the buyer after a completed order.
+--
+-- Order and order-item foreign keys are added below after those tables are
+-- provisioned, keeping this schema migration-safe for existing databases.
 create table if not exists reviews (
   id uuid primary key default gen_random_uuid(),
-  listing_id uuid not null references listings(id) on delete cascade,
+  review_type text not null default 'product',
   reviewer_id uuid not null references profiles(id) on delete cascade,
+  reviewee_id uuid references profiles(id) on delete cascade,
+  listing_id uuid references listings(id) on delete cascade,
+  order_id uuid,
+  order_item_id uuid,
   rating smallint not null check (rating between 1 and 5),
   title text,
   body text,
-  created_at timestamptz not null default now()
+  criteria jsonb not null default '{}'::jsonb,
+  photos jsonb not null default '[]'::jsonb,
+  status text not null default 'published',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  published_at timestamptz,
+  deleted_at timestamptz,
+  constraint reviews_review_type_check
+    check (review_type in ('product', 'seller', 'buyer')),
+  constraint reviews_criteria_object_check
+    check (jsonb_typeof(criteria) = 'object'),
+  constraint reviews_photos_array_check
+    check (jsonb_typeof(photos) = 'array'),
+  constraint reviews_status_check
+    check (status in ('draft', 'published', 'hidden', 'removed'))
 );
+
+alter table reviews add column if not exists review_type text not null default 'product';
+alter table reviews add column if not exists reviewee_id uuid;
+alter table reviews add column if not exists order_id uuid;
+alter table reviews add column if not exists order_item_id uuid;
+alter table reviews add column if not exists criteria jsonb not null default '{}'::jsonb;
+alter table reviews add column if not exists photos jsonb not null default '[]'::jsonb;
+alter table reviews add column if not exists status text not null default 'published';
+alter table reviews add column if not exists updated_at timestamptz not null default now();
+alter table reviews add column if not exists published_at timestamptz;
+alter table reviews add column if not exists deleted_at timestamptz;
+alter table reviews alter column listing_id drop not null;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.reviews'::regclass
+      and conname = 'reviews_review_type_check'
+  ) then
+    alter table reviews add constraint reviews_review_type_check
+      check (review_type in ('product', 'seller', 'buyer'));
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.reviews'::regclass
+      and conname = 'reviews_criteria_object_check'
+  ) then
+    alter table reviews add constraint reviews_criteria_object_check
+      check (jsonb_typeof(criteria) = 'object');
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.reviews'::regclass
+      and conname = 'reviews_photos_array_check'
+  ) then
+    alter table reviews add constraint reviews_photos_array_check
+      check (jsonb_typeof(photos) = 'array');
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.reviews'::regclass
+      and conname = 'reviews_status_check'
+  ) then
+    alter table reviews add constraint reviews_status_check
+      check (status in ('draft', 'published', 'hidden', 'removed'));
+  end if;
+end;
+$$;
 
 alter table reviews enable row level security;
 
+drop policy if exists "Reviews are viewable by everyone" on reviews;
 create policy "Reviews are viewable by everyone"
-  on reviews for select using (true);
+  on reviews for select using (status = 'published' and deleted_at is null);
 
+drop policy if exists "Users can manage their own reviews" on reviews;
 create policy "Users can manage their own reviews"
   on reviews for all using (auth.uid() = reviewer_id)
   with check (auth.uid() = reviewer_id);
@@ -518,6 +593,81 @@ create table if not exists order_items (
   unique (order_id, listing_id)
 );
 
+-- Review relationships and indexes. Orders and order_items are declared above,
+-- so these foreign keys can be added safely for both new and existing databases.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint c
+    where c.conrelid = 'public.reviews'::regclass
+      and c.confrelid = 'public.profiles'::regclass
+      and c.contype = 'f'
+      and pg_get_constraintdef(c.oid) like '%(reviewee_id)%'
+  ) then
+    alter table reviews
+      add constraint reviews_reviewee_id_fkey
+      foreign key (reviewee_id) references profiles(id) on delete cascade;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint c
+    where c.conrelid = 'public.reviews'::regclass
+      and c.confrelid = 'public.orders'::regclass
+      and c.contype = 'f'
+      and pg_get_constraintdef(c.oid) like '%(order_id)%'
+  ) then
+    alter table reviews
+      add constraint reviews_order_id_fkey
+      foreign key (order_id) references orders(id) on delete cascade;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint c
+    where c.conrelid = 'public.reviews'::regclass
+      and c.confrelid = 'public.order_items'::regclass
+      and c.contype = 'f'
+      and pg_get_constraintdef(c.oid) like '%(order_item_id)%'
+  ) then
+    alter table reviews
+      add constraint reviews_order_item_id_fkey
+      foreign key (order_item_id) references order_items(id) on delete cascade;
+  end if;
+end;
+$$;
+
+create index if not exists reviews_listing_idx on reviews (listing_id);
+create index if not exists reviews_reviewer_idx on reviews (reviewer_id);
+create index if not exists reviews_reviewee_idx on reviews (reviewee_id);
+create index if not exists reviews_order_idx on reviews (order_id);
+create index if not exists reviews_order_item_idx on reviews (order_item_id);
+create index if not exists reviews_type_idx on reviews (review_type);
+create index if not exists reviews_status_idx on reviews (status);
+create index if not exists reviews_created_at_idx on reviews (created_at desc);
+
+-- A buyer can submit one product review for a specific purchased listing/order
+-- item, one seller review per order, and a seller can submit one buyer review
+-- per order. Nullable legacy rows are intentionally excluded from these keys.
+create unique index if not exists reviews_product_duplicate_idx
+  on reviews (reviewer_id, order_item_id, listing_id)
+  where review_type = 'product'
+    and reviewer_id is not null
+    and order_item_id is not null
+    and listing_id is not null;
+
+create unique index if not exists reviews_seller_duplicate_idx
+  on reviews (reviewer_id, order_id, reviewee_id)
+  where review_type = 'seller'
+    and reviewer_id is not null
+    and order_id is not null
+    and reviewee_id is not null;
+
+create unique index if not exists reviews_buyer_duplicate_idx
+  on reviews (reviewer_id, order_id, reviewee_id)
+  where review_type = 'buyer'
+    and reviewer_id is not null
+    and order_id is not null
+    and reviewee_id is not null;
+
 -- Conversation relationships and indexes. These statements are migration-safe
 -- for databases that already contain the original conversations table.
 do $$
@@ -763,6 +913,11 @@ begin
   return new;
 end;
 $$;
+
+drop trigger if exists reviews_set_updated_at on reviews;
+create trigger reviews_set_updated_at
+before update on reviews
+for each row execute function set_updated_at();
 
 drop trigger if exists orders_set_updated_at on orders;
 create trigger orders_set_updated_at

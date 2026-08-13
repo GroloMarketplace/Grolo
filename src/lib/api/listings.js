@@ -162,13 +162,27 @@ export async function updateListing(listingId, updates, sellerId) {
   const existing = await getListingById(listingId);
   if (!existing) throw new Error("Listing not found.");
   const merged = { ...existing, ...updates };
+  const payload = {
+    ...rowForListing(merged, sellerId ?? existing.seller_id),
+    updated_at: new Date().toISOString(),
+  };
+  console.info("Supabase updateListing payload", {
+    listingId,
+    databaseId: existing.databaseId,
+    inventory_quantity: payload.inventory_quantity,
+  });
   const { data, error } = await supabase
     .from("listings")
-    .update({ ...rowForListing(merged, sellerId ?? existing.seller_id), updated_at: new Date().toISOString() })
+    .update(payload)
     .eq("id", existing.databaseId)
     .select(LISTING_SELECT)
     .single();
   if (error) throw error;
+  console.info("Supabase updateListing response", {
+    listingId,
+    databaseId: data.id,
+    inventory_quantity: data.inventory_quantity,
+  });
   return listingFromRow(data);
 }
 

@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo, useState, useEffect } from "react";
 import { useOrders } from "./OrderContext";
 import { useEvents } from "./EventContext";
 import { useAuth } from "./AuthContext";
-import { createReviewInDatabase, getBuyerReviews, getBuyerTrustAggregate } from "../lib/api/reviews";
+import { createReviewInDatabase, getBuyerReviews, getBuyerTrustAggregate, reviewVisibilitySummary, visibleReviews } from "../lib/api/reviews";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const BuyerTrustContext = createContext(null);
@@ -33,11 +33,12 @@ export function BuyerTrustProvider({ children }) {
   useEffect(() => {
     let cancelled = false;
     const localReviews = readSellerReviews(storageKey);
-    setReviews(localReviews);
+    setReviews(visibleReviews(localReviews));
 
     if (!user?.id || !isSupabaseConfigured) {
       setTrustAggregate(null);
       console.info("review source: localStorage fallback", {
+        ...reviewVisibilitySummary(localReviews),
         reviewCount: localReviews.length,
         productReviewCount: 0,
         sellerReviewCount: 0,
@@ -72,6 +73,7 @@ export function BuyerTrustProvider({ children }) {
         if (cancelled) return;
         setTrustAggregate(null);
         console.warn("review source: localStorage fallback", {
+          ...reviewVisibilitySummary(localReviews),
           error: error?.message ?? String(error),
           reviewCount: localReviews.length,
           productReviewCount: 0,
@@ -155,7 +157,7 @@ export function BuyerTrustProvider({ children }) {
     });
   };
 
-  const reviewsForBuyer = (buyer = "you") => reviews.filter((review) => buyerMatches(review, buyer));
+  const reviewsForBuyer = (buyer = "you") => visibleReviews(reviews).filter((review) => buyerMatches(review, buyer));
   const getBuyerTrust = (buyer = "you") => {
     const buyerReviews = reviewsForBuyer(buyer);
     const accountCreatedAt = user?.created_at ? new Date(user.created_at) : null;
@@ -189,7 +191,7 @@ export function BuyerTrustProvider({ children }) {
         : buyerReviews.length > 0 && buyerReviews.every((review) => review.criteria?.includes("Would Transact Again"))),
     };
   };
-  const hasReviewedOrder = (orderId) => reviews.some((review) => review.orderId === orderId);
+  const hasReviewedOrder = (orderId) => visibleReviews(reviews).some((review) => review.orderId === orderId);
 
   const value = useMemo(() => ({ reviews, addReview, reviewsForBuyer, getBuyerTrust, hasReviewedOrder }), [reviews, orders, attendingEventIds, user?.created_at]);
   return <BuyerTrustContext.Provider value={value}>{children}</BuyerTrustContext.Provider>;

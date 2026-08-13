@@ -178,6 +178,47 @@ async function attachReviewMetadata(rows) {
   };
 }
 
+function isPublishedReview(review) {
+  return (review.status ?? "published") === "published"
+    && !review.deleted_at
+    && !review.deleted
+    && review.public !== false
+    && !review.draft
+    && !review.private;
+}
+
+export function publishedReviews(reviews) {
+  return (Array.isArray(reviews) ? reviews : []).filter(isPublishedReview);
+}
+
+export function visibleReviews(reviews) {
+  return publishedReviews(reviews);
+}
+
+export function reviewVisibilitySummary(reviews) {
+  const rows = Array.isArray(reviews) ? reviews : [];
+  const moderationStatus = rows.reduce((counts, row) => {
+    const status = row.status ?? "published";
+    counts[status] = (counts[status] ?? 0) + 1;
+    return counts;
+  }, {});
+  const includedReviewCount = rows.filter(isPublishedReview).length;
+  return {
+    moderationStatus,
+    includedReviewCount,
+    excludedReviewCount: rows.length - includedReviewCount,
+  };
+}
+
+function visibilityDiagnostics(rows, includedRows, source = "database status") {
+  console.info("review visibility", {
+    ...reviewVisibilitySummary(rows),
+    visibilitySource: source,
+    includedReviewCount: includedRows.length,
+    excludedReviewCount: (rows ?? []).length - includedRows.length,
+  });
+}
+
 function ratingAggregate(rows, key) {
   const groups = new Map();
   rows.forEach((row) => {
@@ -202,16 +243,16 @@ export async function getProductRatingAggregates() {
   requireSupabase();
   const { data, error } = await supabase
     .from("reviews")
-    .select("listing_id, rating")
-    .eq("review_type", "product")
-    .eq("status", "published")
-    .is("deleted_at", null);
+    .select("listing_id, rating, status, deleted_at")
+    .eq("review_type", "product");
   if (error) throw error;
-  const aggregates = ratingAggregate(data ?? [], "listing_id");
+  const includedRows = (data ?? []).filter(isPublishedReview);
+  visibilityDiagnostics(data ?? [], includedRows);
+  const aggregates = ratingAggregate(includedRows, "listing_id");
   console.info("product aggregate source: supabase", {
-    aggregateReviewCount: (data ?? []).length,
+    aggregateReviewCount: includedRows.length,
     aggregateAverageRating: aggregates.length
-      ? Number(((data ?? []).reduce((sum, row) => sum + (Number(row.rating) || 0), 0) / data.length).toFixed(1))
+      ? Number((includedRows.reduce((sum, row) => sum + (Number(row.rating) || 0), 0) / includedRows.length).toFixed(1))
       : 0,
   });
   return aggregates;
@@ -222,10 +263,8 @@ export async function getSellerRatingAggregates() {
   const [{ data: reviews, error: reviewsError }, { data: orders, error: ordersError }] = await Promise.all([
     supabase
       .from("reviews")
-      .select("reviewee_id, rating")
-      .eq("review_type", "seller")
-      .eq("status", "published")
-      .is("deleted_at", null),
+      .select("reviewee_id, rating, status, deleted_at")
+      .eq("review_type", "seller"),
     supabase
       .from("orders")
       .select("seller_id")
@@ -233,14 +272,16 @@ export async function getSellerRatingAggregates() {
   ]);
   if (reviewsError) throw reviewsError;
   if (ordersError) throw ordersError;
-  const aggregates = ratingAggregate(reviews ?? [], "reviewee_id").map((aggregate) => ({
+  const includedRows = (reviews ?? []).filter(isPublishedReview);
+  visibilityDiagnostics(reviews ?? [], includedRows);
+  const aggregates = ratingAggregate(includedRows, "reviewee_id").map((aggregate) => ({
     ...aggregate,
     completedOrderCount: (orders ?? []).filter((order) => order.seller_id === aggregate.reviewee_id).length,
   }));
   console.info("seller aggregate source: supabase", {
-    aggregateReviewCount: (reviews ?? []).length,
+    aggregateReviewCount: includedRows.length,
     aggregateAverageRating: aggregates.length
-      ? Number(((reviews ?? []).reduce((sum, row) => sum + (Number(row.rating) || 0), 0) / reviews.length).toFixed(1))
+      ? Number((includedRows.reduce((sum, row) => sum + (Number(row.rating) || 0), 0) / includedRows.length).toFixed(1))
       : 0,
   });
   return aggregates;
@@ -252,11 +293,9 @@ export async function getBuyerTrustAggregate(buyerId) {
   const [{ data: reviews, error: reviewsError }, { data: orders, error: ordersError }] = await Promise.all([
     supabase
       .from("reviews")
-      .select("reviewee_id, criteria, order_id")
+      .select("reviewee_id, criteria, order_id, status, deleted_at")
       .eq("review_type", "buyer")
-      .eq("reviewee_id", buyerId)
-      .eq("status", "published")
-      .is("deleted_at", null),
+      .eq("reviewee_id", buyerId),
     supabase
       .from("orders")
       .select("id")
@@ -265,7 +304,8 @@ export async function getBuyerTrustAggregate(buyerId) {
   ]);
   if (reviewsError) throw reviewsError;
   if (ordersError) throw ordersError;
-  const buyerReviews = reviews ?? [];
+  const buyerReviews = (reviews ?? []).filter(isPublishedReview);
+  visibilityDiagnostics(reviews ?? [], buyerReviews);
   const aggregate = {
     buyerReviewCount: buyerReviews.length,
     sellerRecommendationCount: buyerReviews.filter((review) => review.criteria && Object.keys(review.criteria).length > 0).length,
@@ -337,15 +377,15 @@ async function getReviewsByType(reviewType, filterColumn, filterValue) {
     .from("reviews")
     .select(REVIEW_SELECT)
     .eq("review_type", reviewType)
-    .eq("status", "published")
-    .is("deleted_at", null)
     .order("created_at", { ascending: false });
   if (filterColumn && filterValue != null) query = query.eq(filterColumn, filterValue);
   const { data, error } = await query;
   if (error) throw error;
   const rows = data ?? [];
-  const metadata = await attachReviewMetadata(rows);
-  const mapped = rows.map((row) => databaseReviewToLegacyReview(row, metadata)).filter(Boolean);
+  const includedRows = rows.filter(isPublishedReview);
+  visibilityDiagnostics(rows, includedRows);
+  const metadata = await attachReviewMetadata(includedRows);
+  const mapped = includedRows.map((row) => databaseReviewToLegacyReview(row, metadata)).filter(Boolean);
   console.info("Supabase review read", {
     reviewReadCount: rows.length,
     mappedReviewCount: mapped.length,

@@ -13,6 +13,8 @@ import {
   getProductReviews,
   getSellerRatingAggregates,
   getSellerReviews,
+  reviewVisibilitySummary,
+  visibleReviews,
 } from "../lib/api/reviews";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
@@ -96,12 +98,13 @@ export function ReviewProvider({ children }) {
   useEffect(() => {
     let cancelled = false;
     const localReviews = readSubmittedReviews(identity, storageKey);
-    setSubmittedReviews(localReviews);
+    setSubmittedReviews(visibleReviews(localReviews));
 
     if (!user?.id || !isSupabaseConfigured) {
       setProductAggregates(new Map());
       setSellerAggregates(new Map());
       console.info("review source: localStorage fallback", {
+        ...reviewVisibilitySummary(localReviews),
         reviewCount: localReviews.length,
         productReviewCount: localReviews.filter((review) => review.reviewType === "product" || !review.reviewType).length,
         sellerReviewCount: localReviews.filter((review) => review.reviewType === "seller").length,
@@ -154,6 +157,7 @@ export function ReviewProvider({ children }) {
         setProductAggregates(new Map());
         setSellerAggregates(new Map());
         console.warn("review source: localStorage fallback", {
+          ...reviewVisibilitySummary(localReviews),
           error: error?.message ?? String(error),
           reviewCount: localReviews.length,
           productReviewCount: localReviews.filter((review) => review.reviewType === "product" || !review.reviewType).length,
@@ -175,7 +179,7 @@ export function ReviewProvider({ children }) {
   }, [storageKey, submittedReviews]);
 
   const allReviews = useMemo(
-    () => [...submittedReviews, ...productReviews],
+    () => visibleReviews([...submittedReviews, ...productReviews]),
     [submittedReviews],
   );
 
@@ -205,7 +209,7 @@ export function ReviewProvider({ children }) {
       const aggregate = productAggregates.get(productId);
       if (aggregate) return aggregate;
       const product = products.find((p) => p.id === productId);
-      const added = submittedReviews
+      const added = visibleReviews(submittedReviews)
         .filter((r) => r.productId === productId)
         .map((r) => r.rating);
       return averageWith(product?.rating ?? 0, product?.reviewCount ?? 0, added);
@@ -218,7 +222,7 @@ export function ReviewProvider({ children }) {
       const aggregate = sellerAggregates.get(sellerId);
       if (aggregate) return aggregate;
       const seller = sellers[sellerId];
-      const added = submittedReviews
+      const added = visibleReviews(submittedReviews)
         .filter((r) => r.sellerId === sellerId)
         .map((r) => r.rating);
       return averageWith(seller?.rating ?? 0, seller?.reviewCount ?? 0, added);

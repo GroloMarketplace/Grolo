@@ -1,6 +1,6 @@
 import { isSupabaseConfigured, supabase } from "../supabaseClient";
 
-const REVIEW_SELECT = "reviewee_id, reviewer_id, review_type, rating, status, deleted_at";
+const REVIEW_SELECT = "reviewee_id, reviewer_id, review_type, rating, criteria, status, deleted_at, created_at";
 const COMPLETED_ORDER_STATUS = "Completed";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -209,9 +209,17 @@ async function getBuyerAggregate(userId) {
   if (reviewsError) throw reviewsError;
   if (ordersError) throw ordersError;
   const includedReviews = (reviews ?? []).filter(isPublishedReview);
+  const sellerRecommendationCount = includedReviews.filter((review) => Object.keys(asObject(review.criteria)).length > 0).length;
+  const wouldTransactAgainCount = includedReviews.filter((review) => Boolean(asObject(review.criteria)["Would Transact Again"])).length;
   const metrics = {
     reviewCount: includedReviews.length,
     review_count: includedReviews.length,
+    buyerReviewCount: includedReviews.length,
+    buyer_review_count: includedReviews.length,
+    sellerRecommendationCount,
+    seller_recommendation_count: sellerRecommendationCount,
+    wouldTransactAgainCount,
+    would_transact_again_count: wouldTransactAgainCount,
     averageRating: averageRating(includedReviews),
     average_rating: averageRating(includedReviews),
     completedTransactionCount: (orders ?? []).length,
@@ -223,19 +231,25 @@ async function getBuyerAggregate(userId) {
 async function getSellerAggregate(userId) {
   const [{ data: reviews, error: reviewsError }, { data: orders, error: ordersError }, { data: listings, error: listingsError }] = await Promise.all([
     supabase.from("reviews").select(REVIEW_SELECT).eq("review_type", "seller").eq("reviewee_id", userId),
-    supabase.from("orders").select("id, status").eq("seller_id", userId).eq("status", COMPLETED_ORDER_STATUS),
-    supabase.from("listings").select("id, status").eq("seller_id", userId),
+    supabase.from("orders").select("id, status, created_at").eq("seller_id", userId).eq("status", COMPLETED_ORDER_STATUS),
+    supabase.from("listings").select("id, status, created_at").eq("seller_id", userId),
   ]);
   if (reviewsError) throw reviewsError;
   if (ordersError) throw ordersError;
   if (listingsError) throw listingsError;
   const includedReviews = (reviews ?? []).filter(isPublishedReview);
   const activeListings = (listings ?? []).filter((listing) => String(listing.status ?? "Active").toLowerCase() === "active");
+  const activityDates = new Set([...includedReviews, ...(orders ?? []), ...(listings ?? [])].map((row) => row.created_at?.slice(0, 10)).filter(Boolean));
+  const marketplaceInteractions = includedReviews.length + (orders ?? []).length + (listings ?? []).length;
   const metrics = {
     reviewCount: includedReviews.length,
     review_count: includedReviews.length,
     averageRating: averageRating(includedReviews),
     average_rating: averageRating(includedReviews),
+    marketplaceInteractions,
+    marketplace_interactions: marketplaceInteractions,
+    activeDays: activityDates.size,
+    active_days: activityDates.size,
     completedOrderCount: (orders ?? []).length,
     completed_order_count: (orders ?? []).length,
     activeListingCount: activeListings.length,
@@ -246,8 +260,9 @@ async function getSellerAggregate(userId) {
 
 export async function getBuyerStatus(userId) {
   requireSupabase();
-  if (!userId) return statusPayload(null, "unranked", {}, {}, emptyDiagnostics());
-  const [row, aggregate] = await Promise.all([getStatusRow(userId, "buyer"), getBuyerAggregate(userId)]);
+  const resolvedUserId = await resolveReputationUserId(userId);
+  if (!resolvedUserId) return statusPayload(null, "unranked", {}, {}, emptyDiagnostics());
+  const [row, aggregate] = await Promise.all([getStatusRow(resolvedUserId, "buyer"), getBuyerAggregate(resolvedUserId)]);
   const fallbackStatus = aggregate.metrics.completedTransactionCount > 0 ? "established_buyer" : "unranked";
   const diagnostics = emptyDiagnostics({ statusSource: row ? "user_reputation_status" : "derived", aggregateSource: "reviews, orders" });
   return { userId, user_id: userId, ...statusPayload(row, fallbackStatus, aggregate.progress, aggregate.metrics, diagnostics) };
@@ -255,8 +270,9 @@ export async function getBuyerStatus(userId) {
 
 export async function getSellerStatus(userId) {
   requireSupabase();
-  if (!userId) return statusPayload(null, "unranked", {}, {}, emptyDiagnostics());
-  const [row, aggregate] = await Promise.all([getStatusRow(userId, "seller"), getSellerAggregate(userId)]);
+  const resolvedUserId = await resolveReputationUserId(userId);
+  if (!resolvedUserId) return statusPayload(null, "unranked", {}, {}, emptyDiagnostics());
+  const [row, aggregate] = await Promise.all([getStatusRow(resolvedUserId, "seller"), getSellerAggregate(resolvedUserId)]);
   const fallbackStatus = aggregate.metrics.completedOrderCount > 0 || aggregate.metrics.activeListingCount > 0 ? "established_seller" : "unranked";
   const diagnostics = emptyDiagnostics({ statusSource: row ? "user_reputation_status" : "derived", aggregateSource: "reviews, orders, listings" });
   return { userId, user_id: userId, ...statusPayload(row, fallbackStatus, aggregate.progress, aggregate.metrics, diagnostics) };
@@ -264,13 +280,14 @@ export async function getSellerStatus(userId) {
 
 export async function getCommunityImpact(userId) {
   requireSupabase();
-  if (!userId) return { userId: null, user_id: null, metrics: {}, progress: {}, diagnostics: emptyDiagnostics() };
+  const resolvedUserId = await resolveReputationUserId(userId);
+  if (!resolvedUserId) return { userId: userId ?? null, user_id: userId ?? null, metrics: {}, progress: {}, diagnostics: emptyDiagnostics() };
 
   const [{ data: reviews, error: reviewsError }, { data: ordersAsBuyer, error: buyerOrdersError }, { data: ordersAsSeller, error: sellerOrdersError }, { data: listings, error: listingsError }] = await Promise.all([
-    supabase.from("reviews").select(REVIEW_SELECT).or(`reviewer_id.eq.${userId},reviewee_id.eq.${userId}`),
-    supabase.from("orders").select("id").eq("buyer_id", userId).eq("status", COMPLETED_ORDER_STATUS),
-    supabase.from("orders").select("id").eq("seller_id", userId).eq("status", COMPLETED_ORDER_STATUS),
-    supabase.from("listings").select("id, status").eq("seller_id", userId),
+    supabase.from("reviews").select(REVIEW_SELECT).or(`reviewer_id.eq.${resolvedUserId},reviewee_id.eq.${resolvedUserId}`),
+    supabase.from("orders").select("id, seller_id").eq("buyer_id", resolvedUserId).eq("status", COMPLETED_ORDER_STATUS),
+    supabase.from("orders").select("id, buyer_id").eq("seller_id", resolvedUserId).eq("status", COMPLETED_ORDER_STATUS),
+    supabase.from("listings").select("id, status").eq("seller_id", resolvedUserId),
   ]);
   if (reviewsError) throw reviewsError;
   if (buyerOrdersError) throw buyerOrdersError;
@@ -278,10 +295,15 @@ export async function getCommunityImpact(userId) {
   if (listingsError) throw listingsError;
 
   const includedReviews = (reviews ?? []).filter(isPublishedReview);
-  const reviewsGiven = includedReviews.filter((review) => review.reviewer_id === userId);
-  const reviewsReceived = includedReviews.filter((review) => review.reviewee_id === userId);
+  const reviewsGiven = includedReviews.filter((review) => review.reviewer_id === resolvedUserId);
+  const reviewsReceived = includedReviews.filter((review) => review.reviewee_id === resolvedUserId);
   const activeListings = (listings ?? []).filter((listing) => String(listing.status ?? "Active").toLowerCase() === "active");
+  const businessesSupported = new Set((ordersAsBuyer ?? []).map((order) => order.seller_id).filter(Boolean)).size;
   const metrics = {
+    businessesSupported,
+    businesses_supported: businessesSupported,
+    purchasesMade: (ordersAsBuyer ?? []).length,
+    purchases_made: (ordersAsBuyer ?? []).length,
     reviewsGiven: reviewsGiven.length,
     reviews_given: reviewsGiven.length,
     reviewsReceived: reviewsReceived.length,

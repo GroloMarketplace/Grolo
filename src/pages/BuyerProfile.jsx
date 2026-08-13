@@ -36,9 +36,14 @@ export default function BuyerProfile() {
   const { events: liveEvents, attendingEventIds } = useEvents();
   const { followedSellers } = useFollow();
   const { buyerOrders } = useOrders();
-  const { reviewsForBuyer } = useBuyerTrust();
+  const { reviewsForBuyer, communityImpact } = useBuyerTrust();
   const sellerReviews = (reviewsForBuyer?.("you") ?? []).sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0));
-  const impactMetrics = getBuyerImpactMetrics({ orders: buyerOrders(), events: liveEvents, attendingEventIds, followedSellers, reviewsWritten: sellerReviews.length });
+  const localImpactMetrics = getBuyerImpactMetrics({ orders: buyerOrders(), events: liveEvents, attendingEventIds, followedSellers, reviewsWritten: sellerReviews.length });
+  const impactMetrics = {
+    ...localImpactMetrics,
+    ...Object.fromEntries(Object.entries(communityImpact?.metrics ?? {}).filter(([key]) => ["businessesSupported", "purchasesMade", "eventsAttended", "storesFollowed", "reviewsGiven"].includes(key))),
+    reviewsWritten: communityImpact?.metrics?.reviewsGiven ?? localImpactMetrics.reviewsWritten,
+  };
   const buyerProfile = { ...BUYER, username: settings.displayName, handle: settings.username, bio: settings.bio, avatar: settings.avatar };
   const publicLocation = settings.showLocationPublicly && settings.location.trim() ? `${settings.location.trim()}, Calgary` : "";
   const { savedItems } = useSavedItems();

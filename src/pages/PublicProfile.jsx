@@ -10,6 +10,7 @@ import { communityPosts, events, notificationsFollowers, notificationsHighlights
 import { getBuyerImpactMetrics } from "../utils/buyerImpact";
 import { useFollow } from "../context/FollowContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 
 const FALLBACK_AVATAR = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80";
 const PROFILE_BANNER = "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80";
@@ -39,10 +40,18 @@ export default function PublicProfile() {
   const { state } = useLocation();
   const { isFollowing, toggleFollow, getFollowerCount } = useFollow();
   const { reviewsForBuyer } = useBuyerTrust();
+  const reputationSnapshot = useReputationSnapshot(userId);
   const profile = getNotificationProfile(userId, state);
   const profileReviews = reviewsForBuyer(profile.username).sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0));
   const activity = buildPublicActivity();
-  const metrics = getBuyerImpactMetrics({ orders: [], events, attendingEventIds: [], followedSellers: [], reviewsWritten: profileReviews.length });
+  const reputationMetrics = reputationSnapshot?.communityImpact?.metrics ?? {};
+  const metrics = getBuyerImpactMetrics({
+    orders: [],
+    events,
+    attendingEventIds: [],
+    followedSellers: [],
+    reviewsWritten: reputationMetrics.reviewsGiven ?? profileReviews.length,
+  });
   const savedProfileState = readNavigationState(`public-profile-${userId}`, { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 });
   const [activeTab, setActiveTab] = useState(() => Math.min(Math.max(savedProfileState.activeTab, 0), 2));
   const pageScrollRef = useRef(null);

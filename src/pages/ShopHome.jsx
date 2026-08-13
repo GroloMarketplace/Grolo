@@ -25,6 +25,7 @@ import { usePosts } from "../context/PostContext";
 import SellerProfileShareModal from "../components/SellerProfileShareModal";
 import ShareProfileButton from "../components/ShareProfileButton";
 import ConfirmationModal from "../components/ConfirmationModal";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 
 export default function ShopHome() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -64,6 +65,7 @@ export default function ShopHome() {
   const { promotionsForSeller } = usePromotions();
   const { isRegrown } = useRegrow();
   const { getFollowerCount } = useFollow();
+  const reputationSnapshot = useReputationSnapshot(user?.id ?? "current-user");
   const createdBySeller = useCallback((item) => {
     const createdAt = typeof item.createdAt === "number" ? item.createdAt : Date.parse(item.createdAt);
     return !Number.isNaN(createdAt) && createdAt >= storeOpenedAt;
@@ -111,14 +113,15 @@ export default function ShopHome() {
   }, [routeLocation.state?.activeTab, routeLocation.state?.eventUpdated]);
   const tabs = ["Listings", "Posts", "Events", "Regrows"];
   const sellerPromotions = promotionsForSeller(seller.id).filter(createdBySeller);
+  const remoteMetrics = reputationSnapshot?.sellerStatus?.metrics ?? {};
   const sellerStatus = getSellerStatus({
-    listingsCreated: sellerProducts.length,
-    completedOrders: storeOrders.filter((order) => order.status === "Completed").length,
+    listingsCreated: remoteMetrics.activeListingCount ?? sellerProducts.length,
+    completedOrders: remoteMetrics.completedOrderCount ?? storeOrders.filter((order) => order.status === "Completed").length,
     followers: getFollowerCount(seller.id),
-    sellerReviews: 0,
-    marketplaceInteractions: 0,
-    activeDays: 0,
-    averageRating: 0,
+    sellerReviews: remoteMetrics.reviewCount ?? 0,
+    marketplaceInteractions: remoteMetrics.marketplaceInteractions ?? 0,
+    activeDays: remoteMetrics.activeDays ?? 0,
+    averageRating: remoteMetrics.averageRating ?? 0,
     communityContribution: sellerEvents.length || sellerPromotions.length ? 1 : 0,
   });
 

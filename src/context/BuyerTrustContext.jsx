@@ -1,8 +1,9 @@
-import { createContext, useContext, useMemo, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import { useOrders } from "./OrderContext";
 import { useEvents } from "./EventContext";
 import { useAuth } from "./AuthContext";
 import { createReviewInDatabase, getBuyerReviews, getBuyerTrustAggregate, visibleReviews } from "../lib/api/reviews";
+import { getReputationSnapshot } from "../lib/api/reputation";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const BuyerTrustContext = createContext(null);
@@ -18,13 +19,16 @@ export function BuyerTrustProvider({ children }) {
   const { user } = useAuth();
   const [reviews, setReviews] = useState([]);
   const [trustAggregate, setTrustAggregate] = useState(null);
+  const [communityImpact, setCommunityImpact] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     setReviews([]);
     setTrustAggregate(null);
+    setCommunityImpact(null);
 
     if (!user?.id || !isSupabaseConfigured) {
+      console.info("reputation source: local fallback", { userId: user?.id ?? null });
       console.warn("review source: supabase read failed", {
         error: "Supabase authentication or configuration is unavailable.",
       });
@@ -45,6 +49,17 @@ export function BuyerTrustProvider({ children }) {
             console.warn("buyer trust aggregate source: supabase failed", {
               error: aggregateError?.message ?? String(aggregateError),
             });
+          });
+        getReputationSnapshot(user.id)
+          .then((snapshot) => {
+            if (cancelled) return;
+            const reputationMetrics = snapshot?.buyerStatus?.metrics ?? {};
+            setTrustAggregate((current) => ({ ...current, ...reputationMetrics, reputationStatus: snapshot?.buyerStatus?.currentStatus ?? null }));
+            setCommunityImpact(snapshot?.communityImpact ?? null);
+            console.info("reputation source: supabase", { userId: user.id, diagnostics: snapshot?.diagnostics });
+          })
+          .catch((reputationError) => {
+            console.info("reputation source: local fallback", { userId: user.id, error: reputationError?.message ?? String(reputationError) });
           });
         console.info("review source: supabase", {
           reviewCount: remoteReviews.length,
@@ -159,7 +174,7 @@ export function BuyerTrustProvider({ children }) {
   };
   const hasReviewedOrder = (orderId) => visibleReviews(reviews).some((review) => review.orderId === orderId);
 
-  const value = useMemo(() => ({ reviews, addReview, reviewsForBuyer, getBuyerTrust, hasReviewedOrder }), [reviews, orders, attendingEventIds, user?.created_at]);
+  const value = { reviews, addReview, reviewsForBuyer, getBuyerTrust, hasReviewedOrder, communityImpact };
   return <BuyerTrustContext.Provider value={value}>{children}</BuyerTrustContext.Provider>;
 }
 

@@ -1525,6 +1525,34 @@ alter table badge_definitions enable row level security;
 alter table user_badges enable row level security;
 alter table user_reputation_status enable row level security;
 
+-- Reputation reads are intentionally available to authenticated users so public
+-- profiles can render badges and status snapshots. Badge awards remain owner-only.
+drop policy if exists "Active badge definitions are viewable by everyone" on badge_definitions;
+create policy "Active badge definitions are viewable by everyone"
+  on badge_definitions for select to authenticated
+  using (active);
+
+drop policy if exists "User badges are viewable by authenticated users" on user_badges;
+create policy "User badges are viewable by authenticated users"
+  on user_badges for select to authenticated
+  using (true);
+
+drop policy if exists "Users can award their own badges" on user_badges;
+create policy "Users can award their own badges"
+  on user_badges for insert to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own badges" on user_badges;
+create policy "Users can update their own badges"
+  on user_badges for update to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Reputation statuses are viewable by authenticated users" on user_reputation_status;
+create policy "Reputation statuses are viewable by authenticated users"
+  on user_reputation_status for select to authenticated
+  using (true);
+
 -- Initial badge catalog. Definitions are inserted without changing existing
 -- rows, allowing future criteria and presentation changes to be managed safely.
 insert into badge_definitions (code, name, description, icon, badge_type)

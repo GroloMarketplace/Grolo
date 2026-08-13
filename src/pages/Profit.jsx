@@ -8,6 +8,7 @@ import { getSellerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
 import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
 import { useFollow } from "../context/FollowContext";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 
 const TABS = ["Overview", "Orders", "Community", "Products"];
 const SELLER_ID = "current-user";
@@ -22,19 +23,22 @@ export default function Profit() {
   const sellerProducts = products.filter((product) => product.sellerId === SELLER_ID);
   const sellerEvents = events.filter((event) => event.sellerId === SELLER_ID);
   const seller = sellers[SELLER_ID] ?? { rating: 0 };
+  const reputationSnapshot = useReputationSnapshot(SELLER_ID);
+  const remoteMetrics = reputationSnapshot?.sellerStatus?.metrics ?? {};
   const sellerReviews = reviews.filter((review) =>
     sellerProducts.some((product) => product.id === review.productId),
   );
   const productsSold = orders.reduce((total, order) => total + order.quantity, 0);
+  const reviewsReceived = remoteMetrics.reviewCount ?? sellerReviews.length;
   const completedOrders = orders.filter((order) => order.status === "Completed");
   const communityStatus = getSellerStatus({
-    listingsCreated: sellerProducts.length,
-    completedOrders: completedOrders.length,
+    listingsCreated: remoteMetrics.activeListingCount ?? sellerProducts.length,
+    completedOrders: remoteMetrics.completedOrderCount ?? completedOrders.length,
     followers,
-    sellerReviews: sellerReviews.length,
-    marketplaceInteractions: 0,
-    activeDays: 0,
-    averageRating: seller.rating ?? 0,
+    sellerReviews: remoteMetrics.reviewCount ?? sellerReviews.length,
+    marketplaceInteractions: remoteMetrics.marketplaceInteractions ?? 0,
+    activeDays: remoteMetrics.activeDays ?? 0,
+    averageRating: remoteMetrics.averageRating ?? seller.rating ?? 0,
     communityContribution: sellerEvents.length ? 1 : 0,
   });
   const cancelledOrders = orders.filter((order) => order.status === "Cancelled");
@@ -80,7 +84,7 @@ export default function Profit() {
         {tab === "Community" && (
           <CommunityTab
             followers={followers}
-            reviewsReceived={sellerReviews.length}
+            reviewsReceived={reviewsReceived}
             eventsHosted={sellerEvents.length}
             communityStatus={communityStatus}
           />

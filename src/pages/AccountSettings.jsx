@@ -19,6 +19,7 @@ import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
 import { useFollow } from "../context/FollowContext";
 import { LOCATION_RADIUS_OPTIONS, discoveryRadiusLabel } from "../utils/locationRadius";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 
 const SELLER_ID = "current-user";
 const seller = { rating: 0 };
@@ -72,14 +73,16 @@ function SellerAccountSettings() {
   const [uploadError, setUploadError] = useState("");
   const [uploadWarning, setUploadWarning] = useState("");
   const orders = sellerOrders(SELLER_ID);
+  const reputationSnapshot = useReputationSnapshot(user?.id ?? SELLER_ID);
+  const remoteMetrics = reputationSnapshot?.sellerStatus?.metrics ?? {};
   const sellerStatus = getSellerStatus({
-    listingsCreated: products.filter((product) => product.sellerId === SELLER_ID).length,
-    completedOrders: orders.filter((order) => order.status === "Completed").length,
+    listingsCreated: remoteMetrics.activeListingCount ?? products.filter((product) => product.sellerId === SELLER_ID).length,
+    completedOrders: remoteMetrics.completedOrderCount ?? orders.filter((order) => order.status === "Completed").length,
     followers: getFollowerCount(SELLER_ID),
-    sellerReviews: 0,
-    marketplaceInteractions: 0,
-    activeDays: 0,
-    averageRating: seller.rating,
+    sellerReviews: remoteMetrics.reviewCount ?? 0,
+    marketplaceInteractions: remoteMetrics.marketplaceInteractions ?? 0,
+    activeDays: remoteMetrics.activeDays ?? 0,
+    averageRating: remoteMetrics.averageRating ?? seller.rating,
     communityContribution: 0,
   });
   const { getFoundingMember } = useFoundingMember();
@@ -267,7 +270,20 @@ function BuyerAccountSettings() {
   const [showLocationPublicly, setShowLocationPublicly] = useState(settings.showLocationPublicly);
   const [locationStatus, setLocationStatus] = useState("");
   const [saved, setSaved] = useState(false);
-  const status = getBuyerStatus({});
+  const reputationSnapshot = useReputationSnapshot(user?.id ?? "current-user");
+  const buyerReputationMetrics = reputationSnapshot?.buyerStatus?.metrics ?? {};
+  const status = getBuyerStatus({
+    purchasesCompleted: buyerReputationMetrics.completedTransactionCount ?? buyerActions.purchasesCompleted,
+    reviewsWritten: buyerReputationMetrics.buyerReviewCount ?? buyerActions.reviewsWritten,
+    eventsAttended: buyerReputationMetrics.eventsAttended ?? buyerActions.eventsAttended,
+    tradesCompleted: buyerActions.tradesCompleted,
+  });
+  const buyerSnapshot = {
+    businessesSupported: reputationSnapshot?.communityImpact?.metrics?.businessesSupported ?? buyerActions.businessesSupported,
+    reviewsWritten: buyerReputationMetrics.buyerReviewCount ?? buyerActions.reviewsWritten,
+    eventsAttended: buyerReputationMetrics.eventsAttended ?? buyerActions.eventsAttended,
+    tradesCompleted: buyerActions.tradesCompleted,
+  };
 
   useEffect(() => {
     setDisplayName(settings.displayName);
@@ -367,7 +383,7 @@ function BuyerAccountSettings() {
             </Section>
 
             <Section title="Profile Snapshot">
-              <div className="grid grid-cols-2 gap-3">{[["Businesses Supported", buyerActions.businessesSupported], ["Reviews Written", buyerActions.reviewsWritten], ["Events Attended", buyerActions.eventsAttended], ["Completed Trades", buyerActions.tradesCompleted]].map(([label, value]) => <div key={label} className="rounded-lg bg-[#F5FFF6] p-3"><div className="text-[20px] font-semibold text-[#498467]">{value}</div><div className="text-[12px] text-[#828282]">{label}</div></div>)}</div>
+              <div className="grid grid-cols-2 gap-3">{[["Businesses Supported", buyerSnapshot.businessesSupported], ["Reviews Written", buyerSnapshot.reviewsWritten], ["Events Attended", buyerSnapshot.eventsAttended], ["Completed Trades", buyerSnapshot.tradesCompleted]].map(([label, value]) => <div key={label} className="rounded-lg bg-[#F5FFF6] p-3"><div className="text-[20px] font-semibold text-[#498467]">{value}</div><div className="text-[12px] text-[#828282]">{label}</div></div>)}</div>
             </Section>
 
             <Section title="Notification Settings">

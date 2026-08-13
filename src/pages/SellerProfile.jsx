@@ -30,6 +30,7 @@ import SellerProfileShareModal from "../components/SellerProfileShareModal";
 import ShareProfileButton from "../components/ShareProfileButton";
 import DistanceLabel from "../components/DistanceLabel";
 import { useProfileMode } from "../context/ProfileModeContext";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 
 export default function SellerProfile() {
   const { sellerId } = useParams();
@@ -47,6 +48,7 @@ export default function SellerProfile() {
   const seller = sellers[sellerId] || { id: sellerId, name: "this store" };
   const sellerProfile = getSellerProfile(seller.id);
   const foundingMember = getFoundingMember(seller.id);
+  const reputationSnapshot = useReputationSnapshot(seller.id);
   const sellerPaymentMethods = getPaymentMethods(seller.id);
   const createdBySeller = (item) => {
     const createdAt = typeof item.createdAt === "number" ? item.createdAt : Date.parse(item.createdAt);
@@ -58,13 +60,18 @@ export default function SellerProfile() {
   const { average, count } = sellerRatingData;
   const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name || p.shop === seller.name);
   const sellerOrdersForStatus = sellerOrders(seller.id).filter(createdBySeller);
+  const remoteMetrics = reputationSnapshot?.sellerStatus?.metrics ?? {};
   const sellerStatus = getSellerStatus({
-    ordersFulfilled: sellerOrdersForStatus.filter((order) => order.status === "Completed").length,
+    ordersFulfilled: remoteMetrics.completedOrderCount ?? sellerOrdersForStatus.filter((order) => order.status === "Completed").length,
     productsSold: sellerOrdersForStatus.reduce((total, order) => total + order.quantity, 0),
-    reviewsReceived: count,
+    reviewsReceived: remoteMetrics.reviewCount ?? count,
     eventsHosted: sellerEvents.length,
     followersGained: getFollowerCount(seller.id),
     tradesCompleted: 3,
+    sellerReviews: remoteMetrics.reviewCount ?? count,
+    marketplaceInteractions: remoteMetrics.marketplaceInteractions ?? 0,
+    activeDays: remoteMetrics.activeDays ?? 0,
+    averageRating: remoteMetrics.averageRating ?? average,
   });
   const sellerPosts = [...followingPosts, ...communityPosts].filter(
     (post, index, posts) =>

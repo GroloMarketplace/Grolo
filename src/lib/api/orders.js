@@ -107,10 +107,14 @@ export function legacyOrderFromRow(row, itemRow, itemIndex = 0) {
 }
 
 // Flattens database orders into the item-oriented collection expected by the
-// current OrderContext. This is intentionally not used by reads yet.
+// current OrderContext compatibility reads.
 export function legacyOrdersFromRows(rows) {
   return (rows ?? []).flatMap((row) => {
-    const items = Array.isArray(row?.order_items) ? row.order_items : [];
+    const items = Array.isArray(row?.order_items)
+      ? row.order_items
+      : Array.isArray(row?.items)
+        ? row.items
+        : [];
     return items.length
       ? items.map((item, index) => legacyOrderFromRow(row, item, index))
       : [legacyOrderFromRow(row)];
@@ -181,6 +185,48 @@ export async function createOrderItems(orderId, items) {
   }
   console.info("Supabase createOrderItems response", { orderId, count: data?.length ?? 0 });
   return (data ?? []).map(orderItemFromRow);
+}
+
+export async function importLocalOrders(userId) {
+  requireSupabase();
+  const markerKey = `grolo-orders-migrated-${userId}`;
+  if (window.localStorage.getItem(markerKey)) {
+    return { alreadyMigrated: true, imported_count: 0, skipped_count: 0, duplicate_count: 0 };
+  }
+
+  const storageKey = `grolo-orders-${userId}`;
+  const rawOrders = window.localStorage.getItem(storageKey);
+  let localOrders = [];
+  if (rawOrders) {
+    try {
+      localOrders = JSON.parse(rawOrders);
+    } catch (error) {
+      throw new Error(`Unable to parse ${storageKey}: ${error.message}`);
+    }
+  }
+  if (!Array.isArray(localOrders)) {
+    throw new Error(`${storageKey} must contain an order array.`);
+  }
+
+  const { data, error } = await supabase.rpc("import_legacy_orders", {
+    p_orders: localOrders,
+  });
+  if (error) {
+    logApiError("importLocalOrders", error, { userId, count: localOrders.length });
+    throw error;
+  }
+
+  const result = data ?? { imported_count: 0, skipped_count: 0, duplicate_count: 0 };
+  window.localStorage.setItem(markerKey, JSON.stringify({
+    migratedAt: new Date().toISOString(),
+    ...result,
+  }));
+  console.info("Local order import", {
+    importedCount: result.imported_count ?? 0,
+    skippedCount: result.skipped_count ?? 0,
+    duplicateCount: result.duplicate_count ?? 0,
+  });
+  return result;
 }
 
 export async function getBuyerOrders(buyerId) {

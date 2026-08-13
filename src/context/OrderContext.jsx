@@ -6,7 +6,7 @@ import {
   sellers,
 } from "../data/mockData";
 import { restoreListingInventory } from "../lib/api/listings";
-import { getBuyerOrders, getSellerOrders, legacyOrdersFromRows } from "../lib/api/orders";
+import { getBuyerOrders, getSellerOrders, importLocalOrders, legacyOrdersFromRows } from "../lib/api/orders";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const OrderContext = createContext(null);
@@ -71,10 +71,16 @@ export function OrderProvider({ children }) {
       };
     }
 
-    Promise.all([
+    const loadSupabaseOrders = () => Promise.all([
       getBuyerOrders(user.id),
       getSellerOrders(user.id),
-    ])
+    ]);
+
+    importLocalOrders(user.id)
+      .catch((error) => {
+        console.warn("Unable to import local orders", error);
+      })
+      .then(loadSupabaseOrders)
       .then(([buyerRows, sellerRows]) => {
         const rowsById = new Map();
         [...buyerRows, ...sellerRows].forEach((row) => {

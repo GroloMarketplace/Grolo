@@ -75,7 +75,7 @@ export default function OrderConfirmation() {
         console.error("Unable to create Supabase order", error);
         setOrderError(error?.message ?? "Unable to create your order. Your cart was not changed.");
       });
-  }, [orderItems, removeItems, createOrders, orderNumber, selectedFulfillment, deliveryFee]);
+  }, [orderItems, removeItems, createOrders, orderNumber, selectedFulfillment, deliveryFee, state?.sellerId]);
 
   return (
     <div className="flex h-full flex-col">

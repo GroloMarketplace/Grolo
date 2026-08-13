@@ -58,11 +58,13 @@ export default function ShopOrders() {
     updateOrderStatus(order.id, status);
   };
 
-  const confirmInProgress = () => {
+  const confirmInProgress = async () => {
     if (!inProgressOrder) return;
-    updateOrderStatus(inProgressOrder.id, "In Progress");
+    const succeeded = await updateOrderStatus(inProgressOrder.id, "In Progress");
     setInProgressOrder(null);
-    setStatusToast("✅ Order marked as In Progress. The buyer can no longer cancel this order.");
+    setStatusToast(succeeded
+      ? "✅ Order marked as In Progress. The buyer can no longer cancel this order."
+      : "Unable to update the order status. Please try again.");
     window.setTimeout(() => setStatusToast(""), 4000);
   };
 

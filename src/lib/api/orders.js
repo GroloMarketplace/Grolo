@@ -305,8 +305,14 @@ export async function getOrderById(orderId) {
   return orderFromRow(data);
 }
 
-export async function updateOrderStatus(orderId, status) {
+export async function updateOrderStatus(orderId, status, previousStatus) {
   requireSupabase();
+  console.info("status update requested", {
+    databaseOrderId: orderId,
+    previousStatus: previousStatus ?? null,
+    newStatus: status,
+  });
+
   const { data, error } = await supabase
     .from("orders")
     .update({ status, updated_at: new Date().toISOString() })
@@ -314,13 +320,18 @@ export async function updateOrderStatus(orderId, status) {
     .select(ORDER_SELECT)
     .single();
   if (error) {
-    logApiError("updateOrderStatus", error, { orderId, status });
+    console.error("status update failed", {
+      databaseOrderId: orderId,
+      previousStatus: previousStatus ?? null,
+      newStatus: status,
+    });
+    logApiError("updateOrderStatus", error, { orderId, status, previousStatus });
     throw error;
   }
-  console.info("Supabase updateOrderStatus response", {
-    orderId,
-    status: data.status,
-    updated_at: data.updated_at,
+  console.info("status update succeeded", {
+    databaseOrderId: data.id,
+    previousStatus: previousStatus ?? null,
+    newStatus: data.status,
   });
   return orderFromRow(data);
 }

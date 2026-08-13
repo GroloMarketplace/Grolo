@@ -6,7 +6,7 @@ import {
   sellers,
 } from "../data/mockData";
 import { restoreListingInventory } from "../lib/api/listings";
-import { createOrderWithItems, getBuyerOrders, getSellerOrders, importLocalOrders, legacyOrdersFromRows } from "../lib/api/orders";
+import { createOrderWithItems, getBuyerOrders, getSellerOrders, importLocalOrders, legacyOrdersFromRows, updateOrderStatus as updateOrderStatusInApi } from "../lib/api/orders";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const OrderContext = createContext(null);
@@ -189,44 +189,101 @@ export function OrderProvider({ children }) {
     return nextOrders;
   }, [user?.id, user?.user_metadata?.username]);
 
-  const updateOrderStatus = useCallback((orderId, status) => {
-    const order = orders.find((o) => o.id === orderId);
-    if (!order || order.status === "Cancelled") return false;
+  const updateOrderStatus = useCallback(async (orderId, status) => {
+    const order = orders.find((item) => item.id === orderId || item.databaseId === orderId);
+    const databaseOrderId = order?.databaseId ?? order?.orderId ?? orderId;
+    const previousStatus = order?.status ?? null;
+
+    console.info("status update requested", {
+      databaseOrderId,
+      previousStatus,
+      newStatus: status,
+    });
+
+    if (!order) {
+      console.error("status update failed", {
+        databaseOrderId,
+        previousStatus,
+        newStatus: status,
+        reason: "Order not found",
+      });
+      return false;
+    }
+    if (order.status === "Cancelled") {
+      console.error("status update failed", {
+        databaseOrderId,
+        previousStatus,
+        newStatus: status,
+        reason: "Order is cancelled",
+      });
+      return false;
+    }
+
     const workflow = order.fulfillmentMethod === "delivery" ? DELIVERY_NEXT_STATUS : PICKUP_NEXT_STATUS;
-    if (!workflow[order.status]?.includes(status)) return false;
-    const nextOrders = orders.map((item) => item.id === orderId ? { ...item, status } : item);
-    setOrders(nextOrders);
-    saveOrders(nextOrders);
+    if (!workflow[order.status]?.includes(status)) {
+      console.error("status update failed", {
+        databaseOrderId,
+        previousStatus,
+        newStatus: status,
+        reason: "Invalid workflow transition",
+      });
+      return false;
+    }
 
-    const product = products.find((p) => p.id === order?.productId);
-    if (!order || !product) return;
+    try {
+      const updatedRow = await updateOrderStatusInApi(databaseOrderId, status, previousStatus);
+      const mappedOrders = legacyOrdersFromRows([updatedRow]);
+      const updatedOrders = mappedOrders.length ? mappedOrders : [{ ...order, status }];
+      setOrders((current) => [
+        ...current.filter((item) => item.databaseId !== databaseOrderId),
+        ...updatedOrders,
+      ]);
 
-    const seller = sellers[product.sellerId];
-    setOrderNotifications((prev) => [
-      {
-        id: `order-${orderId}-${status}-${Date.now()}`,
-        name: seller?.name ?? product.shop,
-        avatar: seller?.avatar,
-        time: "now",
-        action: status === "Seller Notified"
-          ? `Your order from ${seller?.name ?? product.shop} has been accepted.`
-          : status === "Preparing" || status === "In Progress"
-            ? "Your order is now being prepared."
-            : status === "Out for Delivery"
-              ? `Your order from ${seller?.name ?? product.shop} is now out for delivery.`
-              : status === "Delivered"
-                ? `Your order from ${seller?.name ?? product.shop} has been delivered.`
-                : status === "Ready for Pickup"
-                  ? "Your order is ready for pickup."
-                  : `${order.id} • ${product.name} is now ${status}`,
-        thumb: product.image,
-        type: "order",
-        orderId,
-        sellerId: order.sellerId ?? product.sellerId,
-        productId: product.id,
-      },
-      ...prev,
-    ]);
+      const updatedOrder = updatedOrders[0];
+      const product = products.find((p) => p.id === updatedOrder.productId);
+      if (product) {
+        const seller = sellers[product.sellerId];
+        setOrderNotifications((prev) => [
+          {
+            id: `order-${updatedOrder.id}-${status}-${Date.now()}`,
+            name: seller?.name ?? product.shop,
+            avatar: seller?.avatar,
+            time: "now",
+            action: status === "Seller Notified"
+              ? `Your order from ${seller?.name ?? product.shop} has been accepted.`
+              : status === "Preparing" || status === "In Progress"
+                ? "Your order is now being prepared."
+                : status === "Out for Delivery"
+                  ? `Your order from ${seller?.name ?? product.shop} is now out for delivery.`
+                  : status === "Delivered"
+                    ? `Your order from ${seller?.name ?? product.shop} has been delivered.`
+                    : status === "Ready for Pickup"
+                      ? "Your order is ready for pickup."
+                      : `${updatedOrder.id} • ${product.name} is now ${status}`,
+            thumb: product.image,
+            type: "order",
+            orderId: updatedOrder.id,
+            sellerId: updatedOrder.sellerId ?? product.sellerId,
+            productId: product.id,
+          },
+          ...prev,
+        ]);
+      }
+      console.info("status update succeeded", {
+        databaseOrderId,
+        previousStatus,
+        newStatus: status,
+      });
+      return true;
+    } catch (error) {
+      console.error("status update failed", {
+        databaseOrderId,
+        previousStatus,
+        newStatus: status,
+        error: error?.message ?? error,
+      });
+      return false;
+    }
   }, [orders]);
 
   // Shared by every way an order can end without being fulfilled (buyer

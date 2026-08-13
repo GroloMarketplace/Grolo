@@ -4,7 +4,6 @@ import { databaseMessageToLegacyMessage, getConversations, getMessages, isCanoni
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const MessageContext = createContext(null);
-const MESSAGE_STORAGE_KEY = "grolo-messages";
 const CURRENT_BUYER_ID = "current-buyer";
 
 function normalizeConversation(input) {
@@ -29,22 +28,9 @@ function normalizeConversation(input) {
   };
 }
 
-function loadMessages(storageKey) {
-  try {
-    const parsedMessages = JSON.parse(window.localStorage.getItem(storageKey) ?? "[]");
-    const conversations = Array.isArray(parsedMessages) ? parsedMessages : [];
-    return conversations.map((conversation) => normalizeConversation(conversation ?? {})).filter((conversation) => (
-      conversation.id && (!["order", "trading"].includes(conversation.conversationType) || conversation.messages.length > 0)
-    ));
-  } catch {
-    return [];
-  }
-}
-
 export function MessageProvider({ children }) {
   const { user } = useAuth();
-  const storageKey = `${MESSAGE_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
-  const [messages, setMessages] = useState(() => loadMessages(storageKey));
+  const [messages, setMessages] = useState([]);
   const pendingConversationWrites = useRef(new Map());
   const pendingMessageSends = useRef(new Set());
   const realtimeSubscriptions = useRef(new Map());
@@ -76,15 +62,10 @@ export function MessageProvider({ children }) {
 
   useEffect(() => {
     let cancelled = false;
-    const localMessages = loadMessages(storageKey);
-    setMessages(localMessages);
+    setMessages([]);
 
     if (!user?.id || !isSupabaseConfigured) {
-      console.info("Message source: localStorage fallback", {
-        conversationCount: localMessages.length,
-        messageCount: localMessages.reduce((count, conversation) => count + conversation.messages.length, 0),
-        mappedConversationCount: localMessages.length,
-      });
+      cleanupRealtimeSubscriptions();
       return () => {
         cancelled = true;
         cleanupRealtimeSubscriptions();
@@ -118,11 +99,9 @@ export function MessageProvider({ children }) {
           .forEach((conversationId) => subscribeToConversationRef.current?.(conversationId));
       } catch (error) {
         if (cancelled) return;
-        console.warn("Message source: localStorage fallback", {
+        setMessages([]);
+        console.warn("Message source: supabase read failed", {
           error: error?.message ?? String(error),
-          conversationCount: localMessages.length,
-          messageCount: localMessages.reduce((count, conversation) => count + conversation.messages.length, 0),
-          mappedConversationCount: localMessages.length,
         });
       }
     };
@@ -132,14 +111,7 @@ export function MessageProvider({ children }) {
       cancelled = true;
       cleanupRealtimeSubscriptions();
     };
-  }, [storageKey, user?.id]);
-
-  const saveMessages = (nextMessages) => {
-    try {
-      window.localStorage.setItem(storageKey, JSON.stringify(nextMessages));
-    } catch {
-    }
-  };
+  }, [user?.id]);
 
   const mergeRealtimeMessage = (conversationId, incomingMessage) => {
     if (!incomingMessage) return;
@@ -168,7 +140,6 @@ export function MessageProvider({ children }) {
         timestamp: incomingMessage.timestamp,
       });
       const nextMessages = current.map((item, index) => index === conversationIndex ? nextConversation : item);
-      saveMessages(nextMessages);
       console.info("realtime message merged", {
         conversationId,
         messageId: incomingDatabaseMessageId,
@@ -178,24 +149,9 @@ export function MessageProvider({ children }) {
     });
   };
 
-  const saveConversationLocally = (conversation) => {
-    const normalizedConversation = normalizeConversation(conversation);
-    setMessages((current) => {
-      const existing = current.find((item) => item.id === normalizedConversation.id);
-      const nextMessages = existing
-        ? current.map((item) => item.id === normalizedConversation.id ? { ...item, ...normalizedConversation } : item)
-        : [normalizedConversation, ...current];
-      saveMessages(nextMessages);
-      return nextMessages;
-    });
-  };
-
   const persistConversation = (conversation, { existing = false } = {}) => {
     const normalizedConversation = normalizeConversation(conversation);
-    if (!user?.id || !isSupabaseConfigured) {
-      saveConversationLocally(normalizedConversation);
-      return;
-    }
+    if (!user?.id || !isSupabaseConfigured) return;
     const databasePayloadConversation = normalizedConversation.tradeProposal
       ? { ...normalizedConversation, conversationType: "trade_proposal" }
       : normalizedConversation;
@@ -227,17 +183,15 @@ export function MessageProvider({ children }) {
         const nextMessages = existing
           ? current.map((item) => item.id === existing.id ? { ...item, ...mergedConversation } : item)
           : [mergedConversation, ...current];
-        saveMessages(nextMessages);
         return nextMessages;
       });
       return databaseConversation;
     }).catch((error) => {
-      console.warn("Conversation persistence fallback", {
+      console.warn("Conversation persistence failed", {
         conversationId: normalizedConversation.id,
         conversationType: normalizedConversation.conversationType,
         error: error?.message ?? String(error),
       });
-      saveConversationLocally(normalizedConversation);
       return null;
     });
     pendingConversationWrites.current.set(normalizedConversation.id, write);
@@ -258,7 +212,6 @@ export function MessageProvider({ children }) {
           message.id === conversation.id ? { ...message, ...nextConversation } : message
         ))
         : [nextConversation, ...current];
-      saveMessages(nextMessages);
       return nextMessages;
     });
   };
@@ -311,7 +264,6 @@ export function MessageProvider({ children }) {
         const nextMessages = current.some((conversation) => conversation.id === currentConversation.id)
           ? current.map((conversation) => conversation.id === currentConversation.id ? savedConversation : conversation)
           : [savedConversation, ...current];
-        saveMessages(nextMessages);
         return nextMessages;
       });
     };
@@ -347,7 +299,6 @@ export function MessageProvider({ children }) {
           senderId: user?.id ?? null,
           error: error?.message ?? String(error),
         });
-        updateState(message);
       } finally {
         pendingMessageSends.current.delete(sendKey);
       }
@@ -433,8 +384,7 @@ export function MessageProvider({ children }) {
       persistConversation(updatedConversation, { existing: true });
       setMessages((current) => {
         const nextMessages = current.map((conversation) => conversation.id === existing.id ? updatedConversation : conversation);
-        saveMessages(nextMessages);
-        return nextMessages;
+          return nextMessages;
       });
       return { id: existing.id, serviceContext, conversation: updatedConversation };
     }
@@ -459,7 +409,6 @@ export function MessageProvider({ children }) {
     setMessages((current) => {
       if (current.some((item) => item.id === conversation.id)) return current;
       const nextMessages = [conversation, ...current];
-      saveMessages(nextMessages);
       return nextMessages;
     });
     return { id: conversation.id, serviceContext, conversation };
@@ -558,7 +507,6 @@ export function MessageProvider({ children }) {
     persistConversation(conversation);
     setMessages((current) => {
       const nextMessages = [conversation, ...current];
-      saveMessages(nextMessages);
       return nextMessages;
     });
     return { id, conversation };

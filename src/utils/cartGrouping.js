@@ -25,14 +25,15 @@ export function groupCartItemsByStore(items, listings = []) {
   }, {}));
 }
 
-export function getActiveCartItems(items, listings = [], getAvailable) {
-  return items.filter((item) => (
-    Number(getAvailable(getCartItemProductId(item, listings))) > 0
-  ));
+export function getActiveCartItems(items, listings = []) {
+  return items.filter((item) => {
+    const listing = listings.find((candidate) => candidate.id === getCartItemProductId(item, listings));
+    return Number(listing?.quantityAvailable ?? item.quantityAvailable) > 0;
+  });
 }
 
-export function getActiveCartTotalQuantity(items, listings = [], getAvailable) {
-  return getActiveCartItems(items, listings, getAvailable).reduce(
+export function getActiveCartTotalQuantity(items, listings = []) {
+  return getActiveCartItems(items, listings).reduce(
     (sum, item) => sum + item.quantity,
     0,
   );

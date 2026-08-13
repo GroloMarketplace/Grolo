@@ -4,6 +4,7 @@ import { supabase, isSupabaseConfigured } from "../lib/supabaseClient";
 const AuthContext = createContext(null);
 const LEGACY_BUYER_KEY = "grolo-buyer-settings";
 const LEGACY_SELLER_KEY = "grolo-seller-profiles";
+let otpRequestSequence = 0;
 
 function readLegacyJson(key) {
   try {
@@ -12,6 +13,14 @@ function readLegacyJson(key) {
   } catch {
     return null;
   }
+}
+
+function serializeError(error) {
+  if (!error) return null;
+  return Object.getOwnPropertyNames(error).reduce((result, key) => {
+    result[key] = error[key];
+    return result;
+  }, {});
 }
 
 function hasText(value) {
@@ -183,8 +192,35 @@ export function AuthProvider({ children }) {
 
   async function signInWithEmail(email) {
     if (!isSupabaseConfigured) throw new Error("Supabase is not configured.");
-    const { error } = await supabase.auth.signInWithOtp({ email });
-    if (error) throw error;
+    const requestId = ++otpRequestSequence;
+    console.info("Supabase signInWithOtp request", { requestId });
+    const response = await supabase.auth.signInWithOtp({ email });
+    const serializedError = serializeError(response.error);
+    const rawResponse = {
+      data: response.data ?? null,
+      error: serializedError,
+    };
+    if (response.error) {
+      console.error("Supabase signInWithOtp raw response", response);
+      console.error("Supabase signInWithOtp error fields", {
+        requestId,
+        error: response.error,
+        code: response.error.code ?? null,
+        message: response.error.message ?? null,
+        status: response.error.status ?? null,
+        data: response.data ?? null,
+      });
+      const authError = new Error(response.error.message ?? "Supabase sign-in failed.");
+      Object.assign(authError, {
+        authResponse: rawResponse,
+        code: response.error.code ?? null,
+        status: response.error.status ?? null,
+        data: response.data ?? null,
+      });
+      throw authError;
+    }
+    console.info("Supabase signInWithOtp raw response", rawResponse);
+    return rawResponse;
   }
 
   async function signInWithProvider(provider) {

@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthContext";
+import { useListings } from "./ListingContext";
 
 const CartContext = createContext(null);
-const INVENTORY_STORAGE_KEY = "grolo-inventory";
 const CART_STORAGE_KEY = "grolo-cart";
 
 function loadCart(storageKey) {
@@ -21,18 +21,9 @@ function persistCart(storageKey, nextItems) {
   }
 }
 
-function getStoredAvailable(productId, fallback) {
-  try {
-    const savedInventory = window.localStorage.getItem(INVENTORY_STORAGE_KEY);
-    const inventory = savedInventory ? JSON.parse(savedInventory) : null;
-    return inventory?.[productId] ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 export function CartProvider({ children }) {
   const { user } = useAuth();
+  const { listings } = useListings();
   const storageKey = `${CART_STORAGE_KEY}-${user?.id ?? "anonymous"}`;
   const [items, setItems] = useState(() => loadCart(storageKey));
 
@@ -56,9 +47,10 @@ export function CartProvider({ children }) {
   const addToCart = (product, quantity = 1, availableOverride) => {
     setItems((current) => {
       const existing = current.find((item) => item.productId === product.id);
+      const listing = listings.find((item) => item.id === product.id || item.databaseId === product.id) ?? product;
       const available = Number.isFinite(availableOverride)
         ? availableOverride
-        : getStoredAvailable(product.id, product.quantityAvailable ?? 0);
+        : Number(listing.quantityAvailable) || 0;
       const nextQuantity = (existing?.quantity ?? 0) + quantity;
       const cappedQuantity = Math.min(available, nextQuantity);
       if (cappedQuantity < 1) return current;

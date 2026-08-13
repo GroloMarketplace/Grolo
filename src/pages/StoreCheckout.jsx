@@ -9,7 +9,6 @@ import MapOptionsSheet from "../components/MapOptionsSheet";
 import { sellers } from "../data/mockData";
 import OutlineIcon from "../components/OutlineIcon";
 import { useSellerSettings } from "../context/SellerSettingsContext";
-import { useInventory } from "../context/InventoryContext";
 import { useListings } from "../context/ListingContext";
 import { getCartItemProductId, getCartItemSellerId } from "../utils/cartGrouping";
 
@@ -20,14 +19,14 @@ export default function StoreCheckout() {
   const { getPaymentMethods } = usePaymentMethods();
   const { address } = useDeliveryAddress();
   const { getSellerProfile } = useSellerSettings();
-  const { getAvailable } = useInventory();
   const { listings } = useListings();
+  const getListing = (item) => listings.find((listing) => listing.id === getCartItemProductId(item, listings));
   const allStoreItems = items.filter((item) => getCartItemSellerId(item, listings) === sellerId);
   const inventoryAvailable = allStoreItems.length > 0 && allStoreItems.every((item) => {
-    const available = getAvailable(getCartItemProductId(item, listings));
+    const available = Number(getListing(item)?.quantityAvailable) || 0;
     return available > 0 && item.quantity <= available;
   });
-  const storeItems = allStoreItems.filter((item) => getAvailable(getCartItemProductId(item, listings)) > 0);
+  const storeItems = allStoreItems.filter((item) => (Number(getListing(item)?.quantityAvailable) || 0) > 0);
   const seller = sellers[sellerId] ?? { id: sellerId, name: "this store" };
   const settings = getPaymentMethods(seller.id);
   const vacationMode = getSellerProfile(seller.id)?.vacationMode;

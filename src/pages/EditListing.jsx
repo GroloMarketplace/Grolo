@@ -3,7 +3,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import PhotoManager from "../components/PhotoManager";
-import { useInventory } from "../context/InventoryContext";
 import { useListings } from "../context/ListingContext";
 
 export default function EditListing() {
@@ -22,7 +21,6 @@ export default function EditListing() {
   const [photos, setPhotos] = useState([]);
   const [quantityAvailable, setQuantityAvailable] = useState(0);
   const [saveError, setSaveError] = useState("");
-  const { updateAvailable } = useInventory();
 
   useEffect(() => {
     if (!product) return;
@@ -44,7 +42,7 @@ export default function EditListing() {
       : 0;
     setSaveError("");
     try {
-      const updatedListing = await updateListing(product.id, {
+      await updateListing(product.id, {
         title,
         name: title,
         price: Number(price),
@@ -57,7 +55,6 @@ export default function EditListing() {
         images: photos,
         image: photos[0],
       });
-      updateAvailable(updatedListing.id, normalizedQuantity);
       navigate("/shop");
     } catch (error) {
       setSaveError(error.message || "Unable to save listing.");

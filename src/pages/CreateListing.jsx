@@ -5,7 +5,6 @@ import Sidebar from "../components/Sidebar";
 import PhotoManager from "../components/PhotoManager";
 import { useSidebar } from "../hooks/useSidebar";
 import { useListings } from "../context/ListingContext";
-import { useInventory } from "../context/InventoryContext";
 import { useAuth } from "../context/AuthContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 
@@ -36,7 +35,6 @@ export default function CreateListing() {
   const { listings, addListing } = useListings();
   const { user } = useAuth();
   const { getSellerProfile } = useSellerSettings();
-  const { updateAvailable } = useInventory();
   const [photos, setPhotos] = useState([]);
   const [submitError, setSubmitError] = useState("");
   const [formData, setFormData] = useState({
@@ -93,7 +91,6 @@ export default function CreateListing() {
       reviewCount: 0,
     };
     const createdListing = await addListing(listing);
-    if (!isService) updateAvailable(createdListing.id, createdListing.quantityAvailable);
     console.log("Listing Created:", createdListing.name);
     console.log("Listings Count:", listings.length + 1);
     navigate(`/product/${createdListing.id}`, { state: { listingCreated: createdListing.id } });

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PromotionBadge from "./PromotionBadge";
 import { usePromotions } from "../context/PromotionContext";
-import { useInventory } from "../context/InventoryContext";
 import ReviewSummary from "./ReviewSummary";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "./ServiceCategoryLabel";
@@ -14,8 +13,7 @@ export default function SellerListingCard({ product, onDelete }) {
   const navigate = useNavigate();
   const { promotionsForProduct } = usePromotions();
   const promotion = promotionsForProduct(product.id)[0];
-  const { getAvailable } = useInventory();
-  const available = getAvailable(product.id);
+  const available = Number(product.quantityAvailable) || 0;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [status] = useState(product.status || "Active");
   const displayStatus = available === 0 ? "Sold" : status;

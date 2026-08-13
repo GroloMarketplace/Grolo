@@ -5,7 +5,6 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import { useCart } from "../context/CartContext";
 import { sellers } from "../data/mockData";
 import { useSellerSettings } from "../context/SellerSettingsContext";
-import { useInventory } from "../context/InventoryContext";
 import { useListings } from "../context/ListingContext";
 import { getCartItemProductId, groupCartItemsByStore } from "../utils/cartGrouping";
 
@@ -13,9 +12,11 @@ export default function Checkout() {
   const navigate = useNavigate();
   const { items } = useCart();
   const { getSellerProfile } = useSellerSettings();
-  const { getAvailable } = useInventory();
   const { listings } = useListings();
-  const activeItems = items.filter((item) => getAvailable(getCartItemProductId(item, listings)) > 0);
+  const activeItems = items.filter((item) => {
+    const listing = listings.find((candidate) => candidate.id === getCartItemProductId(item, listings));
+    return Number(listing?.quantityAvailable) > 0;
+  });
   const groups = groupCartItemsByStore(activeItems, listings);
   const storeNames = groups.map(([sellerId]) => sellers[sellerId]?.name ?? sellerId);
   const storeNamesKey = storeNames.join(",");

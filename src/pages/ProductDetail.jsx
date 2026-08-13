@@ -17,7 +17,6 @@ import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useListings } from "../context/ListingContext";
 import { useMessages } from "../context/MessageContext";
-import { useInventory } from "../context/InventoryContext";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import DistanceLabel from "../components/DistanceLabel";
@@ -32,7 +31,6 @@ export default function ProductDetail() {
   const { addToCart } = useCart();
   const { listings } = useListings();
   const { createSellerConversation } = useMessages();
-  const { getAvailable } = useInventory();
   const listingId = state?.listingId ?? id;
   const productId = state?.productId ?? listingId;
   const product = listings.find((p) => p.id === productId)
@@ -40,7 +38,7 @@ export default function ProductDetail() {
     ?? { id: productId, name: "Listing unavailable", price: 0, image: "", images: [], sellerId: "", shop: "" };
   const { isFavorite, toggleFavorite } = useFavorites();
   const saved = isFavorite(product.id);
-  const available = Math.max(0, Number(getAvailable(product.id)) || 0);
+  const available = Math.max(0, Number(product.quantityAvailable) || 0);
   const isService = product.category === "Services";
   const soldOut = !isService && available === 0;
   const tradePreferences = product.desiredTradeItems?.trim() ?? "";

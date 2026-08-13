@@ -5,11 +5,10 @@ import {
   products,
   sellers,
 } from "../data/mockData";
+import { restoreListingInventory } from "../lib/api/listings";
 
 const OrderContext = createContext(null);
 const ORDER_STORAGE_KEY = "grolo-orders";
-const INVENTORY_STORAGE_KEY = "grolo-inventory";
-const INVENTORY_EVENT = "grolo-inventory-updated";
 
 // Order statuses that release any inventory reserved for the order back into
 // stock. Only orders that never reach a successful, completed state should
@@ -21,20 +20,6 @@ const INVENTORY_FINAL_STATUSES = ["Delivered", "Completed", "Fulfilled", "Picked
 
 function restoresInventory(status) {
   return INVENTORY_RESTORING_STATUSES.includes(status) && !INVENTORY_FINAL_STATUSES.includes(status);
-}
-
-function restorePersistedInventory(items) {
-  try {
-    const savedInventory = window.localStorage.getItem(INVENTORY_STORAGE_KEY);
-    const inventory = savedInventory ? JSON.parse(savedInventory) : {};
-    items.forEach((item) => {
-      const productId = item.productId ?? item.id;
-      inventory[productId] = (inventory[productId] ?? 0) + (Number(item.quantity) || 0);
-    });
-    window.localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(inventory));
-    window.dispatchEvent(new CustomEvent(INVENTORY_EVENT, { detail: inventory }));
-  } catch {
-  }
 }
 
 function loadOrders(storageKey) {
@@ -210,7 +195,7 @@ export function OrderProvider({ children }) {
       newStatus: status,
     });
     const cancelledOrder = { ...order, buyer: order.buyer ?? currentUser.username, status, inventoryRestored: true };
-    if (!order.inventoryRestored && restoresInventory(status)) restorePersistedInventory([order]);
+    if (!order.inventoryRestored && restoresInventory(status)) restoreListingInventory([order]).catch((error) => console.error("Unable to restore listing inventory", error));
     const nextOrders = orderIndex >= 0
       ? orders.map((item, index) => index === orderIndex ? cancelledOrder : item)
       : [...orders, cancelledOrder];

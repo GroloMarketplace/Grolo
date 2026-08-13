@@ -89,6 +89,7 @@ export default function App() {
         <AdvertisingProvider>
         <FoundingMemberProvider>
         <SavedForLaterProvider>
+        <ListingProvider>
         <CartProvider>
         <MessageProvider>
         <InventoryProvider>
@@ -96,7 +97,6 @@ export default function App() {
         <SellerSettingsProvider>
         <BuyerSettingsProvider>
         <BuyerTrustProvider>
-        <ListingProvider>
         <EngagementProvider>
         <PostProvider>
         <DeliveryAddressProvider>
@@ -342,7 +342,6 @@ export default function App() {
         </DeliveryAddressProvider>
         </PostProvider>
         </EngagementProvider>
-        </ListingProvider>
         </BuyerTrustProvider>
         </BuyerSettingsProvider>
         </SellerSettingsProvider>
@@ -350,6 +349,7 @@ export default function App() {
         </InventoryProvider>
         </MessageProvider>
         </CartProvider>
+        </ListingProvider>
         </SavedForLaterProvider>
         </FoundingMemberProvider>
         </AdvertisingProvider>

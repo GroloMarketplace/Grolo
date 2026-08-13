@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { sellers } from "../data/mockData";
 import { useSavedForLater } from "../context/SavedForLaterContext";
-import { useInventory } from "../context/InventoryContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useListings } from "../context/ListingContext";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -43,7 +42,6 @@ export default function Cart() {
     setUndoItem(null);
     window.clearTimeout(undoTimeout.current);
   };
-  const { getAvailable } = useInventory();
   const getProduct = (item) => listings.find((listing) => (
     listing.id === item.productId
       || listing.id === item.listingId
@@ -52,10 +50,7 @@ export default function Cart() {
   ));
   const getListingId = (item) => item.listingId ?? getProduct(item)?.id ?? item.productId ?? item.id;
   const getProductId = (item) => getProduct(item)?.id ?? item.productId ?? item.listingId ?? item.id;
-  const getRealInventory = (item) => {
-    const productId = getProductId(item);
-    return Math.max(0, Number(getAvailable(productId)) || 0);
-  };
+  const getRealInventory = (item) => Math.max(0, Number(getProduct(item)?.quantityAvailable ?? item.quantityAvailable) || 0);
   const getProductPath = (item) => `/product/${getProductId(item)}`;
   const openProduct = (item) => {
     const listingId = getListingId(item);
@@ -77,7 +72,7 @@ export default function Cart() {
     const available = getRealInventory(item);
     return { item, available, inStock: available > 0 };
   });
-  const activeItems = getActiveCartItems(items, listings, getAvailable);
+  const activeItems = getActiveCartItems(items, listings);
   const soldOutItems = inventoryStatus.filter(({ inStock }) => !inStock).map(({ item, available }) => ({ item, available }));
   const savedForLaterStatus = savedForLaterItems.map((item) => ({ item, available: getRealInventory(item) }));
   const savedForLaterActiveItems = savedForLaterStatus.filter(({ available }) => available > 0).map(({ item }) => item);

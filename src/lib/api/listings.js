@@ -180,6 +180,20 @@ export async function deleteListing(listingId) {
   if (error) throw error;
 }
 
+export async function restoreListingInventory(items) {
+  requireSupabase();
+  for (const item of items) {
+    const listing = await getListingById(item.productId ?? item.id);
+    if (!listing) continue;
+    const quantity = Math.max(0, Number(listing.quantityAvailable) || 0) + (Number(item.quantity) || 0);
+    const { error } = await supabase
+      .from("listings")
+      .update({ inventory_quantity: quantity, updated_at: new Date().toISOString() })
+      .eq("id", listing.databaseId);
+    if (error) throw error;
+  }
+}
+
 export async function importLegacyListings(listings, sellerId) {
   requireSupabase();
   const legacyListings = Array.isArray(listings) ? listings.filter((listing) => listing?.id) : [];

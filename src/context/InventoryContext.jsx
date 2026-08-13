@@ -1,90 +1,103 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { products } from "../data/mockData";
+import { useAuth } from "./AuthContext";
+import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 
 const InventoryContext = createContext(null);
-const INVENTORY_STORAGE_KEY = "grolo-inventory";
-const INVENTORY_EVENT = "grolo-inventory-updated";
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function initialInventory() {
-  return products.reduce((result, product) => {
-    result[product.id] = product.quantityAvailable ?? 0;
+function listingFilter(id) {
+  return UUID_PATTERN.test(String(id)) ? { column: "id", value: id } : { column: "legacy_id", value: id };
+}
+
+function normalizedQuantity(quantity) {
+  return Number.isInteger(Number(quantity)) && Number(quantity) >= 0 ? Number(quantity) : 0;
+}
+
+function inventoryFromRows(rows) {
+  return (rows ?? []).reduce((result, row) => {
+    const quantity = normalizedQuantity(row.inventory_quantity);
+    result[row.legacy_id ?? row.id] = quantity;
+    if (row.legacy_id) result[row.id] = quantity;
     return result;
   }, {});
 }
 
-function loadInventory() {
-  try {
-    const savedInventory = window.localStorage.getItem(INVENTORY_STORAGE_KEY);
-    return savedInventory ? JSON.parse(savedInventory) : initialInventory();
-  } catch {
-    return initialInventory();
-  }
-}
-
-function persistInventory(nextInventory) {
-  try {
-    window.localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(nextInventory));
-  } catch {
-  }
-}
-
 export function InventoryProvider({ children }) {
-  const [inventory, setInventory] = useState(loadInventory);
+  const { user } = useAuth();
+  const [inventory, setInventory] = useState({});
 
-  // `OrderContext` restores inventory on cancellation by writing straight to
-  // localStorage and dispatching this event (it can't call this provider's
-  // hooks directly due to provider ordering) — that's the only source of
-  // this event, so only listen here; never dispatch it from below.
   useEffect(() => {
-    const handleInventoryUpdate = (event) => setInventory(event.detail);
-    window.addEventListener(INVENTORY_EVENT, handleInventoryUpdate);
-    return () => window.removeEventListener(INVENTORY_EVENT, handleInventoryUpdate);
+    let cancelled = false;
+
+    async function loadInventory() {
+      if (!isSupabaseConfigured) {
+        setInventory({});
+        return;
+      }
+      const { data, error } = await supabase
+        .from("listings")
+        .select("id, legacy_id, inventory_quantity");
+      if (error) {
+        console.error("Unable to load listing inventory", error);
+        return;
+      }
+      if (!cancelled) setInventory(inventoryFromRows(data));
+    }
+
+    loadInventory();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const getAvailable = useCallback((listingId) => inventory[listingId] ?? 0, [inventory]);
+
+  const updateListingQuantity = useCallback(async (listingId, quantity) => {
+    if (!isSupabaseConfigured) throw new Error("Supabase is not configured.");
+    const normalized = normalizedQuantity(quantity);
+    const filter = listingFilter(listingId);
+    const { data, error } = await supabase
+      .from("listings")
+      .update({ inventory_quantity: normalized, updated_at: new Date().toISOString() })
+      .eq(filter.column, filter.value)
+      .select("id, legacy_id, inventory_quantity")
+      .single();
+    if (error) throw error;
+    setInventory((current) => ({ ...current, ...inventoryFromRows([data]) }));
+    return normalized;
   }, []);
 
-  // Persisting here (rather than inside the setInventory updater below) keeps
-  // every updater a pure function of its input. An updater that also writes
-  // to localStorage and re-dispatches an event that this same provider
-  // listens to would let React's Strict Mode double-invocation of updaters
-  // compound: the first invocation's side effect could change `inventory`
-  // before the second invocation ran, silently applying a reduction twice.
-  useEffect(() => {
-    persistInventory(inventory);
-  }, [inventory]);
+  const updateAvailable = useCallback((listingId, quantity) => updateListingQuantity(listingId, quantity), [updateListingQuantity]);
 
-  const getAvailable = useCallback((productId) => inventory[productId] ?? 0, [inventory]);
-
-  const updateAvailable = useCallback((productId, quantity) => {
-    const normalized = Number.isInteger(Number(quantity)) && Number(quantity) >= 0
-      ? Number(quantity)
-      : 0;
-    setInventory((current) => ({ ...current, [productId]: normalized }));
-  }, []);
-
-  const reduceAvailable = useCallback((items, operationId) => {
-    const operationKey = operationId ? `grolo-inventory-reduction:${operationId}` : null;
+  const reduceAvailable = useCallback(async (items, operationId) => {
+    const operationKey = operationId ? `listing-inventory-reduction:${operationId}` : null;
     if (operationKey && window.sessionStorage.getItem(operationKey) === "done") return;
     if (operationKey) window.sessionStorage.setItem(operationKey, "done");
-    setInventory((current) => {
-      const next = { ...current };
-      items.forEach((item) => {
-        const productId = item.productId ?? item.id;
-        const available = next[productId] ?? 0;
-        next[productId] = Math.max(0, available - item.quantity);
-      });
-      return next;
-    });
-  }, []);
 
-  const restoreAvailable = useCallback((items) => {
-    setInventory((current) => {
-      const next = { ...current };
-      items.forEach((item) => {
-        const productId = item.productId ?? item.id;
-        next[productId] = (next[productId] ?? 0) + (Number(item.quantity) || 0);
-      });
-      return next;
-    });
-  }, []);
+    for (const item of items) {
+      const listingId = item.productId ?? item.id;
+      const filter = listingFilter(listingId);
+      const { data, error } = await supabase
+        .from("listings")
+        .select("id, legacy_id, inventory_quantity")
+        .eq(filter.column, filter.value)
+        .single();
+      if (error) throw error;
+      await updateListingQuantity(data.legacy_id ?? data.id, Math.max(0, normalizedQuantity(data.inventory_quantity) - (Number(item.quantity) || 0)));
+    }
+  }, [updateListingQuantity]);
+
+  const restoreAvailable = useCallback(async (items) => {
+    for (const item of items) {
+      const listingId = item.productId ?? item.id;
+      const filter = listingFilter(listingId);
+      const { data, error } = await supabase
+        .from("listings")
+        .select("id, legacy_id, inventory_quantity")
+        .eq(filter.column, filter.value)
+        .single();
+      if (error) throw error;
+      await updateListingQuantity(data.legacy_id ?? data.id, normalizedQuantity(data.inventory_quantity) + (Number(item.quantity) || 0));
+    }
+  }, [updateListingQuantity]);
 
   const value = useMemo(
     () => ({ inventory, getAvailable, updateAvailable, reduceAvailable, restoreAvailable }),

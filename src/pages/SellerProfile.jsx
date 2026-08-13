@@ -23,7 +23,6 @@ import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useFoundingMember } from "../context/FoundingMemberContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
-import { useInventory } from "../context/InventoryContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
@@ -43,7 +42,6 @@ export default function SellerProfile() {
   const { sellerOrders } = useOrders();
   const { getSellerProfile } = useSellerSettings();
   const { listings } = useListings();
-  const { getAvailable } = useInventory();
   const { getFoundingMember } = useFoundingMember();
   const { storeOpenedAt } = useProfileMode();
   const seller = sellers[sellerId] || { id: sellerId, name: "this store" };
@@ -229,7 +227,7 @@ export default function SellerProfile() {
               onScroll={handleContentScroll}
               className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
             >
-            <ListingsTab products={sellerProducts} promotions={sellerPromotions} navigate={navigate} getAvailable={getAvailable} onOpenPromotions={() => navigate(`/promotions/${seller.id}`)} />
+            <ListingsTab products={sellerProducts} promotions={sellerPromotions} navigate={navigate} onOpenPromotions={() => navigate(`/promotions/${seller.id}`)} />
             <PostsTab posts={sellerPosts} navigate={navigate} profile={sellerProfile} />
             <EventsTab events={sellerEvents} navigate={navigate} profile={sellerProfile} />
               <RegrowsTab posts={sellerRegrows} navigate={navigate} profile={sellerProfile} />
@@ -273,9 +271,9 @@ function EmptyTab({ children }) {
   return <div className="py-10 text-center text-[14px] text-[#828282]">{children}</div>;
 }
 
-function ListingsTab({ products, promotions, navigate, getAvailable, onOpenPromotions }) {
-  const activeProducts = products.filter((product) => getAvailable(product.id) > 0);
-  const outOfStockProducts = products.filter((product) => getAvailable(product.id) <= 0);
+function ListingsTab({ products, promotions, navigate, onOpenPromotions }) {
+  const activeProducts = products.filter((product) => Number(product.quantityAvailable) > 0);
+  const outOfStockProducts = products.filter((product) => Number(product.quantityAvailable) <= 0);
 
   return (
     <TabPanel>

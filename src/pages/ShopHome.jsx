@@ -21,7 +21,6 @@ import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useProfileMode } from "../context/ProfileModeContext";
-import { useInventory } from "../context/InventoryContext";
 import { usePosts } from "../context/PostContext";
 import SellerProfileShareModal from "../components/SellerProfileShareModal";
 import ShareProfileButton from "../components/ShareProfileButton";
@@ -65,7 +64,6 @@ export default function ShopHome() {
   const { promotionsForSeller } = usePromotions();
   const { isRegrown } = useRegrow();
   const { getFollowerCount } = useFollow();
-  const { getAvailable } = useInventory();
   const createdBySeller = (item) => {
     const createdAt = typeof item.createdAt === "number" ? item.createdAt : Date.parse(item.createdAt);
     return !Number.isNaN(createdAt) && createdAt >= storeOpenedAt;
@@ -77,8 +75,8 @@ export default function ShopHome() {
     { label: "Ready", count: storeOrders.filter((o) => o.status === "Ready for Pickup").length },
   ];
   const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name);
-  const activeSellerProducts = sellerProducts.filter((product) => getAvailable(product.id) > 0);
-  const outOfStockSellerProducts = sellerProducts.filter((product) => getAvailable(product.id) <= 0);
+  const activeSellerProducts = sellerProducts.filter((product) => Number(product.quantityAvailable) > 0);
+  const outOfStockSellerProducts = sellerProducts.filter((product) => Number(product.quantityAvailable) <= 0);
   const sellerPosts = posts.filter((post) => post.sellerId === seller.id && createdBySeller(post));
   const [managedPosts, setManagedPosts] = useState(sellerPosts);
   // Events are read straight from EventContext (which persists to localStorage)

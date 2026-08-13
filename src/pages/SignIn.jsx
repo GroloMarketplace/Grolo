@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
@@ -19,6 +19,7 @@ export default function SignIn() {
   });
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
+  const otpRequestInFlight = useRef(false);
 
   useEffect(() => {
     if (isAuthenticated && profileStatus === "loaded" && onboardingComplete !== null) {
@@ -49,13 +50,17 @@ export default function SignIn() {
       navigate("/onboarding");
       return;
     }
+    if (otpRequestInFlight.current) return;
+    otpRequestInFlight.current = true;
     try {
       setStatus("sending");
-      await signInWithEmail(email);
+      await signInWithEmail(normalizedEmail);
       setStatus("sent");
     } catch (err) {
       setError(err.message);
       setStatus("idle");
+    } finally {
+      otpRequestInFlight.current = false;
     }
   }
 

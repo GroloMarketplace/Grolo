@@ -2,7 +2,6 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useCart } from "../context/CartContext";
-import { useInventory } from "../context/InventoryContext";
 import { useListings } from "../context/ListingContext";
 import { getActiveCartTotalQuantity } from "../utils/cartGrouping";
 
@@ -96,9 +95,8 @@ export default function TabBar() {
   const navigate = useNavigate();
   const { profileMode } = useProfileMode();
   const { items } = useCart();
-  const { getAvailable } = useInventory();
   const { listings } = useListings();
-  const totalQuantity = getActiveCartTotalQuantity(items, listings, getAvailable);
+  const totalQuantity = getActiveCartTotalQuantity(items, listings);
   const profileType = profileMode === "seller" ? "seller" : "buyer";
   const profilePath = profileType === "seller" ? "/shop" : "/profile";
   const isSearchRoute = location.pathname === "/search";

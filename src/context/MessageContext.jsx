@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthContext";
+import { getConversations, getMessages, isCanonicalUuid } from "../lib/api/messages";
+import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const MessageContext = createContext(null);
 const MESSAGE_STORAGE_KEY = "grolo-messages";
@@ -45,8 +47,58 @@ export function MessageProvider({ children }) {
   const [messages, setMessages] = useState(() => loadMessages(storageKey));
 
   useEffect(() => {
-    setMessages(loadMessages(storageKey));
-  }, [storageKey]);
+    let cancelled = false;
+    const localMessages = loadMessages(storageKey);
+    setMessages(localMessages);
+
+    if (!user?.id || !isSupabaseConfigured) {
+      console.info("Message source: localStorage fallback", {
+        conversationCount: localMessages.length,
+        messageCount: localMessages.reduce((count, conversation) => count + conversation.messages.length, 0),
+        mappedConversationCount: localMessages.length,
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const loadSupabaseMessages = async () => {
+      try {
+        const conversations = await getConversations(user.id);
+        const hydratedConversations = await Promise.all(conversations.map(async (conversation) => {
+          const databaseConversationId = conversation.databaseId ?? conversation.id;
+          if (!isCanonicalUuid(databaseConversationId)) return conversation;
+          const threadMessages = await getMessages(databaseConversationId, user.id);
+          return { ...conversation, messages: threadMessages };
+        }));
+        if (cancelled) return;
+
+        const mappedMessages = hydratedConversations
+          .map((conversation) => normalizeConversation(conversation))
+          .filter((conversation) => conversation.id);
+        const messageCount = mappedMessages.reduce((count, conversation) => count + conversation.messages.length, 0);
+        console.info("Message source: supabase", {
+          conversationCount: conversations.length,
+          messageCount,
+          mappedConversationCount: mappedMessages.length,
+        });
+        setMessages(mappedMessages);
+      } catch (error) {
+        if (cancelled) return;
+        console.warn("Message source: localStorage fallback", {
+          error: error?.message ?? String(error),
+          conversationCount: localMessages.length,
+          messageCount: localMessages.reduce((count, conversation) => count + conversation.messages.length, 0),
+          mappedConversationCount: localMessages.length,
+        });
+      }
+    };
+
+    loadSupabaseMessages();
+    return () => {
+      cancelled = true;
+    };
+  }, [storageKey, user?.id]);
 
   const saveMessages = (nextMessages) => {
     try {

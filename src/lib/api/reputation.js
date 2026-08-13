@@ -172,11 +172,17 @@ export async function awardBadge(userIdOrOptions, badgeCode, metadata = {}) {
     expires_at: options.expiresAt ?? options.expires_at ?? null,
     metadata: asObject(requestedMetadata),
   };
-  const { data, error } = await supabase
-    .from("user_badges")
-    .upsert(payload, { onConflict: "user_id,badge_id" })
+  const badgeMutation = options.preserveExisting
+    ? supabase.from("user_badges").insert(payload)
+    : supabase.from("user_badges").upsert(payload, { onConflict: "user_id,badge_id" });
+  const { data, error } = await badgeMutation
     .select("id, user_id, badge_id, status, awarded_at, expires_at, revoked_at, metadata, badge_definitions(id, code, name, description, icon, badge_type, criteria, active)")
     .single();
+  if (error?.code === "23505" && options.preserveExisting) {
+    const existing = await getUserBadges(resolvedUserId);
+    const existingBadge = existing.badges.find((badge) => badge.code === requestedBadgeCode);
+    return existingBadge ? { ...existingBadge, alreadyOwned: true } : null;
+  }
   if (error) throw error;
   console.info("badge award source: supabase", { userId: resolvedUserId, badgeCode: requestedBadgeCode });
   return mapBadge(data);
@@ -354,5 +360,132 @@ export async function getReputationSnapshot(userId) {
     communityImpact,
     community_impact: communityImpact,
     diagnostics,
+  };
+}
+
+const AUTOMATED_BADGE_RULES = Object.freeze({
+  trusted_buyer: { metrics: { completedTransactions: 5, sellerRecommendations: 2, wouldTransactAgain: 3 } },
+  established_buyer: { metrics: { completedTransactions: 15, sellerRecommendations: 5, wouldTransactAgain: 10, accountAgeDays: 60 } },
+  community_champion: { metrics: { completedTransactions: 35, sellerRecommendations: 10, wouldTransactAgain: 20, eventsAttended: 5 } },
+  community_trusted: { metrics: { completedTransactions: 75, sellerRecommendations: 20, wouldTransactAgain: 40, eventsAttended: 10, accountAgeMonths: 6 } },
+  grolo_ambassador: { metrics: { completedTransactions: 150, sellerRecommendations: 50, wouldTransactAgain: 75, eventsAttended: 20, accountAgeMonths: 12 } },
+  community_growing: { metrics: { listingsCreated: 5, completedSellerOrders: 1, followers: 5 } },
+  community_flourishing: { metrics: { completedSellerOrders: 10, followers: 15, sellerReviews: 3, marketplaceInteractions: 10, activeDays: 30 } },
+  grolo_partner: { metrics: { completedSellerOrders: 25, followers: 25, sellerReviews: 10, sellerRating: 4.5, activeDays: 90, communityContribution: 1 } },
+});
+
+function metricValue(metrics, key) {
+  const aliases = {
+    completedTransactions: ["completedTransactions", "completedTransactionCount", "completed_transaction_count"],
+    sellerRecommendations: ["sellerRecommendations", "sellerRecommendationCount", "seller_recommendation_count"],
+    wouldTransactAgain: ["wouldTransactAgain", "wouldTransactAgainCount", "would_transact_again_count"],
+    accountAgeDays: ["accountAgeDays", "account_age_days"],
+    accountAgeMonths: ["accountAgeMonths", "account_age_months"],
+    eventsAttended: ["eventsAttended", "events_attended"],
+    listingsCreated: ["listingsCreated", "activeListingCount", "active_listing_count"],
+    completedSellerOrders: ["completedSellerOrders", "completedOrderCount", "completed_order_count"],
+    sellerReviews: ["sellerReviews", "reviewCount", "review_count"],
+    sellerRating: ["sellerRating", "averageRating", "average_rating"],
+    marketplaceInteractions: ["marketplaceInteractions", "marketplace_interactions"],
+    activeDays: ["activeDays", "active_days"],
+    followers: ["followers", "followersGained", "followerCount", "follower_count"],
+    communityContribution: ["communityContribution", "community_contribution"],
+  };
+  return aliases[key].reduce((value, alias) => value ?? metrics[alias], null) ?? 0;
+}
+
+export function isBadgeEligible(badgeCode, metrics = {}, criteria = {}) {
+  const defaults = AUTOMATED_BADGE_RULES[badgeCode];
+  if (!defaults) return false;
+  const thresholds = { ...defaults.metrics, ...asObject(criteria.thresholds), ...Object.fromEntries(Object.entries(criteria).filter(([key, value]) => key in defaults.metrics && Number.isFinite(Number(value)))) };
+  return Object.entries(thresholds).every(([key, threshold]) => metricValue(metrics, key) >= Number(threshold));
+}
+
+export function getBadgeEligibility(badgeCode, metrics = {}, criteria = {}) {
+  const defaults = AUTOMATED_BADGE_RULES[badgeCode];
+  if (!defaults) return { badgeCode, eligible: false, requirements: [] };
+  const thresholds = { ...defaults.metrics, ...asObject(criteria.thresholds), ...Object.fromEntries(Object.entries(criteria).filter(([key, value]) => key in defaults.metrics && Number.isFinite(Number(value)))) };
+  const requirements = Object.entries(thresholds).map(([key, target]) => ({ key, target: Number(target), value: metricValue(metrics, key), met: metricValue(metrics, key) >= Number(target) }));
+  return { badgeCode, eligible: requirements.every((requirement) => requirement.met), requirements };
+}
+
+export async function evaluateUserBadges(userId) {
+  requireSupabase();
+  const resolvedUserId = await resolveReputationUserId(userId);
+  if (!resolvedUserId) return { userId: userId ?? null, checked: [], awarded: [], alreadyOwned: [], diagnostics: { checked: 0, awarded: 0, alreadyOwned: 0 } };
+
+  const [{ data: definitions, error: definitionsError }, snapshot, authResult, followersResult, eventsResult] = await Promise.all([
+    supabase.from("badge_definitions").select("id, code, name, criteria, active").eq("active", true).in("code", Object.keys(AUTOMATED_BADGE_RULES)),
+    getReputationSnapshot(resolvedUserId),
+    supabase.auth.getUser(),
+    supabase.from("user_follows").select("follower_id", { count: "exact", head: true }).eq("seller_id", resolvedUserId),
+    supabase.from("event_attendees").select("event_id", { count: "exact", head: true }).eq("user_id", resolvedUserId),
+  ]);
+  if (definitionsError) throw definitionsError;
+  if (authResult.error) throw authResult.error;
+  if (followersResult.error) throw followersResult.error;
+  if (eventsResult.error) throw eventsResult.error;
+
+  const accountCreatedAt = authResult.data.user?.created_at ? new Date(authResult.data.user.created_at) : null;
+  const accountAgeDays = accountCreatedAt && !Number.isNaN(accountCreatedAt.getTime())
+    ? Math.max(Math.floor((Date.now() - accountCreatedAt.getTime()) / 86400000), 0)
+    : 0;
+  const metrics = {
+    ...(snapshot?.buyerStatus?.metrics ?? {}),
+    ...(snapshot?.sellerStatus?.metrics ?? {}),
+    ...(snapshot?.communityImpact?.metrics ?? {}),
+    followers: followersResult.count ?? 0,
+    follower_count: followersResult.count ?? 0,
+    eventsAttended: eventsResult.count ?? 0,
+    events_attended: eventsResult.count ?? 0,
+    accountAgeDays,
+    accountAgeMonths: Math.floor(accountAgeDays / 30),
+  };
+  const existingCodes = new Set((snapshot?.badges ?? []).map((badge) => badge.code));
+  const checked = [];
+  const awarded = [];
+  const alreadyOwned = [];
+
+  for (const definition of definitions ?? []) {
+    const eligibility = getBadgeEligibility(definition.code, metrics, definition.criteria);
+    checked.push(eligibility);
+    console.info("badge eligibility checked", { userId: resolvedUserId, ...eligibility });
+    if (!eligibility.eligible) continue;
+    if (existingCodes.has(definition.code)) {
+      alreadyOwned.push(definition.code);
+      console.info("badge already owned", { userId: resolvedUserId, badgeCode: definition.code });
+      continue;
+    }
+    const badge = await awardBadge({
+      userId: resolvedUserId,
+      badgeCode: definition.code,
+      preserveExisting: true,
+      metadata: { automation: "reputation", eligibilityMetrics: metrics, evaluatedAt: new Date().toISOString() },
+    });
+    existingCodes.add(definition.code);
+    if (badge?.alreadyOwned) {
+      alreadyOwned.push(definition.code);
+      console.info("badge already owned", { userId: resolvedUserId, badgeCode: definition.code });
+    } else {
+      awarded.push(badge ?? definition.code);
+      console.info("badge awarded", { userId: resolvedUserId, badgeCode: definition.code });
+    }
+  }
+
+  return {
+    userId,
+    user_id: userId,
+    metrics,
+    checked,
+    awarded,
+    alreadyOwned,
+    diagnostics: {
+      checked: checked.length,
+      awarded: awarded.length,
+      alreadyOwned: alreadyOwned.length,
+      badgeEligibilityChecked: checked.length,
+      badgeAwarded: awarded.length,
+      badgeAlreadyOwned: alreadyOwned.length,
+    },
   };
 }

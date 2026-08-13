@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { sellers } from "../data/mockData";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
+import { createEvent as createEventApi, deleteEvent as deleteEventApi, getEvents as getEventsApi, updateEvent as updateEventApi, DEFAULT_EVENT_IMAGE } from "../lib/api/events";
 import { refreshUserReputation } from "../lib/api/reputation";
 
 const EventContext = createContext(null);
@@ -24,6 +25,13 @@ function persistEvents(storageKey, events) {
     localStorage.setItem(storageKey, JSON.stringify(events));
   } catch {
   }
+}
+
+function localEvents(events) {
+  return (events ?? []).map((event) => ({
+    ...event,
+    diagnostics: event.diagnostics ?? { source: "local fallback", event_source: "local fallback" },
+  }));
 }
 
 function readAttendees(currentUserId) {
@@ -88,12 +96,43 @@ export function EventProvider({ children }) {
   const { user } = useAuth();
   const currentUserId = user?.id ?? "current-user";
   const storageKey = `${EVENTS_STORAGE_KEY}-${currentUserId}`;
-  const [events, setEvents] = useState(() => readEvents(storageKey) ?? []);
+  const [events, setEvents] = useState(() => localEvents(readEvents(storageKey)));
   const [attendees, setAttendees] = useState(() => readAttendees(currentUserId));
 
   useEffect(() => {
-    setEvents(readEvents(storageKey) ?? []);
-  }, [storageKey]);
+    let cancelled = false;
+    const cachedEvents = localEvents(readEvents(storageKey));
+    setEvents(cachedEvents);
+
+    async function loadEvents() {
+      if (!isSupabaseConfigured) {
+        console.info("event source: local fallback", { operation: "loadEvents", reason: "Supabase is not configured" });
+        return;
+      }
+      try {
+        const remoteEvents = await getEventsApi();
+        if (!remoteEvents) return;
+        const remoteIds = new Set(remoteEvents.map((event) => event.id));
+        const cachedOnly = cachedEvents.filter((event) => !remoteIds.has(event.id));
+        const migrated = user?.id && cachedOnly.length
+          ? (await Promise.all(cachedOnly.map((event) => createEventApi(event).catch((error) => {
+            console.warn("event source: local fallback", { operation: "migrateEvent", eventId: event.id, error: error?.message ?? String(error) });
+            return null;
+          })))).filter(Boolean)
+          : [];
+        const resolvedEvents = [...migrated, ...remoteEvents];
+        if (!cancelled) {
+          setEvents(resolvedEvents);
+          persistEvents(storageKey, resolvedEvents);
+        }
+      } catch (error) {
+        console.warn("event source: local fallback", { operation: "loadEvents", error: error?.message ?? String(error) });
+      }
+    }
+
+    loadEvents();
+    return () => { cancelled = true; };
+  }, [storageKey, user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -175,41 +214,57 @@ export function EventProvider({ children }) {
   );
 
   const addEvent = useCallback((event) => {
+    const optimisticEvent = {
+      likes: 0,
+      comments: 0,
+      reposts: 0,
+      shares: 0,
+      ...event,
+      id: `event-${Date.now()}`,
+      createdAt: event.createdAt ?? Date.now(),
+      sellerId: user?.id ?? STORE_ID,
+      image: event.image || DEFAULT_EVENT_IMAGE,
+      diagnostics: { source: "local fallback", event_source: "local fallback" },
+    };
     setEvents((prev) => {
-      const next = [
-        {
-          likes: 0,
-          comments: 0,
-          reposts: 0,
-          shares: 0,
-          ...event,
-          id: `event-${Date.now()}`,
-          createdAt: event.createdAt ?? Date.now(),
-          sellerId: STORE_ID,
-          image:
-            event.image ||
-            "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80",
-        },
-        ...prev,
-      ];
+      const next = [optimisticEvent, ...prev];
       persistEvents(storageKey, next);
       return next;
     });
-  }, [storageKey]);
+    if (isSupabaseConfigured && user?.id) {
+      createEventApi(optimisticEvent).then((created) => {
+        if (!created) return;
+        setEvents((current) => {
+          const next = current.map((item) => item.id === optimisticEvent.id ? created : item);
+          persistEvents(storageKey, next);
+          return next;
+        });
+      }).catch((error) => console.warn("event source: local fallback", { operation: "createEvent", error: error?.message ?? String(error) }));
+    } else {
+      console.info("event source: local fallback", { operation: "createEvent", reason: "Supabase or authenticated owner unavailable" });
+    }
+  }, [storageKey, user?.id]);
 
   const updateEvent = useCallback((eventId, updates) => {
+    const nextUpdates = { ...updates, image: updates.image || DEFAULT_EVENT_IMAGE };
     setEvents((current) => {
-      const next = current.map((event) => event.id === eventId
-        ? {
-          ...event,
-          ...updates,
-          image: updates.image || "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80",
-        }
-        : event);
+      const next = current.map((event) => event.id === eventId ? { ...event, ...nextUpdates } : event);
       persistEvents(storageKey, next);
       return next;
     });
-  }, [storageKey]);
+    if (isSupabaseConfigured && user?.id) {
+      updateEventApi(eventId, nextUpdates).then((updated) => {
+        if (!updated) return;
+        setEvents((current) => {
+          const next = current.map((item) => item.id === eventId ? updated : item);
+          persistEvents(storageKey, next);
+          return next;
+        });
+      }).catch((error) => console.warn("event source: local fallback", { operation: "updateEvent", error: error?.message ?? String(error) }));
+    } else {
+      console.info("event source: local fallback", { operation: "updateEvent", reason: "Supabase or authenticated owner unavailable" });
+    }
+  }, [storageKey, user?.id]);
 
   const removeEvent = useCallback((eventId) => {
     setEvents((current) => {
@@ -217,9 +272,14 @@ export function EventProvider({ children }) {
       persistEvents(storageKey, next);
       return next;
     });
-  }, [storageKey]);
+    if (isSupabaseConfigured && user?.id) {
+      deleteEventApi(eventId).catch((error) => console.warn("event source: local fallback", { operation: "deleteEvent", error: error?.message ?? String(error) }));
+    } else {
+      console.info("event source: local fallback", { operation: "deleteEvent", reason: "Supabase or authenticated owner unavailable" });
+    }
+  }, [storageKey, user?.id]);
 
-  const eventSeller = useCallback((event) => sellers[event.sellerId], []);
+  const eventSeller = useCallback((event) => event.seller ?? sellers[event.sellerId], []);
 
   const value = {
     events,

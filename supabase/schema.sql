@@ -68,6 +68,49 @@ create policy "Users can manage their own follows"
   using (auth.uid() = follower_id)
   with check (auth.uid() = follower_id);
 
+-- Events. The owner is a real profile so events resolve across devices.
+create table if not exists events (
+  id uuid primary key default gen_random_uuid(),
+  seller_id uuid not null references profiles(id) on delete cascade,
+  legacy_id text unique,
+  title text not null,
+  type text not null,
+  date date not null,
+  start_time time not null,
+  end_time time not null,
+  location text not null,
+  description text not null,
+  image_url text,
+  capacity integer check (capacity is null or capacity >= 0),
+  visibility text not null default 'public',
+  likes integer not null default 0,
+  comments integer not null default 0,
+  reposts integer not null default 0,
+  shares integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table events add column if not exists legacy_id text unique;
+alter table events add column if not exists image_url text;
+alter table events add column if not exists capacity integer;
+alter table events add column if not exists visibility text not null default 'public';
+alter table events add column if not exists likes integer not null default 0;
+alter table events add column if not exists comments integer not null default 0;
+alter table events add column if not exists reposts integer not null default 0;
+alter table events add column if not exists shares integer not null default 0;
+alter table events add column if not exists updated_at timestamptz not null default now();
+
+create index if not exists events_seller_idx on events (seller_id);
+create index if not exists events_date_idx on events (date);
+
+alter table events enable row level security;
+create policy "Events are viewable by everyone"
+  on events for select using (true);
+create policy "Sellers can manage their own events"
+  on events for all using (auth.uid() = seller_id)
+  with check (auth.uid() = seller_id);
+
 -- Event attendance. The composite key guarantees one attendance record per user/event.
 create table if not exists event_attendees (
   event_id text not null,

@@ -1,5 +1,6 @@
 import { events as legacyEvents, mapLocations as legacyMapLocations, products as legacyProducts, sellers as legacySellers } from "../../data/mockData";
 import { getListingById, getListings, listingFromRow } from "./listings";
+import { getEvents } from "./events";
 import { getReputationSnapshot } from "./reputation";
 import { isSupabaseConfigured, supabase } from "../supabaseClient";
 
@@ -201,10 +202,7 @@ export async function resolveLegacySellerId(sellerId) {
 }
 
 async function getEventsFromBackend() {
-  if (!isSupabaseConfigured) return null;
-  const { data, error } = await supabase.from("events").select("*").order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((event) => ({ ...event, id: event.legacy_id ?? event.id, databaseId: event.id, legacyId: event.legacy_id, sellerId: event.seller_id, createdAt: event.created_at }));
+  return getEvents();
 }
 
 async function getMapLocationsFromBackend() {

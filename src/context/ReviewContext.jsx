@@ -7,7 +7,7 @@ import {
 } from "../data/mockData";
 import { useOrders } from "./OrderContext";
 import { useAuth } from "./AuthContext";
-import { getProductReviews, getSellerReviews } from "../lib/api/reviews";
+import { createReviewInDatabase, getProductReviews, getSellerReviews } from "../lib/api/reviews";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const ReviewContext = createContext(null);
@@ -209,25 +209,78 @@ export function ReviewProvider({ children }) {
   );
 
   const addReview = useCallback(({ productId, sellerId, rating, text, photos, ...target }) => {
-    setSubmittedReviews((prev) => [
-      normalizeReview({
-        id: `rev-${Date.now()}`,
-        ...target,
-        productId,
-        sellerId,
-        reviewer: identity.username,
-        reviewerId: identity.id,
-        buyerId: identity.id,
-        avatar: identity.avatar,
-        rating,
-        date: "Just now",
-        createdAt: new Date().toISOString(),
-        text,
-        photos: photos ?? [],
-      }, identity),
-      ...prev,
-    ]);
-  }, [identity]);
+    const completedOrder = orders.find((order) => (
+      order.productId === productId
+      && order.status === "Completed"
+      && String(order.buyer ?? "").toLowerCase() === identity.username.toLowerCase()
+    ));
+    const orderItem = completedOrder?.orderItems?.find((item) => (
+      item.productId === productId || item.listingId === productId
+    ));
+    const orderId = target.orderId ?? completedOrder?.databaseId ?? completedOrder?.orderId ?? completedOrder?.id;
+    const listingDatabaseId = target.listingId ?? orderItem?.listingId;
+    const orderItemId = target.orderItemId ?? orderItem?.id;
+    const localReview = normalizeReview({
+      id: `rev-${Date.now()}`,
+      ...target,
+      reviewType: "product",
+      productId,
+      listingId: listingDatabaseId ?? productId,
+      orderId,
+      orderItemId,
+      sellerId,
+      reviewer: identity.username,
+      reviewerId: identity.id,
+      buyerId: identity.id,
+      avatar: identity.avatar,
+      rating,
+      date: "Just now",
+      createdAt: new Date().toISOString(),
+      text,
+      photos: photos ?? [],
+    }, identity);
+    const logContext = {
+      reviewId: localReview.id,
+      listingId: listingDatabaseId ?? productId,
+      orderId: orderId ?? null,
+      orderItemId: orderItemId ?? null,
+      reviewerId: identity.id,
+    };
+    console.info("review create requested", logContext);
+
+    const appendLocalReview = () => {
+      setSubmittedReviews((prev) => [localReview, ...prev]);
+      return localReview;
+    };
+
+    if (!user?.id || !isSupabaseConfigured) {
+      console.warn("review create failed", { ...logContext, error: "Supabase is not configured or user is unauthenticated." });
+      return Promise.resolve(appendLocalReview());
+    }
+
+    return createReviewInDatabase(localReview, {
+      reviewerId: user.id,
+      listingId: listingDatabaseId,
+      orderId,
+      orderItemId,
+    }).then((createdReview) => {
+      console.info("review create succeeded", {
+        reviewId: createdReview?.databaseId ?? createdReview?.id,
+        listingId: createdReview?.listingId ?? listingDatabaseId,
+        orderId: createdReview?.orderId ?? orderId,
+        orderItemId: createdReview?.orderItemId ?? orderItemId,
+        reviewerId: createdReview?.reviewerId ?? user.id,
+      });
+      setSubmittedReviews((prev) => [createdReview, ...prev]);
+      return createdReview;
+    }).catch((error) => {
+      console.warn("review create failed", {
+        ...logContext,
+        error: error?.message ?? String(error),
+      });
+      return appendLocalReview();
+    });
+  }, [identity, orders, user?.id]);
 
   const value = {
     reviews: allReviews,

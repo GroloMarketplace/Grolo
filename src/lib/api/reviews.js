@@ -170,6 +170,52 @@ async function attachReviewMetadata(rows) {
   };
 }
 
+async function getAuthenticatedUserId(requestedReviewerId) {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  const authenticatedUserId = data.user?.id;
+  if (!authenticatedUserId) throw new Error("Authentication is required to create a review.");
+  if (requestedReviewerId && requestedReviewerId !== authenticatedUserId) {
+    throw new Error("Review creation must use the authenticated reviewer.");
+  }
+  return authenticatedUserId;
+}
+
+export async function createReviewInDatabase(review, { reviewerId, listingId, orderId, orderItemId } = {}) {
+  requireSupabase();
+  const authenticatedReviewerId = await getAuthenticatedUserId(reviewerId);
+  const payload = legacyReviewToDatabasePayload(review, {
+    reviewerId: authenticatedReviewerId,
+    listingId,
+    orderId,
+    orderItemId,
+  });
+  const { data, error } = await supabase.rpc("create_review", {
+    p_review_type: payload.review_type,
+    p_rating: payload.rating,
+    p_order_id: payload.order_id,
+    p_reviewee_id: payload.reviewee_id,
+    p_listing_id: payload.listing_id,
+    p_order_item_id: payload.order_item_id,
+    p_title: payload.title,
+    p_body: payload.body,
+    p_criteria: payload.criteria,
+    p_photos: payload.photos,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  const mapped = databaseReviewToLegacyReview(row);
+  return {
+    ...mapped,
+    productId: review?.productId ?? mapped?.productId,
+    listingId: review?.listingId ?? mapped?.listingId ?? listingId,
+    sellerId: mapped?.sellerId ?? review?.sellerId,
+    reviewer: mapped?.reviewer ?? review?.reviewer,
+    reviewerId: mapped?.reviewerId ?? authenticatedReviewerId,
+    buyerId: mapped?.buyerId ?? authenticatedReviewerId,
+  };
+}
+
 async function getReviewsByType(reviewType, filterColumn, filterValue) {
   requireSupabase();
   if (!REVIEW_TYPES.has(reviewType)) throw new Error("Review type is invalid.");

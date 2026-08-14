@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 
@@ -27,10 +27,14 @@ function persistFollowing(userKey, followedSellers) {
 }
 
 function getFollowerCounts(rows) {
-  return rows.reduce((counts, row) => ({
-    ...counts,
-    [row.seller_id]: (counts[row.seller_id] ?? 0) + 1,
-  }), {});
+  return rows.reduce((counts, row) => {
+    if (!row.seller_id) return counts;
+    const sellerKey = String(row.seller_id);
+    return {
+      ...counts,
+      [sellerKey]: (counts[sellerKey] ?? 0) + 1,
+    };
+  }, {});
 }
 
 export function FollowProvider({ children }) {
@@ -38,6 +42,18 @@ export function FollowProvider({ children }) {
   const userKey = user?.id ?? "current-user";
   const [followedSellers, setFollowedSellers] = useState(() => readStoredFollowing(userKey));
   const [followerCounts, setFollowerCounts] = useState({});
+
+  const refreshFollowerCounts = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    const { data, error } = await supabase
+      .from("user_follows")
+      .select("seller_id");
+    if (error) {
+      console.error("Unable to load follower counts", error);
+      return;
+    }
+    setFollowerCounts(getFollowerCounts(data ?? []));
+  }, []);
 
   useEffect(() => {
     setFollowedSellers(readStoredFollowing(userKey));
@@ -88,6 +104,7 @@ export function FollowProvider({ children }) {
       console.error("Unable to persist follow", error);
       return false;
     }
+    await refreshFollowerCounts();
     return true;
   };
 
@@ -105,7 +122,9 @@ export function FollowProvider({ children }) {
           setFollowerCounts((current) => ({ ...current, [sellerId]: (current[sellerId] ?? 0) + 1 }));
           persistFollowing(userKey, [...new Set([...next, sellerId])]);
           console.error("Unable to persist unfollow", error);
+          return;
         }
+        void refreshFollowerCounts();
       });
     }
   };
@@ -116,7 +135,7 @@ export function FollowProvider({ children }) {
   };
 
   const isFollowing = (sellerId) => followedSellers.includes(sellerId);
-  const getFollowerCount = (sellerId) => followerCounts[sellerId] ?? 0;
+  const getFollowerCount = (sellerId) => followerCounts[String(sellerId)] ?? 0;
 
   return (
     <FollowContext.Provider value={{

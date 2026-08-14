@@ -23,6 +23,7 @@ import TradeBadge from "../components/TradeBadge";
 import { CompactReputationHeader, TrustMetricSummary } from "../components/ReputationSummary";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useResolvedListingWithSeller, useResolvedSeller } from "../hooks/useEntityResolution";
+import TrustSafetyActions from "../components/TrustSafetyActions";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -185,6 +186,7 @@ export default function ProductDetail() {
             )}
           </div>
           <FoundingMemberBadge sellerId={seller?.id} />
+          <TrustSafetyActions targetType="listing" targetId={product.databaseId ?? product.id} />
           <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-3" />
           {reputationSnapshot?.sellerStatus && <TrustMetricSummary metrics={reputationSnapshot.sellerStatus.metrics} audience="seller" compact />}
           {vacationMode && <div className="rounded-lg border border-[#D9D9D9] bg-[#F5FFF6] p-3 text-[14px] text-[#4F4F4F]">This store is temporarily not accepting orders.{sellerProfile.vacationMessage && <div className="mt-1 text-[13px] text-[#828282]">{sellerProfile.vacationMessage}</div>}</div>}

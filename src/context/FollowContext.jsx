@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
+import { useTrustSafety } from "./TrustSafetyContext";
 
 const FollowContext = createContext(null);
 const STORAGE_KEY = "grolo-following";
@@ -39,6 +40,7 @@ function getFollowerCounts(rows) {
 
 export function FollowProvider({ children }) {
   const { user } = useAuth();
+  const { checkBlocked } = useTrustSafety();
   const userKey = user?.id ?? "current-user";
   const [followedSellers, setFollowedSellers] = useState(() => readStoredFollowing(userKey));
   const [followerCounts, setFollowerCounts] = useState({});
@@ -87,6 +89,10 @@ export function FollowProvider({ children }) {
 
   const followSeller = async (sellerId) => {
     if (followedSellers.includes(sellerId)) return true;
+    if (await checkBlocked(sellerId)) {
+      console.warn("Follow blocked by trust and safety", { sellerId });
+      return false;
+    }
     const previous = followedSellers;
     const next = [...previous, sellerId];
     setFollowedSellers(next);

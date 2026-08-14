@@ -3,6 +3,7 @@ import PhoneFrame from "./components/PhoneFrame";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import { NotificationProvider } from "./context/NotificationContext";
+import { TrustSafetyProvider } from "./context/TrustSafetyContext";
 import { FollowProvider } from "./context/FollowContext";
 import { ReviewProvider } from "./context/ReviewContext";
 import { OrderProvider } from "./context/OrderContext";
@@ -54,6 +55,8 @@ import ProposeTrade from "./pages/ProposeTrade";
 import EditListing from "./pages/EditListing";
 import StoreReviews from "./pages/StoreReviews";
 import Analytics from "./pages/Analytics";
+import AdminModeration from "./pages/AdminModeration";
+import AdminRoute from "./components/AdminRoute";
 import Orders from "./pages/Orders";
 import LeaveReview from "./pages/LeaveReview";
 import ProductReviews from "./pages/ProductReviews";
@@ -81,6 +84,7 @@ export default function App() {
     <AppErrorBoundary>
       <AuthProvider>
       <NotificationProvider>
+      <TrustSafetyProvider>
       <ProfileModeProvider>
       <FollowProvider>
         <OrderProvider>
@@ -269,6 +273,7 @@ export default function App() {
             </PhoneFrame>
           }
         />
+        <Route path="/admin/moderation" element={<PhoneFrame><AdminRoute><AdminModeration /></AdminRoute></PhoneFrame>} />
         <Route
           path="/create-listing"
           element={
@@ -364,6 +369,7 @@ export default function App() {
         </OrderProvider>
       </FollowProvider>
       </ProfileModeProvider>
+      </TrustSafetyProvider>
       </NotificationProvider>
       </AuthProvider>
     </AppErrorBoundary>

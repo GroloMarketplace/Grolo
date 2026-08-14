@@ -11,6 +11,7 @@ import { useFollow } from "../context/FollowContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useResolvedPublicProfile } from "../hooks/useEntityResolution";
+import TrustSafetyActions from "../components/TrustSafetyActions";
 
 const FALLBACK_AVATAR = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80";
 const PROFILE_BANNER = "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80";
@@ -117,6 +118,7 @@ export default function PublicProfile() {
             </div>
             <p className="mt-3 text-[14px] leading-[140%]">{profile.bio}</p>
             <div className="mt-4 flex gap-3"><button type="button" onClick={() => toggleFollow(userId)} className="flex-1 rounded-lg bg-[#498467] py-2.5 text-[14px] font-medium text-white">{isFollowing(userId) ? "Following" : "Follow"}</button><button type="button" onClick={handleMessage} className="flex-1 rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">Message</button></div>
+            <TrustSafetyActions targetType="user" targetId={userId} blockUserId={userId} />
             <div className="mt-4 grid grid-cols-2 gap-2"><PublicStat icon="users" label="Followers" value={getFollowerCount(userId)} /><PublicStat icon="user" label="Following" value={0} /></div>
           </div>
         </div>

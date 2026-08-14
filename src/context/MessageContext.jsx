@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { useAuth } from "./AuthContext";
 import { databaseMessageToLegacyMessage, getConversations, getMessages, isCanonicalUuid, sendMessage, subscribeToMessages, upsertConversationInDatabase } from "../lib/api/messages";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
+import { isUserBlocked } from "../lib/api/trustSafety";
 
 const MessageContext = createContext(null);
 const CURRENT_BUYER_ID = "current-buyer";
@@ -279,6 +280,12 @@ export function MessageProvider({ children }) {
 
         if (!user?.id || !isSupabaseConfigured || !databaseConversationId) {
           throw new Error("A canonical conversation UUID and authenticated user are required.");
+        }
+        const participantId = normalizedConversation.buyerId === user.id
+          ? normalizedConversation.sellerId
+          : normalizedConversation.buyerId;
+        if (participantId && await isUserBlocked(user.id, participantId)) {
+          throw new Error("Messaging is unavailable because one of these users is blocked.");
         }
 
         const savedMessage = await sendMessage({

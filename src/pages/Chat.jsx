@@ -11,6 +11,7 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { getOrderStatusClass, getOrderStatusLabel } from "../utils/orderStatus";
 import { formatListingPrice } from "../utils/listingDisplay";
+import TrustSafetyActions from "../components/TrustSafetyActions";
 
 export default function Chat() {
   const location = useLocation();
@@ -118,6 +119,7 @@ export default function Chat() {
             <div className="text-[12px] text-black/50">Active 11m ago</div>
           )}
         </div>
+        <TrustSafetyActions targetType="message" targetId={conversation?.databaseId ?? conversation?.id ?? id} blockUserId={seller.id} compact />
       </div>
 
       <div className="min-h-0 flex-1 flex flex-col gap-3 p-4 overflow-y-auto no-scrollbar">

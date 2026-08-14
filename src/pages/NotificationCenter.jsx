@@ -10,7 +10,7 @@ function formatTimestamp(value) {
 
 function notificationPath(notification) {
   if (!notification.relatedId) return null;
-  if (notification.type === "order_received") return `/my-shop/orders`;
+  if (notification.type === "order_received" || notification.type === "order_status") return `/orders/${encodeURIComponent(notification.relatedId)}`;
   if (notification.type === "review_received") return `/my-shop/reviews`;
   if (notification.type === "new_listing" || notification.type === "listing_favorited") return `/product/${notification.relatedId}`;
   if (notification.type === "promotion_created") return `/promotions/${notification.relatedId}`;

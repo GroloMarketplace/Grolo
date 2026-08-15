@@ -99,6 +99,7 @@ from (values
   ('vendor_analytics_events', 'event_type'),
   ('vendor_analytics_events', 'listing_id'),
   ('vendor_analytics_events', 'promotion_id'),
+  ('vendor_analytics_events', 'user_id'),
   ('orders', 'buyer_id'), ('orders', 'seller_id'),
   ('orders', 'fulfillment_method'), ('orders', 'status'),
   ('orders', 'subtotal'), ('orders', 'delivery_fee'), ('orders', 'total'),

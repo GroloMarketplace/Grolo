@@ -11,6 +11,7 @@ import OutlineIcon from "../components/OutlineIcon";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useListings } from "../context/ListingContext";
 import { getCartItemProductId, getCartItemSellerId } from "../utils/cartGrouping";
+import { trackAnalyticsEvent } from "../lib/api/analytics";
 
 const CHECKOUT_ATTEMPT_KEY = "grolo-checkout-attempt";
 
@@ -78,6 +79,12 @@ export default function StoreCheckout() {
             status: "creating",
           };
           persistCheckoutAttempt(attempt);
+          void trackAnalyticsEvent("checkout_started", {
+            sellerId,
+            listingId: getListing(storeItems[0])?.databaseId,
+            eventKey: `checkout-started:${attempt.attemptId}`,
+            metadata: { attempt_id: attempt.attemptId },
+          });
           navigate("/order-confirmation", { state: { checkoutAttempt: attempt } });
         }} className="w-full rounded-lg bg-[#498467] py-3.5 text-[16px] font-medium text-white">Place Order</button>}
       </div></div>

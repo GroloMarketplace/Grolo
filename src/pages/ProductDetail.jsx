@@ -24,6 +24,7 @@ import { CompactReputationHeader, TrustMetricSummary } from "../components/Reput
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useResolvedListingWithSeller, useResolvedSeller } from "../hooks/useEntityResolution";
 import TrustSafetyActions from "../components/TrustSafetyActions";
+import { trackAnalyticsEvent } from "../lib/api/analytics";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -85,7 +86,13 @@ export default function ProductDetail() {
       quantityAvailable: available,
       displayedAvailable: available,
     });
-  }, [id, product.id, product.quantityAvailable, available]);
+    if (product.databaseId && product.sellerId) {
+      void trackAnalyticsEvent("listing_view", {
+        sellerId: product.sellerId,
+        listingId: product.databaseId,
+      });
+    }
+  }, [id, product.id, product.databaseId, product.sellerId, product.quantityAvailable, available]);
 
   useEffect(() => {
     setQuantity((current) => Math.min(current, Math.max(1, available)));

@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import { useCart } from "../context/CartContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { useOrders } from "../context/OrderContext";
+import { trackAnalyticsEvent } from "../lib/api/analytics";
 
 const CHECKOUT_ATTEMPT_KEY = "grolo-checkout-attempt";
 
@@ -130,6 +131,15 @@ export default function OrderConfirmation() {
       const persistedOrderId = persistedOrder?.databaseId ?? persistedOrder?.orderId;
       if (!persistedOrderId) throw new Error("The order was not returned by the database. Your cart was not changed.");
 
+      const completedItems = persistedOrder?.orderItems ?? persistedOrder?.items ?? pricedOrderItems;
+      void Promise.all(completedItems.map((item) => trackAnalyticsEvent("order_completed", {
+        sellerId: persistedOrder.sellerId ?? sellerId,
+        listingId: item.listingId ?? item.databaseId ?? null,
+        promotionId: item.promotionId ?? null,
+        eventKey: `order-completed:${persistedOrderId}:${item.listingId ?? item.databaseId ?? "order"}`,
+        metadata: { order_id: persistedOrderId },
+      })));
+
       const nextReceipt = {
         databaseOrderId: persistedOrderId,
         legacyOrderId: persistedOrder.id ?? null,
@@ -149,7 +159,7 @@ export default function OrderConfirmation() {
     } finally {
       requestInFlightRef.current = false;
     }
-  }, [createOrders, deliveryFee, getItemPricing, orderItems, removeItems, selectedFulfillment]);
+  }, [createOrders, deliveryFee, getItemPricing, orderItems, removeItems, selectedFulfillment, sellerId]);
 
   useEffect(() => {
     setIsAnimated(true);

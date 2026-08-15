@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useAuth } from "./AuthContext";
 import { useListings } from "./ListingContext";
 import { usePromotions } from "./PromotionContext";
+import { trackAnalyticsEvent } from "../lib/api/analytics";
 
 const CartContext = createContext(null);
 const CART_STORAGE_KEY = "grolo-cart";
@@ -67,6 +68,13 @@ export function CartProvider({ children }) {
         ? current.map((item) => item.productId === product.id ? { ...item, ...pricedFields, quantity: cappedQuantity } : item)
         : [...current, { ...product, ...pricedFields, price: pricing.discountedPrice, productId: product.id, id: `cart-${product.id}`, quantity: cappedQuantity }];
       persistCart(storageKey, nextItems);
+      if (listing.databaseId && listing.sellerId) {
+        void trackAnalyticsEvent("add_to_cart", {
+          sellerId: listing.sellerId,
+          listingId: listing.databaseId,
+          promotionId: pricedFields.promotionId,
+        });
+      }
       return nextItems;
     });
   };

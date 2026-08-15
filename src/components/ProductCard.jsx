@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import PromotionBadge from "./PromotionBadge";
 import { usePromotions } from "../context/PromotionContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import { useEffect } from "react";
+import { trackAnalyticsEvent } from "../lib/api/analytics";
 import FoundingMemberBadge from "./FoundingMemberBadge";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "./ServiceCategoryLabel";
@@ -14,10 +16,27 @@ export default function ProductCard({ product, onClick }) {
   const { getSellerProfile } = useSellerSettings();
   const vacationMode = getSellerProfile(product.sellerId)?.vacationMode;
 
+  useEffect(() => {
+    if (pricing.promotion?.id && product.databaseId && product.sellerId) {
+      void trackAnalyticsEvent("promotion_view", {
+        sellerId: product.sellerId,
+        listingId: product.databaseId,
+        promotionId: pricing.promotion.id,
+      });
+    }
+  }, [pricing.promotion?.id, product.databaseId, product.sellerId]);
+
   return (
     <Link
       to={`/product/${product.id}`}
       onClick={(event) => {
+        if (pricing.promotion?.id && product.databaseId && product.sellerId) {
+          void trackAnalyticsEvent("promotion_click", {
+            sellerId: product.sellerId,
+            listingId: product.databaseId,
+            promotionId: pricing.promotion.id,
+          });
+        }
         if (!onClick) return;
         event.preventDefault();
         onClick(product.id);

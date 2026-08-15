@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
+    "test": "node --test tests/launch-workflows.test.js",
+    "test:watch": "node --test --watch tests/launch-workflows.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

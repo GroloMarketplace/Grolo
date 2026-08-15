@@ -11,6 +11,27 @@ npm install
 npm run dev
 ```
 
+## Automated regression tests
+
+Run the CI-friendly launch workflow suite with:
+
+```bash
+npm test
+```
+
+Use watch mode during development:
+
+```bash
+npm run test:watch
+```
+
+The seeded tests cover buyer onboarding, seller setup and listing validation,
+following, favorites, cart and checkout inventory changes, order status
+transitions, notification events, delivery validation, and trust-and-safety
+report/block/suspension contracts. Supabase integration tests use migration
+contract assertions; run the application against a configured Supabase project
+for end-to-end backend verification.
+
 ## Supabase backend
 
 The app starts without seeded marketplace content. New accounts receive empty

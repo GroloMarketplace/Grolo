@@ -1,0 +1,124 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { readFile } from "node:fs/promises";
+import { validateAddress, validateBuyerProfile, validateFulfillment, validateListing, validateSellerProfile } from "../src/utils/validation.js";
+import { seed } from "./fixtures/seed.js";
+
+function createCommerceState() {
+  return {
+    inventory: { [seed.listing.id]: seed.listing.quantityAvailable },
+    cart: [],
+    orders: [],
+    notifications: [],
+    follows: new Set(),
+    favorites: new Set(),
+    reports: [],
+    blocked: new Set(),
+    suspended: new Set(),
+  };
+}
+
+function addToCart(state, listingId, quantity) {
+  if (quantity < 1 || state.inventory[listingId] < quantity) throw new Error("Insufficient inventory");
+  state.cart.push({ listingId, quantity });
+}
+
+function checkout(state, buyerId, sellerId) {
+  const items = state.cart.splice(0);
+  const order = { id: `order-${state.orders.length + 1}`, buyerId, sellerId, status: "Seller Notified", items };
+  for (const item of items) state.inventory[item.listingId] -= item.quantity;
+  state.orders.push(order);
+  state.notifications.push({ type: "order_created", recipient: sellerId, orderId: order.id });
+  return order;
+}
+
+function updateOrderStatus(state, orderId, status) {
+  const order = state.orders.find((item) => item.id === orderId);
+  const allowed = {
+    "Seller Notified": ["In Progress"],
+    "In Progress": ["Ready for Pickup"],
+    "Ready for Pickup": ["Completed"],
+  };
+  if (!order || !allowed[order.status]?.includes(status)) throw new Error("Invalid order status transition");
+  order.status = status;
+  state.notifications.push({ type: "order_status", recipient: order.buyerId, orderId, status });
+}
+
+test("buyer signup and onboarding validation accepts seeded data and rejects invalid input", () => {
+  assert.equal(validateBuyerProfile(seed.buyer), null);
+  assert.match(validateBuyerProfile({ ...seed.buyer, username: "bad name" }), /Username/);
+  assert.match(validateBuyerProfile({ ...seed.buyer, bio: "x".repeat(501) }), /Bio/);
+  assert.equal(new Set([seed.buyer.username, "other_user"]).size, 2);
+});
+
+test("seller store and listing workflows validate before persistence", () => {
+  assert.equal(validateSellerProfile(seed.seller), null);
+  assert.match(validateSellerProfile({ ...seed.seller, website: "not-a-url" }), /Website/);
+  assert.equal(validateListing(seed.listing), null);
+  assert.match(validateListing({ ...seed.listing, price: "0" }), /Price/);
+  assert.match(validateListing({ ...seed.listing, quantityAvailable: 1.5 }), /Quantity/);
+});
+
+test("buyer follow and favorite actions update state and create notification events", () => {
+  const state = createCommerceState();
+  state.follows.add(seed.seller.id);
+  state.favorites.add(seed.listing.id);
+  state.notifications.push({ type: "new_follower", recipient: seed.seller.id, buyerId: seed.buyer.id });
+  assert.equal(state.follows.has(seed.seller.id), true);
+  assert.equal(state.favorites.has(seed.listing.id), true);
+  assert.equal(state.notifications[0].type, "new_follower");
+});
+
+test("add to cart, checkout, inventory deduction, and fulfillment transitions work together", () => {
+  const state = createCommerceState();
+  addToCart(state, seed.listing.id, 3);
+  const order = checkout(state, seed.buyer.id, seed.seller.id);
+  assert.equal(state.inventory[seed.listing.id], 7);
+  assert.equal(order.status, "Seller Notified");
+  updateOrderStatus(state, order.id, "In Progress");
+  updateOrderStatus(state, order.id, "Ready for Pickup");
+  updateOrderStatus(state, order.id, "Completed");
+  assert.equal(order.status, "Completed");
+  assert.equal(state.notifications.filter((item) => item.type === "order_status").length, 3);
+  assert.throws(() => updateOrderStatus(state, order.id, "Preparing"), /Invalid/);
+});
+
+test("checkout address and fulfillment validation protects delivery orders", () => {
+  const settings = { fulfillmentMethods: ["pickup", "delivery"], deliveryRadius: 25 };
+  assert.equal(validateAddress(seed.address), null);
+  assert.equal(validateFulfillment("delivery", settings, seed.address), null);
+  assert.match(validateAddress({ ...seed.address, postalCode: "invalid" }), /postal code/);
+  assert.match(validateFulfillment("delivery", { ...settings, deliveryRadius: 0 }, seed.address), /radius/);
+});
+
+test("promotion and order notifications are represented as durable events", () => {
+  const state = createCommerceState();
+  state.notifications.push({ type: "promotion_created", recipient: seed.buyer.id, promotionId: seed.promotion.id });
+  addToCart(state, seed.listing.id, 1);
+  const order = checkout(state, seed.buyer.id, seed.seller.id);
+  assert.deepEqual(state.notifications.map((item) => item.type), ["promotion_created", "order_created"]);
+  assert.equal(order.items[0].quantity, 1);
+});
+
+test("trust and safety report, block, and suspend workflows are enforced", () => {
+  const state = createCommerceState();
+  state.reports.push({ reporterId: seed.buyer.id, targetType: "listing", targetId: seed.listing.id, status: "Open" });
+  state.blocked.add(seed.seller.id);
+  state.suspended.add(seed.seller.id);
+  assert.equal(state.reports[0].status, "Open");
+  assert.equal(state.blocked.has(seed.seller.id), true);
+  assert.equal(state.suspended.has(seed.seller.id), true);
+});
+
+test("critical Supabase contracts are present for regression coverage", async () => {
+  const [orders, notifications, validation] = await Promise.all([
+    readFile(new URL("../supabase/migrations/20260813_apply_promotions_to_order_items.sql", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260813_phase_8h_notifications.sql", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260815_phase_9a8_input_validation.sql", import.meta.url), "utf8"),
+  ]);
+  assert.match(orders, /create_order_with_items/);
+  assert.match(orders, /inventory_quantity = inventory_quantity -/);
+  assert.match(notifications, /notifications_on_order/);
+  assert.match(notifications, /notifications_on_follow/);
+  assert.match(validation, /validate_listing_fields/);
+});

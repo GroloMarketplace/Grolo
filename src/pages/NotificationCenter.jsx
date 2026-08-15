@@ -20,7 +20,7 @@ function notificationPath(notification) {
 
 export default function NotificationCenter() {
   const navigate = useNavigate();
-  const { notifications, unreadCount, loading, markRead, markAllRead } = useNotifications();
+  const { notifications, unreadCount, loading, loadingMore, hasMore, loadMore, markRead, markAllRead } = useNotifications();
 
   const openNotification = async (notification) => {
     if (!notification.read) await markRead(notification.id);
@@ -66,6 +66,7 @@ export default function NotificationCenter() {
             </button>
           ))}
         </div>
+        {hasMore && <button type="button" onClick={loadMore} disabled={loadingMore} className="mt-4 w-full rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467] disabled:opacity-50">{loadingMore ? "Loading…" : "Load more"}</button>}
       </div>
     </div>
   );

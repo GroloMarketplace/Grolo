@@ -13,13 +13,15 @@ function normalizeNotification(row) {
   };
 }
 
-export async function getNotifications(userId) {
+export async function getNotifications(userId, { limit = 30, offset = 0 } = {}) {
   requireSupabase();
   const { data, error } = await supabase
     .from("notifications")
-    .select("*")
+    .select("id,user_id,type,title,message,related_id,read,created_at")
     .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+    .order("read", { ascending: true })
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
   if (error) throw error;
   return (data ?? []).map(normalizeNotification);
 }

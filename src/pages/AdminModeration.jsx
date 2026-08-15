@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -11,14 +11,34 @@ export default function AdminModeration() {
   const [reports, setReports] = useState([]);
   const [filter, setFilter] = useState("Open");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState("");
+  const PAGE_SIZE = 30;
 
-  const loadReports = () => getAdminReports()
-    .then(setReports)
-    .catch((loadError) => setError(loadError.message || "Reports could not be loaded."))
-    .finally(() => setLoading(false));
+  const loadReports = useCallback(() => {
+    setLoading(true);
+    getAdminReports({ status: filter, limit: PAGE_SIZE })
+      .then((rows) => { setReports(rows); setHasMore(rows.length === PAGE_SIZE); })
+      .catch((loadError) => setError(loadError.message || "Reports could not be loaded."))
+      .finally(() => setLoading(false));
+  }, [filter]);
 
-  useEffect(() => { loadReports(); }, []);
+  useEffect(() => { loadReports(); }, [loadReports]);
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const rows = await getAdminReports({ status: filter, limit: PAGE_SIZE, offset: reports.length });
+      setReports((current) => [...current, ...rows]);
+      setHasMore(rows.length === PAGE_SIZE);
+    } catch (loadError) {
+      setError(loadError.message || "More reports could not be loaded.");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const updateStatus = async (report, status) => {
     try {
@@ -56,6 +76,7 @@ export default function AdminModeration() {
             </div>
           </article>)}
         </div>
+        {hasMore && <button type="button" onClick={loadMore} disabled={loadingMore} className="mt-4 w-full rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467] disabled:opacity-50">{loadingMore ? "Loading…" : "Load more"}</button>}
       </div>
     </MobileScreenLayout>
   );

@@ -27,17 +27,6 @@ function persistFollowing(userKey, followedSellers) {
   }
 }
 
-function getFollowerCounts(rows) {
-  return rows.reduce((counts, row) => {
-    if (!row.seller_id) return counts;
-    const sellerKey = String(row.seller_id);
-    return {
-      ...counts,
-      [sellerKey]: (counts[sellerKey] ?? 0) + 1,
-    };
-  }, {});
-}
-
 export function FollowProvider({ children }) {
   const { user, isSuspended } = useAuth();
   const { checkBlocked } = useTrustSafety();
@@ -47,14 +36,12 @@ export function FollowProvider({ children }) {
 
   const refreshFollowerCounts = useCallback(async () => {
     if (!isSupabaseConfigured) return;
-    const { data, error } = await supabase
-      .from("user_follows")
-      .select("seller_id");
+    const { data, error } = await supabase.rpc("get_follower_counts");
     if (error) {
       console.error("Unable to load follower counts", error);
       return;
     }
-    setFollowerCounts(getFollowerCounts(data ?? []));
+    setFollowerCounts(Object.fromEntries((data ?? []).map((row) => [String(row.seller_id), Number(row.follower_count) || 0])));
   }, []);
 
   useEffect(() => {
@@ -66,16 +53,18 @@ export function FollowProvider({ children }) {
 
     async function loadFollowRelationships() {
       if (!isSupabaseConfigured) return;
-      const { data, error } = await supabase
-        .from("user_follows")
-        .select("follower_id, seller_id");
-      if (error || cancelled) return;
+      const relationshipQuery = user?.id
+        ? supabase.from("user_follows").select("seller_id").eq("follower_id", user.id)
+        : Promise.resolve({ data: [], error: null });
+      const [{ data, error }, countsResult] = await Promise.all([
+        relationshipQuery,
+        supabase.rpc("get_follower_counts"),
+      ]);
+      if (error || countsResult.error || cancelled) return;
 
-      const rows = data ?? [];
-      setFollowerCounts(getFollowerCounts(rows));
+      setFollowerCounts(Object.fromEntries((countsResult.data ?? []).map((row) => [String(row.seller_id), Number(row.follower_count) || 0])));
       if (user?.id) {
-        const followed = rows.filter((row) => row.follower_id === user.id).map((row) => row.seller_id);
-        const uniqueFollowed = [...new Set(followed)];
+        const uniqueFollowed = [...new Set((data ?? []).map((row) => row.seller_id))];
         setFollowedSellers(uniqueFollowed);
         persistFollowing(userKey, uniqueFollowed);
       }

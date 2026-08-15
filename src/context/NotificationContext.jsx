@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
 import {
   getNotifications,
@@ -14,15 +14,19 @@ export function NotificationProvider({ children }) {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const PAGE_SIZE = 30;
 
   useEffect(() => {
     let cancelled = false;
     let channel;
     setNotifications([]);
+    setHasMore(false);
     if (!user?.id || !isSupabaseConfigured) return undefined;
     setLoading(true);
-    getNotifications(user.id)
-      .then((rows) => { if (!cancelled) setNotifications(rows); })
+    getNotifications(user.id, { limit: PAGE_SIZE })
+      .then((rows) => { if (!cancelled) { setNotifications(rows); setHasMore(rows.length === PAGE_SIZE); } })
       .catch((error) => console.error("Unable to load notifications", error))
       .finally(() => { if (!cancelled) setLoading(false); });
     channel = subscribeToNotifications(user.id, (notification) => {
@@ -33,6 +37,20 @@ export function NotificationProvider({ children }) {
       channel?.unsubscribe();
     };
   }, [user?.id]);
+
+  const loadMore = useCallback(async () => {
+    if (!user?.id || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const rows = await getNotifications(user.id, { limit: PAGE_SIZE, offset: notifications.length });
+      setNotifications((current) => [...current, ...rows.filter((row) => !current.some((item) => item.id === row.id))]);
+      setHasMore(rows.length === PAGE_SIZE);
+    } catch (error) {
+      console.error("Unable to load more notifications", error);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [hasMore, loadingMore, notifications.length, user?.id]);
 
   const markRead = async (id) => {
     setNotifications((current) => current.map((item) => item.id === id ? { ...item, read: true, isRead: true } : item));
@@ -49,6 +67,9 @@ export function NotificationProvider({ children }) {
     notifications,
     unreadCount: notifications.filter((item) => !item.read).length,
     loading,
+    loadingMore,
+    hasMore,
+    loadMore,
     markRead,
     markAllRead,
   };

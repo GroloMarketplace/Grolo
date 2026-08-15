@@ -7,7 +7,7 @@ function requireSupabase() {
   }
 }
 
-const LISTING_SELECT = "*, profiles!listings_seller_id_fkey(shop_name, shop_slug)";
+const LISTING_SELECT = "id,seller_id,legacy_id,title,name,description,category,subcategory,price,pricing_details,condition,inventory_quantity,trade_enabled,pickup_available,delivery_available,image_url,image_urls,location,status,metadata,created_at,updated_at,profiles!listings_seller_id_fkey(shop_name,shop_slug)";
 
 function imageUrlsFor(listing) {
   const images = Array.isArray(listing.images) ? listing.images.filter(Boolean) : [];
@@ -90,7 +90,7 @@ export function listingFromRow(row) {
   };
 }
 
-export async function getListings({ category, limit, sellerId, includeArchived = false } = {}) {
+export async function getListings({ category, limit = 50, offset = 0, sellerId, includeArchived = false } = {}) {
   requireSupabase();
   let query = supabase
     .from("listings")
@@ -99,7 +99,7 @@ export async function getListings({ category, limit, sellerId, includeArchived =
   if (category) query = query.eq("category", category);
   if (sellerId) query = query.eq("seller_id", sellerId);
   if (!includeArchived) query = query.eq("status", "Active");
-  if (limit) query = query.limit(limit);
+  if (limit) query = query.range(offset, offset + limit - 1);
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map(listingFromRow);
@@ -116,14 +116,15 @@ export async function getListingById(id) {
   return data ? listingFromRow(data) : null;
 }
 
-export async function searchListings(queryText) {
+export async function searchListings(queryText, { limit = 30, offset = 0 } = {}) {
   requireSupabase();
   const { data, error } = await supabase
     .from("listings")
     .select(LISTING_SELECT)
     .textSearch("search_vector", queryText, { type: "websearch" })
     .eq("status", "Active")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
   if (error) throw error;
   return (data ?? []).map(listingFromRow);
 }

@@ -1,4 +1,5 @@
 import { Routes, Route } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import PhoneFrame from "./components/PhoneFrame";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
@@ -32,30 +33,20 @@ import NotificationCenter from "./pages/NotificationCenter";
 import Search from "./pages/Search";
 import Category from "./pages/Category";
 import Featured from "./pages/Featured";
-import Messages from "./pages/Messages";
-import Chat from "./pages/Chat";
 import Cart from "./pages/Cart";
-import Checkout from "./pages/Checkout";
-import OrderConfirmation from "./pages/OrderConfirmation";
 import OrderTracking from "./pages/OrderTracking";
 import Profit from "./pages/Profit";
-import ShopHome from "./pages/ShopHome";
 import BuyerProfile from "./pages/BuyerProfile";
 import PublicProfile from "./pages/PublicProfile";
 import ProductDetail from "./pages/ProductDetail";
 import SignIn from "./pages/SignIn";
 import Onboarding from "./pages/Onboarding";
 import AccountSettings from "./pages/AccountSettings";
-import OpenStore from "./pages/OpenStore";
-import CreateListing from "./pages/CreateListing";
 import Saved from "./pages/Saved";
 import SellerProfile from "./pages/SellerProfile";
 import CreatePost from "./pages/CreatePost";
 import ProposeTrade from "./pages/ProposeTrade";
-import EditListing from "./pages/EditListing";
 import StoreReviews from "./pages/StoreReviews";
-import Analytics from "./pages/Analytics";
-import AdminModeration from "./pages/AdminModeration";
 import AdminRoute from "./components/AdminRoute";
 import Orders from "./pages/Orders";
 import LeaveReview from "./pages/LeaveReview";
@@ -73,12 +64,23 @@ import PostDetail from "./pages/PostDetail";
 import Advertising from "./pages/Advertising";
 import CreateAdvertisingAd from "./pages/CreateAdvertisingAd";
 import Trading from "./pages/Trading";
-import StoreCheckout from "./pages/StoreCheckout";
 import DeliveryAddress from "./pages/DeliveryAddress";
 import GroloStatuses from "./pages/GroloStatuses";
 import FoundingMember from "./pages/FoundingMember";
 import TrustReputation from "./pages/TrustReputation";
 import SuspendedAccount from "./pages/SuspendedAccount";
+
+const Messages = lazy(() => import("./pages/Messages"));
+const Chat = lazy(() => import("./pages/Chat"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const OrderConfirmation = lazy(() => import("./pages/OrderConfirmation"));
+const ShopHome = lazy(() => import("./pages/ShopHome"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const AdminModeration = lazy(() => import("./pages/AdminModeration"));
+const StoreCheckout = lazy(() => import("./pages/StoreCheckout"));
+const CreateListing = lazy(() => import("./pages/CreateListing"));
+const EditListing = lazy(() => import("./pages/EditListing"));
+const OpenStore = lazy(() => import("./pages/OpenStore"));
 
 export default function App() {
   return (
@@ -108,6 +110,7 @@ export default function App() {
         <EngagementProvider>
         <PostProvider>
         <DeliveryAddressProvider>
+        <Suspense fallback={<div className="flex h-full items-center justify-center text-[14px] text-[#777]">Loading…</div>}>
         <Routes>
         <Route path="/signin" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SignIn /></PhoneFrame>} />
         <Route path="/signup" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SignIn /></PhoneFrame>} />
@@ -349,6 +352,7 @@ export default function App() {
           }
         />
       </Routes>
+        </Suspense>
         </DeliveryAddressProvider>
         </PostProvider>
         </EngagementProvider>

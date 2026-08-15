@@ -47,6 +47,8 @@ export default function Search() {
   const resolvedCategories = marketplaceDiscovery?.categories ?? [];
   const resolvedPosts = marketplaceDiscovery?.posts ?? [];
   const [searchResults, setSearchResults] = useState(null);
+  const [searchHasMore, setSearchHasMore] = useState(false);
+  const [searchLoadingMore, setSearchLoadingMore] = useState(false);
   const { settings: buyerSettings = {} } = useBuyerSettings();
   const location = useLocation();
   const scrollRef = useRef(null);
@@ -80,16 +82,31 @@ export default function Search() {
     let cancelled = false;
     if (tab !== "Local" || !query.trim()) {
       setSearchResults(null);
+      setSearchHasMore(false);
       return () => { cancelled = true; };
     }
-    searchListings(query)
-      .then((results) => { if (!cancelled) setSearchResults(results); })
+    searchListings(query, { limit: 30, offset: 0 })
+      .then((results) => { if (!cancelled) { setSearchResults(results); setSearchHasMore(results.length === 30); } })
       .catch((error) => {
         console.error("Unable to search listings", error);
         if (!cancelled) setSearchResults([]);
       });
     return () => { cancelled = true; };
   }, [query, searchListings, tab]);
+
+  const loadMoreSearch = async () => {
+    if (searchLoadingMore || !searchHasMore || !query.trim()) return;
+    setSearchLoadingMore(true);
+    try {
+      const results = await searchListings(query, { limit: 30, offset: searchResults?.length ?? 0 });
+      setSearchResults((current) => [...(current ?? []), ...results]);
+      setSearchHasMore(results.length === 30);
+    } catch (error) {
+      console.error("Unable to load more search results", error);
+    } finally {
+      setSearchLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     if (!location.state?.resetSearch) return;
@@ -136,7 +153,7 @@ export default function Search() {
           <SearchBar value={query} onChange={(event) => { queryRef.current = event.target.value; setQuery(event.target.value); }} />
         </div>
 
-        {tab === "Local" && query.trim() ? <SearchResults products={searchResults ?? discoveryProducts} sellers={resolvedSellers} events={resolvedEvents} posts={resolvedPosts} query={query} navigate={navigate} onProduct={rememberProduct} onBack={returnToSearchHome} buyerSettings={buyerSettings} /> : tab === "Local" && (
+        {tab === "Local" && query.trim() ? <SearchResults products={searchResults ?? discoveryProducts} sellers={resolvedSellers} events={resolvedEvents} posts={resolvedPosts} query={query} navigate={navigate} onProduct={rememberProduct} onBack={returnToSearchHome} buyerSettings={buyerSettings} onLoadMore={loadMoreSearch} hasMore={searchHasMore} loadingMore={searchLoadingMore} /> : tab === "Local" && (
           <>
             <CommunitySpotlightCarousel sellers={resolvedSellers} />
             <CategoryRow categories={resolvedCategories} onCategory={(path) => { writeNavigationState("search", { tab, query, scrollTop: scrollRef.current?.scrollTop ?? 0, currentRoutePath: path }); navigate(path, { state: { fromSearch: true } }); }} />
@@ -160,7 +177,7 @@ export default function Search() {
   );
 }
 
-function SearchResults({ products, sellers, events, posts, query, navigate, onProduct, onBack, buyerSettings }) {
+function SearchResults({ products, sellers, events, posts, query, navigate, onProduct, onBack, buyerSettings, onLoadMore, hasMore, loadingMore }) {
   const normalizedQuery = query.trim().toLowerCase();
   // Search covers all content; results are just sorted nearest-first so local
   // matches surface at the top without hiding results outside the radius.
@@ -182,7 +199,7 @@ function SearchResults({ products, sellers, events, posts, query, navigate, onPr
   ];
   const hasResults = groups.some((group) => group.items.length > 0);
 
-  return <div className="flex flex-col gap-5 px-4 py-5"><button type="button" onClick={onBack} className="w-fit text-[14px] font-medium text-[#498467]">← Back</button><div><h2 className="text-[20px] font-semibold">Search Results</h2><p className="mt-1 text-[13px] text-[#828282]">Results for “{query.trim()}”</p></div>{hasResults ? groups.filter((group) => group.items.length > 0).map((group) => <section key={group.title}><h3 className="mb-2 text-[15px] font-semibold">{group.title}</h3><div className="flex flex-col gap-2">{group.items.map(group.render)}</div></section>) : <div className="rounded-lg border border-[#E6E6E6] px-4 py-8 text-center text-[14px] text-[#828282]">No results found</div>}</div>;
+  return <div className="flex flex-col gap-5 px-4 py-5"><button type="button" onClick={onBack} className="w-fit text-[14px] font-medium text-[#498467]">← Back</button><div><h2 className="text-[20px] font-semibold">Search Results</h2><p className="mt-1 text-[13px] text-[#828282]">Results for “{query.trim()}”</p></div>{hasResults ? groups.filter((group) => group.items.length > 0).map((group) => <section key={group.title}><h3 className="mb-2 text-[15px] font-semibold">{group.title}</h3><div className="flex flex-col gap-2">{group.items.map(group.render)}</div></section>) : <div className="rounded-lg border border-[#E6E6E6] px-4 py-8 text-center text-[14px] text-[#828282]">No results found</div>}{hasMore && <button type="button" onClick={onLoadMore} disabled={loadingMore} className="w-full rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467] disabled:opacity-50">{loadingMore ? "Loading…" : "Load more products"}</button>}</div>;
 }
 
 function ProductSearchRow({ product, onProduct }) {

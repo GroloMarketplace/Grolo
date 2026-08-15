@@ -145,6 +145,7 @@ from (values
   ('validate_order_checkout_fields', 'public.validate_order_checkout_fields()'),
   ('is_user_suspended', 'public.is_user_suspended(uuid)'),
   ('get_vendor_analytics', 'public.get_vendor_analytics(uuid,integer)'),
+  ('get_follower_counts', 'public.get_follower_counts()'),
   ('create_activity_notification', 'public.create_activity_notification(uuid,text,text,text,text)'),
   ('create_review', 'public.create_review(text,smallint,uuid,uuid,uuid,uuid,text,text,jsonb,jsonb)'),
   ('upsert_conversation', 'public.upsert_conversation(uuid,text,uuid,uuid,jsonb)'),

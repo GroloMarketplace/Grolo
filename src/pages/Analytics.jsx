@@ -72,6 +72,8 @@ export default function Analytics() {
   useEffect(() => {
     let cancelled = false;
     let channel;
+    let refreshTimer;
+    let refreshInFlight = false;
     setLoading(true);
     setError("");
     if (!user?.id) {
@@ -80,31 +82,38 @@ export default function Analytics() {
       return () => { cancelled = true; };
     }
 
-    const loadAnalytics = () => getVendorAnalytics(user.id, periodDays)
-      .then((data) => { if (!cancelled) setAnalytics(data ?? emptyAnalytics(periodDays)); })
-      .catch((loadError) => {
-        if (!cancelled) {
-          console.error("Unable to load vendor analytics", loadError);
-          setError(loadError.message || "Analytics could not be loaded.");
-        }
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    const loadAnalytics = () => {
+      if (refreshInFlight || cancelled) return;
+      refreshInFlight = true;
+      getVendorAnalytics(user.id, periodDays)
+        .then((data) => { if (!cancelled) setAnalytics(data ?? emptyAnalytics(periodDays)); })
+        .catch((loadError) => {
+          if (!cancelled) {
+            console.error("Unable to load vendor analytics", loadError);
+            setError(loadError.message || "Analytics could not be loaded.");
+          }
+        })
+        .finally(() => { refreshInFlight = false; if (!cancelled) setLoading(false); });
+    };
+    const scheduleRefresh = () => {
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(loadAnalytics, 750);
+    };
 
     loadAnalytics();
     if (isSupabaseConfigured) {
       channel = supabase
         .channel(`vendor-analytics:${user.id}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `seller_id=eq.${user.id}` }, loadAnalytics)
-        .on("postgres_changes", { event: "*", schema: "public", table: "listings", filter: `seller_id=eq.${user.id}` }, loadAnalytics)
-        .on("postgres_changes", { event: "*", schema: "public", table: "promotions", filter: `seller_id=eq.${user.id}` }, loadAnalytics)
-        .on("postgres_changes", { event: "*", schema: "public", table: "user_follows", filter: `seller_id=eq.${user.id}` }, loadAnalytics)
-        .on("postgres_changes", { event: "*", schema: "public", table: "favorites" }, loadAnalytics)
-        .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, loadAnalytics)
-        .on("postgres_changes", { event: "*", schema: "public", table: "vendor_analytics_events", filter: `seller_id=eq.${user.id}` }, loadAnalytics)
+        .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `seller_id=eq.${user.id}` }, scheduleRefresh)
+        .on("postgres_changes", { event: "*", schema: "public", table: "listings", filter: `seller_id=eq.${user.id}` }, scheduleRefresh)
+        .on("postgres_changes", { event: "*", schema: "public", table: "promotions", filter: `seller_id=eq.${user.id}` }, scheduleRefresh)
+        .on("postgres_changes", { event: "*", schema: "public", table: "user_follows", filter: `seller_id=eq.${user.id}` }, scheduleRefresh)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "vendor_analytics_events", filter: `seller_id=eq.${user.id}` }, scheduleRefresh)
         .subscribe();
     }
     return () => {
       cancelled = true;
+      window.clearTimeout(refreshTimer);
       channel?.unsubscribe();
     };
   }, [periodDays, user?.id]);

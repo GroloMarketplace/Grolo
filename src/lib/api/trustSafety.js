@@ -58,9 +58,15 @@ export async function isUserBlocked(firstUserId, secondUserId) {
   return Boolean(data);
 }
 
-export async function getAdminReports() {
+export async function getAdminReports({ status, limit = 30, offset = 0 } = {}) {
   requireSupabase();
-  const { data, error } = await supabase.from("reports").select("*").order("created_at", { ascending: false });
+  let query = supabase
+    .from("reports")
+    .select("id,reporter_id,target_type,target_id,reason,details,status,created_at,updated_at")
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (status && status !== "All") query = query.eq("status", status);
+  const { data, error } = await query;
   if (error) throw error;
   return data ?? [];
 }

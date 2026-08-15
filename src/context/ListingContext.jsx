@@ -112,9 +112,9 @@ export function ListingProvider({ children }) {
     return result;
   };
 
-  const searchListings = useCallback(async (query) => {
+  const searchListings = useCallback(async (query, options) => {
     if (!query?.trim()) return [];
-    return searchListingRecords(query.trim());
+    return searchListingRecords(query.trim(), options);
   }, []);
 
   const priceListings = useCallback((source) => source.map((listing) => {

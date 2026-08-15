@@ -48,7 +48,10 @@ export default function OrderTracking() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showMapSheet, setShowMapSheet] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
-  const matchesRouteId = (item) => String(item.id) === id || String(item.id).replace(/^ORD-/, "") === id;
+  const matchesRouteId = (item) => String(item.id) === id
+    || String(item.databaseId) === id
+    || String(item.orderId) === id
+    || String(item.id).replace(/^ORD-/, "") === id;
   const contextOrder = orders.find(matchesRouteId) ?? state?.order;
   const order = contextOrder;
   // Listings live in ListingContext (created per seller), not the static

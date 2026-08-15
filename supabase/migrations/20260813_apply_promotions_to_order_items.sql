@@ -36,6 +36,9 @@ begin
   if auth.uid() is null then
     raise exception 'Authentication is required.' using errcode = 'insufficient_privilege';
   end if;
+  if exists (select 1 from profiles where id = auth.uid() and suspended_at is not null) then
+    raise exception 'Suspended accounts cannot place orders.' using errcode = 'insufficient_privilege';
+  end if;
   if p_seller_id is null or not exists (select 1 from profiles where id = p_seller_id) then
     raise exception 'Seller profile not found.' using errcode = 'foreign_key_violation';
   end if;

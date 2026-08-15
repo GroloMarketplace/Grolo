@@ -13,6 +13,7 @@ import { createPayment, getPaymentsForUser } from "../lib/api/payments";
 const OrderContext = createContext(null);
 
 const PICKUP_NEXT_STATUS = {
+  New: ["Preparing"],
   "Order Placed": ["Preparing"],
   "Seller Notified": ["In Progress"],
   Preparing: ["Ready for Pickup"],
@@ -21,15 +22,17 @@ const PICKUP_NEXT_STATUS = {
 };
 
 const DELIVERY_NEXT_STATUS = {
+  New: ["Preparing"],
   "Order Placed": ["Preparing"],
   "Seller Notified": ["Preparing"],
   Preparing: ["Out for Delivery"],
   "In Progress": ["Out for Delivery"],
   "Out for Delivery": ["Delivered"],
+  Delivered: ["Completed"],
 };
 
 export function OrderProvider({ children }) {
-  const { user } = useAuth();
+  const { user, isSuspended } = useAuth();
   const [orders, setOrders] = useState([]);
   const [payments, setPayments] = useState([]);
 
@@ -97,6 +100,7 @@ export function OrderProvider({ children }) {
   );
 
   const createOrders = useCallback(async (orderItems, orderDetails = {}) => {
+    if (isSuspended) throw new Error("Your account is suspended and cannot place orders.");
     if (!isSupabaseConfigured || !user?.id) {
       throw new Error("Supabase authentication is required to create an order.");
     }
@@ -162,7 +166,7 @@ export function OrderProvider({ children }) {
     ]);
     console.info("Seller orders created", nextOrders.map((order) => ({ orderId: order.id, status: order.status, sellerId: order.sellerId })));
     return nextOrders;
-  }, [user?.id, user?.user_metadata?.username]);
+  }, [isSuspended, user?.id, user?.user_metadata?.username]);
 
   const updateOrderStatus = useCallback(async (orderId, status) => {
     const order = orders.find((item) => item.id === orderId || item.databaseId === orderId);

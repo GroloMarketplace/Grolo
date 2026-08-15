@@ -38,7 +38,7 @@ function savedListingFromFavorite(row) {
 }
 
 export function SavedProvider({ children }) {
-  const { user } = useAuth();
+  const { user, isSuspended } = useAuth();
   const storageKey = `${STORAGE_KEY}-${user?.id ?? "anonymous"}`;
   const [savedItems, setSavedItems] = useState(() => readSavedItems(storageKey));
 
@@ -72,6 +72,10 @@ export function SavedProvider({ children }) {
   const toggleSaved = useCallback(
     (items) => {
       const saved = savedItems.some((item) => item.id === items[0].id);
+      if (isSuspended && !saved) {
+        showToast("Your account is suspended and cannot save listings.");
+        return;
+      }
       const next = saved
         ? savedItems.filter((item) => !items.some((nextItem) => nextItem.id === item.id))
         : [...savedItems, ...items.filter((item) => !savedItems.some((current) => current.id === item.id))];
@@ -91,7 +95,7 @@ export function SavedProvider({ children }) {
         }).catch((error) => console.error("Unable to resolve favorite listing", error));
       }
     },
-    [savedItems, showToast, storageKey, user?.id],
+    [isSuspended, savedItems, showToast, storageKey, user?.id],
   );
 
   return (

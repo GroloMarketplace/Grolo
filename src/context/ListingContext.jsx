@@ -32,7 +32,7 @@ function clearLegacyListings(storageKey) {
 }
 
 export function ListingProvider({ children }) {
-  const { user } = useAuth();
+  const { user, isSuspended } = useAuth();
   const { getListingPricing } = usePromotions();
   const storageKey = `${STORAGE_KEY}-${user?.id ?? "anonymous"}`;
   const [listings, setListings] = useState([]);
@@ -85,6 +85,7 @@ export function ListingProvider({ children }) {
   }, [storageKey, user?.id]);
 
   const addListing = async (listing) => {
+    if (isSuspended) throw new Error("Your account is suspended and cannot create listings.");
     if (!user?.id) throw new Error("You must be signed in to create a listing.");
     const createdListing = await createListingRecord(listing, user.id);
     setListings((current) => [createdListing, ...current]);

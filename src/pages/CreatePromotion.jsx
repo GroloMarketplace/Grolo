@@ -8,6 +8,25 @@ import { useProfileMode } from "../context/ProfileModeContext";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage } from "../lib/imageStorage";
 
+const SUPPORTED_PROMOTION_TYPES = new Set(["percentage", "fixed_amount"]);
+
+function validatePromotionForm(formData, selectedProducts) {
+  if (!formData.title.trim()) return "Enter a promotion name.";
+  if (!selectedProducts.length || selectedProducts.length !== new Set(formData.productIds).size) return "Select at least one active listing.";
+  if (!SUPPORTED_PROMOTION_TYPES.has(formData.type)) return "Choose a supported pricing promotion.";
+  const value = Number(formData.value);
+  if (!Number.isFinite(value) || value <= 0) return "Enter a discount greater than zero.";
+  if (formData.type === "percentage" && value > 100) return "Percentage discounts cannot be greater than 100%.";
+  if (!formData.startsAt) return "Choose a promotion start date.";
+  if (formData.endsAt && formData.endsAt < formData.startsAt) return "The end date cannot be before the start date.";
+  if (formData.endsAt && formData.endsAt < new Date().toISOString().slice(0, 10)) return "The end date cannot be in the past.";
+  if (formData.type === "fixed_amount" && selectedProducts.some((product) => {
+    const price = Number(product.price);
+    return Number.isFinite(price) && price > 0 && value >= price;
+  })) return "Fixed discounts must be less than the selected listing price.";
+  return "";
+}
+
 export default function CreatePromotion() {
   const navigate = useNavigate();
   const { addPromotion } = usePromotions();
@@ -15,7 +34,7 @@ export default function CreatePromotion() {
   const { listings, loading: listingsLoading, error: listingsError } = useListings();
   const { storeOpenedAt } = useProfileMode();
   const sellerProducts = useMemo(() => listings.filter((product) => {
-    if (product.sellerId !== user?.id) return false;
+    if (product.sellerId !== user?.id || product.status !== "Active") return false;
     const createdAt = typeof product.createdAt === "number" ? product.createdAt : Date.parse(product.createdAt);
     return !storeOpenedAt || (Number.isFinite(createdAt) && createdAt >= storeOpenedAt);
   }), [listings, storeOpenedAt, user?.id]);
@@ -29,6 +48,7 @@ export default function CreatePromotion() {
     image: "",
   });
   const [imageError, setImageError] = useState("");
+  const [formError, setFormError] = useState("");
 
   useEffect(() => {
     const availableIds = sellerProducts.map((product) => product.id);
@@ -68,8 +88,14 @@ export default function CreatePromotion() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setFormError("");
     try {
       const selectedProducts = sellerProducts.filter((product) => formData.productIds.includes(product.id));
+      const validationError = validatePromotionForm(formData, selectedProducts);
+      if (validationError) {
+        setFormError(validationError);
+        return;
+      }
       const realListingIds = selectedProducts.map((product) => product.databaseId ?? product.id);
       await addPromotion({
         ...formData,
@@ -78,11 +104,11 @@ export default function CreatePromotion() {
       });
       navigate("/shop");
     } catch (error) {
-      setImageError(error.message || "Unable to create promotion.");
+      setFormError(error.message || "Unable to create promotion.");
     }
   };
 
-  const needsValue = formData.type === "percentage" || formData.type === "dollar";
+  const needsValue = true;
 
   return (
     <MobileScreenLayout>
@@ -191,6 +217,7 @@ export default function CreatePromotion() {
           </div>
         </div>
 
+        {formError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] text-red-700">{formError}</p>}
         <button
           type="submit"
           disabled={formData.productIds.length === 0}

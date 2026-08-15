@@ -50,21 +50,17 @@ create policy "Users can update their own profile"
 create policy "Users can insert their own profile"
   on profiles for insert with check (auth.uid() = id);
 
--- Store follows. The composite key prevents duplicate follows.
+-- Store follows. seller_id is the authoritative application key. The later
+-- engagement migration adds nullable vendor_id only for legacy compatibility.
 create table if not exists user_follows (
   id uuid primary key default gen_random_uuid(),
   follower_id uuid not null references auth.users(id) on delete cascade,
-  vendor_id text not null,
   seller_id text not null,
-  created_at timestamptz not null default now(),
-  unique (follower_id, vendor_id)
+  created_at timestamptz not null default now()
 );
 
-alter table user_follows add column if not exists id uuid default gen_random_uuid();
-alter table user_follows add column if not exists vendor_id text;
-alter table user_follows add column if not exists seller_id text;
-update user_follows set vendor_id = coalesce(vendor_id, seller_id) where vendor_id is null;
-update user_follows set seller_id = coalesce(seller_id, vendor_id) where seller_id is null;
+create unique index if not exists user_follows_follower_seller_idx
+  on user_follows (follower_id, seller_id);
 
 alter table user_follows enable row level security;
 
@@ -127,8 +123,8 @@ create table if not exists promotions (
   listing_ids jsonb not null default '[]'::jsonb,
   title text not null,
   description text not null default '',
-  promotion_type text not null default 'limited',
-  discount_type text not null default 'limited',
+  promotion_type text not null default 'percentage',
+  discount_type text not null default 'percentage',
   discount_value numeric(10, 2),
   start_date date not null default current_date,
   end_date date,
@@ -140,8 +136,8 @@ create table if not exists promotions (
 
 alter table promotions add column if not exists listing_ids jsonb not null default '[]'::jsonb;
 alter table promotions add column if not exists description text not null default '';
-alter table promotions add column if not exists promotion_type text not null default 'limited';
-alter table promotions add column if not exists discount_type text not null default 'limited';
+alter table promotions add column if not exists promotion_type text not null default 'percentage';
+alter table promotions add column if not exists discount_type text not null default 'percentage';
 alter table promotions add column if not exists image_url text;
 alter table promotions add column if not exists updated_at timestamptz not null default now();
 create index if not exists promotions_seller_idx on promotions (seller_id);
@@ -588,44 +584,9 @@ alter table comment_likes enable row level security;
 create policy "Users can view comment likes" on comment_likes for select using (true);
 create policy "Users can manage their comment likes" on comment_likes for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
--- Notifications
-create table if not exists notifications (
-  id uuid primary key default gen_random_uuid(),
-  recipient_id uuid not null references profiles(id) on delete cascade,
-  actor_user_id text,
-  actor_username text,
-  actor_name text,
-  actor_avatar_url text,
-  type text not null check (type in ('highlight', 'follower')),
-  action text not null,
-  quote text,
-  thumbnail_url text,
-  post_id text,
-  comment_id text,
-  reply_id text,
-  notification_type text,
-  read boolean not null default false,
-  created_at timestamptz not null default now()
-);
-
-alter table notifications add column if not exists actor_user_id text;
-alter table notifications add column if not exists actor_username text;
-alter table notifications add column if not exists post_id text;
-alter table notifications add column if not exists comment_id text;
-alter table notifications add column if not exists reply_id text;
-alter table notifications add column if not exists notification_type text;
-create unique index if not exists notifications_comment_like_unique
-  on notifications (recipient_id, actor_user_id, comment_id, notification_type)
-  where notification_type = 'comment_like';
-
-alter table notifications enable row level security;
-
-create policy "Users can view their own notifications"
-  on notifications for select using (auth.uid() = recipient_id);
-
-create policy "Users can update their own notifications"
-  on notifications for update using (auth.uid() = recipient_id);
-
+-- Notifications are provisioned by the authoritative Phase 8H migration.
+-- Keeping one canonical contract avoids the historical recipient_id/action schema
+-- conflicting with the current user_id/title/message client contract.
 -- Durable user-generated images. Public reads allow image URLs to render for other users;
 -- writes and replacements are restricted to the owning user's folder.
 insert into storage.buckets (id, name, public)
@@ -1112,6 +1073,9 @@ begin
   if v_buyer_id is null then
     raise exception 'Authentication is required.' using errcode = 'insufficient_privilege';
   end if;
+  if exists (select 1 from profiles where id = v_buyer_id and suspended_at is not null) then
+    raise exception 'Suspended accounts cannot create conversations.' using errcode = 'insufficient_privilege';
+  end if;
   if p_seller_id is null or p_seller_id = v_buyer_id then
     raise exception 'A conversation requires a different seller.' using errcode = 'check_violation';
   end if;
@@ -1271,11 +1235,9 @@ drop policy if exists "Buyers can create items in their orders" on order_items;
 revoke insert on orders from authenticated;
 revoke insert on order_items from authenticated;
 
-drop policy if exists "Sellers can update their own order statuses" on orders;
-create policy "Sellers can update their own order statuses"
-  on orders for update to authenticated
-  using (auth.uid() = seller_id)
-  with check (auth.uid() = seller_id);
+-- Order status updates are performed only by the protected status RPC added
+-- in the ordered server-validation migration. Direct authenticated updates
+-- remain disabled after the base schema is provisioned.
 
 -- Only the cancellation function may perform a buyer cancellation. The
 -- function checks auth.uid() against buyer_id and locks the order before work.
@@ -1379,6 +1341,9 @@ declare
 begin
   if auth.uid() is null then
     raise exception 'Authentication is required.' using errcode = 'insufficient_privilege';
+  end if;
+  if exists (select 1 from profiles where id = auth.uid() and suspended_at is not null) then
+    raise exception 'Suspended accounts cannot place orders.' using errcode = 'insufficient_privilege';
   end if;
   if p_seller_id is null or not exists (select 1 from profiles where id = p_seller_id) then
     raise exception 'Seller profile not found.' using errcode = 'foreign_key_violation';
@@ -1597,7 +1562,7 @@ begin
       'inventory_already_restored', true
     );
   end if;
-  if v_order.status not in ('Order Placed', 'Seller Notified') then
+  if v_order.status not in ('New', 'Order Placed', 'Seller Notified') then
     raise exception 'This order can no longer be cancelled.' using errcode = 'check_violation';
   end if;
 

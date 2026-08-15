@@ -190,6 +190,29 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isSupabaseConfigured || !session?.user?.id) return undefined;
+    let cancelled = false;
+    const userId = session.user.id;
+    const refreshSuspensionStatus = async () => {
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+      if (cancelled || error || !data) return;
+      setProfile((current) => ({ ...current, ...data }));
+    };
+    const channel = supabase
+      .channel(`profile-status:${userId}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` }, (payload) => {
+        setProfile((current) => ({ ...current, ...payload.new }));
+      })
+      .subscribe();
+    const interval = window.setInterval(refreshSuspensionStatus, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      channel.unsubscribe();
+    };
+  }, [session?.user?.id]);
+
   async function refreshProfile(profileUserId = session?.user?.id) {
     if (!isSupabaseConfigured || !profileUserId) return null;
     const { data, error } = await supabase
@@ -276,6 +299,7 @@ export function AuthProvider({ children }) {
     profileLoaded: profileStatus === "loaded",
     profileError,
     refreshProfile,
+    isSuspended: Boolean(profile?.suspended_at),
     onboardingComplete,
     isAuthenticated: Boolean(session),
     signInWithEmail,

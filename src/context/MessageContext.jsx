@@ -30,8 +30,11 @@ function normalizeConversation(input) {
 }
 
 export function MessageProvider({ children }) {
-  const { user } = useAuth();
+  const { user, isSuspended } = useAuth();
   const [messages, setMessages] = useState([]);
+  const ensureActiveAccount = () => {
+    if (isSuspended) throw new Error("Your account is suspended and messaging is restricted.");
+  };
   const pendingConversationWrites = useRef(new Map());
   const pendingMessageSends = useRef(new Set());
   const realtimeSubscriptions = useRef(new Map());
@@ -218,6 +221,7 @@ export function MessageProvider({ children }) {
   };
 
   const appendMessage = (conversationId, message, pendingConversation) => {
+    ensureActiveAccount();
     const existing = messages.find((conversation) => conversation.id === conversationId)
       ?? messages.find((conversation) => conversation.databaseId === conversationId);
     const baseConversation = existing ?? pendingConversation;
@@ -315,6 +319,7 @@ export function MessageProvider({ children }) {
   };
 
   const createOrderConversation = ({ order, product, seller, fulfillmentMethod }) => {
+    ensureActiveAccount();
     const existing = messages.find((conversation) => (
       conversation.conversationType === "order" && conversation.orderId === order.id
     ));
@@ -361,6 +366,7 @@ export function MessageProvider({ children }) {
   };
 
   const createSellerConversation = ({ listing, seller }) => {
+    ensureActiveAccount();
     const buyerId = user?.id ?? CURRENT_BUYER_ID;
     const serviceContext = {
       listingId: listing.id,
@@ -422,6 +428,7 @@ export function MessageProvider({ children }) {
   };
 
   const createTradeConversation = ({ listing, seller }) => {
+    ensureActiveAccount();
     const id = `trade-${listing.id}-${Date.now()}`;
     const buyerId = user?.id ?? CURRENT_BUYER_ID;
     const tradePreferences = listing.desiredTradeItems?.trim() ?? "";
@@ -458,6 +465,7 @@ export function MessageProvider({ children }) {
   };
 
   const createTradeProposal = ({ listing, seller, buyerName, message, offeredListing, photos }) => {
+    ensureActiveAccount();
     const id = `trade-${listing.id}-${Date.now()}`;
     const buyerId = user?.id ?? CURRENT_BUYER_ID;
     const tradeProposal = {

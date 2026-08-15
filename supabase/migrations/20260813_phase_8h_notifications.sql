@@ -24,6 +24,7 @@ alter table public.notifications add column if not exists created_at timestamptz
 do $$
 declare
   has_recipient_id boolean;
+  has_action boolean;
   has_null_user_id boolean;
 begin
   select exists (
@@ -52,12 +53,39 @@ begin
   end if;
 
   select exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'notifications'
+      and column_name = 'action'
+  ) into has_action;
+
+  if has_action then
+    execute 'alter table public.notifications alter column action drop not null';
+  end if;
+
+  select exists (
     select 1 from public.notifications where user_id is null
   ) into has_null_user_id;
   if has_null_user_id then
     raise exception 'Cannot make notifications.user_id NOT NULL: existing rows have no valid recipient';
   end if;
   alter table public.notifications alter column user_id set not null;
+end;
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.notifications'::regclass
+      and conname = 'notifications_type_check'
+  ) then
+    alter table public.notifications add constraint notifications_type_check
+      check (type in ('highlight', 'follower', 'new_follower', 'listing_favorited',
+        'order_received', 'order_status', 'review_received', 'promotion_created',
+        'new_listing'));
+  end if;
 end;
 $$;
 

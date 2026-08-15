@@ -39,7 +39,7 @@ function getFollowerCounts(rows) {
 }
 
 export function FollowProvider({ children }) {
-  const { user } = useAuth();
+  const { user, isSuspended } = useAuth();
   const { checkBlocked } = useTrustSafety();
   const userKey = user?.id ?? "current-user";
   const [followedSellers, setFollowedSellers] = useState(() => readStoredFollowing(userKey));
@@ -88,6 +88,7 @@ export function FollowProvider({ children }) {
   }, [user?.id, userKey]);
 
   const followSeller = async (sellerId) => {
+    if (isSuspended) throw new Error("Your account is suspended and cannot follow sellers.");
     if (followedSellers.includes(sellerId)) return true;
     if (await checkBlocked(sellerId)) {
       console.warn("Follow blocked by trust and safety", { sellerId });

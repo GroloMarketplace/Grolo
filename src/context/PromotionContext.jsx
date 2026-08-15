@@ -7,10 +7,7 @@ const PromotionContext = createContext(null);
 
 export const PROMOTION_TYPES = [
   { value: "percentage", label: "Percentage Off" },
-  { value: "dollar", label: "Dollar Amount Off" },
-  { value: "bogo", label: "Buy One Get One" },
-  { value: "pickup", label: "Free Pickup Event" },
-  { value: "limited", label: "Limited Time Offer" },
+  { value: "fixed_amount", label: "Fixed Amount Off" },
 ];
 
 export function promotionTypeLabel(type) {
@@ -20,10 +17,8 @@ export function promotionTypeLabel(type) {
 export function promotionDisplayLabel(promotion) {
   const type = normalizePromotionType(promotion.type);
   if (type === "percentage") return `${promotion.value}% off`;
-  if (type === "dollar") return `$${promotion.value} off`;
-  if (promotion.type === "bogo") return "Buy 1 Get 1";
-  if (promotion.type === "pickup") return "Free pickup";
-  return "Limited time";
+  if (type === "fixed_amount") return `$${promotion.value} off`;
+  return "Promotion";
 }
 
 export function promotionUrgencyLabel(promotion) {
@@ -38,7 +33,7 @@ export function promotionUrgencyLabel(promotion) {
 export function normalizePromotionType(type) {
   const normalized = String(type ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_");
   if (["percentage", "percentage_off", "percent", "percent_off"].includes(normalized)) return "percentage";
-  if (["dollar", "dollar_off", "fixed", "fixed_amount", "amount_off", "fixed_amount_off"].includes(normalized)) return "dollar";
+  if (["dollar", "dollar_off", "fixed", "fixed_amount", "amount_off", "fixed_amount_off"].includes(normalized)) return "fixed_amount";
   return normalized;
 }
 
@@ -94,7 +89,7 @@ export function getPromotionPricing(listing, promotion) {
   const type = normalizePromotionType(promotion.type);
   const discountedPrice = type === "percentage"
     ? originalPrice * (1 - Math.min(100, Math.max(0, value)) / 100)
-    : type === "dollar"
+    : type === "fixed_amount"
       ? originalPrice - Math.max(0, value)
       : originalPrice;
   const roundedDiscountedPrice = Math.max(0, Number(discountedPrice.toFixed(2)));
@@ -107,7 +102,7 @@ export function getPromotionPricing(listing, promotion) {
 }
 
 export function PromotionProvider({ children }) {
-  const { user } = useAuth();
+  const { user, isSuspended } = useAuth();
   const [promotions, setPromotions] = useState([]);
 
   useEffect(() => {
@@ -146,6 +141,7 @@ export function PromotionProvider({ children }) {
   );
 
   const addPromotion = useCallback(async (promotion) => {
+    if (isSuspended) throw new Error("Your account is suspended and cannot create promotions.");
     if (!isSupabaseConfigured || !user?.id) throw new Error("Supabase authentication is required to create a promotion.");
     const created = await createPromotion({
       ...promotion,
@@ -154,7 +150,7 @@ export function PromotionProvider({ children }) {
     });
     setPromotions((current) => [created, ...current]);
     return created;
-  }, [user?.id]);
+  }, [isSuspended, user?.id]);
 
   return (
     <PromotionContext.Provider

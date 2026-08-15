@@ -4,7 +4,7 @@ import { useTrustSafety } from "../context/TrustSafetyContext";
 import { createReport, REPORT_REASONS } from "../lib/api/trustSafety";
 
 export default function TrustSafetyActions({ targetType, targetId, blockUserId, compact = false }) {
-  const { user } = useAuth();
+  const { user, isSuspended } = useAuth();
   const { isBlocked, block, unblock } = useTrustSafety();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState(REPORT_REASONS[0][0]);
@@ -22,7 +22,7 @@ export default function TrustSafetyActions({ targetType, targetId, blockUserId, 
     } catch (error) { setMessage(error.message || "Report could not be submitted."); }
   };
 
-  if (!user?.id || String(user.id) === String(blockUserId)) return null;
+  if (!user?.id || isSuspended || String(user.id) === String(blockUserId)) return null;
   return (
     <div className={compact ? "flex items-center gap-2" : "mt-3 flex items-center gap-3"}>
       {blockUserId && <button type="button" onClick={() => (blocked ? unblock(blockUserId) : block(blockUserId)).catch((error) => setMessage(error.message))} className="text-[12px] font-medium text-[#B42318]">{blocked ? "Unblock" : "Block"}</button>}

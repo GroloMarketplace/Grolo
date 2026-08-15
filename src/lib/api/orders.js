@@ -293,12 +293,10 @@ export async function updateOrderStatus(orderId, status, previousStatus) {
     newStatus: status,
   });
 
-  const { data, error } = await supabase
-    .from("orders")
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq("id", orderId)
-    .select(ORDER_SELECT)
-    .single();
+  const { data, error } = await supabase.rpc("update_order_status", {
+    p_order_id: orderId,
+    p_status: status,
+  });
   if (error) {
     console.error("status update failed", {
       databaseOrderId: orderId,
@@ -308,12 +306,15 @@ export async function updateOrderStatus(orderId, status, previousStatus) {
     logApiError("updateOrderStatus", error, { orderId, status, previousStatus });
     throw error;
   }
+  const updatedRow = data?.order
+    ? { ...data.order, items: data.items ?? [] }
+    : data;
   console.info("status update succeeded", {
-    databaseOrderId: data.id,
+    databaseOrderId: updatedRow?.id ?? orderId,
     previousStatus: previousStatus ?? null,
-    newStatus: data.status,
+    newStatus: updatedRow?.status ?? status,
   });
-  return orderFromRow(data);
+  return updatedRow;
 }
 
 export async function cancelOrderWithInventory(orderId, previousStatus) {

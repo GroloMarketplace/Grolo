@@ -78,6 +78,7 @@ import DeliveryAddress from "./pages/DeliveryAddress";
 import GroloStatuses from "./pages/GroloStatuses";
 import FoundingMember from "./pages/FoundingMember";
 import TrustReputation from "./pages/TrustReputation";
+import SuspendedAccount from "./pages/SuspendedAccount";
 
 export default function App() {
   return (
@@ -110,6 +111,7 @@ export default function App() {
         <Routes>
         <Route path="/signin" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SignIn /></PhoneFrame>} />
         <Route path="/signup" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SignIn /></PhoneFrame>} />
+        <Route path="/account-suspended" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SuspendedAccount /></PhoneFrame>} />
         <Route path="/onboarding" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute><Onboarding /></ProtectedRoute></PhoneFrame>} />
         <Route path="/" element={<PhoneFrame><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
         <Route path="/home" element={<PhoneFrame><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />

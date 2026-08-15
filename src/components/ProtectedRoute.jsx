@@ -9,13 +9,14 @@ export default function ProtectedRoute({ children, sellerOnly = false, profileRe
   const location = useLocation();
 
   if (!isSupabaseConfigured) return children;
-  if (loading || (profileRequired && profileStatus !== "loaded" && profileStatus !== "error")) return null;
+  if (loading || profileStatus === "loading" || profileStatus === "unknown") return null;
   if (!isAuthenticated) {
     return <Navigate to="/signin" state={{ from: location }} replace />;
   }
   if (profileRequired && profileStatus === "error") {
     return <div role="alert" className="flex min-h-full items-center justify-center px-6 text-center text-[14px] text-red-600">{profileError?.message || "Unable to load your profile."}</div>;
   }
+  if (profile?.suspended_at) return <Navigate to="/account-suspended" replace />;
   if (profileRequired && !profile) {
     console.info("ProtectedRoute redirect decision", {
       pathname: location.pathname,

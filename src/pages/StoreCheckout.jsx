@@ -12,6 +12,7 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useListings } from "../context/ListingContext";
 import { getCartItemProductId, getCartItemSellerId } from "../utils/cartGrouping";
 import { trackAnalyticsEvent } from "../lib/api/analytics";
+import { validateFulfillment } from "../utils/validation";
 
 const CHECKOUT_ATTEMPT_KEY = "grolo-checkout-attempt";
 
@@ -50,6 +51,7 @@ export default function StoreCheckout() {
   const vacationMode = getSellerProfile(seller.id)?.vacationMode;
   const [fulfillmentMethod, setFulfillmentMethod] = useStoreFulfillment(settings.fulfillmentMethods);
   const [showMapSheet, setShowMapSheet] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
   const selected = settings.fulfillmentMethods.includes(fulfillmentMethod) ? fulfillmentMethod : settings.fulfillmentMethods[0] ?? "pickup";
   const subtotal = storeItems.reduce((sum, item) => sum + getItemPricing(item).discountedPrice * item.quantity, 0);
   const deliveryFee = selected === "delivery" ? settings.deliveryFee : 0;
@@ -64,7 +66,14 @@ export default function StoreCheckout() {
         {selected === "pickup" ? <PickupLocation settings={settings} onMap={() => setShowMapSheet(true)} /> : <DeliveryInformation settings={settings} address={address} onAddress={() => navigate("/delivery-address")} />}
         <section><h2 className="mb-3 text-[18px] font-semibold">Store items</h2><div className="flex flex-col gap-3">{storeItems.map((item) => <div key={item.id} className="flex gap-3 rounded-lg border border-[#E6E6E6] p-3"><img src={item.image} alt={item.name} className="h-16 w-16 rounded-lg object-cover" /><div className="flex-1"><div className="text-[14px] font-medium">{item.name}</div><div className="text-[12px] text-[#828282]">Quantity: {item.quantity}</div></div><div className="text-right text-[14px]">{getItemPricing(item).discountedPrice < getItemPricing(item).originalPrice && <div className="text-[11px] text-[#828282] line-through">${(getItemPricing(item).originalPrice * item.quantity).toFixed(2)}</div>}<div>${(getItemPricing(item).discountedPrice * item.quantity).toFixed(2)}</div></div></div>)}</div></section>
         <div className="flex flex-col gap-2 border-t border-[#E6E6E6] pt-4"><Row label="Subtotal" value={`$${subtotal.toFixed(2)}`} /><Row label="Fulfillment Method" value={selected === "delivery" ? "Delivery" : "Pickup"} />{selected === "delivery" && <>{address && <DeliveryAddressSummary address={address} />}<Row label="Delivery Fee" value={`$${deliveryFee.toFixed(2)}`} /></>}<Row label="Total" value={`$${(subtotal + deliveryFee).toFixed(2)}`} /></div>
+        {checkoutError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-[13px] text-red-700">{checkoutError}</p>}
         {vacationMode ? <div className="w-full rounded-lg bg-[#E6E6E6] py-3.5 text-center text-[16px] font-medium text-[#828282]">Orders Paused</div> : !inventoryAvailable ? <div className="w-full rounded-lg bg-[#E6E6E6] py-3.5 text-center text-[16px] font-medium text-[#828282]">Sold Out</div> : <button type="button" onClick={() => {
+          const validationError = validateFulfillment(selected, settings, address);
+          if (validationError) {
+            setCheckoutError(validationError);
+            return;
+          }
+          setCheckoutError("");
           if (selected === "delivery" && !address) {
             navigate("/delivery-address");
             return;
@@ -75,6 +84,7 @@ export default function StoreCheckout() {
             sellerId,
             fulfillmentMethod: selected,
             deliveryFee,
+            deliveryAddress: address,
             items: storeItems,
             status: "creating",
           };

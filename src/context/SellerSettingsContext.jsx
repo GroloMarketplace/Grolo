@@ -26,6 +26,13 @@ const emptyProfile = {
   notifications: { ...defaultNotifications },
   sellerStatus: "buyer",
   storeOnboardingStatus: false,
+  socialLinks: "",
+  instagram: "",
+  facebook: "",
+  x: "",
+  website: "",
+  phone: "",
+  email: "",
 };
 
 function sellerProfileFromRow(row) {
@@ -49,6 +56,12 @@ function sellerProfileFromRow(row) {
     storeOnboardingStatus: Boolean(row.store_onboarding_status),
     storeOpenedAt: row.store_opened_at ?? null,
     socialLinks: row.social_links ?? "",
+    instagram: row.instagram_handle ?? "",
+    facebook: row.facebook_handle ?? "",
+    x: row.x_handle ?? "",
+    website: row.seller_website ?? "",
+    phone: row.seller_phone ?? "",
+    email: row.seller_email ?? "",
   };
 }
 
@@ -64,6 +77,12 @@ function sellerUpdates(updates) {
     vacationMessage: "vacation_message",
     returnDate: "return_date",
     socialLinks: "social_links",
+    instagram: "instagram_handle",
+    facebook: "facebook_handle",
+    x: "x_handle",
+    website: "seller_website",
+    phone: "seller_phone",
+    email: "seller_email",
     sellerStatus: "seller_status",
     storeOnboardingStatus: "store_onboarding_status",
     storeOpenedAt: "store_opened_at",

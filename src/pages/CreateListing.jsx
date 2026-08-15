@@ -7,6 +7,7 @@ import { useSidebar } from "../hooks/useSidebar";
 import { useListings } from "../context/ListingContext";
 import { useAuth } from "../context/AuthContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import { validateListing } from "../utils/validation";
 
 function TextField({ label, type = "text", value, onChange, placeholder, required }) {
   return (
@@ -59,6 +60,19 @@ export default function CreateListing() {
     e.preventDefault();
     setSubmitError("");
     const isService = formData.category === "Services";
+    const validationError = validateListing(formData, isService);
+    if (!formData.category) {
+      setSubmitError("Choose a listing category.");
+      return;
+    }
+    if (validationError) {
+      setSubmitError(validationError);
+      return;
+    }
+    if (photos.length > 5) {
+      setSubmitError("You can upload up to 5 listing images.");
+      return;
+    }
     try {
     const listing = {
       id: `${formData.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`,
@@ -95,14 +109,12 @@ export default function CreateListing() {
     console.log("Listings Count:", listings.length + 1);
     navigate(`/product/${createdListing.id}`, { state: { listingCreated: createdListing.id } });
     } catch (error) {
-      const diagnostics = {
+      console.error("Unable to create listing", {
         code: error?.code ?? null,
         message: error?.message ?? String(error),
         details: error?.details ?? null,
-        hint: error?.hint ?? null,
-      };
-      console.error("Unable to create listing", diagnostics);
-      setSubmitError(JSON.stringify(diagnostics, null, 2));
+      });
+      setSubmitError(error?.message || "We couldn't publish your listing. Please review the form and try again.");
     }
   };
 

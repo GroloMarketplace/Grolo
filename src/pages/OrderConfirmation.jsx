@@ -126,6 +126,7 @@ export default function OrderConfirmation() {
         sellerId: attemptRef.current.sellerId ?? orderItems[0]?.sellerId,
         fulfillmentMethod: selectedFulfillment,
         deliveryFee,
+        deliveryAddress: attemptRef.current.deliveryAddress,
       });
       const persistedOrder = createdOrders?.[0];
       const persistedOrderId = persistedOrder?.databaseId ?? persistedOrder?.orderId;

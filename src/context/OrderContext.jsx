@@ -119,6 +119,7 @@ export function OrderProvider({ children }) {
         legacy_source: "OrderContext",
         buyer: user?.user_metadata?.username ?? currentUser.username,
         buyerAvatar: currentUser.avatar,
+        delivery_address: orderDetails.deliveryAddress ?? null,
       },
     });
     const databaseOrder = {

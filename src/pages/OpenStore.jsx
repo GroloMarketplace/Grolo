@@ -8,6 +8,7 @@ import { useFoundingMember } from "../context/FoundingMemberContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage, removeImage } from "../lib/imageStorage";
+import { validateSellerProfile } from "../utils/validation";
 
 const SELLER_ID = "current-user";
 const DRAFT_KEY = "grolo-open-store-draft";
@@ -97,9 +98,10 @@ export default function OpenStore() {
   };
 
   const launch = async () => {
-    if (!form.name.trim() || !form.description.trim() || !form.location.trim() || !form.category) {
-      setFormError("Complete your store name, description, location, and category before launching.");
-      setStep(1);
+    const validationError = validateSellerProfile(form);
+    if (validationError || !form.category) {
+      setFormError(validationError ?? "Choose a store category before launching.");
+      setStep(!form.name.trim() || !form.description.trim() || !form.location.trim() ? 1 : 4);
       return;
     }
     if (uploadError) return;

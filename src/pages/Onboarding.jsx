@@ -6,16 +6,13 @@ import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useAuth } from "../context/AuthContext";
 import ProfileAvatar from "../components/ProfileAvatar";
 import { uploadImage } from "../lib/imageStorage";
+import { normalizeUsername, validateBuyerProfile } from "../utils/validation";
 
 const INTERESTS = [
   "Farmers Markets", "Garden & Produce", "Bakery & Sweets", "Meal Prep & Catering",
   "Crafts & Handmade", "Local Events", "Workshops & Classes", "Plants & Flowers",
   "Health & Wellness", "Home & Décor", "Services", "Pet Products", "Specialty Foods",
 ];
-
-function isValidEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-}
 
 function readPendingEmail() {
   try {
@@ -47,16 +44,9 @@ export default function Onboarding() {
     : [...form.interests, interest]);
 
   const handleProfileContinue = () => {
-    if (!form.displayName.trim() || !form.username.trim() || !form.bio.trim()) {
-      setError("Please complete your display name, username, and bio.");
-      return;
-    }
-    if (!form.email.trim()) {
-      setError("Email is required.");
-      return;
-    }
-    if (!isValidEmail(form.email)) {
-      setError("Please enter a valid email address.");
+    const validationError = validateBuyerProfile(form);
+    if (validationError) {
+      setError(validationError);
       return;
     }
     setError("");
@@ -77,23 +67,15 @@ export default function Onboarding() {
   };
 
   const finish = async () => {
-    if (!form.displayName.trim() || !form.username.trim() || !form.bio.trim()) {
-      setError("Please complete your display name, username, and bio.");
+    const validationError = validateBuyerProfile(form);
+    if (validationError) {
+      setError(validationError);
       setStep(1);
       return;
     }
-    if (!form.email.trim()) {
-      setError("Email is required.");
-      setStep(1);
-      return;
-    }
-    if (!isValidEmail(form.email)) {
-      setError("Please enter a valid email address.");
-      setStep(1);
-      return;
-    }
+    const normalizedForm = { ...form, username: normalizeUsername(form.username) };
     try {
-      if (user?.email !== form.email.trim()) await updateEmail(form.email.trim());
+      if (user?.email !== normalizedForm.email.trim()) await updateEmail(normalizedForm.email.trim());
     } catch (updateError) {
       setError(updateError.message || "We couldn't update your email address.");
       setStep(1);
@@ -101,14 +83,14 @@ export default function Onboarding() {
     }
     try {
       await updateSettings({
-        ...form,
-        email: form.email.trim(),
-        city: form.location.split(",")[0].trim(),
+        ...normalizedForm,
+        email: normalizedForm.email.trim(),
+        city: normalizedForm.location.split(",")[0].trim(),
         province: "Alberta",
         onboardingCompleted: true,
       });
     } catch (saveError) {
-      setError(saveError.message || "We couldn't save your profile. Please try again.");
+      setError(saveError.code === "23505" ? "That username is already taken. Choose another one." : saveError.message || "We couldn't save your profile. Please try again.");
       return;
     }
     localStorage.removeItem("grolo-pending-email");

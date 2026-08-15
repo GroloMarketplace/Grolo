@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from "../supabaseClient";
+import { validateListing } from "../../utils/validation";
 
 function requireSupabase() {
   if (!isSupabaseConfigured) {
@@ -136,6 +137,10 @@ export async function getCategories() {
 
 export async function createListing(listing, sellerId) {
   requireSupabase();
+  const validationError = validateListing(listing, listing.category === "Services");
+  if (validationError) throw new Error(validationError);
+  if (!listing.category) throw new Error("Choose a listing category.");
+  if ((listing.images ?? []).length > 5) throw new Error("You can upload up to 5 listing images.");
   const payload = rowForListing(listing, sellerId);
   console.info("Supabase createListing payload", {
     ...payload,
@@ -166,6 +171,9 @@ export async function updateListing(listingId, updates, sellerId) {
   const existing = await getListingById(listingId);
   if (!existing) throw new Error("Listing not found.");
   const merged = { ...existing, ...updates };
+  const validationError = validateListing(merged, merged.category === "Services");
+  if (validationError) throw new Error(validationError);
+  if ((merged.images ?? []).length > 5) throw new Error("You can upload up to 5 listing images.");
   const payload = {
     ...rowForListing(merged, sellerId ?? existing.seller_id),
     updated_at: new Date().toISOString(),

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import { useAdvertising } from "../context/AdvertisingContext";
+import { COMMUNITY_SPOTLIGHT_PLAN, useAdvertising } from "../context/AdvertisingContext";
+import { validateCampaignDates } from "../utils/campaignDuration";
 import { events, products, promotions } from "../data/mockData";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage } from "../lib/imageStorage";
@@ -36,10 +37,11 @@ export default function CreateAdvertisingAd() {
     destinationId: SELLER_ID,
     destinationRoute: `/seller/${SELLER_ID}`,
     startsAt: new Date().toISOString().slice(0, 10),
-    endsAt: "",
+    endsAt: new Date().toISOString().slice(0, 10),
     badgeLabel: "Featured",
   });
   const [imageError, setImageError] = useState("");
+  const [formError, setFormError] = useState("");
 
   const destinations = useMemo(() => {
     if (formData.type === "Product") return products.filter((product) => product.sellerId === SELLER_ID).map((product) => ({ id: product.id, label: product.name, destinationType: "Product listing" }));
@@ -93,9 +95,18 @@ export default function CreateAdvertisingAd() {
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    if (editingAd) updateAd(editingAd.id, formData);
-    else addAd(formData);
-    navigate("/my-shop/advertising");
+    setFormError("");
+    const validationError = validateCampaignDates(formData, { existingAd: editingAd });
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
+    try {
+      const savedAd = editingAd ? updateAd(editingAd.id, formData) : addAd(formData);
+      navigate("/my-shop/advertising", savedAd ? { state: { trialActivated: savedAd } } : undefined);
+    } catch (error) {
+      setFormError(error.message || "Unable to save this promotion.");
+    }
   };
 
   return (
@@ -103,8 +114,12 @@ export default function CreateAdvertisingAd() {
       <Header title={editingAd ? "Edit Ad" : "Create Ad"} onBack={() => navigate("/my-shop/advertising")} />
       <div className="flex-1 overflow-y-auto no-scrollbar">
         <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-4 py-5">
-          <div className="rounded-lg bg-[#F5FFF6] p-3 text-[13px] leading-[140%] text-[#4F4F4F]">
-            Community Spotlight ads receive boosted visibility across Grolo discovery. Your first ad starts a 30-day free trial, then costs $4.99 per week.
+          <div className="rounded-xl border border-[#DCEBE0] bg-[#F5FFF6] p-4 text-[13px] leading-[140%] text-[#4F4F4F]">
+            <p className="font-semibold text-[#1F2D27]">{COMMUNITY_SPOTLIGHT_PLAN.trialLabel} · {COMMUNITY_SPOTLIGHT_PLAN.priceLabel}</p>
+            <p className="mt-1">Get discovered by local shoppers. {COMMUNITY_SPOTLIGHT_PLAN.cancellationLabel}</p>
+            <ul className="mt-3 grid gap-1 text-[12px]">
+              {COMMUNITY_SPOTLIGHT_PLAN.benefits.slice(0, 3).map((benefit) => <li key={benefit} className="flex gap-2"><span aria-hidden="true" className="font-semibold text-[#498467]">✓</span><span>{benefit}</span></li>)}
+            </ul>
           </div>
 
           <FormField label="Ad title">
@@ -146,9 +161,11 @@ export default function CreateAdvertisingAd() {
               <input required type="date" value={formData.startsAt} onChange={(event) => updateField("startsAt", event.target.value)} className={fieldClassName()} />
             </FormField>
             <FormField label="End date" className="flex-1">
-              <input type="date" value={formData.endsAt} onChange={(event) => updateField("endsAt", event.target.value)} className={fieldClassName()} />
+              <input required type="date" value={formData.endsAt} onChange={(event) => updateField("endsAt", event.target.value)} className={fieldClassName()} />
             </FormField>
           </div>
+          <p className="-mt-3 text-[12px] text-[#828282]">Each promotion may run for up to 14 days.</p>
+          {formError && <p role="alert" className="rounded-lg bg-[#FFF4E5] px-3 py-2 text-[13px] text-[#8A4B08]">{formError}</p>}
 
           <section className="rounded-lg border border-[#E6E6E6] p-3">
             <h2 className="text-[16px] font-semibold">Preview ad</h2>
@@ -158,7 +175,7 @@ export default function CreateAdvertisingAd() {
             </div>
           </section>
 
-          <button type="submit" className="w-full rounded-lg bg-[#498467] py-3 text-[16px] font-medium text-white">{editingAd ? "Save Changes" : "Start 30-Day Trial"}</button>
+          <button type="submit" className="w-full rounded-lg bg-[#498467] py-3 text-[16px] font-medium text-white">{editingAd ? "Save Changes" : "Start Free Trial"}</button>
         </form>
       </div>
     </MobileScreenLayout>

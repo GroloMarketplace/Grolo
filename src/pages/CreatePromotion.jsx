@@ -7,6 +7,7 @@ import { useListings } from "../context/ListingContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage } from "../lib/imageStorage";
+import { validateCampaignDates } from "../utils/campaignDuration";
 
 const SUPPORTED_PROMOTION_TYPES = new Set(["percentage", "fixed_amount"]);
 
@@ -17,9 +18,9 @@ function validatePromotionForm(formData, selectedProducts) {
   const value = Number(formData.value);
   if (!Number.isFinite(value) || value <= 0) return "Enter a discount greater than zero.";
   if (formData.type === "percentage" && value > 100) return "Percentage discounts cannot be greater than 100%.";
-  if (!formData.startsAt) return "Choose a promotion start date.";
-  if (formData.endsAt && formData.endsAt < formData.startsAt) return "The end date cannot be before the start date.";
-  if (formData.endsAt && formData.endsAt < new Date().toISOString().slice(0, 10)) return "The end date cannot be in the past.";
+  const campaignDateError = validateCampaignDates(formData);
+  if (campaignDateError) return campaignDateError;
+  if (formData.endsAt < new Date().toISOString().slice(0, 10)) return "The end date cannot be in the past.";
   if (formData.type === "fixed_amount" && selectedProducts.some((product) => {
     const price = Number(product.price);
     return Number.isFinite(price) && price > 0 && value >= price;
@@ -209,6 +210,7 @@ export default function CreatePromotion() {
           <div className="flex-1">
             <label className="block text-[14px] font-medium mb-2">Ends</label>
             <input
+              required
               type="date"
               value={formData.endsAt}
               onChange={(event) => updateField("endsAt", event.target.value)}
@@ -216,6 +218,7 @@ export default function CreatePromotion() {
             />
           </div>
         </div>
+        <p className="-mt-3 text-[12px] text-[#828282]">Each promotion may run for up to 14 days.</p>
 
         {formError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] text-red-700">{formError}</p>}
         <button

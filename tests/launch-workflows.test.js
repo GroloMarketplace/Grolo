@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { validateAddress, validateBuyerProfile, validateFulfillment, validateListing, validateSellerProfile } from "../src/utils/validation.js";
+import { addCalendarDays, campaignDurationDays, calendarDaysUntil, validateCampaignDates } from "../src/utils/campaignDuration.js";
 import { seed } from "./fixtures/seed.js";
 
 function createCommerceState() {
@@ -93,6 +94,25 @@ test("checkout address and fulfillment validation protects delivery orders", () 
   assert.match(validateFulfillment("delivery", { ...settings, deliveryRadius: 0 }, seed.address), /radius/);
 });
 
+test("trial countdown uses calendar days across date boundaries", () => {
+  const startedAt = "2026-08-16";
+  const expiresAt = addCalendarDays(startedAt, 30);
+  assert.equal(expiresAt, "2026-09-15");
+  assert.equal(calendarDaysUntil(expiresAt, new Date(2026, 7, 16, 12).getTime()), 30);
+  assert.equal(calendarDaysUntil(expiresAt, new Date(2026, 7, 17, 12).getTime()), 29);
+  assert.equal(calendarDaysUntil(expiresAt, new Date(2026, 8, 14, 12).getTime()), 1);
+  assert.equal(calendarDaysUntil(expiresAt, new Date(2026, 8, 16, 12).getTime()), -1);
+});
+
+test("campaign duration validation allows 1-14 days and preserves legacy campaigns", () => {
+  assert.equal(campaignDurationDays("2026-08-15", "2026-08-15"), 1);
+  assert.equal(campaignDurationDays("2026-08-15", "2026-08-28"), 14);
+  assert.equal(validateCampaignDates({ startsAt: "2026-08-15", endsAt: "2026-08-28" }), "");
+  assert.match(validateCampaignDates({ startsAt: "2026-08-15", endsAt: "2026-08-29" }), /up to 14 days/);
+  const legacyCampaign = { startsAt: "2026-08-15", endsAt: "2026-09-15" };
+  assert.equal(validateCampaignDates(legacyCampaign, { existingAd: legacyCampaign }), "");
+});
+
 test("promotion and order notifications are represented as durable events", () => {
   const state = createCommerceState();
   state.notifications.push({ type: "promotion_created", recipient: seed.buyer.id, promotionId: seed.promotion.id });
@@ -110,6 +130,13 @@ test("trust and safety report, block, and suspend workflows are enforced", () =>
   assert.equal(state.reports[0].status, "Open");
   assert.equal(state.blocked.has(seed.seller.id), true);
   assert.equal(state.suspended.has(seed.seller.id), true);
+});
+
+test("server campaign duration validation protects new records and preserves legacy dates", async () => {
+  const migration = await readFile(new URL("../supabase/migrations/20260815_campaign_duration_validation.sql", import.meta.url), "utf8");
+  assert.match(migration, /new\.end_date - new\.start_date \+ 1\) > 14/);
+  assert.match(migration, /old\.start_date is not distinct from new\.start_date/);
+  assert.match(migration, /Each promotion may run for up to 14 days/);
 });
 
 test("critical Supabase contracts are present for regression coverage", async () => {

@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronRight, Croissant, Gem, Grid2X2, HeartPulse, Home, Leaf, Package, Palette, PawPrint, Shirt, Store, Utensils, Wrench } from "lucide-react";
+import { Croissant, Gem, Grid2X2, HeartPulse, Home, Leaf, Palette, PawPrint, Shirt, Utensils, Wrench } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
@@ -26,39 +26,6 @@ import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useMarketplaceDiscovery } from "../hooks/useEntityResolution";
 
 const TABS = ["Local", "Map", "History", "My Orders"];
-
-const PROMOTIONAL_SLIDES = [
-  {
-    id: "promoted-listing",
-    eyebrow: "Grolo for business",
-    title: "Promote Your Product Here",
-    description: "Put your best listing in front of nearby shoppers.",
-    cta: "Boost Listing",
-    route: "/create-promotion",
-    icon: Package,
-    visualClass: "bg-[#DCEFE2] text-[#2E7658]",
-  },
-  {
-    id: "promoted-event",
-    eyebrow: "Bring people together",
-    title: "Promote Your Event Here",
-    description: "Turn local interest into RSVPs and real-world visits.",
-    cta: "Create Event",
-    route: "/create-event",
-    icon: CalendarDays,
-    visualClass: "bg-[#E7F1E8] text-[#3A785C]",
-  },
-  {
-    id: "featured-store",
-    eyebrow: "Grow your storefront",
-    title: "Promote Your Store Here",
-    description: "Make your shop the next local favorite.",
-    cta: "Open Store",
-    route: "/open-store",
-    icon: Store,
-    visualClass: "bg-[#D7E9DC] text-[#245A43]",
-  },
-];
 
 const ORDER_SECTIONS = [
   { title: "Active Orders", statuses: ["Order Placed", "Preparing", "In Progress", "Seller Notified"] },
@@ -508,39 +475,16 @@ function CommunitySpotlightCarousel({ sellers }) {
 
 function PromotionalCarousel({ onNavigate }) {
   return (
-    <section aria-label="Promote your marketplace presence" className="pt-4">
-      <div className="mb-2 flex items-center justify-between px-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#498467]">Make your mark locally</p>
-          <h2 className="mt-0.5 text-[17px] font-semibold tracking-[-0.34px] text-[#1F2D27]">Get discovered on Grolo</h2>
+    <section aria-label="Promote your marketplace presence" className="px-4 py-3">
+      <div className="flex min-h-[68px] items-center justify-between gap-4 rounded-xl border border-[#DCEBE0] bg-gradient-to-r from-[#F1F8F2] via-[#F7FCF8] to-white px-4 py-3 shadow-[0_3px_10px_rgba(31,90,69,0.06)]">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#498467]">Make your mark locally</p>
+          <h2 className="mt-0.5 truncate text-[16px] font-semibold tracking-[-0.32px] text-[#1F2D27]">Get discovered on Grolo</h2>
         </div>
-        <span className="rounded-full bg-[#F1F8F2] px-2.5 py-1 text-[10px] font-semibold text-[#498467]">Promote</span>
+        <button type="button" onClick={() => onNavigate("/my-shop/advertising/create")} className="shrink-0 rounded-full bg-[#498467] px-3.5 py-2 text-[12px] font-semibold text-white shadow-[0_3px_8px_rgba(73,132,103,0.16)] transition-colors hover:bg-[#376B50]">
+          Promote
+        </button>
       </div>
-      <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 no-scrollbar">
-        {PROMOTIONAL_SLIDES.map((slide) => {
-          const Icon = slide.icon;
-          return (
-            <article key={slide.id} className="relative min-w-[calc(100%_-_8px)] snap-start overflow-hidden rounded-2xl border border-[#DCEBE0] bg-gradient-to-br from-[#F7FCF8] via-white to-[#EAF5ED] p-4 shadow-[0_6px_18px_rgba(31,90,69,0.08)] sm:min-w-[358px]">
-              <div className="relative z-10 max-w-[62%]">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#498467]">{slide.eyebrow}</p>
-                <h3 className="mt-2 text-[20px] font-semibold leading-[1.05] tracking-[-0.5px] text-[#1F2D27]">{slide.title}</h3>
-                <p className="mt-2 text-[12px] leading-[1.35] text-[#5D6B63]">{slide.description}</p>
-                <button type="button" onClick={() => onNavigate(slide.route)} className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[#2F7658] px-3.5 py-2 text-[12px] font-semibold text-white shadow-[0_3px_8px_rgba(47,118,88,0.2)] transition-colors hover:bg-[#245A43]">
-                  {slide.cta}
-                  <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.5} />
-                </button>
-              </div>
-              <div aria-hidden="true" className={`absolute -right-7 -top-8 flex h-40 w-40 items-center justify-center rounded-full ${slide.visualClass}`}>
-                <div className="flex h-24 w-24 items-center justify-center rounded-[2rem] bg-white/70 shadow-[0_8px_18px_rgba(31,90,69,0.1)] rotate-6">
-                  <Icon className="h-12 w-12" strokeWidth={1.45} />
-                </div>
-              </div>
-              <div aria-hidden="true" className="absolute -bottom-10 right-16 h-24 w-24 rounded-full bg-[#B8D9C1]/35" />
-            </article>
-          );
-        })}
-      </div>
-      <p className="px-4 pt-0.5 text-[10px] text-[#829187]">Sponsored listings, featured stores, and promoted events coming soon.</p>
     </section>
   );
 }

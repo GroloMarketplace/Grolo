@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 
@@ -14,8 +14,10 @@ export function ProfileModeProvider({ children }) {
   const [storeActive, setStoreActive] = useState(false);
   const [storeOpenedAt, setStoreOpenedAt] = useState(0);
   const [profileMode, setProfileModeState] = useState("buyer");
+  const profileModeRequestRef = useRef(0);
 
   useEffect(() => {
+    const requestId = ++profileModeRequestRef.current;
     let cancelled = false;
 
     async function loadProfileMode() {
@@ -41,7 +43,7 @@ export function ProfileModeProvider({ children }) {
         console.error("Unable to load profile mode", error);
         return;
       }
-      if (cancelled) return;
+      if (cancelled || requestId !== profileModeRequestRef.current) return;
       const active = profileIsSeller(data);
       setStoreActive(active);
       setStoreOpenedAt(data?.store_opened_at ? new Date(data.store_opened_at).getTime() : 0);
@@ -56,6 +58,7 @@ export function ProfileModeProvider({ children }) {
     if (!user?.id || !isSupabaseConfigured) {
       throw new Error("Supabase is not configured or the user is not signed in.");
     }
+    const requestId = ++profileModeRequestRef.current;
     const openedAt = new Date().toISOString();
     const { error } = await supabase
       .from("profiles")
@@ -66,6 +69,7 @@ export function ProfileModeProvider({ children }) {
         store_opened_at: openedAt,
       }, { onConflict: "id" });
     if (error) throw error;
+    if (requestId !== profileModeRequestRef.current) return true;
     setStoreActive(true);
     setStoreOpenedAt(new Date(openedAt).getTime());
     setProfileModeState("seller");

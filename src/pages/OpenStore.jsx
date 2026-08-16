@@ -40,7 +40,7 @@ function readDraft(storageKey, profile, buyerAvatar) {
 
 export default function OpenStore() {
   const navigate = useNavigate();
-  const { activateStore } = useProfileMode();
+  const { activateStore, storeActive } = useProfileMode();
   const { getSellerProfile, updateSellerProfile } = useSellerSettings();
   const { awardFoundingMember } = useFoundingMember();
   const { settings: buyerSettings } = useBuyerSettings();
@@ -53,6 +53,12 @@ export default function OpenStore() {
   const [uploadError, setUploadError] = useState("");
   const [uploadWarning, setUploadWarning] = useState("");
   const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    if (!storeActive) return;
+    try { localStorage.removeItem(storageKey); } catch { /* Ignore storage cleanup failures. */ }
+    navigate("/shop", { replace: true });
+  }, [navigate, storageKey, storeActive]);
 
   useEffect(() => {
     try {
@@ -101,7 +107,7 @@ export default function OpenStore() {
     const validationError = validateSellerProfile(form);
     if (validationError || !form.category) {
       setFormError(validationError ?? "Choose a store category before launching.");
-      setStep(!form.name.trim() || !form.description.trim() || !form.location.trim() ? 1 : 4);
+      setStep(!form.name.trim() || !form.description.trim() || !form.location.trim() ? 1 : !form.category ? 3 : 4);
       return;
     }
     if (uploadError) return;

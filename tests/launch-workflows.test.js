@@ -113,7 +113,7 @@ test("trust and safety report, block, and suspend workflows are enforced", () =>
 });
 
 test("critical Supabase contracts are present for regression coverage", async () => {
-  const [orders, notifications, validation, sellerSettings, postsMigration, postContext, sellerProfile] = await Promise.all([
+  const [orders, notifications, validation, sellerSettings, postsMigration, postContext, sellerProfile, profileMode, openStore] = await Promise.all([
     readFile(new URL("../supabase/migrations/20260813_apply_promotions_to_order_items.sql", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260813_phase_8h_notifications.sql", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260815_phase_9a8_input_validation.sql", import.meta.url), "utf8"),
@@ -121,6 +121,8 @@ test("critical Supabase contracts are present for regression coverage", async ()
     readFile(new URL("../supabase/migrations/20260815_phase_9b_posts.sql", import.meta.url), "utf8"),
     readFile(new URL("../src/context/PostContext.jsx", import.meta.url), "utf8"),
     readFile(new URL("../src/pages/SellerProfile.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/context/ProfileModeContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/OpenStore.jsx", import.meta.url), "utf8"),
   ]);
   assert.match(orders, /create_order_with_items/);
   assert.match(orders, /inventory_quantity = inventory_quantity -/);
@@ -136,4 +138,8 @@ test("critical Supabase contracts are present for regression coverage", async ()
   assert.match(postContext, /createPostApi\(post, user\.id\)/);
   assert.match(postContext, /getPostsApi\(\)/);
   assert.match(sellerProfile, /const \{ posts \} = usePosts\(\)/);
+  assert.match(profileMode, /profileModeRequestRef/);
+  assert.match(profileMode, /requestId !== profileModeRequestRef\.current/);
+  assert.match(openStore, /if \(!storeActive\) return/);
+  assert.match(openStore, /navigate\("\/shop", \{ replace: true \}\)/);
 });

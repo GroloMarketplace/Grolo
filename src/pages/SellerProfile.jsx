@@ -17,6 +17,7 @@ import {
 import { usePromotions } from "../context/PromotionContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { useOrders } from "../context/OrderContext";
+import { usePosts } from "../context/PostContext";
 import { getSellerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
 import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
@@ -42,6 +43,7 @@ export default function SellerProfile() {
   const { promotionsForSeller } = usePromotions();
   const { getPaymentMethods } = usePaymentMethods();
   const { sellerOrders } = useOrders();
+  const { posts } = usePosts();
   const { getSellerProfile } = useSellerSettings();
   const { listings } = useListings();
   const { getFoundingMember } = useFoundingMember();
@@ -74,9 +76,9 @@ export default function SellerProfile() {
     activeDays: remoteMetrics.activeDays ?? 0,
     averageRating: remoteMetrics.averageRating ?? average,
   });
-  const sellerPosts = [...followingPosts, ...communityPosts].filter(
-    (post, index, posts) =>
-      post.sellerId === seller.id && createdBySeller(post) && posts.findIndex((item) => item.id === post.id) === index,
+  const sellerPosts = [...followingPosts, ...communityPosts, ...posts].filter(
+    (post, index, allPosts) =>
+      String(post.sellerId) === String(seller.id) && createdBySeller(post) && allPosts.findIndex((item) => item.id === post.id) === index,
   );
   const sellerRegrows = sellerPosts.slice(0, 2);
   const savedProfileState = readNavigationState(`seller-profile-${seller.id}`, { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 });

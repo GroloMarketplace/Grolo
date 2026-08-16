@@ -21,7 +21,7 @@ from (values
   ('notifications'), ('orders'), ('order_items'), ('payments'),
   ('reputation_events'), ('badge_definitions'), ('user_badges'),
   ('user_reputation_status'), ('promotions'), ('vendor_analytics_events'),
-  ('reports'), ('user_blocks')
+  ('reports'), ('user_blocks'), ('posts')
 ) required(required_name);
 
 insert into grolo_bootstrap_checks
@@ -45,6 +45,26 @@ from (values
   ('vacation_message'), ('return_date'), ('social_links'), ('seller_status'),
   ('store_onboarding_status'), ('store_opened_at'), ('onboarding_completed'),
   ('is_admin'), ('suspended_at')
+) required(required_name);
+
+insert into grolo_bootstrap_checks
+select 'column:posts.' || required_name,
+       exists (
+         select 1 from information_schema.columns
+         where table_schema = 'public' and table_name = 'posts'
+           and column_name = required_name
+       ),
+       case when exists (
+         select 1 from information_schema.columns
+         where table_schema = 'public' and table_name = 'posts'
+           and column_name = required_name
+       ) then 'present' else 'missing' end
+from (values
+  ('id'), ('legacy_id'), ('author_id'), ('seller_id'), ('product_id'),
+  ('body'), ('classification'), ('location'), ('latitude'), ('longitude'),
+  ('group_name'), ('author_name'), ('author_avatar'), ('image_url'),
+  ('image_urls'), ('media'), ('visibility'), ('likes'), ('comments'),
+  ('reposts'), ('shares'), ('created_at'), ('updated_at')
 ) required(required_name);
 
 insert into grolo_bootstrap_checks
@@ -128,7 +148,7 @@ from (values
   ('notifications'), ('orders'), ('order_items'), ('payments'),
   ('reputation_events'), ('badge_definitions'), ('user_badges'),
   ('user_reputation_status'), ('promotions'), ('vendor_analytics_events'),
-  ('reports'), ('user_blocks')
+  ('reports'), ('user_blocks'), ('posts')
 ) required(required_name);
 
 insert into grolo_bootstrap_checks

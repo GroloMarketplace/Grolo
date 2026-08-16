@@ -736,6 +736,24 @@ function EventMeta({ label, value }) {
   );
 }
 
+function PostMediaGallery({ media, onOpen, promotion }) {
+  if (!media.length) return null;
+  return (
+    <div className={media.length > 1 ? "flex gap-1 overflow-x-auto no-scrollbar" : "relative"}>
+      {media.map((item, index) => {
+        const className = media.length > 1 ? "relative aspect-square w-[85%] shrink-0 overflow-hidden rounded" : "relative w-full aspect-square overflow-hidden rounded";
+        if (item.kind === "video") {
+          return <div key={`${item.url}-${index}`} className={className}><video src={item.url} controls playsInline className="h-full w-full object-cover" /><PromotionBadge promotion={index === 0 ? promotion : null} className="absolute left-2 top-2" /></div>;
+        }
+        if (item.kind === "audio") {
+          return <div key={`${item.url}-${index}`} className="flex min-h-24 min-w-[85%] items-center rounded bg-[#F5F5F5] p-3"><audio src={item.url} controls className="w-full" /></div>;
+        }
+        return <button key={`${item.url}-${index}`} type="button" onClick={onOpen} className={className}><img src={item.url} alt="" className="h-full w-full object-cover transition-opacity hover:opacity-90" />{index === 0 && <PromotionBadge promotion={promotion} className="absolute left-2 top-2" />}</button>;
+      })}
+    </div>
+  );
+}
+
 function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
   const navigate = useNavigate();
   const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
@@ -756,7 +774,9 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
   const product = post.productId
     ? products.find((item) => item.id === post.productId) ?? listings.find((item) => item.id === post.productId)
     : null;
-  const postImages = post.images?.length ? post.images : post.image ? [post.image] : [];
+  const postMedia = post.media?.length
+    ? post.media.map((item) => typeof item === "string" ? { url: item, kind: "image" } : { ...item, kind: item.kind ?? item.type?.split("/")[0] ?? "image" })
+    : (post.images?.length ? post.images : post.image ? [post.image] : []).map((url) => ({ url, kind: "image" }));
   const savedPost = {
     id: `post:${post.id}`,
     type: "post",
@@ -845,24 +865,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
 
   const content = (
     <>
-      {postImages.length > 0 && (
-        <div className={postImages.length > 1 ? "flex gap-1 overflow-x-auto no-scrollbar" : "relative"}>
-          {postImages.map((image, index) => (
-            <button
-              key={index}
-              onClick={handleImageClick}
-              className={postImages.length > 1 ? "relative aspect-square w-[85%] shrink-0 overflow-hidden rounded" : "relative w-full aspect-square overflow-hidden rounded"}
-            >
-              <img
-                src={image}
-                alt=""
-                className="w-full h-full object-cover hover:opacity-90 transition-opacity"
-              />
-              {index === 0 && <PromotionBadge promotion={promotion} className="absolute left-2 top-2" />}
-            </button>
-          ))}
-        </div>
-      )}
+      <PostMediaGallery media={postMedia} onOpen={handleImageClick} promotion={promotion} />
 
       {product && <VacationBadge sellerId={product.sellerId} />}
       <button type="button" onClick={openPostDetail} className="text-left text-[14px] leading-[140%]">{post.body}</button>

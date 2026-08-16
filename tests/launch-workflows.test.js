@@ -52,6 +52,8 @@ test("buyer signup and onboarding validation accepts seeded data and rejects inv
 });
 
 test("seller store and listing workflows validate before persistence", () => {
+  const requiredSellerInfo = { ...seed.seller, email: "", website: "", phone: "", instagram: "", facebook: "", x: "" };
+  assert.equal(validateSellerProfile(requiredSellerInfo), null);
   assert.equal(validateSellerProfile(seed.seller), null);
   assert.match(validateSellerProfile({ ...seed.seller, website: "not-a-url" }), /Website/);
   assert.equal(validateListing(seed.listing), null);
@@ -111,14 +113,27 @@ test("trust and safety report, block, and suspend workflows are enforced", () =>
 });
 
 test("critical Supabase contracts are present for regression coverage", async () => {
-  const [orders, notifications, validation] = await Promise.all([
+  const [orders, notifications, validation, sellerSettings, postsMigration, postContext, sellerProfile] = await Promise.all([
     readFile(new URL("../supabase/migrations/20260813_apply_promotions_to_order_items.sql", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260813_phase_8h_notifications.sql", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260815_phase_9a8_input_validation.sql", import.meta.url), "utf8"),
+    readFile(new URL("../src/context/SellerSettingsContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260815_phase_9b_posts.sql", import.meta.url), "utf8"),
+    readFile(new URL("../src/context/PostContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/SellerProfile.jsx", import.meta.url), "utf8"),
   ]);
   assert.match(orders, /create_order_with_items/);
   assert.match(orders, /inventory_quantity = inventory_quantity -/);
   assert.match(notifications, /notifications_on_order/);
   assert.match(notifications, /notifications_on_follow/);
   assert.match(validation, /validate_listing_fields/);
+  assert.match(sellerSettings, /const hasValue = value !== undefined && value !== null/);
+  assert.doesNotMatch(sellerSettings, /instagram: "instagram_handle"/);
+  assert.doesNotMatch(sellerSettings, /facebook: "facebook_handle"/);
+  assert.doesNotMatch(sellerSettings, /website: "seller_website"/);
+  assert.match(postsMigration, /create table if not exists public\.posts/);
+  assert.match(postsMigration, /visibility = 'public'/);
+  assert.match(postContext, /createPostApi\(post, user\.id\)/);
+  assert.match(postContext, /getPostsApi\(\)/);
+  assert.match(sellerProfile, /const \{ posts \} = usePosts\(\)/);
 });

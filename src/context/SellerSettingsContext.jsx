@@ -76,19 +76,14 @@ function sellerUpdates(updates) {
     vacationMode: "vacation_mode",
     vacationMessage: "vacation_message",
     returnDate: "return_date",
-    socialLinks: "social_links",
-    instagram: "instagram_handle",
-    facebook: "facebook_handle",
-    x: "x_handle",
-    website: "seller_website",
-    phone: "seller_phone",
-    email: "seller_email",
     sellerStatus: "seller_status",
     storeOnboardingStatus: "store_onboarding_status",
     storeOpenedAt: "store_opened_at",
   };
   Object.entries(fields).forEach(([key, column]) => {
-    if (updates[key] !== undefined) next[column] = updates[key];
+    const value = updates[key];
+    const hasValue = value !== undefined && value !== null && (typeof value !== "string" || value.trim() !== "");
+    if (hasValue) next[column] = value;
   });
   if (updates.notifications !== undefined) next.seller_notifications = updates.notifications;
   return next;

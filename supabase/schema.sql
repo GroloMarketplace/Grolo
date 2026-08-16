@@ -391,51 +391,8 @@ create table if not exists conversations (
   buyer_id uuid not null references profiles(id) on delete cascade,
   seller_id uuid not null references profiles(id) on delete cascade,
   listing_id uuid references listings(id) on delete set null,
-  conversation_type text not null default 'standard',
-  order_id uuid,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  preview text not null default '',
-  updated_at timestamptz not null default now(),
-  constraint conversations_type_check
-    check (conversation_type in ('standard', 'service', 'order', 'trading', 'trade_proposal'))
+  updated_at timestamptz not null default now()
 );
-
-alter table conversations add column if not exists conversation_type text not null default 'standard';
-alter table conversations add column if not exists order_id uuid;
-alter table conversations add column if not exists metadata jsonb not null default '{}'::jsonb;
-alter table conversations add column if not exists created_at timestamptz not null default now();
-alter table conversations add column if not exists preview text not null default '';
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conrelid = 'public.conversations'::regclass
-      and conname = 'conversations_type_check'
-  ) then
-    alter table conversations
-      add constraint conversations_type_check
-      check (conversation_type in ('standard', 'service', 'order', 'trading', 'trade_proposal'));
-  end if;
-end;
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conrelid = 'public.conversations'::regclass
-      and conname = 'conversations_metadata_object_check'
-  ) then
-    alter table conversations
-      add constraint conversations_metadata_object_check
-      check (jsonb_typeof(metadata) = 'object');
-  end if;
-end;
-$$;
 
 alter table conversations enable row level security;
 
@@ -503,8 +460,7 @@ create policy "Participants can send messages"
 drop policy if exists "Participants can update messages" on messages;
 drop policy if exists "Participants can delete messages" on messages;
 
--- Participant identity and message ownership are immutable. Conversation
--- preview and updated_at are maintained by the message/conversation triggers.
+-- Participant identity is immutable. updated_at is maintained on updates.
 create or replace function protect_conversation_fields()
 returns trigger
 language plpgsql
@@ -513,20 +469,10 @@ begin
   if new.buyer_id is distinct from old.buyer_id
     or new.seller_id is distinct from old.seller_id
     or new.listing_id is distinct from old.listing_id
-    or new.order_id is distinct from old.order_id
-    or new.conversation_type is distinct from old.conversation_type
-    or new.created_at is distinct from old.created_at
   then
-    raise exception 'Conversation participants and identity fields are immutable.'
+    raise exception 'Conversation participants and listing are immutable.'
       using errcode = 'insufficient_privilege';
   end if;
-  new.preview := coalesce((
-    select m.content
-    from messages m
-    where m.conversation_id = new.id
-    order by m.created_at desc, m.id desc
-    limit 1
-  ), '');
   new.updated_at := now();
   return new;
 end;
@@ -552,13 +498,7 @@ declare
   v_conversation_id uuid := coalesce(new.conversation_id, old.conversation_id);
 begin
   update conversations
-  set preview = coalesce((
-        select m.content
-        from messages m
-        where m.conversation_id = v_conversation_id
-        order by m.created_at desc, m.id desc
-        limit 1
-      ), '')
+  set updated_at = now()
   where id = v_conversation_id;
   if tg_op = 'delete' then
     return old;
@@ -928,71 +868,7 @@ $$;
 revoke execute on function create_review(text, smallint, uuid, uuid, uuid, uuid, text, text, jsonb, jsonb) from public;
 grant execute on function create_review(text, smallint, uuid, uuid, uuid, uuid, text, text, jsonb, jsonb) to authenticated;
 
--- Conversation relationships and indexes. These statements are migration-safe
--- for databases that already contain the original conversations table.
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_constraint c
-    where c.conrelid = 'public.conversations'::regclass
-      and c.confrelid = 'public.orders'::regclass
-      and c.contype = 'f'
-      and pg_get_constraintdef(c.oid) like '%(order_id)%'
-  ) then
-    alter table conversations
-      add constraint conversations_order_id_fkey
-      foreign key (order_id)
-      references orders(id)
-      on delete set null;
-  end if;
-
-  if not exists (
-    select 1
-    from pg_constraint c
-    where c.conrelid = 'public.conversations'::regclass
-      and c.confrelid = 'public.listings'::regclass
-      and c.contype = 'f'
-      and pg_get_constraintdef(c.oid) like '%(listing_id)%'
-  ) then
-    alter table conversations
-      add constraint conversations_listing_id_fkey
-      foreign key (listing_id)
-      references listings(id)
-      on delete set null;
-  end if;
-end;
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conrelid = 'public.conversations'::regclass
-      and conname = 'conversations_distinct_participants_check'
-  ) then
-    alter table conversations
-      add constraint conversations_distinct_participants_check
-      check (buyer_id <> seller_id);
-  end if;
-  if not exists (
-    select 1
-    from pg_constraint
-    where conrelid = 'public.conversations'::regclass
-      and conname = 'conversations_context_check'
-  ) then
-    alter table conversations
-      add constraint conversations_context_check
-      check (
-        (conversation_type = 'standard' and listing_id is null and order_id is null)
-        or (conversation_type = 'service' and listing_id is not null)
-        or (conversation_type = 'order' and order_id is not null)
-        or conversation_type in ('trading', 'trade_proposal')
-      );
-  end if;
-end;
-$$;
+-- Conversation indexes use only the deployed conversation columns.
 
 alter table conversations
   drop constraint if exists conversations_buyer_id_seller_id_listing_id_key;
@@ -1003,53 +879,16 @@ create index if not exists conversations_buyer_idx
 create index if not exists conversations_seller_idx
   on conversations (seller_id);
 
-create index if not exists conversations_order_idx
-  on conversations (order_id)
-  where order_id is not null;
-
 create index if not exists conversations_listing_idx
   on conversations (listing_id)
   where listing_id is not null;
 
-create index if not exists conversations_type_idx
-  on conversations (conversation_type);
-
 create index if not exists conversations_updated_idx
   on conversations (updated_at desc);
 
-create unique index if not exists conversations_standard_pair_idx
-  on conversations (buyer_id, seller_id)
-  where conversation_type = 'standard'
-    and listing_id is null
-    and order_id is null;
-
-create unique index if not exists conversations_service_listing_idx
-  on conversations (buyer_id, seller_id, listing_id)
-  where conversation_type = 'service'
-    and listing_id is not null;
-
-create unique index if not exists conversations_order_unique_idx
-  on conversations (order_id)
-  where conversation_type = 'order'
-    and order_id is not null;
-
-create unique index if not exists conversations_trading_key_idx
-  on conversations (
-    buyer_id,
-    seller_id,
-    coalesce(listing_id, '00000000-0000-0000-0000-000000000000'::uuid),
-    coalesce(order_id, '00000000-0000-0000-0000-000000000000'::uuid)
-  )
-  where conversation_type = 'trading';
-
-create unique index if not exists conversations_trade_proposal_key_idx
-  on conversations (
-    buyer_id,
-    seller_id,
-    coalesce(listing_id, '00000000-0000-0000-0000-000000000000'::uuid),
-    coalesce(order_id, '00000000-0000-0000-0000-000000000000'::uuid)
-  )
-  where conversation_type = 'trade_proposal';
+create index if not exists conversations_listing_idx
+  on conversations (listing_id)
+  where listing_id is not null;
 
 -- Once orders exists, complete the cross-table creation check that could not
 -- be declared beside conversations because orders is provisioned later.
@@ -1066,100 +905,7 @@ create policy "Buyers can create conversations"
         where l.id = listing_id and l.seller_id = seller_id
       )
     )
-    and (
-      order_id is null
-      or exists (
-        select 1 from orders o
-        where o.id = order_id
-          and o.buyer_id = buyer_id
-          and o.seller_id = seller_id
-      )
-    )
   );
-
-create or replace function upsert_conversation(
-  p_seller_id uuid,
-  p_conversation_type text default 'standard',
-  p_listing_id uuid default null,
-  p_order_id uuid default null,
-  p_metadata jsonb default '{}'::jsonb
-)
-returns conversations
-language plpgsql
-security definer
-set search_path = public, pg_temp
-as $$
-declare
-  v_buyer_id uuid := auth.uid();
-  v_conversation conversations;
-  v_lock_key text;
-begin
-  if v_buyer_id is null then
-    raise exception 'Authentication is required.' using errcode = 'insufficient_privilege';
-  end if;
-  if exists (select 1 from profiles where id = v_buyer_id and suspended_at is not null) then
-    raise exception 'Suspended accounts cannot create conversations.' using errcode = 'insufficient_privilege';
-  end if;
-  if p_seller_id is null or p_seller_id = v_buyer_id then
-    raise exception 'A conversation requires a different seller.' using errcode = 'check_violation';
-  end if;
-  if p_conversation_type not in ('standard', 'service', 'order', 'trading', 'trade_proposal') then
-    raise exception 'Conversation type is invalid.' using errcode = 'check_violation';
-  end if;
-  if p_metadata is null or jsonb_typeof(p_metadata) <> 'object' then
-    raise exception 'Conversation metadata must be a JSON object.' using errcode = 'check_violation';
-  end if;
-  if p_listing_id is not null and not exists (
-    select 1 from listings where id = p_listing_id and seller_id = p_seller_id
-  ) then
-    raise exception 'Listing is not owned by the selected seller.' using errcode = 'foreign_key_violation';
-  end if;
-  if p_order_id is not null and not exists (
-    select 1 from orders
-    where id = p_order_id and buyer_id = v_buyer_id and seller_id = p_seller_id
-  ) then
-    raise exception 'Order does not belong to both conversation participants.' using errcode = 'foreign_key_violation';
-  end if;
-  if p_conversation_type = 'standard' and (p_listing_id is not null or p_order_id is not null) then
-    raise exception 'Standard conversations cannot have listing or order context.' using errcode = 'check_violation';
-  end if;
-  if p_conversation_type = 'service' and p_listing_id is null then
-    raise exception 'Service conversations require a listing.' using errcode = 'check_violation';
-  end if;
-  if p_conversation_type = 'order' and p_order_id is null then
-    raise exception 'Order conversations require an order.' using errcode = 'check_violation';
-  end if;
-
-  v_lock_key := concat_ws(':', v_buyer_id, p_seller_id, p_conversation_type,
-    coalesce(p_listing_id::text, ''), coalesce(p_order_id::text, ''));
-  perform pg_advisory_xact_lock(hashtextextended(v_lock_key, 0));
-
-  select * into v_conversation
-  from conversations
-  where buyer_id = v_buyer_id
-    and seller_id = p_seller_id
-    and conversation_type = p_conversation_type
-    and listing_id is not distinct from p_listing_id
-    and order_id is not distinct from p_order_id
-  for update;
-
-  if found then
-    update conversations
-    set metadata = v_conversation.metadata || p_metadata
-    where id = v_conversation.id
-    returning * into v_conversation;
-    return v_conversation;
-  end if;
-
-  insert into conversations (buyer_id, seller_id, listing_id, conversation_type, order_id, metadata)
-  values (v_buyer_id, p_seller_id, p_listing_id, p_conversation_type, p_order_id, p_metadata)
-  returning * into v_conversation;
-  return v_conversation;
-end;
-$$;
-
-revoke execute on function upsert_conversation(uuid, text, uuid, uuid, jsonb) from public;
-grant execute on function upsert_conversation(uuid, text, uuid, uuid, jsonb) to authenticated;
 
 create index if not exists orders_buyer_idx on orders (buyer_id);
 create index if not exists orders_seller_idx on orders (seller_id);

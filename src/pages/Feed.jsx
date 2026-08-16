@@ -46,6 +46,7 @@ import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { discoveryRadiusLabel, isWithinDiscoveryRadius, resolveUserLocation, sortByDistance } from "../utils/locationRadius";
 import DistanceLabel from "../components/DistanceLabel";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
+import { contentTimestamp, rankFeedItems } from "../utils/feedRanking";
 
 const TABS = ["Following", "Your Community"];
 const COMMUNITY_FILTERS = ["For You", "Posts", "Events", "Listings", "Promotions", "Regrows"];
@@ -91,8 +92,9 @@ export default function Feed() {
   const touchStartRef = useRef(null);
   const [notificationsRead, setNotificationsRead] = useState(() => localStorage.getItem("grolo-notifications-read") === "true");
   const { followedSellers } = useFollow();
+  const { savedItems } = useSavedItems();
   const { settings: buyerSettings = {} } = useBuyerSettings();
-  const { orderNotifications } = useOrders();
+  const { orderNotifications, buyerOrders } = useOrders();
   const unreadNotifications = notificationsRead ? 0 : notificationsHighlights.length + notificationsFollowers.length + orderNotifications.length;
 
   useEffect(() => {
@@ -281,6 +283,9 @@ export default function Feed() {
                 onShare={openShare}
                 location={resolveUserLocation(buyerSettings)}
                 radius={buyerSettings.locationRadius ?? 25}
+                followedSellerIds={followedSellers}
+                interactedSellerIds={buyerOrders().map((order) => order.sellerId ?? order.seller?.id).filter(Boolean)}
+                savedItems={savedItems}
                 hiddenContentIds={hiddenContentIds}
               />
             </div>
@@ -345,25 +350,40 @@ function getFollowedItems({ posts, events, listings, promotions, allListings, hi
   ];
   const visible = items.filter((item) => !hiddenContentIds.has(item.id));
   // Closer content first; ties (or unknown distance) fall back to newest first.
-  return sortByDistance(visible, location, feedItemContent, (a, b) => contentTimestamp(b) - contentTimestamp(a));
+  return sortByDistance(visible, location, feedItemContent, (a, b) => contentTimestamp(feedItemContent(b)) - contentTimestamp(feedItemContent(a)));
 }
 
 function feedItemContent(item) {
   return item.post ?? item.event ?? item.product ?? item.promotion ?? {};
 }
 
-function CommunityFeed({ filter, followedSellers, onFilterChange, onOpenDetail, onComment, onMenu, onShare, location, radius, hiddenContentIds }) {
+function CommunityFeed({ filter, followedSellers, followedSellerIds, interactedSellerIds, savedItems, onFilterChange, onOpenDetail, onComment, onMenu, onShare, location, radius, hiddenContentIds }) {
   const { upcomingEvents } = useEvents();
   const { listings } = useListings();
   const { posts } = usePosts();
   const { activePromotions } = usePromotions();
   const { isRegrown } = useRegrow();
+  const { getEngagement } = useEngagement();
   const [touchStart, setTouchStart] = useState(null);
   const events = upcomingEvents().filter((event) => isWithinDiscoveryRadius(event, location, radius));
   const nearbyListings = listings.filter((listing) => isWithinDiscoveryRadius(listing, location, radius));
   const nearbyPosts = posts.filter((post) => isWithinDiscoveryRadius(post, location, radius));
   const currentPromotions = activePromotions().filter((promotion) => isWithinDiscoveryRadius(promotionLocationContent(promotion, listings), location, radius));
-  const items = getCommunityItems(filter, { events, listings: nearbyListings, posts: nearbyPosts, currentPromotions, followedSellers, isRegrown, hiddenContentIds, location });
+  const items = getCommunityItems(filter, {
+    events,
+    listings: nearbyListings,
+    posts: nearbyPosts,
+    currentPromotions,
+    followedSellers,
+    followedSellerIds,
+    interactedSellerIds,
+    savedItems,
+    getEngagement,
+    isRegrown,
+    hiddenContentIds,
+    location,
+    radius,
+  });
 
   const changeFilter = (nextFilter) => onFilterChange(nextFilter);
   const handlePointerEnd = (event) => {
@@ -415,7 +435,7 @@ function CommunityFeed({ filter, followedSellers, onFilterChange, onOpenDetail, 
   );
 }
 
-function getCommunityItems(filter, { events, listings, posts, currentPromotions, followedSellers = [], isRegrown, hiddenContentIds, location }) {
+function getCommunityItems(filter, { events, listings, posts, currentPromotions, followedSellers = [], followedSellerIds = followedSellers, interactedSellerIds = [], savedItems = [], getEngagement, isRegrown, hiddenContentIds, location, radius }) {
   const listingItems = listings.map((product) => ({ type: "listing", id: `listing:${product.id}`, product }));
   const postItems = posts.map((post) => ({ type: "post", id: `post:${post.id}`, post }));
   const eventItems = events.map((event) => ({ type: "event", id: `event:${event.id}`, event }));
@@ -433,24 +453,15 @@ function getCommunityItems(filter, { events, listings, posts, currentPromotions,
       ? visibleItems.filter((item) => isRegrown(item.id))
       : visibleItems.filter((item) => item.type === filter.slice(0, -1).toLowerCase());
 
-  const followed = new Set(followedSellers.map(String));
-  const rankFor = (item) => {
-    const content = feedItemContent(item);
-    if (followed.has(String(content.sellerId))) return 3;
-    if (item.type === "promotion" || content.promotion || item.product?.promotion) return 2;
-    if (item.type === "listing" || item.type === "event" || item.type === "post") return 1;
-    return 0;
-  };
-  return [3, 2, 1, 0].flatMap((rank) => sortByDistance(
-    filtered.filter((item) => rankFor(item) === rank),
+  return rankFeedItems(filtered, {
     location,
-    feedItemContent,
-    (a, b) => contentTimestamp(b) - contentTimestamp(a),
-  ));
-}
-
-function contentTimestamp(item) {
-  return item.post?.createdAt ?? item.event?.createdAt ?? item.product?.createdAt ?? item.promotion?.createdAt ?? 0;
+    radius,
+    followedSellers: followedSellerIds,
+    interactedSellerIds,
+    savedItems,
+    viewedCategories: savedItems.map((item) => item.category).filter(Boolean),
+    getEngagement,
+  });
 }
 
 

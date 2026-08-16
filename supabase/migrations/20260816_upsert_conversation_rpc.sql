@@ -1,0 +1,3 @@
+-- Conversation creation uses direct table inserts in src/lib/api/messages.js.
+-- The deployed conversations table contains only id, buyer_id, seller_id,
+-- listing_id, and updated_at, so no conversation RPC is required.

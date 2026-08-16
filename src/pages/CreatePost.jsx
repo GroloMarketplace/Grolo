@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -12,6 +12,7 @@ import { formatListingPrice } from "../utils/listingDisplay";
 import AttachListingModal from "../components/AttachListingModal";
 import TradeBadge from "../components/TradeBadge";
 import { AUDIO_MEDIA_TYPES, IMAGE_MEDIA_TYPES, VIDEO_MEDIA_TYPES, uploadMedia } from "../lib/mediaStorage";
+import { clearLocalDraft, hasDraftContent, readLocalDraft, saveLocalDraft } from "../utils/localDrafts";
 
 const MAX_MEDIA = 10;
 const MAX_VIDEO_SECONDS = 90;
@@ -66,6 +67,9 @@ export default function CreatePost() {
   const { listings } = useListings();
   const { getSellerProfile } = useSellerSettings();
   const sellerId = user?.id ?? "current-user";
+  const draftKey = `grolo-draft:post:${user?.id ?? "anonymous"}`;
+  const [existingDraft] = useState(() => readLocalDraft(draftKey));
+  const [draftChoice, setDraftChoice] = useState(existingDraft ? null : "none");
   const photoInputRef = useRef(null);
   const cameraPhotoInputRef = useRef(null);
   const videoInputRef = useRef(null);
@@ -82,6 +86,20 @@ export default function CreatePost() {
   const [recording, setRecording] = useState(false);
   const [attachedListingId, setAttachedListingId] = useState(null);
   const [showListingPicker, setShowListingPicker] = useState(false);
+
+  useEffect(() => {
+    if (draftChoice !== "resume" || !existingDraft) return;
+    setContent(existingDraft.content ?? "");
+    setClassification(existingDraft.classification ?? "");
+    setMedia(Array.isArray(existingDraft.media) ? existingDraft.media : []);
+    setAttachedListingId(existingDraft.attachedListingId ?? null);
+  }, [draftChoice, existingDraft]);
+
+  useEffect(() => {
+    if (draftChoice === null) return;
+    const draft = { content, classification, media, attachedListingId };
+    if (hasDraftContent({ content, classification, media, attachedListingId })) saveLocalDraft(draftKey, draft);
+  }, [attachedListingId, classification, content, draftChoice, draftKey, media]);
 
   const sellerListings = listings.filter((listing) => listing.sellerId === sellerId);
   const attachedListing = attachedListingId ? sellerListings.find((listing) => listing.id === attachedListingId) : null;
@@ -201,6 +219,7 @@ export default function CreatePost() {
         sends: 0,
       });
       console.log("Post Created:", post.id);
+      clearLocalDraft(draftKey);
       navigate("/", { state: { tab: "Your Community", communityFilter: "Posts" } });
     } catch (error) {
       setMediaError(error.message || "Unable to publish post. Please try again.");
@@ -213,6 +232,15 @@ export default function CreatePost() {
     <MobileScreenLayout>
       <Header title="Create Post" onBack={() => navigate("/my-shop")} />
       <div className="overflow-y-auto flex-1 no-scrollbar p-4">
+        {draftChoice === null && (
+          <div className="mb-4 rounded-lg border border-[#DCEBE0] bg-[#F5FFF6] p-4">
+            <p className="text-[14px] font-semibold">Continue your unfinished draft?</p>
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => setDraftChoice("resume")} className="flex-1 rounded-lg bg-[#498467] py-2 text-[13px] font-medium text-white">Resume Draft</button>
+              <button type="button" onClick={() => { clearLocalDraft(draftKey); setDraftChoice("discard"); }} className="flex-1 rounded-lg border border-[#E6E6E6] py-2 text-[13px] font-medium">Discard Draft</button>
+            </div>
+          </div>
+        )}
         {/* Post Content */}
         <div className="mb-4">
           <textarea value={content} onChange={(event) => setContent(event.target.value)} placeholder="What's on your mind?" className="h-32 w-full resize-none rounded-lg border border-[#E6E6E6] p-3 text-[14px] outline-none" />

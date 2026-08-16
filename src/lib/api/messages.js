@@ -8,14 +8,6 @@ function requireSupabase() {
 
 // Canonical identity contract: participants use profiles/auth UUIDs;
 // conversations, messages, orders, and listings use their database UUIDs.
-const CONVERSATION_TYPE_MAP = {
-  standard: "standard",
-  service: "service",
-  order: "order",
-  trading: "trading",
-  trade_proposal: "trade_proposal",
-};
-
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function isCanonicalUuid(value) {
@@ -31,30 +23,6 @@ function canonicalId(value, fieldName, required = false) {
     throw new Error(`${fieldName} must be a canonical Supabase UUID.`);
   }
   return value;
-}
-
-function metadataFor(row) {
-  return row?.metadata && typeof row.metadata === "object" ? row.metadata : {};
-}
-
-function databaseConversationType(row) {
-  const metadata = metadataFor(row);
-  const localType = row?.conversation_type ?? row?.conversationType ?? metadata.conversationType;
-  if (localType === "trading" && (row?.trade_proposal || metadata.tradeProposal || metadata.tradeContext?.proposal)) {
-    return "trade_proposal";
-  }
-  return CONVERSATION_TYPE_MAP[localType] ?? "standard";
-}
-
-function legacyConversationType(databaseType) {
-  return databaseType === "trade_proposal" ? "trading" : databaseType;
-}
-
-function conversationCategory(type) {
-  if (type === "order") return "Orders";
-  if (type === "service") return "Selling";
-  if (type === "trading" || type === "trade_proposal") return "Trading";
-  return "Selling";
 }
 
 function profileFor(row, role) {
@@ -90,102 +58,167 @@ export function databaseMessageToLegacyMessage(row, { currentUserId } = {}) {
 
 export function databaseConversationToLegacyConversation(row, { currentUserId } = {}) {
   if (!row) return null;
-  const metadata = metadataFor(row);
   const databaseId = row.id ?? row.databaseId;
-  const legacyId = row.legacy_id ?? row.legacyId ?? metadata.legacyId ?? null;
-  const databaseType = databaseConversationType(row);
-  const conversationType = legacyConversationType(databaseType);
   const buyerId = row.buyer_id ?? row.buyerId;
   const sellerId = row.seller_id ?? row.sellerId;
   const participantId = currentUserId === buyerId ? sellerId : currentUserId === sellerId ? buyerId : sellerId;
   const sellerProfile = profileFor(row, "seller");
   const rawMessages = Array.isArray(row.messages) ? row.messages : [];
   const mappedMessages = rawMessages.map((message) => databaseMessageToLegacyMessage(message, { currentUserId })).filter(Boolean);
-  const latestMessage = mappedMessages[mappedMessages.length - 1];
-  const orderId = row.order_id ?? row.orderId ?? metadata.orderId ?? null;
-  const listingId = row.listing_id ?? row.listingId ?? metadata.listingId ?? null;
-  const orderContext = metadata.orderContext
-    ? { ...metadata.orderContext, ...(orderId ? { orderId } : {}) }
-    : null;
-  const tradeContext = row.trade_context ?? metadata.tradeContext ?? metadata.tradeProposal ?? null;
-  const serviceContext = row.service_context ?? metadata.serviceContext ?? null;
-  const tradeProposal = row.trade_proposal ?? metadata.tradeProposal ?? null;
-  const productContext = row.product_context ?? metadata.productContext ?? null;
 
   return {
     ...row,
-    id: legacyId ?? databaseId,
+    id: databaseId,
     databaseId,
-    legacyId,
     name: row.name ?? sellerProfile.display_name ?? sellerProfile.shop_name ?? sellerProfile.name ?? "User",
     sellerId,
     participantId,
     buyerId,
     location: row.location ?? sellerProfile.location,
-    timestamp: row.updated_at ?? row.updatedAt ?? row.created_at ?? row.createdAt,
-    preview: row.preview ?? latestMessage?.text ?? "",
-    unread: Boolean(row.unread),
-    category: row.category ?? conversationCategory(databaseType),
-    conversationType,
-    orderId,
-    listingId,
-    orderContext,
-    tradeContext,
-    tradeProposal,
-    productContext,
-    serviceContext,
+    timestamp: row.updated_at ?? row.updatedAt,
+    listingId: row.listing_id ?? row.listingId ?? null,
     messages: mappedMessages,
-    ...(conversationType === "trading" ? { tradeThread: true } : {}),
   };
 }
 
-export function legacyConversationToDatabasePayload(conversation, { buyerId, sellerId, listingId, orderId } = {}) {
+export function legacyConversationToDatabasePayload(conversation, { buyerId, sellerId, listingId } = {}) {
   const source = conversation && typeof conversation === "object" ? conversation : {};
   const resolvedBuyerId = canonicalId(buyerId ?? source.buyerId, "buyerId", true);
   const resolvedSellerId = canonicalId(sellerId ?? source.sellerId ?? source.participantId, "sellerId", true);
   const resolvedListingId = canonicalId(listingId ?? source.listingId, "listingId");
-  const resolvedOrderId = canonicalId(orderId ?? source.orderId, "orderId");
-  const localType = source.conversationType ?? (source.tradeProposal ? "trade_proposal" : "standard");
-  const conversationType = CONVERSATION_TYPE_MAP[localType] ?? "standard";
   const databaseId = canonicalId(
     source.databaseId ?? (isCanonicalUuid(source.id) ? source.id : null),
     "conversationId",
   );
-  const metadata = {
-    ...(source.metadata && typeof source.metadata === "object" ? source.metadata : {}),
-    ...(source.legacyId ? { legacyId: source.legacyId } : {}),
-    ...(source.orderContext ? { orderContext: source.orderContext } : {}),
-    ...(source.tradeContext ? { tradeContext: source.tradeContext } : {}),
-    ...(source.tradeProposal ? { tradeProposal: source.tradeProposal } : {}),
-    ...(source.productContext ? { productContext: source.productContext } : {}),
-    ...(source.serviceContext ? { serviceContext: source.serviceContext } : {}),
-    ...(source.preview ? { preview: source.preview } : {}),
-    ...(source.unread != null ? { unread: Boolean(source.unread) } : {}),
-  };
 
   return {
     ...(databaseId ? { id: databaseId } : {}),
     buyer_id: resolvedBuyerId,
     seller_id: resolvedSellerId,
     ...(resolvedListingId ? { listing_id: resolvedListingId } : {}),
-    ...(resolvedOrderId ? { order_id: resolvedOrderId } : {}),
-    conversation_type: conversationType,
-    metadata,
   };
 }
 
-export async function upsertConversationInDatabase(conversation, { buyerId, sellerId, listingId, orderId, currentUserId } = {}) {
+const CONVERSATION_SELECT = "id, buyer_id, seller_id, listing_id, updated_at";
+
+function databaseErrorDetails(error) {
+  return {
+    message: error?.message ?? String(error),
+    details: error?.details ?? null,
+    hint: error?.hint ?? null,
+    code: error?.code ?? null,
+    status: error?.status ?? null,
+  };
+}
+
+function attachConversationDebug(error, debug) {
+  const enrichedError = error instanceof Error ? error : new Error(error?.message ?? String(error));
+  enrichedError.conversationDebug = debug;
+  return enrichedError;
+}
+
+export async function upsertConversationInDatabase(conversation, { buyerId, sellerId, listingId, currentUserId } = {}) {
   requireSupabase();
-  const payload = legacyConversationToDatabasePayload(conversation, { buyerId, sellerId, listingId, orderId });
-  const { data, error } = await supabase.rpc("upsert_conversation", {
-    p_seller_id: payload.seller_id,
-    p_conversation_type: payload.conversation_type,
-    p_listing_id: payload.listing_id ?? null,
-    p_order_id: payload.order_id ?? null,
-    p_metadata: payload.metadata,
+  const { data: { user: authenticatedUser } = {}, error: authError } = await supabase.auth.getUser();
+  const authenticatedUserId = authenticatedUser?.id ?? null;
+  const source = conversation && typeof conversation === "object" ? conversation : {};
+  const baseDebug = {
+    authenticatedUserId,
+    buyerId: buyerId ?? source.buyerId ?? null,
+    sellerId: sellerId ?? source.sellerId ?? source.participantId ?? null,
+    listingId: listingId ?? source.listingId ?? null,
+  };
+  if (authError) throw attachConversationDebug(authError, { ...baseDebug, error: databaseErrorDetails(authError), fullSupabaseError: databaseErrorDetails(authError), supabaseError: authError });
+  if (!authenticatedUserId) {
+    const sessionError = new Error("User session missing");
+    throw attachConversationDebug(sessionError, { ...baseDebug, error: databaseErrorDetails(sessionError), fullSupabaseError: databaseErrorDetails(sessionError), supabaseError: null });
+  }
+  const payload = legacyConversationToDatabasePayload(conversation, { buyerId, sellerId, listingId });
+  const requestDetails = {
+    authenticatedUserId,
+    targetUserId: payload.seller_id,
+    buyerId: payload.buyer_id,
+    sellerId: payload.seller_id,
+    listingId: payload.listing_id ?? null,
+    conversationId: payload.id ?? null,
+    operation: payload.id ? "update" : "insert",
+  };
+  console.info("Conversation table creation attempt", requestDetails);
+  let row;
+  let error;
+  if (payload.id) {
+    ({ data: row, error } = await supabase
+      .from("conversations")
+      .update({
+        buyer_id: payload.buyer_id,
+        seller_id: payload.seller_id,
+        listing_id: payload.listing_id ?? null,
+      })
+      .eq("id", payload.id)
+      .select(CONVERSATION_SELECT)
+      .single());
+  } else {
+    let existingQuery = supabase
+      .from("conversations")
+      .select(CONVERSATION_SELECT)
+      .eq("buyer_id", payload.buyer_id)
+      .eq("seller_id", payload.seller_id);
+    existingQuery = payload.listing_id
+      ? existingQuery.eq("listing_id", payload.listing_id)
+      : existingQuery.is("listing_id", null);
+    const existingResult = await existingQuery.limit(1).maybeSingle();
+    if (existingResult.error) {
+      console.warn("Conversation table lookup failed", {
+        ...requestDetails,
+        error: databaseErrorDetails(existingResult.error),
+        supabaseError: existingResult.error,
+      });
+      throw attachConversationDebug(existingResult.error, {
+        ...requestDetails,
+        error: databaseErrorDetails(existingResult.error),
+        fullSupabaseError: databaseErrorDetails(existingResult.error),
+        supabaseError: existingResult.error,
+      });
+    }
+    if (existingResult.data) {
+      row = existingResult.data;
+      console.info("Conversation table existing row recovered", {
+        ...requestDetails,
+        conversationUuid: row.id,
+        committed: true,
+      });
+    } else {
+      ({ data: row, error } = await supabase
+        .from("conversations")
+        .insert({
+          buyer_id: payload.buyer_id,
+          seller_id: payload.seller_id,
+          listing_id: payload.listing_id ?? null,
+        })
+        .select(CONVERSATION_SELECT)
+        .single());
+    }
+  }
+
+  if (error) {
+    console.warn("Conversation table insert/update failed", {
+      ...requestDetails,
+      error: databaseErrorDetails(error),
+      supabaseError: error,
+    });
+    throw attachConversationDebug(error, {
+      ...requestDetails,
+      error: databaseErrorDetails(error),
+      fullSupabaseError: databaseErrorDetails(error),
+      supabaseError: error,
+    });
+  }
+  console.info("Conversation table insert response", {
+    ...requestDetails,
+    conversationUuid: row?.id ?? null,
+    committed: Boolean(row?.id),
   });
-  if (error) throw error;
-  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.id) throw new Error("Conversation table did not return a conversation UUID.");
   return databaseConversationToLegacyConversation(row, { currentUserId: currentUserId ?? buyerId });
 }
 
@@ -251,7 +284,7 @@ export async function getConversations(userId) {
   const authenticatedUserId = await getAuthenticatedUserId(userId);
   const { data, error } = await supabase
     .from("conversations")
-    .select("id, buyer_id, seller_id, listing_id, order_id, conversation_type, metadata, preview, created_at, updated_at, messages(id, conversation_id, sender_id, content, created_at)")
+    .select("id, buyer_id, seller_id, listing_id, updated_at, messages(id, conversation_id, sender_id, content, created_at)")
     .or(`buyer_id.eq.${authenticatedUserId},seller_id.eq.${authenticatedUserId}`)
     .order("updated_at", { ascending: false });
   if (error) throw error;
@@ -294,17 +327,68 @@ export async function getMessages(conversationId, userId) {
   return mappedMessages;
 }
 
-export async function sendMessage({ conversationId, senderId, content }) {
+function attachMessageDebug(error, debug) {
+  const enrichedError = error instanceof Error ? error : new Error(error?.message ?? String(error));
+  enrichedError.messageDebug = debug;
+  return enrichedError;
+}
+
+export async function sendMessage({ conversationId, senderId, recipientId, content }) {
   requireSupabase();
   const authenticatedUserId = await getAuthenticatedUserId(senderId);
   const resolvedConversationId = canonicalId(conversationId, "conversationId", true);
+  const resolvedRecipientId = canonicalId(recipientId, "recipientId", true);
+  const normalizedContent = typeof content === "string" ? content.trim() : "";
+  if (!resolvedConversationId) throw new Error("conversation_id is required to send a message.");
+  if (!authenticatedUserId) throw new Error("sender_id is required to send a message.");
+  if (!normalizedContent) throw new Error("Message content cannot be empty.");
+  const insertPayload = {
+    conversation_id: resolvedConversationId,
+    sender_id: authenticatedUserId,
+    content: normalizedContent,
+  };
+  const debug = {
+    authUserId: authenticatedUserId,
+    conversationUuid: resolvedConversationId,
+    senderId: authenticatedUserId,
+    recipientId: resolvedRecipientId,
+    messageContent: content,
+    messageInsertPayload: insertPayload,
+  };
+  console.info("Message database insert attempt", debug);
   const { data, error } = await supabase
     .from("messages")
-    .insert({ conversation_id: resolvedConversationId, sender_id: authenticatedUserId, content })
+    .insert(insertPayload)
     .select("id, conversation_id, sender_id, content, created_at")
-    .single();
-  if (error) throw error;
-  return databaseMessageToLegacyMessage(data, { currentUserId: authenticatedUserId });
+    .maybeSingle();
+  if (error) {
+    const errorDetails = databaseErrorDetails(error);
+    const failedDebug = { ...debug, messageInsertResponse: null, messageInsertError: errorDetails, fullSupabaseError: error, messagesRowCreated: false };
+    console.warn("Message database insert failed", failedDebug);
+    throw attachMessageDebug(error, failedDebug);
+  }
+  if (!data) {
+    const noRowError = new Error("Message insert returned no row. Verify messages SELECT RLS policy and Supabase response permissions.");
+    const failedDebug = {
+      ...debug,
+      messageInsertResponse: null,
+      messageInsertError: databaseErrorDetails(noRowError),
+      fullSupabaseError: null,
+      messagesRowCreated: false,
+    };
+    console.warn("Message database insert returned no row", failedDebug);
+    throw attachMessageDebug(noRowError, failedDebug);
+  }
+  const message = databaseMessageToLegacyMessage(data, { currentUserId: authenticatedUserId });
+  const successDebug = {
+    ...debug,
+    messageInsertResponse: data,
+    messageInsertError: null,
+    fullSupabaseError: null,
+    messagesRowCreated: true,
+  };
+  console.info("Message database insert response", successDebug);
+  return { ...message, messageDebug: successDebug };
 }
 
 export function subscribeToMessages(conversationId, onInsert) {

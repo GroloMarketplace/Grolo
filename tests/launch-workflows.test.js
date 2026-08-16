@@ -6,6 +6,7 @@ import { ACTIVE_CAMPAIGN_ERROR, addCalendarDays, campaignDurationDays, calendarD
 import { seed } from "./fixtures/seed.js";
 import { LOCATION_OPTIONS, friendlyLocation, locationFromLegacyText } from "../src/data/locations.js";
 import { promotionCreatedTimestamp } from "../src/utils/promotionRecords.js";
+import { rankFeedItems, recencyScore } from "../src/utils/feedRanking.js";
 import { hasRepairableStoreProfile, sellerProfileUpdates, withoutSellerActivationFields } from "../src/utils/profileActivation.js";
 
 function createCommerceState() {
@@ -56,6 +57,20 @@ test("normalized location options support friendly labels, postal search, and co
   assert.equal(postalMatch?.city, "Calgary");
   assert.equal(Number.isFinite(mardaLoop?.latitude), true);
   assert.equal(Number.isFinite(mardaLoop?.longitude), true);
+});
+
+test("For You ranking prioritizes freshness over proximity and boosts engagement", () => {
+  const now = Date.parse("2026-08-16T12:00:00Z");
+  const location = { latitude: 51.0447, longitude: -114.0719 };
+  const freshNearby = { type: "post", post: { id: "fresh", createdAt: now - 2 * 60 * 1000, latitude: 51.0717, longitude: -114.0719 } };
+  const oldVeryClose = { type: "post", post: { id: "old", createdAt: now - 3 * 24 * 60 * 60 * 1000, latitude: 51.0492, longitude: -114.0719, likes: 100, comments: 100 } };
+  const ranked = rankFeedItems([oldVeryClose, freshNearby], { location, radius: 25, now });
+  assert.equal(ranked[0].post.id, "fresh");
+  assert.ok(recencyScore(freshNearby.post, now) > recencyScore(oldVeryClose.post, now));
+
+  const lightlyEngaged = { type: "listing", product: { id: "light", createdAt: now - 2 * 24 * 60 * 60 * 1000, latitude: 51.05, longitude: -114.0719 } };
+  const stronglyEngaged = { type: "listing", product: { id: "strong", createdAt: now - 2 * 24 * 60 * 60 * 1000, latitude: 51.05, longitude: -114.0719, views: 500, messages: 20 } };
+  assert.equal(rankFeedItems([lightlyEngaged, stronglyEngaged], { location, radius: 25, now })[0].product.id, "strong");
 });
 
 test("buyer signup and onboarding validation accepts seeded data and rejects invalid input", () => {
@@ -215,6 +230,36 @@ test("server campaign validation protects duration and duplicate active campaign
   assert.match(activeLimitMigration, /existing\.seller_id = new\.seller_id/);
   assert.match(activeLimitMigration, /existing\.id is distinct from new\.id/);
   assert.match(activeLimitMigration, /unique_violation/);
+});
+
+test("trust safety block-check RPC matches the messaging dependency", async () => {
+  const [migration, api] = await Promise.all([
+    readFile(new URL("../supabase/migrations/20260816_restore_trust_safety_schema.sql", import.meta.url), "utf8"),
+    readFile(new URL("../src/lib/api/trustSafety.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(migration, /create table if not exists public\.user_blocks/);
+  assert.match(migration, /user_blocks_blocker_idx/);
+  assert.match(migration, /user_blocks_blocked_idx/);
+  assert.match(migration, /create policy "Users can manage their own blocks"/);
+  assert.match(migration, /create policy "Users can see blocks affecting them"/);
+  assert.match(migration, /grant select, insert, update, delete on public\.user_blocks to authenticated/);
+  assert.match(migration, /create or replace function public\.is_user_blocked\(p_first_user_id uuid, p_second_user_id uuid\)/);
+  assert.match(migration, /grant execute on function public\.is_user_blocked\(uuid, uuid\) to authenticated/);
+  assert.match(api, /supabase\.rpc\("is_user_blocked", \{ p_first_user_id: firstUserId, p_second_user_id: secondUserId \}/);
+});
+
+test("conversation creation uses the conversations table contract", async () => {
+  const api = await readFile(new URL("../src/lib/api/messages.js", import.meta.url), "utf8");
+  assert.match(api, /\.from\("conversations"\)/);
+  assert.match(api, /\.insert\(\{/);
+  assert.match(api, /buyer_id: payload\.buyer_id/);
+  assert.match(api, /seller_id: payload\.seller_id/);
+  assert.doesNotMatch(api, /rpc\("upsert_conversation"/);
+  assert.doesNotMatch(api, /order_id:|conversation_type:|metadata:|preview:/);
+  assert.match(api, /\.from\("messages"\)/);
+  assert.match(api, /conversation_id: resolvedConversationId/);
+  assert.match(api, /sender_id: authenticatedUserId/);
+  assert.match(api, /content,/);
 });
 
 test("critical Supabase contracts are present for regression coverage", async () => {

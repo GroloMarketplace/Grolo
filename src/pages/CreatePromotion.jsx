@@ -8,6 +8,7 @@ import { useProfileMode } from "../context/ProfileModeContext";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage } from "../lib/imageStorage";
 import { validateCampaignDates } from "../utils/campaignDuration";
+import { clearLocalDraft, hasDraftContent, readLocalDraft, saveLocalDraft } from "../utils/localDrafts";
 
 const SUPPORTED_PROMOTION_TYPES = new Set(["percentage", "fixed_amount"]);
 
@@ -36,6 +37,9 @@ export default function CreatePromotion() {
   const { user } = useAuth();
   const { listings, loading: listingsLoading, error: listingsError } = useListings();
   const { storeOpenedAt } = useProfileMode();
+  const draftKey = `grolo-draft:promotion:${user?.id ?? "anonymous"}`;
+  const [existingDraft] = useState(() => readLocalDraft(draftKey));
+  const [draftChoice, setDraftChoice] = useState(existingDraft && !isEditing ? null : "none");
   const promotionToEdit = promotions.find((promotion) => String(promotion.id) === String(promotionId) && String(promotion.sellerId) === String(user?.id));
   const sellerProducts = useMemo(() => listings.filter((product) => {
     if (product.sellerId !== user?.id || product.status !== "Active") return false;
@@ -55,6 +59,25 @@ export default function CreatePromotion() {
   });
   const [imageError, setImageError] = useState("");
   const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    if (isEditing || draftChoice !== "resume" || !existingDraft) return;
+    setFormData((current) => ({ ...current, ...(existingDraft.formData ?? {}) }));
+  }, [draftChoice, existingDraft, isEditing]);
+
+  useEffect(() => {
+    if (isEditing || draftChoice === null) return;
+    const nonDefaultProductSelected = formData.productIds.some((id) => id !== sellerProducts[0]?.id);
+    if (hasDraftContent({
+      title: formData.title,
+      type: formData.type !== "percentage" ? formData.type : "",
+      value: formData.value,
+      nonDefaultProductSelected,
+      startsAt: formData.startsAt !== new Date().toISOString().slice(0, 10) ? formData.startsAt : "",
+      endsAt: formData.endsAt,
+      image: formData.image,
+    })) saveLocalDraft(draftKey, { formData });
+  }, [draftChoice, draftKey, formData, isEditing, sellerProducts]);
 
   useEffect(() => {
     if (!promotionToEdit) return;
@@ -126,7 +149,10 @@ export default function CreatePromotion() {
         productIds: realListingIds,
       };
       if (isEditing) await updatePromotion(promotionId, payload);
-      else await addPromotion(payload);
+      else {
+        await addPromotion(payload);
+        clearLocalDraft(draftKey);
+      }
       navigate(isEditing ? `/promotions/${user.id}` : "/shop");
     } catch (error) {
       setFormError(error.message || "Unable to create promotion.");
@@ -139,6 +165,15 @@ export default function CreatePromotion() {
     <MobileScreenLayout>
       <Header title={isEditing ? "Edit Promotion" : "Create Promotion"} onBack={() => navigate(isEditing ? `/promotions/${user.id}` : "/shop")} />
       <form onSubmit={handleSubmit} className="min-h-0 flex-1 overflow-y-auto no-scrollbar flex flex-col gap-5 px-4 py-6 pb-12">
+        {draftChoice === null && (
+          <div className="rounded-lg border border-[#DCEBE0] bg-[#F5FFF6] p-4">
+            <p className="text-[14px] font-semibold">Continue your unfinished draft?</p>
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => setDraftChoice("resume")} className="flex-1 rounded-lg bg-[#498467] py-2 text-[13px] font-medium text-white">Resume Draft</button>
+              <button type="button" onClick={() => { clearLocalDraft(draftKey); setDraftChoice("discard"); }} className="flex-1 rounded-lg border border-[#E6E6E6] py-2 text-[13px] font-medium">Discard Draft</button>
+            </div>
+          </div>
+        )}
         <div>
           <label className="block text-[14px] font-medium mb-2">Promotion name</label>
           <input

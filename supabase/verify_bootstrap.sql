@@ -169,7 +169,6 @@ from (values
   ('get_follower_counts', 'public.get_follower_counts()'),
   ('create_activity_notification', 'public.create_activity_notification(uuid,text,text,text,text)'),
   ('create_review', 'public.create_review(text,smallint,uuid,uuid,uuid,uuid,text,text,jsonb,jsonb)'),
-  ('upsert_conversation', 'public.upsert_conversation(uuid,text,uuid,uuid,jsonb)'),
   ('create_order_with_items', 'public.create_order_with_items(uuid,text,numeric,jsonb,jsonb)'),
   ('cancel_order_with_inventory', 'public.cancel_order_with_inventory(uuid)'),
   ('update_order_status', 'public.update_order_status(uuid,text)')
@@ -189,9 +188,7 @@ select 'constraint:' || required_name,
 from (values
   ('reviews_review_type_check'), ('reviews_criteria_object_check'),
   ('reviews_photos_array_check'), ('reviews_status_check'),
-  ('conversations_type_check'), ('conversations_metadata_object_check'),
-  ('conversations_distinct_participants_check'),
-  ('conversations_context_check'), ('notifications_type_check'),
+  ('notifications_type_check'),
   ('orders_status_check'), ('promotions_promotion_type_check'),
   ('promotions_discount_type_check'), ('reports_target_type_check'), ('reports_reason_check'),
   ('reports_status_check')

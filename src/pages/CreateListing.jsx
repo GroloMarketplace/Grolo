@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
@@ -10,6 +10,7 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import { validateListing } from "../utils/validation";
 import LocationAutocomplete from "../components/LocationAutocomplete";
 import { friendlyLocation } from "../data/locations";
+import { clearLocalDraft, hasDraftContent, readLocalDraft, saveLocalDraft } from "../utils/localDrafts";
 
 function TextField({ label, type = "text", value, onChange, placeholder, required }) {
   return (
@@ -38,6 +39,9 @@ export default function CreateListing() {
   const { listings, addListing } = useListings();
   const { user } = useAuth();
   const { getSellerProfile } = useSellerSettings();
+  const draftKey = `grolo-draft:listing:${user?.id ?? "anonymous"}`;
+  const [existingDraft] = useState(() => readLocalDraft(draftKey));
+  const [draftChoice, setDraftChoice] = useState(existingDraft ? null : "none");
   const [photos, setPhotos] = useState([]);
   const [submitError, setSubmitError] = useState("");
   const [formData, setFormData] = useState({
@@ -58,6 +62,34 @@ export default function CreateListing() {
     availableForTrade: false,
     desiredTradeItems: "",
   });
+
+  useEffect(() => {
+    if (draftChoice !== "resume" || !existingDraft) return;
+    setFormData((current) => ({ ...current, ...(existingDraft.formData ?? {}) }));
+    setPhotos(Array.isArray(existingDraft.photos) ? existingDraft.photos : []);
+  }, [draftChoice, existingDraft]);
+
+  useEffect(() => {
+    if (draftChoice === null) return;
+    if (hasDraftContent({
+      title: formData.title,
+      category: formData.category,
+      price: formData.price,
+      description: formData.description,
+      location: formData.location,
+      serviceArea: formData.serviceArea,
+      locationDetails: formData.locationDetails,
+      quantityAvailable: formData.quantityAvailable !== "25" ? formData.quantityAvailable : "",
+      serviceType: formData.serviceType,
+      availability: formData.availability,
+      yearsOfExperience: formData.yearsOfExperience,
+      preferredContactMethod: formData.preferredContactMethod !== "Message Through Grolo" ? formData.preferredContactMethod : "",
+      responseTime: formData.responseTime,
+      availableForTrade: formData.availableForTrade,
+      desiredTradeItems: formData.desiredTradeItems,
+      photos,
+    })) saveLocalDraft(draftKey, { formData, photos });
+  }, [draftChoice, draftKey, formData, photos]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -117,6 +149,7 @@ export default function CreateListing() {
     const createdListing = await addListing(listing);
     console.log("Listing Created:", createdListing.name);
     console.log("Listings Count:", listings.length + 1);
+    clearLocalDraft(draftKey);
     navigate(`/product/${createdListing.id}`, { state: { listingCreated: createdListing.id } });
     } catch (error) {
       console.error("Unable to create listing", {
@@ -140,6 +173,15 @@ export default function CreateListing() {
       />
       <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar pb-24">
         <form onSubmit={handleSubmit} className="flex flex-col gap-6 px-4 py-6 pb-8">
+          {draftChoice === null && (
+            <div className="rounded-lg border border-[#DCEBE0] bg-[#F5FFF6] p-4">
+              <p className="text-[14px] font-semibold">Continue your unfinished draft?</p>
+              <div className="mt-3 flex gap-2">
+                <button type="button" onClick={() => setDraftChoice("resume")} className="flex-1 rounded-lg bg-[#498467] py-2 text-[13px] font-medium text-white">Resume Draft</button>
+                <button type="button" onClick={() => { clearLocalDraft(draftKey); setDraftChoice("discard"); }} className="flex-1 rounded-lg border border-[#E6E6E6] py-2 text-[13px] font-medium">Discard Draft</button>
+              </div>
+            </div>
+          )}
           {submitError && <pre role="alert" className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] text-red-700">{submitError}</pre>}
           <div>
             <label className="block text-[14px] font-medium mb-2">Listing Title</label>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { databaseMessageToLegacyMessage, getConversations, getMessages, isCanonicalUuid, sendMessage, subscribeToMessages, upsertConversationInDatabase } from "../lib/api/messages";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
@@ -32,6 +32,8 @@ function normalizeConversation(input) {
 export function MessageProvider({ children }) {
   const { user, isSuspended } = useAuth();
   const [messages, setMessages] = useState([]);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
   const ensureActiveAccount = () => {
     if (isSuspended) throw new Error("Your account is suspended and messaging is restricted.");
   };
@@ -153,9 +155,10 @@ export function MessageProvider({ children }) {
     });
   };
 
-  const persistConversation = (conversation, { existing = false } = {}) => {
+  const persistConversation = (conversation, { existing = false, throwOnError = false } = {}) => {
     const normalizedConversation = normalizeConversation(conversation);
-    if (!user?.id || !isSupabaseConfigured) return;
+    if (!user?.id) throw new Error("An authenticated user is required to create a conversation.");
+    if (!isSupabaseConfigured) throw new Error("Supabase is not configured. Conversation creation is unavailable.");
     const databasePayloadConversation = normalizedConversation.tradeProposal
       ? { ...normalizedConversation, conversationType: "trade_proposal" }
       : normalizedConversation;
@@ -163,7 +166,6 @@ export function MessageProvider({ children }) {
       buyerId: user.id,
       sellerId: normalizedConversation.sellerId ?? normalizedConversation.participantId,
       listingId: normalizedConversation.listingId,
-      orderId: normalizedConversation.orderId,
       currentUserId: user.id,
     }).then((databaseConversation) => {
       if (!databaseConversation) return null;
@@ -194,8 +196,12 @@ export function MessageProvider({ children }) {
       console.warn("Conversation persistence failed", {
         conversationId: normalizedConversation.id,
         conversationType: normalizedConversation.conversationType,
+        buyerId: normalizedConversation.buyerId ?? user?.id ?? null,
+        sellerId: normalizedConversation.sellerId ?? normalizedConversation.participantId ?? null,
+        listingId: normalizedConversation.listingId ?? null,
         error: error?.message ?? String(error),
       });
+      if (throwOnError) throw error;
       return null;
     });
     pendingConversationWrites.current.set(normalizedConversation.id, write);
@@ -220,12 +226,36 @@ export function MessageProvider({ children }) {
     });
   };
 
+  const refreshConversationMessages = async (conversationId, expectedMessageId = null) => {
+    if (!user?.id || !isSupabaseConfigured || !isCanonicalUuid(conversationId)) return;
+    const refreshedMessages = await getMessages(conversationId, user.id);
+    if (expectedMessageId && !refreshedMessages.some((message) => (
+      message.databaseId === expectedMessageId || message.id === expectedMessageId
+    ))) {
+      throw new Error("Message insert was confirmed but the message was not visible after reload. Check messages SELECT RLS policy.");
+    }
+    setMessages((current) => current.map((conversation) => {
+      if (conversation.databaseId !== conversationId && conversation.id !== conversationId) return conversation;
+      const latestMessage = refreshedMessages[refreshedMessages.length - 1];
+      return normalizeConversation({
+        ...conversation,
+        messages: refreshedMessages,
+        ...(latestMessage ? { preview: latestMessage.text, timestamp: latestMessage.timestamp } : {}),
+      });
+    }));
+    console.info("Message list refreshed after insert", {
+      conversationId,
+      messageCount: refreshedMessages.length,
+    });
+    return refreshedMessages;
+  };
+
   const appendMessage = (conversationId, message, pendingConversation) => {
     ensureActiveAccount();
     const existing = messages.find((conversation) => conversation.id === conversationId)
       ?? messages.find((conversation) => conversation.databaseId === conversationId);
     const baseConversation = existing ?? pendingConversation;
-    if (!baseConversation) return;
+    if (!baseConversation) throw new Error("Conversation is not available. Please reopen the chat and try again.");
 
     const normalizedConversation = normalizeConversation(baseConversation);
     const requestedContent = message.text ?? message.content ?? "";
@@ -274,6 +304,7 @@ export function MessageProvider({ children }) {
     };
 
     const send = async () => {
+      let recipientId = null;
       try {
         let databaseConversationId = initialDatabaseConversationId;
         if (!databaseConversationId) {
@@ -285,31 +316,66 @@ export function MessageProvider({ children }) {
         if (!user?.id || !isSupabaseConfigured || !databaseConversationId) {
           throw new Error("A canonical conversation UUID and authenticated user are required.");
         }
-        const participantId = normalizedConversation.buyerId === user.id
+        recipientId = normalizedConversation.buyerId === user.id
           ? normalizedConversation.sellerId
           : normalizedConversation.buyerId;
-        if (participantId && await isUserBlocked(user.id, participantId)) {
+        if (!recipientId || !isCanonicalUuid(recipientId)) {
+          throw new Error("A canonical recipient UUID is required.");
+        }
+        console.info("Message recipient resolved", {
+          conversationId: databaseConversationId,
+          senderId: user.id,
+          recipientId,
+        });
+        if (await isUserBlocked(user.id, recipientId)) {
           throw new Error("Messaging is unavailable because one of these users is blocked.");
         }
 
-        const savedMessage = await sendMessage({
+        const persistedMessage = await sendMessage({
           conversationId: databaseConversationId,
           senderId: user.id,
+          recipientId,
           content: requestedContent,
         });
+        const { messageDebug, ...savedMessage } = persistedMessage;
         console.info("Message send succeeded", {
           conversationId: databaseConversationId,
           messageId: savedMessage?.databaseId ?? savedMessage?.id,
           senderId: user.id,
+          recipientId,
         });
         updateState(savedMessage);
+        await refreshConversationMessages(databaseConversationId, savedMessage.databaseId ?? savedMessage.id).catch((refreshError) => {
+          console.warn("Message list refresh after insert failed", {
+            conversationId: databaseConversationId,
+            senderId: user.id,
+            recipientId,
+            error: refreshError?.message ?? String(refreshError),
+          });
+          const reloadError = refreshError instanceof Error ? refreshError : new Error(String(refreshError));
+          reloadError.messageDebug = {
+            ...messageDebug,
+            messageInsertError: {
+              message: reloadError.message,
+              details: reloadError.details ?? null,
+              hint: reloadError.hint ?? null,
+              code: reloadError.code ?? null,
+              status: reloadError.status ?? null,
+            },
+            fullSupabaseError: refreshError,
+          };
+          throw reloadError;
+        });
+        return { message: savedMessage, messageDebug };
       } catch (error) {
         console.warn("Message send failed", {
           conversationId: initialDatabaseConversationId ?? conversationId,
           messageId: message.id,
           senderId: user?.id ?? null,
+          recipientId,
           error: error?.message ?? String(error),
         });
+        throw error;
       } finally {
         pendingMessageSends.current.delete(sendKey);
       }
@@ -317,6 +383,85 @@ export function MessageProvider({ children }) {
 
     return send();
   };
+
+  const ensureConversation = useCallback(async ({ conversationId, pendingConversation, participantId, listingId, conversationType = "standard" }) => {
+    if (isSuspended) throw new Error("Your account is suspended and messaging is restricted.");
+    if (!user?.id) throw new Error("User session missing");
+
+    const routeParticipantId = participantId ?? pendingConversation?.participantId ?? pendingConversation?.sellerId ?? conversationId;
+    const localConversation = messagesRef.current.find((item) => item.id === conversationId || item.databaseId === conversationId)
+      ?? pendingConversation;
+    const localDatabaseId = localConversation?.databaseId ?? null;
+    if (localDatabaseId) {
+      subscribeToConversation(localDatabaseId);
+      return localDatabaseId;
+    }
+
+    const pendingWriteKey = localConversation?.id ?? pendingConversation?.id;
+    const pendingWrite = pendingWriteKey ? pendingConversationWrites.current.get(pendingWriteKey) : null;
+    if (pendingWrite) {
+      const databaseConversation = await pendingWrite;
+      if (databaseConversation?.databaseId) return databaseConversation.databaseId;
+    }
+
+    if (!isCanonicalUuid(routeParticipantId)) {
+      throw new Error("The other participant must have a valid account UUID.");
+    }
+
+    let existingConversation = null;
+    try {
+      const availableConversations = await getConversations(user.id);
+      existingConversation = availableConversations.find((item) => {
+        const sameParticipants = (String(item.buyerId) === String(user.id) && String(item.sellerId) === String(routeParticipantId))
+          || (String(item.sellerId) === String(user.id) && String(item.buyerId) === String(routeParticipantId));
+        const sameListing = !listingId || !item.listingId || String(item.listingId) === String(listingId);
+        return sameParticipants && sameListing;
+      }) ?? null;
+    } catch (error) {
+      console.warn("Conversation lookup before creation failed", {
+        participantId: routeParticipantId,
+        currentUserId: user.id,
+        error: error?.message ?? String(error),
+      });
+    }
+
+    if (existingConversation?.databaseId) {
+      const hydratedMessages = isCanonicalUuid(existingConversation.databaseId)
+        ? await getMessages(existingConversation.databaseId, user.id)
+        : existingConversation.messages ?? [];
+      const hydratedConversation = normalizeConversation({ ...existingConversation, messages: hydratedMessages });
+      setMessages((current) => [hydratedConversation, ...current.filter((item) => item.databaseId !== existingConversation.databaseId && item.id !== hydratedConversation.id)]);
+      subscribeToConversation(existingConversation.databaseId);
+      console.info("Conversation recovered before chat send", {
+        conversationId: existingConversation.databaseId,
+        senderId: user.id,
+        recipientId: routeParticipantId,
+      });
+      return existingConversation.databaseId;
+    }
+
+    const currentUserIsSeller = String(pendingConversation?.sellerId) === String(user.id);
+    const seed = normalizeConversation({
+      ...(pendingConversation ?? {}),
+      id: pendingConversation?.databaseId
+        ?? (!isCanonicalUuid(pendingConversation?.id) ? pendingConversation?.id : null)
+        ?? `conversation-${user.id}-${routeParticipantId}-${listingId ?? "general"}`,
+      buyerId: currentUserIsSeller ? routeParticipantId : user.id,
+      sellerId: currentUserIsSeller ? user.id : routeParticipantId,
+      participantId: routeParticipantId,
+      listingId: listingId ?? pendingConversation?.listingId,
+      conversationType: pendingConversation?.conversationType ?? conversationType,
+      messages: pendingConversation?.messages ?? [],
+    });
+    const databaseConversation = await persistConversation(seed, { throwOnError: true });
+    if (!databaseConversation?.databaseId) throw new Error("Unable to create a conversation record. Please try again.");
+    console.info("Conversation initialized before chat send", {
+      conversationId: databaseConversation.databaseId,
+      senderId: user.id,
+      recipientId: routeParticipantId,
+    });
+    return databaseConversation.databaseId;
+  }, [isSuspended, user?.id]);
 
   const createOrderConversation = ({ order, product, seller, fulfillmentMethod }) => {
     ensureActiveAccount();
@@ -359,6 +504,7 @@ export function MessageProvider({ children }) {
       conversationType: "order",
       orderId: order.id,
       orderContext,
+      listingId: product.databaseId ?? product.id,
       messages: [],
     };
     persistConversation(conversation);
@@ -393,7 +539,7 @@ export function MessageProvider({ children }) {
     });
 
     if (existing) {
-      const updatedConversation = { ...existing, buyerId, listingId: listing.id, conversationType: "service", serviceContext };
+      const updatedConversation = { ...existing, buyerId, listingId: listing.databaseId ?? listing.id, conversationType: "service", serviceContext };
       persistConversation(updatedConversation, { existing: true });
       setMessages((current) => {
         const nextMessages = current.map((conversation) => conversation.id === existing.id ? updatedConversation : conversation);
@@ -414,7 +560,7 @@ export function MessageProvider({ children }) {
       unread: false,
       category: "Selling",
       conversationType: "service",
-      listingId: listing.id,
+      listingId: listing.databaseId ?? listing.id,
       serviceContext,
       messages: [],
     };
@@ -447,7 +593,7 @@ export function MessageProvider({ children }) {
       unread: false,
       category: "Trading",
       conversationType: "trading",
-      listingId: listing.id,
+      listingId: listing.databaseId ?? listing.id,
       tradePreferences,
       productContext: {
         id: listing.id,
@@ -504,7 +650,7 @@ export function MessageProvider({ children }) {
       unread: false,
       category: "Trading",
       conversationType: "trading",
-      listingId: listing.id,
+      listingId: listing.databaseId ?? listing.id,
       tradePreferences: listing.desiredTradeItems?.trim() ?? "",
       productContext: {
         id: listing.id,
@@ -527,7 +673,7 @@ export function MessageProvider({ children }) {
     return { id, conversation };
   };
 
-  const value = useMemo(() => ({ messages, upsertConversation, appendMessage, createSellerConversation, createTradeConversation, createTradeProposal, createOrderConversation }), [messages]);
+  const value = useMemo(() => ({ messages, upsertConversation, appendMessage, ensureConversation, createSellerConversation, createTradeConversation, createTradeProposal, createOrderConversation }), [messages]);
   return <MessageContext.Provider value={value}>{children}</MessageContext.Provider>;
 }
 

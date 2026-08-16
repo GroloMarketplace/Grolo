@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { sellers } from "../data/mockData";
 import { useListings } from "../context/ListingContext";
 import { useMessages } from "../context/MessageContext";
+import { useAuth } from "../context/AuthContext";
 import { useOrders } from "../context/OrderContext";
 import ProfileAvatar from "../components/ProfileAvatar";
 import OutlineIcon from "../components/OutlineIcon";
@@ -19,14 +20,25 @@ export default function Chat() {
   const { id } = useParams();
   const [text, setText] = useState("");
   const [selectedTradeItem, setSelectedTradeItem] = useState(null);
+  const [sendError, setSendError] = useState("");
+  const [sending, setSending] = useState(false);
+  const [conversationUUID, setConversationUUID] = useState(null);
+  const [conversationReady, setConversationReady] = useState(false);
+  const conversationUUIDRef = useRef(null);
+  const conversationReadyRef = useRef(false);
+  const conversationRouteRef = useRef(null);
+  const [conversationAttempt, setConversationAttempt] = useState(0);
+  const [conversationDebug, setConversationDebug] = useState(null);
+  const [messageDebug, setMessageDebug] = useState(null);
   const inputRef = useRef(null);
   const { listings } = useListings();
-  const { messages, appendMessage } = useMessages();
+  const { messages, appendMessage, ensureConversation } = useMessages();
+  const { user } = useAuth();
   const { orders } = useOrders();
   const { getSellerProfile } = useSellerSettings();
   const { settings: buyerProfile } = useBuyerSettings();
   const pendingConversation = location.state?.pendingConversation;
-  const conversation = messages.find((message) => message.id === id) ?? pendingConversation;
+  const conversation = messages.find((message) => message.id === id || message.databaseId === conversationUUID || message.id === conversationUUID) ?? pendingConversation;
   const orderContext = conversation?.orderContext;
   const liveOrder = conversation?.conversationType === "order" || conversation?.orderId
     ? orders.find((order) => order.id === (conversation?.orderId ?? orderContext?.orderId))
@@ -35,8 +47,105 @@ export default function Chat() {
   const serviceContext = location.state?.serviceContext ?? conversation?.serviceContext;
   const listingId = location.state?.listingId ?? conversation?.listingId ?? serviceContext?.listingId ?? currentOrderContext?.productId;
   const listing = listingId
-    ? listings.find((item) => item.id === listingId)
+    ? listings.find((item) => item.id === listingId || item.databaseId === listingId)
     : null;
+  const databaseListingId = listing?.databaseId ?? (listingId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(listingId) ? listingId : null);
+  const routeParticipantId = (() => {
+    try {
+      return decodeURIComponent(id ?? "");
+    } catch {
+      return id ?? "";
+    }
+  })();
+
+  useEffect(() => {
+    let active = true;
+    const routeChanged = conversationRouteRef.current !== id;
+    if (routeChanged && conversationUUIDRef.current) {
+      console.info("Conversation UUID cleared", {
+        conversationId: conversationUUIDRef.current,
+        reason: "conversation route changed",
+      });
+      conversationUUIDRef.current = null;
+      conversationReadyRef.current = false;
+    }
+    conversationRouteRef.current = id;
+    if (!conversationUUIDRef.current) {
+      setConversationUUID(null);
+      setConversationReady(false);
+      conversationReadyRef.current = false;
+      setConversationDebug(null);
+      setMessageDebug(null);
+      setSendError("");
+    } else {
+      console.info("Conversation initialization already established; preserving active UUID", {
+        conversationId: conversationUUIDRef.current,
+      });
+    }
+    ensureConversation({
+      conversationId: id,
+      pendingConversation,
+      participantId: pendingConversation?.participantId ?? pendingConversation?.sellerId ?? routeParticipantId,
+      listingId: databaseListingId,
+      conversationType: pendingConversation?.conversationType ?? (serviceContext ? "service" : "standard"),
+    }).then((resolvedConversationId) => {
+      if (!active) return;
+      console.info("Conversation initialized", {
+        conversationId: resolvedConversationId,
+        routeConversationId: id,
+      });
+      conversationUUIDRef.current = resolvedConversationId;
+      conversationReadyRef.current = true;
+      console.info("Conversation UUID assigned", {
+        conversationId: resolvedConversationId,
+      });
+      setConversationUUID(resolvedConversationId);
+      setConversationReady(true);
+      setConversationDebug({
+        currentAuthUserId: user?.id ?? null,
+        buyerId: conversation?.buyerId ?? user?.id ?? null,
+        sellerId: conversation?.sellerId ?? pendingConversation?.sellerId ?? routeParticipantId,
+        listingId: databaseListingId,
+        conversationUuid: resolvedConversationId,
+        insertError: null,
+      });
+      console.info("Chat conversation UUID ready", {
+        conversationId: resolvedConversationId,
+        senderId: user?.id ?? null,
+        recipientId: pendingConversation?.participantId ?? pendingConversation?.sellerId ?? routeParticipantId,
+      });
+    }).catch((error) => {
+      if (!active) return;
+      setConversationReady(false);
+      const debug = error?.conversationDebug ?? {
+        currentAuthUserId: user?.id ?? null,
+        buyerId: conversation?.buyerId ?? user?.id ?? null,
+        sellerId: conversation?.sellerId ?? pendingConversation?.sellerId ?? routeParticipantId,
+        listingId: databaseListingId,
+        conversationUuid: null,
+        insertError: {
+          message: error?.message ?? String(error),
+          details: error?.details ?? null,
+          hint: error?.hint ?? null,
+          code: error?.code ?? null,
+          status: error?.status ?? null,
+        },
+        fullSupabaseError: error ?? null,
+      };
+      setConversationDebug(debug);
+      setSendError(error?.message || "Unable to initialize this conversation. Please try again.");
+      console.warn("Chat conversation initialization failed", {
+        routeConversationId: id,
+        senderId: user?.id ?? null,
+        recipientId: pendingConversation?.participantId ?? pendingConversation?.sellerId ?? routeParticipantId,
+        error: error?.message ?? String(error),
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [conversationAttempt, databaseListingId, ensureConversation, id, listingId, pendingConversation, routeParticipantId, serviceContext, user?.id]);
+
   const seller = Object.values(sellers).find((s) => s.id === (conversation?.sellerId ?? listing?.sellerId ?? id)) || { id: conversation?.sellerId ?? listing?.sellerId ?? id, name: "this store" };
   const conversationProfile = getConversationProfile({ ...conversation, sellerId: conversation?.sellerId ?? seller.id, name: conversation?.name ?? seller.name }, getSellerProfile, buyerProfile);
   const isOrderThread = location.state?.orderConversation === true || conversation?.conversationType === "order";
@@ -58,22 +167,129 @@ export default function Chat() {
     });
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const messageText = text.trim();
-    if (!messageText || !conversation) return;
+    const diagnosticsPayload = {
+      conversation_id: conversationUUID,
+      sender_id: user?.id ?? null,
+      content: messageText,
+    };
+    setMessageDebug((current) => ({
+      ...(current ?? {}),
+      authUserId: user?.id ?? null,
+      conversationUuid: conversationUUID,
+      senderId: user?.id ?? null,
+      messageContent: messageText || "",
+      messageInsertPayload: diagnosticsPayload,
+      messageInsertResponse: null,
+      messageInsertError: null,
+      fullSupabaseError: null,
+    }));
+    if (!messageText) {
+      setSendError("Enter a message before sending.");
+      return;
+    }
+    if (!conversation) {
+      setSendError("Conversation is not ready yet. Please wait or retry initialization.");
+      return;
+    }
+    if (sending) return;
     const message = {
       id: `${id}-${Date.now()}`,
       from: "me",
       text: messageText,
       timestamp: "Just now",
     };
-    appendMessage(id, message, pendingConversation);
-    setText("");
-    setSelectedTradeItem(null);
+    setSendError("");
+    setSending(true);
+    try {
+      let resolvedConversationId = conversationUUID;
+      if (!user?.id) throw new Error("Please sign in before sending a message.");
+      if (!resolvedConversationId) {
+        resolvedConversationId = await ensureConversation({
+          conversationId: id,
+          pendingConversation: conversation,
+          participantId: conversation.participantId ?? conversation.sellerId ?? routeParticipantId,
+          listingId: databaseListingId,
+          conversationType: conversation.conversationType ?? (serviceContext ? "service" : "standard"),
+        });
+        conversationUUIDRef.current = resolvedConversationId;
+        conversationReadyRef.current = true;
+        console.info("Conversation UUID assigned", {
+          conversationId: resolvedConversationId,
+          source: "send-retry",
+        });
+        setConversationUUID(resolvedConversationId);
+        setConversationReady(true);
+      }
+      if (!resolvedConversationId) throw new Error("A conversation could not be initialized. Please try again.");
+      setMessageDebug({
+        authUserId: user.id,
+        conversationUuid: resolvedConversationId,
+        senderId: user.id,
+        messageContent: messageText,
+        messageInsertPayload: {
+          conversation_id: resolvedConversationId,
+          sender_id: user.id,
+          content: messageText,
+        },
+        messageInsertResponse: null,
+        messageInsertError: null,
+        fullSupabaseError: null,
+      });
+      const sendResult = await appendMessage(resolvedConversationId, message, conversation);
+      setMessageDebug(sendResult?.messageDebug ?? {
+        authUserId: user.id,
+        conversationUuid: resolvedConversationId,
+        senderId: user.id,
+        messageContent: messageText,
+        messageInsertPayload: {
+          conversation_id: resolvedConversationId,
+          sender_id: user.id,
+          content: messageText,
+        },
+        messageInsertResponse: null,
+        messageInsertError: null,
+        fullSupabaseError: null,
+      });
+      console.info("Chat message confirmed", { conversationId: resolvedConversationId, messageId: message.id, senderId: user.id });
+      setText("");
+      setSelectedTradeItem(null);
+    } catch (error) {
+      setMessageDebug(error?.messageDebug ?? {
+        authUserId: user?.id ?? null,
+        conversationUuid: conversationUUID,
+        senderId: user?.id ?? null,
+        messageContent: messageText,
+        messageInsertPayload: {
+          conversation_id: conversationUUID,
+          sender_id: user?.id ?? null,
+          content: messageText,
+        },
+        messageInsertResponse: null,
+        messageInsertError: {
+          message: error?.message ?? String(error),
+          details: error?.details ?? null,
+          hint: error?.hint ?? null,
+          code: error?.code ?? null,
+          status: error?.status ?? null,
+        },
+        fullSupabaseError: error ?? null,
+      });
+      console.warn("Chat message could not be sent; preserving input", {
+        conversationId: id,
+        messageId: message.id,
+        error: error?.message ?? String(error),
+      });
+      setSendError(error?.message || "Unable to send message. Please try again.");
+    } finally {
+      setSending(false);
+    }
   };
 
   // Check if this is a new conversation (created from Seller Profile)
   const isNewConversation = !conversation;
+  const hasPersistedMessage = Boolean(conversation?.messages?.some((message) => message.databaseId));
 
   // Pre-fill a draft for new or existing conversations.
   useEffect(() => {
@@ -121,6 +337,39 @@ export default function Chat() {
         </div>
         <TrustSafetyActions targetType="message" targetId={conversation?.databaseId ?? conversation?.id ?? id} blockUserId={seller.id} compact />
       </div>
+      <div className="shrink-0 border-b border-[#E6E6E6] bg-[#FFFDF5] px-4 py-1.5 text-[10px] text-[#6B756F]">
+        Conversation UUID: {conversationUUID ?? (conversationReady ? "unavailable" : "initializing…")}
+      </div>
+      <details open className="shrink-0 border-b border-[#E6E6E6] bg-[#FFFDF5] px-4 py-2 text-[10px] text-[#6B756F]">
+        <summary className="cursor-pointer font-medium">Conversation diagnostics</summary>
+        <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-all">{JSON.stringify({
+          "Current Auth User ID": conversationDebug?.currentAuthUserId ?? conversationDebug?.authenticatedUserId ?? user?.id ?? null,
+          "buyer_id": conversationDebug?.buyerId ?? conversation?.buyerId ?? user?.id ?? null,
+          "seller_id": conversationDebug?.sellerId ?? conversation?.sellerId ?? pendingConversation?.sellerId ?? routeParticipantId,
+          "listing_id": conversationDebug?.listingId ?? databaseListingId,
+          "conversation_uuid": conversationDebug?.conversationUuid ?? conversationUUID,
+          "Conversation Insert Error": conversationDebug?.insertError ?? conversationDebug?.error ?? null,
+          "Full Supabase Error Object": conversationDebug?.fullSupabaseError ?? conversationDebug?.error ?? conversationDebug?.supabaseError ?? null,
+        }, null, 2)}</pre>
+      </details>
+      <details open className="shrink-0 border-b border-[#E6E6E6] bg-[#F5FFF6] px-4 py-2 text-[10px] text-[#356B4A]">
+        <summary className="cursor-pointer font-medium">Message insert diagnostics</summary>
+        <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all">{JSON.stringify({
+          "Auth User ID": messageDebug?.authUserId ?? user?.id ?? null,
+          "Conversation UUID": messageDebug?.conversationUuid ?? conversationUUID,
+          "Sender ID": messageDebug?.senderId ?? user?.id ?? null,
+          "Message Content": messageDebug?.messageContent ?? text,
+          "Message Insert Payload": messageDebug?.messageInsertPayload ?? {
+            conversation_id: conversationUUID,
+            sender_id: user?.id ?? null,
+            content: text.trim(),
+          },
+          "Message Insert Response": messageDebug?.messageInsertResponse ?? null,
+          "Message Insert Error": messageDebug?.messageInsertError ?? null,
+          "Full Supabase Error Object": messageDebug?.fullSupabaseError ?? null,
+          "messages_row_created": messageDebug?.messagesRowCreated ?? null,
+        }, null, 2)}</pre>
+      </details>
 
       <div className="min-h-0 flex-1 flex flex-col gap-3 p-4 overflow-y-auto no-scrollbar">
         {isOrderThread && currentOrderContext ? (
@@ -248,7 +497,7 @@ export default function Chat() {
           </div>
         ))}
 
-        {!isNewConversation && !isTradeThread && (
+        {hasPersistedMessage && !isTradeThread && (
           <div className="text-center text-[12px] text-[#828282]">
             Delivered
           </div>
@@ -256,6 +505,12 @@ export default function Chat() {
       </div>
 
       <div className="shrink-0 p-2 border-t border-[#E6E6E6]">
+        {sendError && (
+          <div role="alert" className="mb-2 flex items-center justify-between gap-3 px-2 text-[12px] text-red-600">
+            <p>{sendError}</p>
+            {!conversationUUID && <button type="button" onClick={() => setConversationAttempt((attempt) => attempt + 1)} className="shrink-0 font-medium underline">Retry</button>}
+          </div>
+        )}
         {isTradeThread && tradeOptions.length > 0 && (
           <div className="mb-2 flex flex-wrap items-center gap-2 px-2">
             <span className="text-[12px] font-medium text-[#4F4F4F]">I have:</span>
@@ -279,11 +534,30 @@ export default function Chat() {
           <input
             ref={inputRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              const nextText = e.target.value;
+              setText(nextText);
+              setSendError("");
+              setMessageDebug((current) => ({
+                ...(current ?? {}),
+                authUserId: user?.id ?? null,
+                conversationUuid: conversationUUID,
+                senderId: user?.id ?? null,
+                messageContent: nextText,
+                messageInsertPayload: {
+                  conversation_id: conversationUUID,
+                  sender_id: user?.id ?? null,
+                  content: nextText.trim(),
+                },
+                messageInsertResponse: null,
+                messageInsertError: null,
+                fullSupabaseError: null,
+              }));
+            }}
             placeholder="Message..."
             className="flex-1 text-[14px] text-[#828282] outline-none"
           />
-          <button type="button" onClick={handleSend} aria-label="Send message" className="text-[#498467]">
+          <button type="button" onClick={handleSend} disabled={!user || !conversationUUID || !conversationReady || sending} aria-label="Send message" className="text-[#498467] disabled:opacity-50">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path
                 d="M3 20V4l19 8-19 8Z"

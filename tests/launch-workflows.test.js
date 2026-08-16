@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { validateAddress, validateBuyerProfile, validateFulfillment, validateListing, validateSellerProfile } from "../src/utils/validation.js";
 import { ACTIVE_CAMPAIGN_ERROR, addCalendarDays, campaignDurationDays, calendarDaysUntil, isCampaignActive, validateCampaignDates } from "../src/utils/campaignDuration.js";
 import { seed } from "./fixtures/seed.js";
+import { LOCATION_OPTIONS, friendlyLocation, locationFromLegacyText } from "../src/data/locations.js";
 
 function createCommerceState() {
   return {
@@ -44,6 +45,16 @@ function updateOrderStatus(state, orderId, status) {
   order.status = status;
   state.notifications.push({ type: "order_status", recipient: order.buyerId, orderId, status });
 }
+
+test("normalized location options support friendly labels, postal search, and coordinates", () => {
+  const mardaLoop = locationFromLegacyText("Marda Loop");
+  const postalMatch = locationFromLegacyText("T2T");
+  assert.equal(LOCATION_OPTIONS.length > 0, true);
+  assert.equal(friendlyLocation(mardaLoop), "Marda Loop");
+  assert.equal(postalMatch?.city, "Calgary");
+  assert.equal(Number.isFinite(mardaLoop?.latitude), true);
+  assert.equal(Number.isFinite(mardaLoop?.longitude), true);
+});
 
 test("buyer signup and onboarding validation accepts seeded data and rejects invalid input", () => {
   assert.equal(validateBuyerProfile(seed.buyer), null);
@@ -184,6 +195,8 @@ test("critical Supabase contracts are present for regression coverage", async ()
   assert.match(profileMode, /requestId !== profileModeRequestRef\.current/);
   assert.match(profileMode, /localStorage/);
   assert.match(profileMode, /writeStoredMode\(user\?\.id, mode\)/);
+  assert.match(profileMode, /isBuyerRoute/);
+  assert.match(profileMode, /isSellerRoute/);
   assert.match(openStore, /if \(!storeActive\) return/);
   assert.match(openStore, /navigate\("\/shop", \{ replace: true \}\)/);
 });

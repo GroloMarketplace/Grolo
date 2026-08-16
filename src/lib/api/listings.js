@@ -7,7 +7,7 @@ function requireSupabase() {
   }
 }
 
-const LISTING_SELECT = "id,seller_id,legacy_id,title,name,description,category,subcategory,price,pricing_details,condition,inventory_quantity,trade_enabled,pickup_available,delivery_available,image_url,image_urls,location,status,metadata,created_at,updated_at,profiles!listings_seller_id_fkey(shop_name,shop_slug)";
+const LISTING_SELECT = "id,seller_id,legacy_id,title,name,description,category,subcategory,price,pricing_details,condition,inventory_quantity,trade_enabled,pickup_available,delivery_available,image_url,image_urls,location,neighborhood,city,province,country,postal_code,latitude,longitude,status,metadata,created_at,updated_at,profiles!listings_seller_id_fkey(shop_name,shop_slug)";
 
 function imageUrlsFor(listing) {
   const images = Array.isArray(listing.images) ? listing.images.filter(Boolean) : [];
@@ -37,6 +37,13 @@ function rowForListing(listing, sellerId) {
     image_url: imageUrls[0] ?? null,
     image_urls: imageUrls,
     location: listing.location || null,
+    neighborhood: listing.neighborhood || null,
+    city: listing.city || null,
+    province: listing.province || null,
+    country: listing.country || null,
+    postal_code: listing.postalCode || listing.postal_code || null,
+    latitude: Number.isFinite(Number(listing.latitude)) ? Number(listing.latitude) : null,
+    longitude: Number.isFinite(Number(listing.longitude)) ? Number(listing.longitude) : null,
     status: listing.status ?? "Active",
     metadata: {
       ...(listing.metadata ?? {}),
@@ -82,6 +89,13 @@ export function listingFromRow(row) {
     images: imageUrls,
     shop: row.profiles?.shop_name ?? "",
     location: row.location ?? "",
+    neighborhood: row.neighborhood ?? "",
+    city: row.city ?? "",
+    province: row.province ?? "",
+    country: row.country ?? "",
+    postalCode: row.postal_code ?? "",
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
     status: row.status ?? "Active",
     isActive: (row.status ?? "Active") !== "Archived",
     createdAt: row.created_at,

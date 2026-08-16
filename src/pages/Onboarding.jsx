@@ -7,6 +7,8 @@ import { useAuth } from "../context/AuthContext";
 import ProfileAvatar from "../components/ProfileAvatar";
 import { uploadImage } from "../lib/imageStorage";
 import { normalizeUsername, validateBuyerProfile } from "../utils/validation";
+import LocationAutocomplete from "../components/LocationAutocomplete";
+import { friendlyLocation } from "../data/locations";
 
 const INTERESTS = [
   "Farmers Markets", "Garden & Produce", "Bakery & Sweets", "Meal Prep & Catering",
@@ -33,6 +35,7 @@ export default function Onboarding() {
     email: readPendingEmail() || settings.email || "",
     bio: "",
     location: "",
+    locationDetails: null,
     avatar: "",
     interests: [],
   });
@@ -85,8 +88,14 @@ export default function Onboarding() {
       await updateSettings({
         ...normalizedForm,
         email: normalizedForm.email.trim(),
-        city: normalizedForm.location.split(",")[0].trim(),
-        province: "Alberta",
+        location: friendlyLocation(normalizedForm.locationDetails) || normalizedForm.location,
+        neighborhood: normalizedForm.locationDetails?.neighborhood,
+        city: normalizedForm.locationDetails?.city,
+        province: normalizedForm.locationDetails?.province,
+        country: normalizedForm.locationDetails?.country,
+        postalCode: normalizedForm.locationDetails?.postalCode,
+        latitude: normalizedForm.locationDetails?.latitude,
+        longitude: normalizedForm.locationDetails?.longitude,
         onboardingCompleted: true,
       });
     } catch (saveError) {
@@ -128,7 +137,7 @@ function ProfileStep({ form, update, error, onContinue }) {
 }
 
 function PhotoStep({ form, update, handleFile, error, onContinue, onSkip }) {
-  return <Step title="Help Your Community Recognize You"><div className="flex flex-col items-center gap-3"><ProfileAvatar profile={{ avatar: form.avatar, name: form.displayName }} size="h-28 w-28" /><label className="cursor-pointer rounded-lg border border-[#498467] px-4 py-2 text-center text-[13px] font-medium text-[#498467]"><input type="file" accept="image/*" onChange={handleFile} className="hidden" />Upload Profile Picture</label></div><Field label="Location (optional)" value={form.location} onChange={(value) => update("location", value)} placeholder="Calgary, Airdrie, Cochrane, or Okotoks" />{error && <ErrorMessage>{error}</ErrorMessage>}<NextButton onClick={onContinue}>Continue</NextButton><button type="button" onClick={onSkip} className="text-[13px] font-medium text-[#498467]">Skip for Now</button></Step>;
+  return <Step title="Help Your Community Recognize You"><div className="flex flex-col items-center gap-3"><ProfileAvatar profile={{ avatar: form.avatar, name: form.displayName }} size="h-28 w-28" /><label className="cursor-pointer rounded-lg border border-[#498467] px-4 py-2 text-center text-[13px] font-medium text-[#498467]"><input type="file" accept="image/*" onChange={handleFile} className="hidden" />Upload Profile Picture</label></div><LocationAutocomplete label="Location (optional)" value={form.location} location={form.locationDetails} onChange={(value) => { update("locationDetails", value); update("location", friendlyLocation(value)); }} placeholder="Search neighborhood, city, or postal code" />{error && <ErrorMessage>{error}</ErrorMessage>}<NextButton onClick={onContinue}>Continue</NextButton><button type="button" onClick={onSkip} className="text-[13px] font-medium text-[#498467]">Skip for Now</button></Step>;
 }
 
 function InterestsStep({ interests, toggleInterest, onContinue }) {

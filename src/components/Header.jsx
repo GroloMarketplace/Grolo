@@ -27,7 +27,7 @@ export default function Header({ title, titleContent, onBack, onMenu, right, pos
   return (
     <header className="grid h-16 grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 border-b border-[#E6ECE8] bg-white px-4">
       <div>{leftAction}</div>
-      {(title || titleContent) && <div className="min-w-0 overflow-hidden whitespace-nowrap text-center text-[19px] font-semibold tracking-[-0.3px] text-[#1F2D27]">{titleContent ?? title}</div>}
+      {(title || titleContent) && <div className={`min-w-0 whitespace-nowrap text-center text-[19px] font-semibold tracking-[-0.3px] text-[#1F2D27] ${titleContent ? "overflow-visible" : "overflow-hidden"}`}>{titleContent ?? title}</div>}
       {!title && !titleContent && <div aria-hidden="true" />}
       <div className="flex items-center justify-end gap-2">
         {postButton}

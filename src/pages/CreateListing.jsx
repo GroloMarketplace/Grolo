@@ -8,6 +8,8 @@ import { useListings } from "../context/ListingContext";
 import { useAuth } from "../context/AuthContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { validateListing } from "../utils/validation";
+import LocationAutocomplete from "../components/LocationAutocomplete";
+import { friendlyLocation } from "../data/locations";
 
 function TextField({ label, type = "text", value, onChange, placeholder, required }) {
   return (
@@ -45,13 +47,14 @@ export default function CreateListing() {
     pricingType: "",
     quantityAvailable: "25",
     serviceType: "",
-    serviceArea: "",
     availability: "",
     yearsOfExperience: "",
     preferredContactMethod: "Message Through Grolo",
     responseTime: "",
     description: "",
     location: "",
+    locationDetails: null,
+    serviceArea: "",
     availableForTrade: false,
     desiredTradeItems: "",
   });
@@ -91,6 +94,13 @@ export default function CreateListing() {
       } : { quantityAvailable: Number(formData.quantityAvailable) }),
       description: formData.description,
       location: isService ? formData.serviceArea : formData.location,
+      neighborhood: formData.locationDetails?.neighborhood,
+      city: formData.locationDetails?.city,
+      province: formData.locationDetails?.province,
+      country: formData.locationDetails?.country,
+      postalCode: formData.locationDetails?.postalCode,
+      latitude: formData.locationDetails?.latitude,
+      longitude: formData.locationDetails?.longitude,
       shop: getSellerProfile(user?.id ?? "current-user").name,
       sellerId: user?.id ?? "current-user",
       status: "Active",
@@ -165,7 +175,7 @@ export default function CreateListing() {
               <SelectField label="Service Type" value={formData.serviceType} onChange={updateField("serviceType")} options={["Home Services", "Lawn Care", "Snow Removal", "House Cleaning", "Pet Care", "Tutoring", "Photography", "Graphic Design", "Web Design", "Event Services", "Health & Wellness", "Trades & Repairs", "Other"]} required />
               <SelectField label="Pricing Type" value={formData.pricingType} onChange={updateField("pricingType")} options={["Hourly Rate", "Fixed Price", "Starting At", "Free Quote", "Custom Pricing"]} required />
               <TextField label="Price or Pricing Details" value={formData.price} onChange={updateField("price")} placeholder="e.g. $40 / Hour or Starting at $100" required />
-              <TextField label="Service Area" value={formData.serviceArea} onChange={updateField("serviceArea")} placeholder="e.g. Northwest Calgary, Alberta Wide, Remote / Online" required />
+              <LocationAutocomplete label="Service Area" value={formData.serviceArea} location={formData.locationDetails} onChange={(value) => { setFormData((current) => ({ ...current, locationDetails: value, serviceArea: friendlyLocation(value), location: friendlyLocation(value) })); }} placeholder="Search neighborhood, city, or postal code" required />
               <SelectField label="Availability" value={formData.availability} onChange={updateField("availability")} options={["Weekdays", "Weekends", "Evenings", "By Appointment", "Flexible"]} required />
               <TextField label="Years of Experience" value={formData.yearsOfExperience} onChange={updateField("yearsOfExperience")} placeholder="e.g. 5 Years" />
               <SelectField label="Preferred Contact Method" value={formData.preferredContactMethod} onChange={updateField("preferredContactMethod")} options={["Message Through Grolo", "Email", "Phone", "Text Message"]} required />
@@ -190,17 +200,7 @@ export default function CreateListing() {
             />
           </div>
 
-          {!isService && <div>
-            <label className="block text-[14px] font-medium mb-2">Location</label>
-            <input
-              type="text"
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-[#E6E6E6] focus:outline-none focus:border-[#498467]"
-              placeholder="Enter location"
-              required
-            />
-          </div>}
+          {!isService && <LocationAutocomplete label="Location" value={formData.location} location={formData.locationDetails} onChange={(value) => setFormData((current) => ({ ...current, locationDetails: value, location: friendlyLocation(value) }))} required />}
 
           <div className="rounded-lg border border-[#E6E6E6] p-3">
             <label className="flex items-center gap-3 text-[14px] font-medium">

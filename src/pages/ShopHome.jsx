@@ -28,6 +28,8 @@ import ShareProfileButton from "../components/ShareProfileButton";
 import ConfirmationModal from "../components/ConfirmationModal";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import ReputationSummary from "../components/ReputationSummary";
+import LocationAutocomplete from "../components/LocationAutocomplete";
+import { friendlyLocation } from "../data/locations";
 
 export default function ShopHome() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -52,6 +54,7 @@ export default function ShopHome() {
   const [toastMessage, setToastMessage] = useState("");
   const [storeName, setStoreName] = useState(sellerProfile.name);
   const [location, setLocation] = useState(sellerProfile.location);
+  const [locationDetails, setLocationDetails] = useState(sellerProfile.neighborhood ? { neighborhood: sellerProfile.neighborhood, city: sellerProfile.city, province: sellerProfile.province, country: sellerProfile.country, postalCode: sellerProfile.postalCode, latitude: sellerProfile.latitude, longitude: sellerProfile.longitude } : null);
   const [description, setDescription] = useState(sellerProfile.description);
   
   const { getPaymentMethods, updatePaymentMethods, updateFulfillment } = usePaymentMethods();
@@ -149,7 +152,7 @@ export default function ShopHome() {
   };
 
   const handleSaveStore = () => {
-    updateSellerProfile(seller.id, { name: storeName, location, description });
+    updateSellerProfile(seller.id, { name: storeName, location: friendlyLocation(locationDetails) || location, neighborhood: locationDetails?.neighborhood, city: locationDetails?.city, province: locationDetails?.province, country: locationDetails?.country, postalCode: locationDetails?.postalCode, latitude: locationDetails?.latitude, longitude: locationDetails?.longitude, description });
     updatePaymentMethods(seller.id, paymentMethods);
     updateFulfillment(seller.id, fulfillmentMethods, deliveryFee, deliveryRadius, pickupLocation, pickupNotes);
     setIsEditing(false);
@@ -256,11 +259,7 @@ export default function ShopHome() {
                     <FoundingMemberBadge sellerId={seller.id} />
                     <ReputationSummary snapshot={reputationSnapshot} audience="seller" includeFoundingMember={false} className="mt-3" />
                     {isEditing ? (
-                      <input
-                        value={location}
-                        onChange={(e) => setLocation(e.target.value)}
-                        className="text-[14px] text-[#828282] w-full outline-none border-b border-[#E6E6E6] pb-1"
-                      />
+                      <LocationAutocomplete label="Store location" value={location} location={locationDetails} onChange={(value) => { setLocationDetails(value); setLocation(friendlyLocation(value)); }} placeholder="Search neighborhood, city, or postal code" />
                     ) : (
                       <p className="flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{location}</p>
                     )}

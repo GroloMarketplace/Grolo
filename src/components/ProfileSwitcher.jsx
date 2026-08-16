@@ -19,7 +19,7 @@ export default function ProfileSwitcher() {
   const ModeIcon = isSeller ? Store : UserRound;
 
   const switchProfile = (mode) => {
-    setProfileMode(mode);
+    if (!setProfileMode(mode)) return;
     setOpen(false);
     navigate(mode === "buyer" ? "/profile" : "/shop");
   };

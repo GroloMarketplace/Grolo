@@ -20,6 +20,8 @@ import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
 import { useFollow } from "../context/FollowContext";
 import { LOCATION_RADIUS_OPTIONS, discoveryRadiusLabel } from "../utils/locationRadius";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
+import LocationAutocomplete from "../components/LocationAutocomplete";
+import { friendlyLocation } from "../data/locations";
 
 const SELLER_ID = "current-user";
 const seller = { rating: 0 };
@@ -264,6 +266,7 @@ function BuyerAccountSettings() {
   const [displayName, setDisplayName] = useState(settings.displayName);
   const [bio, setBio] = useState(settings.bio);
   const [location, setLocation] = useState(settings.location);
+  const [locationDetails, setLocationDetails] = useState(null);
   const [locationRadius, setLocationRadius] = useState(settings.locationRadius ?? 25);
   const [avatar, setAvatar] = useState(settings.avatar);
   const [notifications, setNotifications] = useState(settings.notifications);
@@ -289,6 +292,7 @@ function BuyerAccountSettings() {
     setDisplayName(settings.displayName);
     setBio(settings.bio);
     setLocation(settings.location);
+    setLocationDetails(settings.neighborhood ? { neighborhood: settings.neighborhood, city: settings.city, province: settings.province, country: settings.country, postalCode: settings.postalCode, latitude: settings.latitude, longitude: settings.longitude } : null);
     setLocationRadius(settings.locationRadius ?? 25);
     setAvatar(settings.avatar);
     setNotifications(settings.notifications);
@@ -317,7 +321,7 @@ function BuyerAccountSettings() {
   const handleSave = async () => {
     const previousAvatar = settings.avatar;
     try {
-      await updateSettings({ displayName, bio, location, locationRadius, avatar, notifications, showLocationPublicly });
+      await updateSettings({ displayName, bio, location: friendlyLocation(locationDetails) || location, neighborhood: locationDetails?.neighborhood, city: locationDetails?.city, province: locationDetails?.province, country: locationDetails?.country, postalCode: locationDetails?.postalCode, latitude: locationDetails?.latitude, longitude: locationDetails?.longitude, locationRadius, avatar, notifications, showLocationPublicly });
       if (previousAvatar && previousAvatar !== avatar) await removeImage(previousAvatar, user.id).catch((error) => console.error("Unable to remove previous avatar", error));
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2200);
@@ -342,7 +346,7 @@ function BuyerAccountSettings() {
             <Section title="Basic Information">
               <Field label="Display Name" value={displayName} onChange={setDisplayName} />
               <label className="flex flex-col gap-2 text-[14px] font-medium">Bio (optional)<textarea value={bio} onChange={(event) => setBio(event.target.value)} rows={3} className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-3 text-[14px] font-normal outline-none focus:border-[#498467]" /></label>
-              <Field label="Location (optional)" value={location} placeholder="Optional" onChange={setLocation} />
+              <LocationAutocomplete label="Location (optional)" value={location} location={locationDetails} onChange={(value) => { setLocationDetails(value); setLocation(friendlyLocation(value)); }} placeholder="Search neighborhood, city, or postal code" />
             </Section>
 
             <Section title="Discovery Settings">

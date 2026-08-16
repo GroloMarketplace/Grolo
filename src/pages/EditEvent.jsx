@@ -6,6 +6,8 @@ import { eventTypes } from "../data/mockData";
 import { useEvents } from "../context/EventContext";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage } from "../lib/imageStorage";
+import LocationAutocomplete from "../components/LocationAutocomplete";
+import { friendlyLocation } from "../data/locations";
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const VISIBILITY_OPTIONS = [
@@ -28,6 +30,7 @@ export default function EditEvent() {
     startTime: event?.startTime ?? "",
     endTime: event?.endTime ?? "",
     location: event?.location ?? "",
+    locationDetails: event?.neighborhood ? { neighborhood: event.neighborhood, city: event.city, province: event.province, country: event.country, postalCode: event.postalCode, latitude: event.latitude, longitude: event.longitude } : null,
     description: event?.description ?? "",
     image: event?.image ?? "",
     capacity: event?.capacity ?? "",
@@ -43,6 +46,7 @@ export default function EditEvent() {
       startTime: event.startTime ?? "",
       endTime: event.endTime ?? "",
       location: event.location ?? "",
+      locationDetails: event.neighborhood ? { neighborhood: event.neighborhood, city: event.city, province: event.province, country: event.country, postalCode: event.postalCode, latitude: event.latitude, longitude: event.longitude } : null,
       description: event.description ?? "",
       image: event.image ?? "",
       capacity: event.capacity ?? "",
@@ -79,7 +83,8 @@ export default function EditEvent() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    updateEvent(eventId, formData);
+    const location = formData.locationDetails ?? {};
+    updateEvent(eventId, { ...formData, location: friendlyLocation(location) || formData.location, neighborhood: location.neighborhood, city: location.city, province: location.province, country: location.country, postalCode: location.postalCode, latitude: location.latitude, longitude: location.longitude });
     navigate("/shop", { state: { activeTab: "Events", eventUpdated: true } });
   };
 
@@ -165,17 +170,7 @@ export default function EditEvent() {
           </div>
         </div>
 
-        <div>
-          <label className="block text-[14px] font-medium mb-2">Location</label>
-          <input
-            type="text"
-            value={formData.location}
-            onChange={(e) => update("location", e.target.value)}
-            className="w-full px-4 py-3 rounded-lg border border-[#E6E6E6] focus:outline-none focus:border-[#498467] text-[14px]"
-            placeholder="Enter location"
-            required
-          />
-        </div>
+        <LocationAutocomplete label="Location" value={formData.location} location={formData.locationDetails} onChange={(value) => { update("locationDetails", value); update("location", friendlyLocation(value)); }} required />
 
         <div>
           <label className="block text-[14px] font-medium mb-2">Description</label>

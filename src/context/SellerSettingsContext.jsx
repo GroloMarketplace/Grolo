@@ -18,6 +18,13 @@ const emptyProfile = {
   name: "",
   description: "",
   location: "",
+  neighborhood: "",
+  city: "",
+  province: "",
+  country: "",
+  postalCode: "",
+  latitude: null,
+  longitude: null,
   avatar: "",
   banner: "",
   vacationMode: false,
@@ -43,6 +50,13 @@ function sellerProfileFromRow(row) {
     name: row.shop_name ?? "",
     description: row.store_description ?? row.bio ?? "",
     location: row.store_location ?? row.location ?? "",
+    neighborhood: row.store_neighborhood ?? row.neighborhood ?? "",
+    city: row.store_city ?? row.city ?? "",
+    province: row.store_province ?? row.province ?? "",
+    country: row.store_country ?? row.country ?? "",
+    postalCode: row.store_postal_code ?? row.postal_code ?? "",
+    latitude: row.store_latitude ?? row.latitude ?? null,
+    longitude: row.store_longitude ?? row.longitude ?? null,
     avatar: row.avatar_url ?? "",
     banner: row.banner_url ?? "",
     vacationMode: row.vacation_mode ?? false,
@@ -71,6 +85,13 @@ function sellerUpdates(updates) {
     name: "shop_name",
     description: "store_description",
     location: "store_location",
+    neighborhood: "store_neighborhood",
+    city: "store_city",
+    province: "store_province",
+    country: "store_country",
+    postalCode: "store_postal_code",
+    latitude: "store_latitude",
+    longitude: "store_longitude",
     avatar: "avatar_url",
     banner: "banner_url",
     vacationMode: "vacation_mode",
@@ -108,7 +129,7 @@ export function SellerSettingsProvider({ children }) {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, shop_name, bio, avatar_url, banner_url, store_description, store_location, vacation_mode, vacation_message, return_date, social_links, seller_status, store_onboarding_status, store_opened_at")
+        .select("id, shop_name, bio, avatar_url, banner_url, store_description, store_location, store_neighborhood, store_city, store_province, store_country, store_postal_code, store_latitude, store_longitude, vacation_mode, vacation_message, return_date, social_links, seller_status, store_onboarding_status, store_opened_at")
         .order("created_at", { ascending: true });
       if (error) {
         console.error("Unable to load seller profiles", error);

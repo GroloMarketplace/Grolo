@@ -1,5 +1,9 @@
 const CALGARY_CENTER = { lat: 51.0447, lon: -114.0719 };
 
+function locationText(content = {}) {
+  return content.location || content.neighborhood || content.city || content.address;
+}
+
 const KNOWN_LOCATIONS = {
   calgary: CALGARY_CENTER,
   "marda loop": { lat: 51.0326, lon: -114.1008 },
@@ -43,7 +47,7 @@ export function distanceInKmBetween(content, userLocation) {
     : coordinatesFor(userLocation);
   const contentCoordinates = content?.latitude && content?.longitude
     ? { lat: Number(content.latitude), lon: Number(content.longitude) }
-    : coordinatesFor(content?.location ?? content?.address);
+    : coordinatesFor(locationText(content));
   if (!userCoordinates || !contentCoordinates) return null;
   return distanceInKm(userCoordinates, contentCoordinates);
 }
@@ -51,7 +55,7 @@ export function distanceInKmBetween(content, userLocation) {
 export function distanceInfo(content, userLocation) {
   const distance = distanceInKmBetween(content, userLocation);
   if (distance === null) {
-    const fallbackLocation = content?.location ?? content?.address;
+    const fallbackLocation = locationText(content);
     return fallbackLocation
       ? { label: fallbackLocation, hasDistance: false }
       : { label: "Location unavailable", hasDistance: false };
@@ -74,7 +78,7 @@ export function isWithinDiscoveryRadius(content, userLocation, radius) {
     : coordinatesFor(userLocation, CALGARY_CENTER);
   const contentCoordinates = content?.latitude && content?.longitude
     ? { lat: Number(content.latitude), lon: Number(content.longitude) }
-    : coordinatesFor(content?.location ?? content?.address);
+    : coordinatesFor(locationText(content));
   if (!contentCoordinates) return true;
   return distanceInKm(userCoordinates, contentCoordinates) <= Number(radius);
 }

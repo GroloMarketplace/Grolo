@@ -6,6 +6,8 @@ import { eventTypes } from "../data/mockData";
 import { useEvents } from "../context/EventContext";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage } from "../lib/imageStorage";
+import LocationAutocomplete from "../components/LocationAutocomplete";
+import { friendlyLocation } from "../data/locations";
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -22,6 +24,7 @@ export default function CreateEvent() {
     startTime: "",
     endTime: "",
     location: "",
+    locationDetails: null,
     description: "",
     image: "",
   });
@@ -50,7 +53,8 @@ export default function CreateEvent() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    addEvent(formData);
+    const location = formData.locationDetails ?? {};
+    addEvent({ ...formData, location: friendlyLocation(location) || formData.location, neighborhood: location.neighborhood, city: location.city, province: location.province, country: location.country, postalCode: location.postalCode, latitude: location.latitude, longitude: location.longitude });
     navigate("/", { state: { tab: "Your Community", communityFilter: "Events", eventCreated: true } });
   };
 
@@ -124,17 +128,7 @@ export default function CreateEvent() {
           </div>
         </div>
 
-        <div>
-          <label className="block text-[14px] font-medium mb-2">Location</label>
-          <input
-            type="text"
-            value={formData.location}
-            onChange={(e) => update("location", e.target.value)}
-            className="w-full px-4 py-3 rounded-lg border border-[#E6E6E6] focus:outline-none focus:border-[#498467] text-[14px]"
-            placeholder="Enter location"
-            required
-          />
-        </div>
+        <LocationAutocomplete label="Location" value={formData.location} location={formData.locationDetails} onChange={(value) => { update("locationDetails", value); update("location", friendlyLocation(value)); }} required />
 
         <div>
           <label className="block text-[14px] font-medium mb-2">Description</label>

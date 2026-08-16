@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 
@@ -37,6 +38,7 @@ function writeStoredMode(userId, mode) {
 
 export function ProfileModeProvider({ children }) {
   const { user } = useAuth();
+  const location = useLocation();
   const [storeActive, setStoreActive] = useState(false);
   const [storeOpenedAt, setStoreOpenedAt] = useState(0);
   const [profileMode, setProfileModeState] = useState("buyer");
@@ -80,6 +82,18 @@ export function ProfileModeProvider({ children }) {
     loadProfileMode();
     return () => { cancelled = true; };
   }, [user?.id]);
+
+  useEffect(() => {
+    const isBuyerRoute = location.pathname === "/profile" || location.pathname === "/buyer-profile";
+    const isSellerRoute = location.pathname === "/shop" || location.pathname === "/seller-profile";
+    if (isBuyerRoute) {
+      setProfileModeState("buyer");
+      writeStoredMode(user?.id, "buyer");
+    } else if (isSellerRoute && storeActive) {
+      setProfileModeState("seller");
+      writeStoredMode(user?.id, "seller");
+    }
+  }, [location.pathname, storeActive, user?.id]);
 
   const activateStore = async () => {
     if (!user?.id || !isSupabaseConfigured) {

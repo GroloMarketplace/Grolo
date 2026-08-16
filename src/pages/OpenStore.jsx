@@ -9,6 +9,8 @@ import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage, removeImage } from "../lib/imageStorage";
 import { validateSellerProfile } from "../utils/validation";
+import LocationAutocomplete from "../components/LocationAutocomplete";
+import { friendlyLocation } from "../data/locations";
 
 const SELLER_ID = "current-user";
 const DRAFT_KEY = "grolo-open-store-draft";
@@ -20,7 +22,7 @@ const STORE_CATEGORIES = [
 ];
 
 const emptyForm = {
-  name: "", description: "", location: "", category: "", avatar: "", banner: "",
+  name: "", description: "", location: "", locationDetails: null, category: "", avatar: "", banner: "",
   instagram: "", facebook: "", x: "", website: "", phone: "", email: "",
 };
 
@@ -114,8 +116,9 @@ export default function OpenStore() {
     const socialLinks = [form.instagram, form.facebook, form.x, form.website].filter(Boolean).join(" | ");
     const previousAvatar = profile.avatar;
     const previousBanner = profile.banner;
+    const location = form.locationDetails ?? {};
     try {
-      await updateSellerProfile(SELLER_ID, { ...form, socialLinks });
+      await updateSellerProfile(SELLER_ID, { ...form, location: location.neighborhood || location.city || form.location, neighborhood: location.neighborhood, city: location.city, province: location.province, country: location.country, postalCode: location.postalCode, latitude: location.latitude, longitude: location.longitude, socialLinks });
       if (previousAvatar && previousAvatar !== form.avatar) await removeImage(previousAvatar, user.id).catch((error) => console.error("Unable to remove previous avatar", error));
       if (previousBanner && previousBanner !== form.banner) await removeImage(previousBanner, user.id).catch((error) => console.error("Unable to remove previous banner", error));
       await activateStore();
@@ -155,7 +158,7 @@ function WelcomeStep({ onContinue }) {
 }
 
 function BasicsStep({ form, update, onContinue, error }) {
-  return <Step title="Tell Us About Your Store"><Field label="Store Name" value={form.name} onChange={(value) => update("name", value)} placeholder="Your store name" required /><label className="flex flex-col gap-2 text-[14px] font-medium">Store Description<textarea value={form.description} onChange={(event) => update("description", event.target.value)} rows={5} placeholder="Tell your community what makes your store special." className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-3 text-[14px] font-normal outline-none focus:border-[#498467]" /></label><Field label="Store Location" value={form.location} onChange={(value) => update("location", value)} placeholder="Neighbourhood or city" required /><PreviewCard title={form.name || "Your Store"} text={form.description || "Your store description will appear here."} /><ErrorMessage>{error}</ErrorMessage><NextButton onClick={onContinue}>Continue</NextButton></Step>;
+  return <Step title="Tell Us About Your Store"><Field label="Store Name" value={form.name} onChange={(value) => update("name", value)} placeholder="Your store name" required /><label className="flex flex-col gap-2 text-[14px] font-medium">Store Description<textarea value={form.description} onChange={(event) => update("description", event.target.value)} rows={5} placeholder="Tell your community what makes your store special." className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-3 text-[14px] font-normal outline-none focus:border-[#498467]" /></label><LocationAutocomplete label="Store Location" value={form.location} location={form.locationDetails} onChange={(value) => { update("locationDetails", value); update("location", friendlyLocation(value)); }} required /><PreviewCard title={form.name || "Your Store"} text={form.description || "Your store description will appear here."} /><ErrorMessage>{error}</ErrorMessage><NextButton onClick={onContinue}>Continue</NextButton></Step>;
 }
 
 function BrandingStep({ form, handleFile, onContinue, error, warning }) {

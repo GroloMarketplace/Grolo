@@ -38,8 +38,8 @@ select 'column:profiles.' || required_name,
        ) then 'present' else 'missing' end
 from (values
   ('id'), ('display_name'), ('username'), ('bio'), ('avatar_url'), ('banner_url'),
-  ('location'), ('location_radius'), ('latitude'), ('longitude'), ('city'),
-  ('province'), ('location_permission'), ('interests'), ('buyer_notifications'),
+  ('location'), ('location_radius'), ('latitude'), ('longitude'), ('neighborhood'), ('city'),
+  ('province'), ('country'), ('postal_code'), ('location_permission'), ('interests'), ('buyer_notifications'),
   ('seller_notifications'), ('show_location_publicly'), ('shop_name'),
   ('shop_slug'), ('store_description'), ('store_location'), ('vacation_mode'),
   ('vacation_message'), ('return_date'), ('social_links'), ('seller_status'),
@@ -84,7 +84,8 @@ from (values
   ('category'), ('subcategory'), ('price'), ('pricing_details'), ('condition'),
   ('inventory_quantity'), ('trade_enabled'), ('pickup_available'),
   ('delivery_available'), ('image_url'), ('image_urls'), ('location'),
-  ('status'), ('metadata'), ('search_vector'), ('created_at'), ('updated_at')
+  ('neighborhood'), ('city'), ('province'), ('country'), ('postal_code'),
+  ('latitude'), ('longitude'), ('status'), ('metadata'), ('search_vector'), ('created_at'), ('updated_at')
 ) required(required_name);
 
 insert into grolo_bootstrap_checks

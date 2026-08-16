@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { useLocation } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
+import { hasRepairableStoreProfile } from "../utils/profileActivation";
 
 const ProfileModeContext = createContext(null);
 const PROFILE_MODE_STORAGE_PREFIX = "grolo-profile-mode";
@@ -90,8 +91,7 @@ export function ProfileModeProvider({ children }) {
         return;
       }
       if (cancelled || requestId !== profileModeRequestRef.current) return;
-      const hasCompleteStoreIdentity = Boolean(data?.shop_name?.trim() && data?.store_opened_at);
-      if (!profileIsSeller(data) && hasCompleteStoreIdentity) {
+      if (!profileIsSeller(data) && hasRepairableStoreProfile(data)) {
         try {
           await repairStoreActivation();
           return;

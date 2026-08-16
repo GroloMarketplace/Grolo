@@ -121,7 +121,7 @@ export default function ShopHome() {
     if (routeLocation.state?.eventUpdated) showToast("Event Updated — Your event has been successfully updated.");
   }, [routeLocation.state?.activeTab, routeLocation.state?.eventUpdated]);
   const tabs = ["Listings", "Posts", "Events", "Regrows"];
-  const sellerPromotions = promotionsForSeller(seller.id).filter(createdBySeller);
+  const sellerPromotions = promotionsForSeller(seller.id, { createdAfter: storeOpenedAt });
   const remoteMetrics = reputationSnapshot?.sellerStatus?.metrics ?? {};
   const localSellerRating = sellerRating(seller.id);
   const sellerStatus = getSellerStatus({

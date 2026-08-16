@@ -3,6 +3,7 @@ import { useAuth } from "./AuthContext";
 import { useBuyerSettings } from "./BuyerSettingsContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { isTemporaryImageSource, uploadImageSource } from "../lib/imageStorage";
+import { sellerProfileUpdates } from "../utils/profileActivation";
 
 const SellerSettingsContext = createContext(null);
 const CURRENT_USER_SELLER_ID = "current-user";
@@ -78,26 +79,6 @@ function sellerProfileFromRow(row) {
     phone: row.seller_phone ?? "",
     email: row.seller_email ?? "",
   };
-}
-
-function sellerUpdates(updates) {
-  const next = {};
-  const fields = {
-    name: "shop_name",
-    description: "store_description",
-    avatar: "avatar_url",
-    banner: "banner_url",
-    vacationMode: "vacation_mode",
-    vacationMessage: "vacation_message",
-    returnDate: "return_date",
-  };
-  Object.entries(fields).forEach(([key, column]) => {
-    const value = updates[key];
-    const hasValue = value !== undefined && value !== null && (typeof value !== "string" || value.trim() !== "");
-    if (hasValue) next[column] = value;
-  });
-  if (updates.notifications !== undefined) next.seller_notifications = updates.notifications;
-  return next;
 }
 
 export function SellerSettingsProvider({ children }) {
@@ -199,7 +180,7 @@ export function SellerSettingsProvider({ children }) {
     };
     const { data, error } = await supabase
       .from("profiles")
-      .upsert({ id: user.id, ...sellerUpdates(next) }, { onConflict: "id" })
+      .upsert({ id: user.id, ...sellerProfileUpdates(next) }, { onConflict: "id" })
       .select("*")
       .single();
     if (error) throw error;

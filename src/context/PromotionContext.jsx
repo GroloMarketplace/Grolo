@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
-import { createPromotion, getPromotions } from "../lib/api/promotions";
+import { createPromotion, deletePromotion as deletePromotionApi, getPromotions, updatePromotion as updatePromotionApi } from "../lib/api/promotions";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
+import { promotionCreatedTimestamp } from "../utils/promotionRecords";
 
 const PromotionContext = createContext(null);
 
@@ -21,13 +22,19 @@ export function promotionDisplayLabel(promotion) {
   return "Promotion";
 }
 
-export function promotionUrgencyLabel(promotion) {
-  if (!promotion?.endsAt) return "Limited-time offer";
+export function promotionDaysRemaining(promotion, now = new Date()) {
+  if (!promotion?.endsAt) return null;
   const end = new Date(`${promotion.endsAt}T23:59:59`);
-  const days = Math.ceil((end.getTime() - Date.now()) / 86400000);
+  if (Number.isNaN(end.getTime())) return null;
+  return Math.max(0, Math.ceil((end.getTime() - now.getTime()) / 86400000));
+}
+
+export function promotionUrgencyLabel(promotion) {
+  const days = promotionDaysRemaining(promotion);
+  if (days === null) return "Limited-time offer";
   if (days <= 1) return days < 1 ? "Ends today" : "Ends tomorrow";
   if (days < 7) return `Ends in ${days} days`;
-  return `Ends ${end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  return `Ends ${new Date(`${promotion.endsAt}T23:59:59`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 }
 
 export function normalizePromotionType(type) {
@@ -136,7 +143,10 @@ export function PromotionProvider({ children }) {
   }, [activePromotions]);
 
   const promotionsForSeller = useCallback(
-    (sellerId) => activePromotions().filter((promotion) => promotion.sellerId === sellerId),
+    (sellerId, { createdAfter = 0 } = {}) => activePromotions().filter((promotion) => (
+      String(promotion.sellerId) === String(sellerId)
+      && promotionCreatedTimestamp(promotion) >= createdAfter
+    )),
     [activePromotions],
   );
 
@@ -152,6 +162,24 @@ export function PromotionProvider({ children }) {
     return created;
   }, [isSuspended, user?.id]);
 
+  const updatePromotion = useCallback(async (promotionId, updates) => {
+    if (isSuspended) throw new Error("Your account is suspended and cannot update a promotion.");
+    if (!isSupabaseConfigured || !user?.id) throw new Error("Supabase authentication is required to update a promotion.");
+    const updated = await updatePromotionApi(promotionId, updates);
+    setPromotions((current) => current.map((promotion) => promotion.id === updated.id ? updated : promotion));
+    return updated;
+  }, [isSuspended, user?.id]);
+
+  const endPromotion = useCallback((promotionId) => updatePromotion(promotionId, { status: "ended" }), [updatePromotion]);
+
+  const deletePromotion = useCallback(async (promotionId) => {
+    if (isSuspended) throw new Error("Your account is suspended and cannot delete a promotion.");
+    if (!isSupabaseConfigured || !user?.id) throw new Error("Supabase authentication is required to delete a promotion.");
+    await deletePromotionApi(promotionId);
+    setPromotions((current) => current.filter((promotion) => promotion.id !== promotionId));
+    return true;
+  }, [isSuspended, user?.id]);
+
   return (
     <PromotionContext.Provider
       value={{
@@ -161,6 +189,9 @@ export function PromotionProvider({ children }) {
         promotionsForSeller,
         getListingPricing,
         addPromotion,
+        updatePromotion,
+        endPromotion,
+        deletePromotion,
       }}
     >
       {children}

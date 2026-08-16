@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import { PROMOTION_TYPES, usePromotions } from "../context/PromotionContext";
+import { normalizePromotionType, PROMOTION_TYPES, usePromotions } from "../context/PromotionContext";
 import { useListings } from "../context/ListingContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useAuth } from "../context/AuthContext";
@@ -30,15 +30,20 @@ function validatePromotionForm(formData, selectedProducts) {
 
 export default function CreatePromotion() {
   const navigate = useNavigate();
-  const { addPromotion } = usePromotions();
+  const { promotionId } = useParams();
+  const isEditing = Boolean(promotionId);
+  const { promotions, addPromotion, updatePromotion } = usePromotions();
   const { user } = useAuth();
   const { listings, loading: listingsLoading, error: listingsError } = useListings();
   const { storeOpenedAt } = useProfileMode();
+  const promotionToEdit = promotions.find((promotion) => String(promotion.id) === String(promotionId) && String(promotion.sellerId) === String(user?.id));
   const sellerProducts = useMemo(() => listings.filter((product) => {
     if (product.sellerId !== user?.id || product.status !== "Active") return false;
+    const listingIds = [product.id, product.databaseId, product.legacyId].filter(Boolean).map(String);
+    const attachedToEditingPromotion = promotionToEdit?.productIds?.some((id) => listingIds.includes(String(id)));
     const createdAt = typeof product.createdAt === "number" ? product.createdAt : Date.parse(product.createdAt);
-    return !storeOpenedAt || (Number.isFinite(createdAt) && createdAt >= storeOpenedAt);
-  }), [listings, storeOpenedAt, user?.id]);
+    return attachedToEditingPromotion || !storeOpenedAt || (Number.isFinite(createdAt) && createdAt >= storeOpenedAt);
+  }), [listings, promotionToEdit, storeOpenedAt, user?.id]);
   const [formData, setFormData] = useState({
     title: "",
     type: "percentage",
@@ -50,6 +55,23 @@ export default function CreatePromotion() {
   });
   const [imageError, setImageError] = useState("");
   const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    if (!promotionToEdit) return;
+    const selectedIds = sellerProducts.filter((product) => {
+      const listingIds = [product.id, product.databaseId, product.legacyId].filter(Boolean).map(String);
+      return promotionToEdit.productIds?.some((id) => listingIds.includes(String(id)));
+    }).map((product) => product.id);
+    setFormData({
+      title: promotionToEdit.title ?? "",
+      type: normalizePromotionType(promotionToEdit.type),
+      value: promotionToEdit.value ?? "",
+      productIds: selectedIds,
+      startsAt: promotionToEdit.startsAt ?? "",
+      endsAt: promotionToEdit.endsAt ?? "",
+      image: promotionToEdit.image ?? "",
+    });
+  }, [promotionToEdit, sellerProducts]);
 
   useEffect(() => {
     const availableIds = sellerProducts.map((product) => product.id);
@@ -98,12 +120,14 @@ export default function CreatePromotion() {
         return;
       }
       const realListingIds = selectedProducts.map((product) => product.databaseId ?? product.id);
-      await addPromotion({
+      const payload = {
         ...formData,
         listingId: realListingIds[0] ?? null,
         productIds: realListingIds,
-      });
-      navigate("/shop");
+      };
+      if (isEditing) await updatePromotion(promotionId, payload);
+      else await addPromotion(payload);
+      navigate(isEditing ? `/promotions/${user.id}` : "/shop");
     } catch (error) {
       setFormError(error.message || "Unable to create promotion.");
     }
@@ -113,7 +137,7 @@ export default function CreatePromotion() {
 
   return (
     <MobileScreenLayout>
-      <Header title="Create Promotion" onBack={() => navigate("/shop")} />
+      <Header title={isEditing ? "Edit Promotion" : "Create Promotion"} onBack={() => navigate(isEditing ? `/promotions/${user.id}` : "/shop")} />
       <form onSubmit={handleSubmit} className="min-h-0 flex-1 overflow-y-auto no-scrollbar flex flex-col gap-5 px-4 py-6 pb-12">
         <div>
           <label className="block text-[14px] font-medium mb-2">Promotion name</label>
@@ -226,7 +250,7 @@ export default function CreatePromotion() {
           disabled={formData.productIds.length === 0}
           className="w-full bg-[#498467] text-white py-3 rounded-lg font-medium text-[16px] disabled:opacity-50"
         >
-          Publish Promotion
+          {isEditing ? "Save Promotion" : "Publish Promotion"}
         </button>
       </form>
     </MobileScreenLayout>

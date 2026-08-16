@@ -5,6 +5,8 @@ import { validateAddress, validateBuyerProfile, validateFulfillment, validateLis
 import { ACTIVE_CAMPAIGN_ERROR, addCalendarDays, campaignDurationDays, calendarDaysUntil, isCampaignActive, validateCampaignDates } from "../src/utils/campaignDuration.js";
 import { seed } from "./fixtures/seed.js";
 import { LOCATION_OPTIONS, friendlyLocation, locationFromLegacyText } from "../src/data/locations.js";
+import { promotionCreatedTimestamp } from "../src/utils/promotionRecords.js";
+import { hasRepairableStoreProfile, sellerProfileUpdates, withoutSellerActivationFields } from "../src/utils/profileActivation.js";
 
 function createCommerceState() {
   return {
@@ -71,6 +73,43 @@ test("seller store and listing workflows validate before persistence", () => {
   assert.equal(validateListing(seed.listing), null);
   assert.match(validateListing({ ...seed.listing, price: "0" }), /Price/);
   assert.match(validateListing({ ...seed.listing, quantityAvailable: 1.5 }), /Quantity/);
+});
+
+test("seller settings updates cannot overwrite seller activation", () => {
+  const payload = sellerProfileUpdates({
+    name: "Updated store",
+    sellerStatus: "buyer",
+    storeOnboardingStatus: false,
+    storeOpenedAt: null,
+  });
+  assert.deepEqual(payload, { shop_name: "Updated store" });
+  assert.deepEqual(withoutSellerActivationFields({ shop_name: "Updated store", seller_status: "buyer", store_onboarding_status: false, store_opened_at: null }), { shop_name: "Updated store" });
+  assert.equal(hasRepairableStoreProfile({ shop_name: "Updated store", store_opened_at: "2026-08-15T12:00:00.000Z" }), true);
+  assert.equal(hasRepairableStoreProfile({ shop_name: "", store_opened_at: "2026-08-15T12:00:00.000Z" }), false);
+});
+
+test("promotion count and page filtering use ISO creation timestamps consistently", () => {
+  const createdAt = "2026-08-15T12:00:00.000Z";
+  const openedAt = Date.parse("2026-08-15T00:00:00.000Z");
+  assert.equal(Number.isNaN(Number(createdAt)), true);
+  assert.equal(promotionCreatedTimestamp({ createdAt }) >= openedAt, true);
+});
+
+test("promotion management keeps edit, end, delete, and listing actions connected", async () => {
+  const [context, page, api] = await Promise.all([
+    readFile(new URL("../src/context/PromotionContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/Promotions.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/lib/api/promotions.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(context, /updatePromotionApi/);
+  assert.match(context, /status: "ended"/);
+  assert.match(context, /deletePromotionApi/);
+  assert.match(page, /listing\.databaseId/);
+  assert.match(page, /edit-promotion/);
+  assert.match(page, /End Promotion/);
+  assert.match(page, /Delete Promotion/);
+  assert.match(page, /View Listing/);
+  assert.match(api, /\.eq\("seller_id", sellerId\)/);
 });
 
 test("buyer follow and favorite actions update state and create notification events", () => {
@@ -166,11 +205,12 @@ test("server campaign validation protects duration and duplicate active campaign
 });
 
 test("critical Supabase contracts are present for regression coverage", async () => {
-  const [orders, notifications, validation, sellerSettings, postsMigration, postContext, sellerProfile, profileMode, openStore] = await Promise.all([
+  const [orders, notifications, validation, sellerSettings, profileActivation, postsMigration, postContext, sellerProfile, profileMode, openStore] = await Promise.all([
     readFile(new URL("../supabase/migrations/20260813_apply_promotions_to_order_items.sql", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260813_phase_8h_notifications.sql", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260815_phase_9a8_input_validation.sql", import.meta.url), "utf8"),
     readFile(new URL("../src/context/SellerSettingsContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/utils/profileActivation.js", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260815_phase_9b_posts.sql", import.meta.url), "utf8"),
     readFile(new URL("../src/context/PostContext.jsx", import.meta.url), "utf8"),
     readFile(new URL("../src/pages/SellerProfile.jsx", import.meta.url), "utf8"),
@@ -182,7 +222,10 @@ test("critical Supabase contracts are present for regression coverage", async ()
   assert.match(notifications, /notifications_on_order/);
   assert.match(notifications, /notifications_on_follow/);
   assert.match(validation, /validate_listing_fields/);
-  assert.match(sellerSettings, /const hasValue = value !== undefined && value !== null/);
+  assert.match(profileActivation, /const hasValue = value !== undefined && value !== null/);
+  assert.doesNotMatch(sellerSettings, /sellerStatus: "seller_status"/);
+  assert.doesNotMatch(sellerSettings, /storeOnboardingStatus: "store_onboarding_status"/);
+  assert.doesNotMatch(sellerSettings, /storeOpenedAt: "store_opened_at"/);
   assert.doesNotMatch(sellerSettings, /instagram: "instagram_handle"/);
   assert.doesNotMatch(sellerSettings, /facebook: "facebook_handle"/);
   assert.doesNotMatch(sellerSettings, /website: "seller_website"/);

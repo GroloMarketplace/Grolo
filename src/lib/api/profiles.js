@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from "../supabaseClient";
+import { withoutSellerActivationFields } from "../../utils/profileActivation";
 
 function requireSupabase() {
   if (!isSupabaseConfigured) {
@@ -21,7 +22,7 @@ export async function upsertProfile(profile) {
   requireSupabase();
   const { data, error } = await supabase
     .from("profiles")
-    .upsert(profile)
+    .upsert(withoutSellerActivationFields(profile))
     .select()
     .single();
   if (error) throw error;

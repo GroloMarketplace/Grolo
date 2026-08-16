@@ -181,6 +181,16 @@ export default function App() {
         />
         <Route path="/promotions/:sellerId" element={<PhoneFrame><AppErrorBoundary label="Promotions"><Promotions /></AppErrorBoundary></PhoneFrame>} />
         <Route
+          path="/edit-promotion/:promotionId"
+          element={
+            <PhoneFrame>
+              <ProtectedRoute sellerOnly>
+                <CreatePromotion />
+              </ProtectedRoute>
+            </PhoneFrame>
+          }
+        />
+        <Route
           path="/create-promotion"
           element={
             <PhoneFrame>

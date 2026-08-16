@@ -58,7 +58,7 @@ export default function SellerProfile() {
     return !Number.isNaN(createdAt) && createdAt >= storeOpenedAt;
   };
   const sellerEvents = upcomingEvents(seller.id).filter(createdBySeller);
-  const sellerPromotions = promotionsForSeller(seller.id).filter(createdBySeller);
+  const sellerPromotions = promotionsForSeller(seller.id, { createdAfter: storeOpenedAt });
   const sellerRatingData = sellerRating(seller.id);
   const { average, count } = sellerRatingData;
   const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name || p.shop === seller.name);

@@ -30,7 +30,7 @@ function eventFromRow(row) {
       id: profile.id,
       name: profile.shop_name ?? profile.display_name ?? profile.username ?? "",
       description: profile.store_description ?? profile.bio ?? "",
-      location: profile.store_location ?? profile.location ?? "",
+      location: profile.location ?? "",
       avatar: profile.avatar_url ?? "",
       banner: profile.banner_url ?? "",
     } : null,

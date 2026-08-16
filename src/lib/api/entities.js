@@ -45,7 +45,7 @@ function sellerProfileFromRow(row) {
     shopName: profile.shop_name ?? "",
     shopSlug: profile.shop_slug ?? "",
     description: profile.store_description ?? profile.bio ?? "",
-    location: profile.store_location ?? profile.location ?? "",
+    location: profile.location ?? "",
     avatar: profile.avatar_url ?? profile.avatar ?? "",
     banner: profile.banner_url ?? profile.banner ?? "",
     storeProfile: Boolean(profile.shop_name || profile.store_onboarding_status || profile.store_opened_at),

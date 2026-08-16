@@ -30,6 +30,7 @@ import { useReputationSnapshot } from "../hooks/useReputationRead";
 import ReputationSummary from "../components/ReputationSummary";
 import LocationAutocomplete from "../components/LocationAutocomplete";
 import { friendlyLocation } from "../data/locations";
+import { SaveButton, SaveToast, useSaveFeedback } from "../components/SaveFeedback";
 
 export default function ShopHome() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -52,6 +53,7 @@ export default function ShopHome() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [deleteRequest, setDeleteRequest] = useState(null);
   const [toastMessage, setToastMessage] = useState("");
+  const { status: saveStatus, errorMessage: saveError, lastSavedAt, runSave } = useSaveFeedback();
   const [storeName, setStoreName] = useState(sellerProfile.name);
   const [location, setLocation] = useState(sellerProfile.location);
   const [locationDetails, setLocationDetails] = useState(sellerProfile.neighborhood ? { neighborhood: sellerProfile.neighborhood, city: sellerProfile.city, province: sellerProfile.province, country: sellerProfile.country, postalCode: sellerProfile.postalCode, latitude: sellerProfile.latitude, longitude: sellerProfile.longitude } : null);
@@ -151,12 +153,12 @@ export default function ShopHome() {
     setIsEditing(true);
   };
 
-  const handleSaveStore = () => {
-    updateSellerProfile(seller.id, { name: storeName, location: friendlyLocation(locationDetails) || location, neighborhood: locationDetails?.neighborhood, city: locationDetails?.city, province: locationDetails?.province, country: locationDetails?.country, postalCode: locationDetails?.postalCode, latitude: locationDetails?.latitude, longitude: locationDetails?.longitude, description });
+  const handleSaveStore = () => runSave(async () => {
+    await updateSellerProfile(seller.id, { name: storeName, location: friendlyLocation(locationDetails) || location, neighborhood: locationDetails?.neighborhood, city: locationDetails?.city, province: locationDetails?.province, country: locationDetails?.country, postalCode: locationDetails?.postalCode, latitude: locationDetails?.latitude, longitude: locationDetails?.longitude, description });
     updatePaymentMethods(seller.id, paymentMethods);
     updateFulfillment(seller.id, fulfillmentMethods, deliveryFee, deliveryRadius, pickupLocation, pickupNotes);
     setIsEditing(false);
-  };
+  });
 
   const handleCancelEdit = () => {
     const settings = getPaymentMethods(seller.id);
@@ -352,12 +354,11 @@ export default function ShopHome() {
                 {/* Action Buttons */}
                 {isEditing ? (
                   <div className="flex gap-2 mt-4">
-                    <button
+                    <SaveButton
+                      status={saveStatus}
                       onClick={handleSaveStore}
                       className="flex-1 bg-[#498467] text-white py-2.5 rounded-lg text-[14px] font-medium"
-                    >
-                      Save
-                    </button>
+                    />
                     <button
                       onClick={handleCancelEdit}
                       className="flex-1 border border-[#B2B2B2] text-black py-2.5 rounded-lg text-[14px] font-medium"
@@ -444,6 +445,7 @@ export default function ShopHome() {
       {isShareModalOpen && <SellerProfileShareModal seller={seller} profile={{ ...sellerProfile, name: storeName, description }} onClose={() => setIsShareModalOpen(false)} />}
       {deleteRequest && <ConfirmationModal title={`Delete ${deleteRequest.type === "post" ? "Post" : "Event"}?`} message={`Are you sure you want to delete this ${deleteRequest.type}? This action cannot be undone.`} confirmLabel={`Delete ${deleteRequest.type === "post" ? "Post" : "Event"}`} onCancel={() => setDeleteRequest(null)} onConfirm={confirmDelete} />}
       {toastMessage && <div role="status" className="fixed bottom-6 left-1/2 z-[110] -translate-x-1/2 rounded-full bg-[#498467] px-4 py-2 text-[13px] font-medium text-white shadow-lg">{toastMessage}</div>}
+      <SaveToast status={saveStatus} errorMessage={saveError} lastSavedAt={lastSavedAt} />
     </>
   );
 }

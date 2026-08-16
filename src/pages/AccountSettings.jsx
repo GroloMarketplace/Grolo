@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
+import ProfileSwitcher from "../components/ProfileSwitcher";
 import Sidebar from "../components/Sidebar";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import OutlineIcon from "../components/OutlineIcon";
@@ -22,6 +23,7 @@ import { LOCATION_RADIUS_OPTIONS, discoveryRadiusLabel } from "../utils/location
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import LocationAutocomplete from "../components/LocationAutocomplete";
 import { friendlyLocation } from "../data/locations";
+import { SaveButton, SaveToast, useSaveFeedback } from "../components/SaveFeedback";
 
 const SELLER_ID = "current-user";
 const seller = { rating: 0 };
@@ -46,6 +48,7 @@ function SellerAccountSettings() {
   const [name, setName] = useState(profile.name);
   const [description, setDescription] = useState(profile.description || "");
   const [location, setLocation] = useState(profile.location || "");
+  const [locationDetails, setLocationDetails] = useState(null);
   const [avatar, setAvatar] = useState(profile.avatar);
   const [banner, setBanner] = useState(profile.banner);
   const [methods, setMethods] = useState(paymentSettings.methods);
@@ -59,12 +62,13 @@ function SellerAccountSettings() {
   const [vacationMode, setVacationMode] = useState(profile.vacationMode ?? false);
   const [vacationMessage, setVacationMessage] = useState(profile.vacationMessage ?? "");
   const [returnDate, setReturnDate] = useState(profile.returnDate ?? "");
-  const [saved, setSaved] = useState(false);
+  const { status: saveStatus, errorMessage: saveError, lastSavedAt, runSave } = useSaveFeedback();
 
   useEffect(() => {
     setName(profile.name);
     setDescription(profile.description || "");
     setLocation(profile.location || "");
+    setLocationDetails(profile.neighborhood ? { neighborhood: profile.neighborhood, city: profile.city, province: profile.province, country: profile.country, postalCode: profile.postalCode, latitude: profile.latitude, longitude: profile.longitude } : null);
     setAvatar(profile.avatar);
     setBanner(profile.banner);
     setNotifications(profile.notifications);
@@ -130,38 +134,39 @@ function SellerAccountSettings() {
     }
   };
 
-  const handleSave = async () => {
-    if (uploadError) return;
+  const handleSave = () => runSave(async () => {
+    if (uploadError) throw new Error(uploadError);
     const previousAvatar = profile.avatar;
     const previousBanner = profile.banner;
-    try {
-      await updateSellerProfile(SELLER_ID, {
-        name,
-        description,
-        location,
-        avatar,
-        banner,
-        notifications,
-        vacationMode,
-        vacationMessage,
-        returnDate,
-      });
-      if (previousAvatar && previousAvatar !== avatar) await removeImage(previousAvatar, user.id).catch((error) => console.error("Unable to remove previous avatar", error));
-      if (previousBanner && previousBanner !== banner) await removeImage(previousBanner, user.id).catch((error) => console.error("Unable to remove previous banner", error));
-      updatePaymentMethods(SELLER_ID, methods, eTransferEmail);
-      updateFulfillment(SELLER_ID, fulfillmentMethods, deliveryFee, deliveryRadius, pickupLocation, pickupNotes);
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 2200);
-    } catch (error) {
-      setUploadError(error.message || "Your profile could not be saved.");
-    }
-  };
+    await updateSellerProfile(SELLER_ID, {
+      name,
+      description,
+      location: friendlyLocation(locationDetails) || location,
+      neighborhood: locationDetails?.neighborhood,
+      city: locationDetails?.city,
+      province: locationDetails?.province,
+      country: locationDetails?.country,
+      postalCode: locationDetails?.postalCode,
+      latitude: locationDetails?.latitude,
+      longitude: locationDetails?.longitude,
+      avatar,
+      banner,
+      notifications,
+      vacationMode,
+      vacationMessage,
+      returnDate,
+    });
+    if (previousAvatar && previousAvatar !== avatar) await removeImage(previousAvatar, user.id).catch((error) => console.error("Unable to remove previous avatar", error));
+    if (previousBanner && previousBanner !== banner) await removeImage(previousBanner, user.id).catch((error) => console.error("Unable to remove previous banner", error));
+    updatePaymentMethods(SELLER_ID, methods, eTransferEmail);
+    updateFulfillment(SELLER_ID, fulfillmentMethods, deliveryFee, deliveryRadius, pickupLocation, pickupNotes);
+  });
 
   return (
     <>
       <MobileScreenLayout>
         <Header
-          title="Account Settings"
+          titleContent={<ProfileSwitcher />}
           onBack={() => routeLocation.state?.fromSellerMenu
             ? navigate("/shop", { state: { openSellerMenu: true } })
             : navigate(-1)}
@@ -190,7 +195,7 @@ function SellerAccountSettings() {
                 Store Description
                 <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder={defaultDescription} rows={4} className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-3 text-[14px] font-normal outline-none focus:border-[#498467]" />
               </label>
-              <Field label="Neighbourhood" value={location} onChange={setLocation} />
+              <LocationAutocomplete label="Primary Location" value={location} location={locationDetails} onChange={(value) => { setLocationDetails(value); setLocation(friendlyLocation(value)); }} placeholder="Search neighborhood, city, or postal code" />
             </Section>
 
             <Section title="Seller Status">
@@ -246,13 +251,13 @@ function SellerAccountSettings() {
             </Section>
 
             <div className="flex flex-col gap-2">
-              <button type="button" onClick={handleSave} className="w-full rounded-lg bg-[#498467] py-3 text-[16px] font-medium text-white">Save Changes</button>
-              {saved && <p className="text-center text-[13px] font-medium text-[#498467]">Settings saved</p>}
+              <SaveButton status={saveStatus} onClick={handleSave} className="w-full rounded-lg bg-[#498467] py-3 text-[16px] font-medium text-white" />
             </div>
           </div>
         </div>
       </MobileScreenLayout>
       <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
+      <SaveToast status={saveStatus} errorMessage={saveError} lastSavedAt={lastSavedAt} />
     </>
   );
 }
@@ -272,7 +277,7 @@ function BuyerAccountSettings() {
   const [notifications, setNotifications] = useState(settings.notifications);
   const [showLocationPublicly, setShowLocationPublicly] = useState(settings.showLocationPublicly);
   const [locationStatus, setLocationStatus] = useState("");
-  const [saved, setSaved] = useState(false);
+  const { status: saveStatus, errorMessage: saveError, lastSavedAt, runSave } = useSaveFeedback();
   const reputationSnapshot = useReputationSnapshot(user?.id ?? "current-user");
   const buyerReputationMetrics = reputationSnapshot?.buyerStatus?.metrics ?? {};
   const status = getBuyerStatus({
@@ -318,22 +323,16 @@ function BuyerAccountSettings() {
     setLocationStatus(result.ok ? "Location updated" : result.error || "Location unavailable");
   };
 
-  const handleSave = async () => {
+  const handleSave = () => runSave(async () => {
     const previousAvatar = settings.avatar;
-    try {
-      await updateSettings({ displayName, bio, location: friendlyLocation(locationDetails) || location, neighborhood: locationDetails?.neighborhood, city: locationDetails?.city, province: locationDetails?.province, country: locationDetails?.country, postalCode: locationDetails?.postalCode, latitude: locationDetails?.latitude, longitude: locationDetails?.longitude, locationRadius, avatar, notifications, showLocationPublicly });
-      if (previousAvatar && previousAvatar !== avatar) await removeImage(previousAvatar, user.id).catch((error) => console.error("Unable to remove previous avatar", error));
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 2200);
-    } catch (error) {
-      setLocationStatus(error.message || "Your profile could not be saved.");
-    }
-  };
+    await updateSettings({ displayName, bio, location: friendlyLocation(locationDetails) || location, neighborhood: locationDetails?.neighborhood, city: locationDetails?.city, province: locationDetails?.province, country: locationDetails?.country, postalCode: locationDetails?.postalCode, latitude: locationDetails?.latitude, longitude: locationDetails?.longitude, locationRadius, avatar, notifications, showLocationPublicly });
+    if (previousAvatar && previousAvatar !== avatar) await removeImage(previousAvatar, user.id).catch((error) => console.error("Unable to remove previous avatar", error));
+  });
 
   return (
     <>
       <MobileScreenLayout>
-        <Header title="Account Settings" onBack={() => navigate(-1)} />
+        <Header titleContent={<ProfileSwitcher />} onBack={() => navigate(-1)} />
         <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar px-4 py-5">
           <div className="flex flex-col gap-5 pb-6">
             <Section title="Profile">
@@ -398,11 +397,12 @@ function BuyerAccountSettings() {
               <Checkbox label="Show Location Publicly" checked={showLocationPublicly} onChange={() => setShowLocationPublicly((current) => !current)} />
             </Section>
 
-            <div className="flex flex-col gap-2"><button type="button" onClick={handleSave} className="w-full rounded-lg bg-[#498467] py-3 text-[16px] font-medium text-white">Save Changes</button>{saved && <p className="text-center text-[13px] font-medium text-[#498467]">Settings saved</p>}</div>
+            <div className="flex flex-col gap-2"><SaveButton status={saveStatus} onClick={handleSave} className="w-full rounded-lg bg-[#498467] py-3 text-[16px] font-medium text-white" /></div>
           </div>
         </div>
       </MobileScreenLayout>
       <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} mode="buyer" />
+      <SaveToast status={saveStatus} errorMessage={saveError} lastSavedAt={lastSavedAt} />
     </>
   );
 }

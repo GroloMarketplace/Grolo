@@ -65,6 +65,31 @@ function settingsFromProfile(profile, user) {
   };
 }
 
+const OPTIONAL_LOCATION_COLUMNS = new Set(["location", "location_radius", "latitude", "longitude", "neighborhood", "city", "province", "country", "postal_code"]);
+
+function missingProfileColumn(error) {
+  const message = error?.message ?? "";
+  const match = message.match(/Could not find the '([^']+)' column of 'profiles'/i);
+  return match?.[1] ?? null;
+}
+
+async function upsertProfileWithLocationFallback(userId, payload) {
+  const remaining = { ...payload };
+  for (;;) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .upsert(remaining, { onConflict: "id" })
+      .select("*")
+      .single();
+    if (!error) return data;
+
+    const missingColumn = missingProfileColumn(error);
+    if (!missingColumn || !OPTIONAL_LOCATION_COLUMNS.has(missingColumn) || !(missingColumn in remaining)) throw error;
+    delete remaining[missingColumn];
+    console.warn(`Profile schema is missing optional location column '${missingColumn}'. Save continued without it; apply the normalized location migration.`, error);
+  }
+}
+
 function profileUpdates(updates) {
   const next = {};
   const fields = {
@@ -183,12 +208,7 @@ export function BuyerSettingsProvider({ children }) {
         ...(updates.notifications ?? {}),
       },
     };
-    const { data, error } = await supabase
-      .from("profiles")
-      .upsert({ id: user.id, ...profileUpdates(next) }, { onConflict: "id" })
-      .select("*")
-      .single();
-    if (error) throw error;
+    const data = await upsertProfileWithLocationFallback(user.id, { id: user.id, ...profileUpdates(next) });
     setSettings(settingsFromProfile(data, user));
     setProfileFound(true);
     setProfileLoaded(true);

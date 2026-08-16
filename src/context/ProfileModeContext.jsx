@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
@@ -44,6 +44,24 @@ export function ProfileModeProvider({ children }) {
   const [profileMode, setProfileModeState] = useState("buyer");
   const profileModeRequestRef = useRef(0);
 
+  const repairStoreActivation = useCallback(async () => {
+    if (!user?.id || !isSupabaseConfigured) {
+      throw new Error("Supabase is not configured or the user is not signed in.");
+    }
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ seller_status: "active", store_onboarding_status: true })
+      .eq("id", user.id)
+      .select("seller_status, store_onboarding_status, store_opened_at")
+      .single();
+    if (error) throw error;
+    setStoreActive(true);
+    setStoreOpenedAt(data?.store_opened_at ? new Date(data.store_opened_at).getTime() : 0);
+    setProfileModeState("seller");
+    writeStoredMode(user.id, "seller");
+    return true;
+  }, [user?.id]);
+
   useEffect(() => {
     const requestId = ++profileModeRequestRef.current;
     let cancelled = false;
@@ -64,7 +82,7 @@ export function ProfileModeProvider({ children }) {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("seller_status, store_onboarding_status, store_opened_at")
+        .select("shop_name, seller_status, store_onboarding_status, store_opened_at")
         .eq("id", user.id)
         .maybeSingle();
       if (error) {
@@ -72,6 +90,15 @@ export function ProfileModeProvider({ children }) {
         return;
       }
       if (cancelled || requestId !== profileModeRequestRef.current) return;
+      const hasCompleteStoreIdentity = Boolean(data?.shop_name?.trim() && data?.store_opened_at);
+      if (!profileIsSeller(data) && hasCompleteStoreIdentity) {
+        try {
+          await repairStoreActivation();
+          return;
+        } catch (repairError) {
+          console.error("Unable to repair seller activation", repairError);
+        }
+      }
       const active = profileIsSeller(data);
       const storedMode = readStoredMode(user.id);
       setStoreActive(active);
@@ -81,7 +108,7 @@ export function ProfileModeProvider({ children }) {
 
     loadProfileMode();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, repairStoreActivation]);
 
   useEffect(() => {
     const isBuyerRoute = location.pathname === "/profile" || location.pathname === "/buyer-profile";
@@ -130,7 +157,7 @@ export function ProfileModeProvider({ children }) {
   const canSeller = storeActive;
 
   return (
-    <ProfileModeContext.Provider value={{ accountType, profileMode, setProfileMode, canBuyer, canSeller, storeActive, storeOpenedAt, activateStore }}>
+    <ProfileModeContext.Provider value={{ accountType, profileMode, setProfileMode, canBuyer, canSeller, storeActive, storeOpenedAt, activateStore, repairStoreActivation }}>
       {children}
     </ProfileModeContext.Provider>
   );

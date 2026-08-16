@@ -104,8 +104,8 @@ export default function App() {
         <MessageProvider>
         <InventoryProvider>
         <PaymentMethodsProvider>
-        <SellerSettingsProvider>
         <BuyerSettingsProvider>
+        <SellerSettingsProvider>
         <BuyerTrustProvider>
         <EngagementProvider>
         <PostProvider>
@@ -357,8 +357,8 @@ export default function App() {
         </PostProvider>
         </EngagementProvider>
         </BuyerTrustProvider>
-        </BuyerSettingsProvider>
         </SellerSettingsProvider>
+        </BuyerSettingsProvider>
         </PaymentMethodsProvider>
         </InventoryProvider>
         </MessageProvider>

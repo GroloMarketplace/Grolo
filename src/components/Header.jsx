@@ -1,8 +1,15 @@
+import { Bell, ChevronLeft, Menu, UserRound } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useNotifications } from "../context/NotificationContext";
+
+const ACTION_CLASS = "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E6ECE8] bg-[#F8FAF8] text-[#1F5A45] shadow-[0_2px_8px_rgba(31,90,69,0.08)] transition-colors hover:bg-[#EEF5F0] active:bg-[#E5F0E8]";
+
+function HeaderAction({ label, onClick, children, className = "" }) {
+  return <button type="button" onClick={onClick} aria-label={label} className={`${ACTION_CLASS} ${className}`}>{children}</button>;
+}
 
 export default function Header({ title, titleContent, onBack, onMenu, right, postButton, shareButton, hideProfile = false }) {
   const navigate = useNavigate();
@@ -11,61 +18,34 @@ export default function Header({ title, titleContent, onBack, onMenu, right, pos
   const { getSellerProfile } = useSellerSettings();
   const { unreadCount } = useNotifications();
   const avatar = profileMode === "seller" ? getSellerProfile("current-user").avatar : buyerSettings.avatar;
+  const leftAction = onBack
+    ? <HeaderAction label="Back" onClick={onBack}><ChevronLeft className="h-5 w-5" strokeWidth={2.2} /></HeaderAction>
+    : onMenu
+      ? <HeaderAction label="Menu" onClick={onMenu}><Menu className="h-5 w-5" strokeWidth={2.1} /></HeaderAction>
+      : <span className="h-10 w-10 shrink-0" aria-hidden="true" />;
 
   return (
-    <div className="h-14 flex items-center justify-between px-4 border-b border-[#E6E6E6]">
-      <div className="flex items-center gap-2">
-        {onBack ? (
-          <button onClick={onBack} aria-label="Back" className="p-1">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M9.27 12 16.28 5a.5.5 0 0 0 0-.7l-.57-.57a.5.5 0 0 0-.7 0l-7.93 7.93a.5.5 0 0 0 0 .7l7.93 7.93a.5.5 0 0 0 .7 0l.57-.57a.5.5 0 0 0 0-.7L9.27 12Z"
-                fill="black"
-              />
-            </svg>
-          </button>
-        ) : onMenu ? (
-          <button onClick={onMenu} aria-label="Menu" className="p-1">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M3.1 6a.9.9 0 0 1 .9-.9h16a.9.9 0 1 1 0 1.8H4a.9.9 0 0 1-.9-.9Zm0 6a.9.9 0 0 1 .9-.9h12.59a.9.9 0 1 1 0 1.8H4a.9.9 0 0 1-.9-.9Zm0 6a.9.9 0 0 1 .9-.9h16a.9.9 0 1 1 0 1.8H4a.9.9 0 0 1-.9-.9Z"
-                fill="black"
-              />
-            </svg>
-          </button>
-        ) : (
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path
-              fillRule="evenodd"
-              clipRule="evenodd"
-              d="M3.1 6a.9.9 0 0 1 .9-.9h16a.9.9 0 1 1 0 1.8H4a.9.9 0 0 1-.9-.9Zm0 6a.9.9 0 0 1 .9-.9h12.59a.9.9 0 1 1 0 1.8H4a.9.9 0 0 1-.9-.9Zm0 6a.9.9 0 0 1 .9-.9h16a.9.9 0 1 1 0 1.8H4a.9.9 0 0 1-.9-.9Z"
-              fill="black"
-            />
-          </svg>
-        )}
-      </div>
-      {(title || titleContent) && (
-        <div className="text-[20px] font-semibold tracking-[-0.4px] flex-1 text-center">
-          {titleContent ?? title}
-        </div>
-      )}
-      <div className="flex items-center gap-2">
+    <header className="grid h-16 grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 border-b border-[#E6ECE8] bg-white px-4">
+      <div>{leftAction}</div>
+      {(title || titleContent) && <div className="min-w-0 overflow-hidden whitespace-nowrap text-center text-[19px] font-semibold tracking-[-0.3px] text-[#1F2D27]">{titleContent ?? title}</div>}
+      {!title && !titleContent && <div aria-hidden="true" />}
+      <div className="flex items-center justify-end gap-2">
         {postButton}
         {shareButton}
         {right ?? (!hideProfile && (
           <>
-            <button type="button" onClick={() => navigate("/notifications")} aria-label={`Open Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`} className="relative p-1 text-[18px]">
-              <span aria-hidden="true">🔔</span>
-              {unreadCount > 0 && <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-[#D95D39] px-1 text-center text-[10px] font-semibold leading-4 text-white">{unreadCount > 99 ? "99+" : unreadCount}</span>}
-            </button>
-            <button type="button" onClick={() => navigate("/account-settings")} aria-label="Open Account Settings" className="rounded-full">
-              <img src={avatar} alt="Profile" className="w-6 h-6 rounded-full object-cover" />
-            </button>
+            <div className="relative">
+              <HeaderAction label={`Open Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`} onClick={() => navigate("/notifications")}>
+                <Bell className="h-[19px] w-[19px]" strokeWidth={2} />
+              </HeaderAction>
+              {unreadCount > 0 && <span className="pointer-events-none absolute -right-1 -top-1 min-w-4 rounded-full bg-[#C85A3F] px-1 text-center text-[10px] font-semibold leading-4 text-white">{unreadCount > 99 ? "99+" : unreadCount}</span>}
+            </div>
+            <HeaderAction label="Open Account Settings" onClick={() => navigate("/account-settings")} className="overflow-hidden p-0">
+              {avatar ? <img src={avatar} alt="Profile" className="h-full w-full object-cover" /> : <UserRound className="h-[18px] w-[18px]" strokeWidth={2} />}
+            </HeaderAction>
           </>
         ))}
       </div>
-    </div>
+    </header>
   );
 }

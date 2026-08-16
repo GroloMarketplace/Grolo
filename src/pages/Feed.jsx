@@ -508,7 +508,7 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
       <button type="button" onClick={openProduct} className="relative mt-3 block w-full text-left">
         <img src={product.image} alt={product.name} className="aspect-square w-full rounded object-cover" />
         {product.promotion && <PromotionBadge promotion={product.promotion} className="absolute left-2 top-2" />}
-        {paidAd && <span className="absolute right-2 top-2 rounded-full bg-[#CFF7D3] px-2 py-1 text-[12px] font-medium text-[#02542D] shadow-sm">{paidAd.badgeLabel ?? paidAd.label ?? paidAd.placementLabel ?? "Featured"}</span>}
+        {paidAd && <PromotionBadge variant="featured" label={paidAd.badgeLabel ?? paidAd.label ?? paidAd.placementLabel ?? "Featured"} className="absolute right-2 top-2" />}
       </button>
       <button type="button" onClick={openProduct} className="mt-2 block text-left">
         <h3 className="text-[16px] font-semibold">{product.name}</h3>
@@ -537,7 +537,7 @@ function PromotionFeedCard({ promotion, product, onOpenDetail, onMenu, onShare }
       <h3 className="mt-4 text-[20px] font-bold tracking-[-0.3px]">{promotion.title}</h3>
       <p className="mt-2 text-[14px] font-semibold text-[#498467]">{product?.shop}</p>
       <DistanceLabel content={product ?? promotion} className="mt-1" />
-      <p className="mt-2 text-[12px] font-semibold uppercase tracking-[0.4px] text-[#B56576]">⏳ {promotionUrgencyLabel(promotion)}</p>
+      <p className="mt-2 text-[12px] font-medium uppercase tracking-[0.4px] text-[#6B756F]">{promotionUrgencyLabel(promotion)}</p>
       <div className="mt-4 flex items-center justify-between gap-4"><button type="button" onClick={() => product && openDetail(`/product/${product.id}`, { sellerId: product.sellerId })} className="rounded-lg bg-[#498467] px-4 py-2 text-[13px] font-semibold text-white">View Promotion</button><div className="flex gap-4">{savedItem && <SaveButton savedItem={savedItem} />}<ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>
     </div>
   );

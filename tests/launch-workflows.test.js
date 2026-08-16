@@ -95,6 +95,19 @@ test("promotion count and page filtering use ISO creation timestamps consistentl
   assert.equal(promotionCreatedTimestamp({ createdAt }) >= openedAt, true);
 });
 
+test("Search spotlight carousel renders active campaigns or placeholders", async () => {
+  const [search, advertising] = await Promise.all([
+    readFile(new URL("../src/pages/Search.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/context/AdvertisingContext.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(search, /isCampaignActive\(ad\)/);
+  assert.match(search, /placeholderSpotlights/);
+  assert.match(search, /Community Spotlight/);
+  assert.match(advertising, /AD_STORAGE_KEY/);
+  assert.match(advertising, /localStorage\.setItem/);
+  assert.equal(isCampaignActive({ status: "Trial", startsAt: "2026-08-15", endsAt: "2026-08-15", trialEndsAt: "2026-09-13" }, Date.parse("2026-08-20T12:00:00Z")), true);
+});
+
 test("promotion management keeps edit, end, delete, and listing actions connected", async () => {
   const [context, page, api] = await Promise.all([
     readFile(new URL("../src/context/PromotionContext.jsx", import.meta.url), "utf8"),

@@ -13,6 +13,7 @@ import { useSavedItems } from "../context/SavedContext";
 import { useReviews } from "../context/ReviewContext";
 import { useOrders } from "../context/OrderContext";
 import { useAdvertising } from "../context/AdvertisingContext";
+import { isCampaignActive } from "../utils/campaignDuration";
 import MapView from "../components/MapView";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useListings } from "../context/ListingContext";
@@ -324,7 +325,7 @@ function CommunitySpotlightCarousel({ sellers }) {
   const pausedRef = useRef(false);
   const [current, setCurrent] = useState(1);
   const paidSpotlights = ads
-    .filter((ad) => ad.status === "Trial" || ad.status === "Active")
+    .filter((ad) => isCampaignActive(ad))
     .map((ad) => ({
       id: ad.id,
       type: ad.type === "Event" ? "event" : ad.type === "Store" ? "store" : "product",
@@ -341,7 +342,11 @@ function CommunitySpotlightCarousel({ sellers }) {
       image: ad.image,
     }));
   const organicSpotlights = [];
-  const spotlights = [...paidSpotlights, ...organicSpotlights].slice(0, 10);
+  const placeholderSpotlights = [
+    { id: "spotlight-placeholder-1", badge: "Community Spotlight", title: "Put your store in the spotlight", description: "Reach more local shoppers on Grolo.", image: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80", placeholder: true },
+    { id: "spotlight-placeholder-2", badge: "Community Spotlight", title: "Help your community discover you", description: "Feature your store, products, or events.", image: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80", placeholder: true },
+  ];
+  const spotlights = ([...paidSpotlights, ...organicSpotlights].length > 0 ? [...paidSpotlights, ...organicSpotlights] : placeholderSpotlights).slice(0, 10);
   const slides = spotlights.length > 0
     ? [spotlights[spotlights.length - 1], ...spotlights, spotlights[0]]
     : [];
@@ -355,7 +360,9 @@ function CommunitySpotlightCarousel({ sellers }) {
   }, []);
 
   const openSpotlight = (spotlight) => {
-    if (spotlight.destinationRoute) {
+    if (spotlight.placeholder) {
+      navigate("/my-shop/advertising");
+    } else if (spotlight.destinationRoute) {
       navigate(spotlight.destinationRoute);
     } else if (spotlight.type === "event") {
       navigate(`/event/${spotlight.eventId}`);

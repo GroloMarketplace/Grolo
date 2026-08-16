@@ -1,8 +1,9 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { ACTIVE_CAMPAIGN_ERROR, addCalendarDays, isCampaignActive, validateCampaignDates } from "../utils/campaignDuration";
 
 const AdvertisingContext = createContext(null);
 const SELLER_ID = "current-user";
+const AD_STORAGE_KEY = "grolo-community-spotlight-ads";
 
 export const COMMUNITY_SPOTLIGHT_PLAN = {
   id: "community-spotlight",
@@ -24,6 +25,16 @@ export const COMMUNITY_SPOTLIGHT_PLAN = {
 
 const initialAds = [];
 
+function readStoredAds() {
+  if (typeof window === "undefined") return initialAds;
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(AD_STORAGE_KEY) ?? "null");
+    return Array.isArray(stored) ? stored : initialAds;
+  } catch {
+    return initialAds;
+  }
+}
+
 function destinationRoute(ad) {
   if (ad.destinationRoute) return ad.destinationRoute;
   if (ad.type === "Store") return `/seller/${ad.destinationId}`;
@@ -32,7 +43,15 @@ function destinationRoute(ad) {
 }
 
 export function AdvertisingProvider({ children }) {
-  const [ads, setAds] = useState(initialAds);
+  const [ads, setAds] = useState(readStoredAds);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(AD_STORAGE_KEY, JSON.stringify(ads));
+    } catch {
+      return;
+    }
+  }, [ads]);
 
   const getActiveCampaign = (excludedId) => ads.find((ad) => ad.id !== excludedId && isCampaignActive(ad));
 

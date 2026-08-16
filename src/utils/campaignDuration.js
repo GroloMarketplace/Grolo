@@ -24,8 +24,9 @@ export function calendarDaysUntil(dateKey, now = Date.now()) {
 
 export function isCampaignActive(campaign, now = Date.now()) {
   const status = String(campaign?.status ?? "").toLowerCase();
-  if (!(["active", "trial"].includes(status)) || !campaign?.startsAt || !campaign?.endsAt) return false;
-  return campaign.startsAt <= calendarDateKey(now) && campaign.endsAt >= calendarDateKey(now);
+  const endDate = status === "trial" ? campaign?.trialEndsAt || campaign?.endsAt : campaign?.endsAt;
+  if (!("active" === status || "trial" === status) || !campaign?.startsAt || !endDate) return false;
+  return campaign.startsAt <= calendarDateKey(now) && endDate >= calendarDateKey(now);
 }
 
 function dateDifferenceInDays(startDate, endDate) {

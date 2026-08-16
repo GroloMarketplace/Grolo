@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { validateAddress, validateBuyerProfile, validateFulfillment, validateListing, validateSellerProfile } from "../src/utils/validation.js";
-import { addCalendarDays, campaignDurationDays, calendarDaysUntil, validateCampaignDates } from "../src/utils/campaignDuration.js";
+import { ACTIVE_CAMPAIGN_ERROR, addCalendarDays, campaignDurationDays, calendarDaysUntil, isCampaignActive, validateCampaignDates } from "../src/utils/campaignDuration.js";
 import { seed } from "./fixtures/seed.js";
 
 function createCommerceState() {
@@ -104,6 +104,16 @@ test("trial countdown uses calendar days across date boundaries", () => {
   assert.equal(calendarDaysUntil(expiresAt, new Date(2026, 8, 16, 12).getTime()), -1);
 });
 
+test("only one campaign can be active while expired and cancelled campaigns remain eligible", () => {
+  const active = { id: "active", status: "Trial", startsAt: "2026-08-16", endsAt: "2026-08-29" };
+  const expired = { id: "expired", status: "Trial", startsAt: "2026-08-01", endsAt: "2026-08-15" };
+  const cancelled = { id: "cancelled", status: "Expired", startsAt: "2026-08-16", endsAt: "2026-08-29" };
+  assert.equal(isCampaignActive(active, new Date(2026, 7, 16, 12).getTime()), true);
+  assert.equal(isCampaignActive(expired, new Date(2026, 7, 16, 12).getTime()), false);
+  assert.equal(isCampaignActive(cancelled, new Date(2026, 7, 16, 12).getTime()), false);
+  assert.match(ACTIVE_CAMPAIGN_ERROR, /Edit or cancel/);
+});
+
 test("campaign duration validation allows 1-14 days and preserves legacy campaigns", () => {
   assert.equal(campaignDurationDays("2026-08-15", "2026-08-15"), 1);
   assert.equal(campaignDurationDays("2026-08-15", "2026-08-28"), 14);
@@ -132,11 +142,16 @@ test("trust and safety report, block, and suspend workflows are enforced", () =>
   assert.equal(state.suspended.has(seed.seller.id), true);
 });
 
-test("server campaign duration validation protects new records and preserves legacy dates", async () => {
-  const migration = await readFile(new URL("../supabase/migrations/20260815_campaign_duration_validation.sql", import.meta.url), "utf8");
-  assert.match(migration, /new\.end_date - new\.start_date \+ 1\) > 14/);
-  assert.match(migration, /old\.start_date is not distinct from new\.start_date/);
-  assert.match(migration, /Each promotion may run for up to 14 days/);
+test("server campaign validation protects duration and duplicate active campaigns", async () => {
+  const [durationMigration, activeLimitMigration] = await Promise.all([
+    readFile(new URL("../supabase/migrations/20260815_campaign_duration_validation.sql", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260815_single_active_spotlight_campaign.sql", import.meta.url), "utf8"),
+  ]);
+  assert.match(durationMigration, /new\.end_date - new\.start_date \+ 1\) > 14/);
+  assert.match(durationMigration, /old\.start_date is not distinct from new\.start_date/);
+  assert.match(activeLimitMigration, /existing\.seller_id = new\.seller_id/);
+  assert.match(activeLimitMigration, /existing\.id is distinct from new\.id/);
+  assert.match(activeLimitMigration, /unique_violation/);
 });
 
 test("critical Supabase contracts are present for regression coverage", async () => {
@@ -167,6 +182,8 @@ test("critical Supabase contracts are present for regression coverage", async ()
   assert.match(sellerProfile, /const \{ posts \} = usePosts\(\)/);
   assert.match(profileMode, /profileModeRequestRef/);
   assert.match(profileMode, /requestId !== profileModeRequestRef\.current/);
+  assert.match(profileMode, /localStorage/);
+  assert.match(profileMode, /writeStoredMode\(user\?\.id, mode\)/);
   assert.match(openStore, /if \(!storeActive\) return/);
   assert.match(openStore, /navigate\("\/shop", \{ replace: true \}\)/);
 });

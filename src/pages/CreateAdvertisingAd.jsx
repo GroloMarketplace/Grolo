@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { COMMUNITY_SPOTLIGHT_PLAN, useAdvertising } from "../context/AdvertisingContext";
-import { validateCampaignDates } from "../utils/campaignDuration";
+import { ACTIVE_CAMPAIGN_ERROR, validateCampaignDates } from "../utils/campaignDuration";
 import { events, products, promotions } from "../data/mockData";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage } from "../lib/imageStorage";
@@ -25,7 +25,7 @@ function getDestinationRoute(type, destinationId) {
 export default function CreateAdvertisingAd() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { addAd, getAd, updateAd } = useAdvertising();
+  const { addAd, getAd, updateAd, cancelAd, getActiveCampaign } = useAdvertising();
   const { user } = useAuth();
   const editingAd = getAd(searchParams.get("adId"));
   const [formData, setFormData] = useState(() => editingAd ?? {
@@ -42,6 +42,7 @@ export default function CreateAdvertisingAd() {
   });
   const [imageError, setImageError] = useState("");
   const [formError, setFormError] = useState("");
+  const [activeCampaign, setActiveCampaign] = useState(null);
 
   const destinations = useMemo(() => {
     if (formData.type === "Product") return products.filter((product) => product.sellerId === SELLER_ID).map((product) => ({ id: product.id, label: product.name, destinationType: "Product listing" }));
@@ -101,10 +102,19 @@ export default function CreateAdvertisingAd() {
       setFormError(validationError);
       return;
     }
+    if (!editingAd) {
+      const currentCampaign = getActiveCampaign();
+      if (currentCampaign) {
+        setActiveCampaign(currentCampaign);
+        setFormError(ACTIVE_CAMPAIGN_ERROR);
+        return;
+      }
+    }
     try {
       const savedAd = editingAd ? updateAd(editingAd.id, formData) : addAd(formData);
       navigate("/my-shop/advertising", savedAd ? { state: { trialActivated: savedAd } } : undefined);
     } catch (error) {
+      if (error.message === ACTIVE_CAMPAIGN_ERROR) setActiveCampaign(getActiveCampaign());
       setFormError(error.message || "Unable to save this promotion.");
     }
   };
@@ -165,7 +175,7 @@ export default function CreateAdvertisingAd() {
             </FormField>
           </div>
           <p className="-mt-3 text-[12px] text-[#828282]">Each promotion may run for up to 14 days.</p>
-          {formError && <p role="alert" className="rounded-lg bg-[#FFF4E5] px-3 py-2 text-[13px] text-[#8A4B08]">{formError}</p>}
+          {formError && <div role="alert" className="rounded-lg bg-[#FFF4E5] px-3 py-3 text-[13px] text-[#8A4B08]"><p>{formError}</p>{activeCampaign && <div className="mt-3 flex flex-col gap-2"><button type="button" onClick={() => navigate(`/my-shop/advertising/create?adId=${activeCampaign.id}`)} className="rounded-lg bg-[#498467] px-3 py-2 text-[13px] font-semibold text-white">Edit Current Campaign</button><button type="button" onClick={() => { cancelAd(activeCampaign.id); setActiveCampaign(null); setFormError(""); }} className="rounded-lg border border-[#498467] px-3 py-2 text-[13px] font-semibold text-[#498467]">Cancel Current Campaign</button></div>}</div>}
 
           <section className="rounded-lg border border-[#E6E6E6] p-3">
             <h2 className="text-[16px] font-semibold">Preview ad</h2>

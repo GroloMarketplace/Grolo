@@ -1,4 +1,5 @@
-﻿import { useEffect, useRef, useState } from "react";
+﻿import { Store } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import Header from "../components/Header";
@@ -44,6 +45,7 @@ import TradeBadge from "../components/TradeBadge";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { discoveryRadiusLabel, isWithinDiscoveryRadius, resolveUserLocation, sortByDistance } from "../utils/locationRadius";
 import DistanceLabel from "../components/DistanceLabel";
+import { useResolvedSeller } from "../hooks/useEntityResolution";
 
 const TABS = ["Following", "Your Community"];
 const COMMUNITY_FILTERS = ["For You", "Posts", "Events", "Listings", "Promotions", "Regrows"];
@@ -523,23 +525,42 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
 
 function PromotionFeedCard({ promotion, product, onOpenDetail, onMenu, onShare }) {
   const navigate = useNavigate();
+  const sellerProfile = useResolvedSeller(promotion.sellerId);
+  const seller = sellerProfile ?? sellers[promotion.sellerId] ?? {};
   const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
-  const savedItem = product ? { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName: product.shop, image: product.image, description: product.name } : null;
-  const menuContent = { id: `promotion:${promotion.id}`, type: "promotion", title: promotion.title, name: promotion.title, sellerId: promotion.sellerId, productId: product?.id, sharePath: product ? `/product/${product.id}` : "/", savedItem: { id: `promotion:${promotion.id}`, type: "promotion", sourceId: promotion.id, name: promotion.title, storeName: product?.shop, image: product?.image, description: promotion.title, promotion, productId: product?.id } };
+  const isStorePromotion = !product;
+  const storeName = product?.shop || seller.name || seller.shopName || promotion.storeName;
+  const storeLocation = product?.location || seller.location || promotion.location;
+  const storeCategory = product?.category || seller.category || promotion.category;
+  const heroImage = isStorePromotion ? seller.banner || seller.avatar || promotion.image : product.image;
+  const destination = isStorePromotion ? `/seller/${promotion.sellerId}` : `/product/${product.id}`;
+  const destinationState = isStorePromotion ? undefined : { sellerId: product.sellerId };
+  const savedItem = product ? { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName, image: product.image, description: product.name } : null;
+  const menuContent = { id: `promotion:${promotion.id}`, type: "promotion", title: storeName || promotion.title, name: storeName || promotion.title, sellerId: promotion.sellerId, productId: product?.id, sharePath: destination, savedItem: { id: `promotion:${promotion.id}`, type: "promotion", sourceId: promotion.id, name: storeName || promotion.title, storeName, image: heroImage, description: promotion.title, promotion, productId: product?.id } };
+  const openDestination = () => openDetail(destination, destinationState);
+
   return (
-    <div className="overflow-hidden rounded-xl border border-[#F3D38A] bg-gradient-to-br from-[#FFFDF5] via-white to-[#F5FFF6] p-4 shadow-[0_5px_18px_rgba(73,132,103,0.14)]">
-      <div className="flex items-start justify-between gap-2">
-        <PromotionBadge promotion={promotion} className="text-[13px]" />
+    <article className="overflow-hidden rounded-2xl border border-[#DCEBE0] bg-gradient-to-br from-[#F7FCF8] via-white to-[#FFFDF5] shadow-[0_6px_18px_rgba(31,90,69,0.12)]">
+      <div className="flex items-center justify-between gap-2 px-4 pt-4">
+        <PromotionBadge promotion={promotion} variant={isStorePromotion ? "featured" : undefined} label={isStorePromotion ? "Featured" : undefined} />
         <MoreButton onClick={() => onMenu(menuContent)} />
       </div>
       <VacationBadge sellerId={promotion.sellerId} />
-      {product && <button type="button" onClick={() => openDetail(`/product/${product.id}`, { sellerId: product.sellerId })} className="relative mt-4 block w-full overflow-hidden rounded-lg"><img src={product.image} alt={product.name} className="aspect-square w-full object-cover" /><span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[15px] font-extrabold uppercase text-[#498467] shadow">{promotionDisplayLabel(promotion)}</span></button>}
-      <h3 className="mt-4 text-[20px] font-bold tracking-[-0.3px]">{promotion.title}</h3>
-      <p className="mt-2 text-[14px] font-semibold text-[#498467]">{product?.shop}</p>
-      <DistanceLabel content={product ?? promotion} className="mt-1" />
-      <p className="mt-2 text-[12px] font-medium uppercase tracking-[0.4px] text-[#6B756F]">{promotionUrgencyLabel(promotion)}</p>
-      <div className="mt-4 flex items-center justify-between gap-4"><button type="button" onClick={() => product && openDetail(`/product/${product.id}`, { sellerId: product.sellerId })} className="rounded-lg bg-[#498467] px-4 py-2 text-[13px] font-semibold text-white">View Promotion</button><div className="flex gap-4">{savedItem && <SaveButton savedItem={savedItem} />}<ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>
-    </div>
+      <button type="button" onClick={openDestination} className="group relative mt-3 block h-[210px] w-full overflow-hidden text-left">
+        {heroImage ? <img src={heroImage} alt={isStorePromotion ? storeName || "Featured store" : product.name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" /> : <div className="flex h-full w-full items-center justify-center bg-[#EAF5ED] text-[#498467]"><Store aria-hidden="true" className="h-16 w-16" strokeWidth={1.3} /></div>}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-transparent" />
+        <div className="absolute inset-x-4 bottom-3 text-white">
+          <p className="text-[20px] font-semibold leading-tight tracking-[-0.3px]">{isStorePromotion ? storeName || "Featured store" : product.name}</p>
+          {isStorePromotion && storeCategory && <p className="mt-1 text-[12px] text-white/85">{storeCategory}</p>}
+        </div>
+      </button>
+      <div className="p-4 pt-3">
+        {!isStorePromotion && <p className="text-[14px] font-semibold text-[#1F5A45]">{storeName}</p>}
+        {storeLocation && <DistanceLabel content={{ ...(product ?? promotion), location: storeLocation }} className="mt-1" />}
+        <p className="mt-2 text-[12px] font-medium uppercase tracking-[0.4px] text-[#6B756F]">{promotionUrgencyLabel(promotion)}</p>
+        <div className="mt-4 flex items-center justify-between gap-4"><button type="button" onClick={openDestination} className="rounded-xl bg-[#498467] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_8px_rgba(73,132,103,0.18)]">{isStorePromotion ? "Visit Store" : "View Listing"}</button><div className="flex gap-4">{savedItem && <SaveButton savedItem={savedItem} />}<ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>
+      </div>
+    </article>
   );
 }
 

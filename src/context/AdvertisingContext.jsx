@@ -1,5 +1,5 @@
 import { createContext, useContext, useState } from "react";
-import { addCalendarDays, validateCampaignDates } from "../utils/campaignDuration";
+import { ACTIVE_CAMPAIGN_ERROR, addCalendarDays, isCampaignActive, validateCampaignDates } from "../utils/campaignDuration";
 
 const AdvertisingContext = createContext(null);
 const SELLER_ID = "current-user";
@@ -34,7 +34,10 @@ function destinationRoute(ad) {
 export function AdvertisingProvider({ children }) {
   const [ads, setAds] = useState(initialAds);
 
+  const getActiveCampaign = (excludedId) => ads.find((ad) => ad.id !== excludedId && isCampaignActive(ad));
+
   const addAd = (ad) => {
+    if (getActiveCampaign()) throw new Error(ACTIVE_CAMPAIGN_ERROR);
     const startsAt = ad.startsAt || new Date().toISOString().slice(0, 10);
     const trialStartedAt = ad.trialStartedAt || new Date().toISOString().slice(0, 10);
     const nextAd = {
@@ -75,7 +78,7 @@ export function AdvertisingProvider({ children }) {
   const getAd = (adId) => ads.find((ad) => ad.id === adId);
 
   return (
-    <AdvertisingContext.Provider value={{ ads, addAd, updateAd, cancelAd, getAd }}>
+    <AdvertisingContext.Provider value={{ ads, addAd, updateAd, cancelAd, getAd, getActiveCampaign }}>
       {children}
     </AdvertisingContext.Provider>
   );

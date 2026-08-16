@@ -1,6 +1,7 @@
 export const CAMPAIGN_MIN_DAYS = 1;
 export const CAMPAIGN_MAX_DAYS = 14;
 export const CAMPAIGN_DURATION_ERROR = "Each promotion may run for up to 14 days.";
+export const ACTIVE_CAMPAIGN_ERROR = "You already have an active Community Spotlight campaign. Edit or cancel your current campaign before creating a new Spotlight campaign.";
 
 export function addCalendarDays(dateKey, days) {
   const [year, month, day] = String(dateKey).slice(0, 10).split("-").map(Number);
@@ -19,6 +20,12 @@ function calendarDayNumber(dateKey) {
 
 export function calendarDaysUntil(dateKey, now = Date.now()) {
   return calendarDayNumber(dateKey) - calendarDayNumber(calendarDateKey(now));
+}
+
+export function isCampaignActive(campaign, now = Date.now()) {
+  const status = String(campaign?.status ?? "").toLowerCase();
+  if (!(["active", "trial"].includes(status)) || !campaign?.startsAt || !campaign?.endsAt) return false;
+  return campaign.startsAt <= calendarDateKey(now) && campaign.endsAt >= calendarDateKey(now);
 }
 
 function dateDifferenceInDays(startDate, endDate) {

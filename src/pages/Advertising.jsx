@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { COMMUNITY_SPOTLIGHT_PLAN, useAdvertising } from "../context/AdvertisingContext";
-import { addCalendarDays, calendarDaysUntil } from "../utils/campaignDuration";
+import { addCalendarDays, calendarDaysUntil, isCampaignActive } from "../utils/campaignDuration";
 
 const STATUS_STYLES = {
   Trial: "bg-[#CFF7D3] text-[#02542D]",
@@ -38,6 +38,7 @@ export default function Advertising() {
   const [trialActivation, setTrialActivation] = useState(null);
   const [now, setNow] = useState(Date.now());
   const trialStatus = getTrialStatus(ads, now);
+  const activeCampaigns = ads.filter((ad) => isCampaignActive(ad, now));
 
   useEffect(() => {
     if (!location.state?.trialActivated) return;
@@ -82,6 +83,10 @@ export default function Advertising() {
           </section>
 
           {trialStatus && <TrialStatusCard trial={trialStatus} onUpgrade={() => navigate("/my-shop/advertising/create")} />}
+          <section className="rounded-xl border border-[#DCEBE0] bg-white p-4">
+            <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#498467]">Community Spotlight Status</p>
+            <p className="mt-1 text-[16px] font-semibold text-[#1F2D27]">{activeCampaigns.length ? `${activeCampaigns.length} of 1 active campaigns` : "No active Community Spotlight campaign"}</p>
+          </section>
 
           <section>
             <div className="mb-3 flex items-center justify-between">

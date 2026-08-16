@@ -3,10 +3,36 @@ import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 
 const ProfileModeContext = createContext(null);
+const PROFILE_MODE_STORAGE_PREFIX = "grolo-profile-mode";
 
 function profileIsSeller(profile) {
   return Boolean(profile?.store_onboarding_status)
     || ["active", "seller", "both"].includes(profile?.seller_status);
+}
+
+function modeStorageKey(userId) {
+  return userId ? `${PROFILE_MODE_STORAGE_PREFIX}:${userId}` : null;
+}
+
+function readStoredMode(userId) {
+  const key = modeStorageKey(userId);
+  if (!key || typeof window === "undefined") return null;
+  try {
+    const stored = window.localStorage.getItem(key);
+    return stored === "buyer" || stored === "seller" ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredMode(userId, mode) {
+  const key = modeStorageKey(userId);
+  if (!key || typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, mode);
+  } catch {
+    return;
+  }
 }
 
 export function ProfileModeProvider({ children }) {
@@ -45,9 +71,10 @@ export function ProfileModeProvider({ children }) {
       }
       if (cancelled || requestId !== profileModeRequestRef.current) return;
       const active = profileIsSeller(data);
+      const storedMode = readStoredMode(user.id);
       setStoreActive(active);
       setStoreOpenedAt(data?.store_opened_at ? new Date(data.store_opened_at).getTime() : 0);
-      setProfileModeState(active ? "seller" : "buyer");
+      setProfileModeState(active ? storedMode ?? "seller" : "buyer");
     }
 
     loadProfileMode();
@@ -73,12 +100,15 @@ export function ProfileModeProvider({ children }) {
     setStoreActive(true);
     setStoreOpenedAt(new Date(openedAt).getTime());
     setProfileModeState("seller");
+    writeStoredMode(user.id, "seller");
     return true;
   };
 
   const setProfileMode = (mode) => {
-    if (mode === "seller" && !storeActive) return;
+    if (!["buyer", "seller"].includes(mode) || (mode === "seller" && !storeActive)) return false;
     setProfileModeState(mode);
+    writeStoredMode(user?.id, mode);
+    return true;
   };
 
   const accountType = storeActive ? "both" : "buyer";

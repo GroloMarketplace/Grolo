@@ -348,21 +348,48 @@ export async function getConversations(userId) {
 export async function getMessages(conversationId, userId) {
   requireSupabase();
   const authenticatedUserId = await getAuthenticatedUserId(userId);
-  const { data, error } = await supabase
+  const directResult = await supabase
     .from("messages")
     .select("id, conversation_id, sender_id, content, created_at, read_at")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
-  if (error) throw error;
+  let data = directResult.data ?? [];
+  let source = "direct-select";
+  let fallbackError = null;
 
-  const mappedMessages = (data ?? [])
+  if (directResult.error || data.length === 0) {
+    const fallbackResult = await supabase.rpc("get_conversation_messages", { p_conversation_id: conversationId });
+    fallbackError = fallbackResult.error ?? null;
+    if (!fallbackResult.error) {
+      data = fallbackResult.data ?? [];
+      source = "participant-validated-rpc";
+    }
+  }
+
+  console.info("Message hydration diagnostics", {
+    conversationId,
+    currentUserId: authenticatedUserId,
+    directReturnedMessageCount: directResult.data?.length ?? 0,
+    directRetrievalError: directResult.error ? databaseErrorDetails(directResult.error) : null,
+    fallbackReturnedMessageCount: source === "participant-validated-rpc" ? data.length : null,
+    fallbackRetrievalError: fallbackError ? databaseErrorDetails(fallbackError) : null,
+    source,
+    rlsResult: directResult.error ? "direct-select-error" : directResult.data?.length ? "direct-select-visible" : "direct-select-empty",
+  });
+
+  if (directResult.error && fallbackError) throw directResult.error;
+  if (fallbackError && !directResult.error) {
+    console.warn("Message hydration fallback unavailable; preserving direct result", {
+      conversationId,
+      currentUserId: authenticatedUserId,
+      error: databaseErrorDetails(fallbackError),
+    });
+    data = directResult.data ?? [];
+  }
+
+  const mappedMessages = data
     .map((message) => databaseMessageToLegacyMessage(message, { currentUserId: authenticatedUserId }))
     .filter(Boolean);
-  console.info("Supabase message read", {
-    conversationId,
-    messageReadCount: data?.length ?? 0,
-    mappedMessageCount: mappedMessages.length,
-  });
   return mappedMessages;
 }
 

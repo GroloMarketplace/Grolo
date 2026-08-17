@@ -434,6 +434,8 @@ create table if not exists messages (
   created_at timestamptz not null default now()
 );
 
+alter table messages add column if not exists read_at timestamptz;
+
 alter table messages enable row level security;
 
 drop policy if exists "Participants can view messages" on messages;

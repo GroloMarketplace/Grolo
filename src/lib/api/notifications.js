@@ -8,6 +8,12 @@ function normalizeNotification(row) {
   return {
     ...row,
     relatedId: row.related_id,
+    actorId: row.actor_id,
+    actorName: row.actor_name,
+    actorAvatarUrl: row.actor_avatar_url,
+    subjectTitle: row.subject_title,
+    subjectImageUrl: row.subject_image_url,
+    storeImageUrl: row.store_image_url,
     isRead: Boolean(row.read),
     createdAt: row.created_at,
   };
@@ -17,7 +23,7 @@ export async function getNotifications(userId, { limit = 30, offset = 0 } = {}) 
   requireSupabase();
   const { data, error } = await supabase
     .from("notifications")
-    .select("id,user_id,type,title,message,related_id,read,created_at")
+    .select("id,user_id,type,title,message,related_id,read,created_at,actor_id,actor_name,actor_avatar_url,subject_title,subject_image_url,store_image_url")
     .eq("user_id", userId)
     .order("read", { ascending: true })
     .order("created_at", { ascending: false })

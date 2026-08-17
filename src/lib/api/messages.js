@@ -53,6 +53,8 @@ export function databaseMessageToLegacyMessage(row, { currentUserId } = {}) {
     text: row.content ?? row.text ?? "",
     timestamp: row.timestamp ?? createdAt,
     createdAt,
+    readAt: row.read_at ?? row.readAt ?? null,
+    unread: Boolean(row.sender_id && currentUserId && row.sender_id !== currentUserId && !row.read_at && !row.readAt),
   };
 }
 
@@ -63,6 +65,18 @@ export function databaseConversationToLegacyConversation(row, { currentUserId } 
   const sellerId = row.seller_id ?? row.sellerId;
   const participantId = currentUserId === buyerId ? sellerId : currentUserId === sellerId ? buyerId : sellerId;
   const sellerProfile = profileFor(row, "seller");
+  const buyerProfile = profileFor(row, "buyer");
+  const isCurrentUserBuyer = currentUserId === buyerId;
+  const otherProfile = isCurrentUserBuyer ? sellerProfile : currentUserId === sellerId ? buyerProfile : sellerProfile;
+  const participantName = isCurrentUserBuyer
+    ? otherProfile.shop_name ?? otherProfile.display_name ?? otherProfile.username ?? otherProfile.name ?? "Store"
+    : otherProfile.display_name ?? otherProfile.username ?? otherProfile.name ?? "Buyer";
+  const participantProfile = {
+    ...otherProfile,
+    id: otherProfile.id ?? (currentUserId === buyerId ? sellerId : buyerId),
+    name: participantName,
+    avatar: otherProfile.avatar_url ?? otherProfile.avatar ?? "",
+  };
   const rawMessages = Array.isArray(row.messages) ? row.messages : [];
   const mappedMessages = rawMessages.map((message) => databaseMessageToLegacyMessage(message, { currentUserId })).filter(Boolean);
 
@@ -70,14 +84,18 @@ export function databaseConversationToLegacyConversation(row, { currentUserId } 
     ...row,
     id: databaseId,
     databaseId,
-    name: row.name ?? sellerProfile.display_name ?? sellerProfile.shop_name ?? sellerProfile.name ?? "User",
+    name: row.name ?? participantName,
+    category: row.category ?? (currentUserId === buyerId ? "Buying" : "Selling"),
+    participantName,
+    participantProfile,
     sellerId,
     participantId,
     buyerId,
-    location: row.location ?? sellerProfile.location,
+    location: row.location ?? otherProfile.location,
     timestamp: row.updated_at ?? row.updatedAt,
     listingId: row.listing_id ?? row.listingId ?? null,
     messages: mappedMessages,
+    unread: mappedMessages.some((message) => message.unread),
   };
 }
 
@@ -253,14 +271,6 @@ async function getAuthenticatedUserId(requestedUserId) {
   return authenticatedUserId;
 }
 
-function sortMessages(messages) {
-  return [...(Array.isArray(messages) ? messages : [])].sort((left, right) => {
-    const leftTime = new Date(left.created_at ?? 0).getTime();
-    const rightTime = new Date(right.created_at ?? 0).getTime();
-    return leftTime - rightTime || String(left.id ?? "").localeCompare(String(right.id ?? ""));
-  });
-}
-
 async function attachParticipantProfiles(conversations) {
   const participantIds = [...new Set(conversations.flatMap((conversation) => [conversation.buyer_id, conversation.seller_id]).filter(Boolean))];
   if (participantIds.length === 0) return conversations;
@@ -269,7 +279,13 @@ async function attachParticipantProfiles(conversations) {
     .from("profiles")
     .select("id, display_name, username, shop_name, avatar_url, location")
     .in("id", participantIds);
-  if (error) throw error;
+  if (error) {
+    console.warn("Participant profile hydration failed; preserving conversations", {
+      participantIds,
+      error: databaseErrorDetails(error),
+    });
+    return conversations;
+  }
 
   const profilesById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
   return conversations.map((conversation) => ({
@@ -282,25 +298,48 @@ async function attachParticipantProfiles(conversations) {
 export async function getConversations(userId) {
   requireSupabase();
   const authenticatedUserId = await getAuthenticatedUserId(userId);
-  const { data, error } = await supabase
-    .from("conversations")
-    .select("id, buyer_id, seller_id, listing_id, updated_at, messages(id, conversation_id, sender_id, content, created_at)")
-    .or(`buyer_id.eq.${authenticatedUserId},seller_id.eq.${authenticatedUserId}`)
-    .order("updated_at", { ascending: false });
-  if (error) throw error;
+  const select = "id, buyer_id, seller_id, listing_id, updated_at";
+  const [buyerResult, sellerResult] = await Promise.all([
+    supabase.from("conversations").select(select).eq("buyer_id", authenticatedUserId).order("updated_at", { ascending: false }),
+    supabase.from("conversations").select(select).eq("seller_id", authenticatedUserId).order("updated_at", { ascending: false }),
+  ]);
+  const queryErrors = [buyerResult.error, sellerResult.error].filter(Boolean);
+  if (queryErrors.length === 2) {
+    console.warn("Seller/buyer conversation retrieval failed for both participant queries", {
+      authenticatedUserId,
+      buyerQueryError: databaseErrorDetails(buyerResult.error),
+      sellerQueryError: databaseErrorDetails(sellerResult.error),
+    });
+    throw queryErrors[0];
+  }
+  const rowsById = new Map([...(buyerResult.data ?? []), ...(sellerResult.data ?? [])].map((conversation) => [conversation.id, conversation]));
+  const data = [...rowsById.values()].sort((left, right) => new Date(right.updated_at ?? 0).getTime() - new Date(left.updated_at ?? 0).getTime());
+  console.info("Conversation retrieval diagnostics", {
+    authenticatedUserId,
+    buyerQueryCount: buyerResult.data?.length ?? 0,
+    sellerQueryCount: sellerResult.data?.length ?? 0,
+    mergedConversationCount: data.length,
+    buyerQueryError: buyerResult.error ? databaseErrorDetails(buyerResult.error) : null,
+    sellerQueryError: sellerResult.error ? databaseErrorDetails(sellerResult.error) : null,
+    conversationIdentities: data.map((conversation) => ({
+      conversationId: conversation.id,
+      buyerId: conversation.buyer_id,
+      sellerId: conversation.seller_id,
+      listingId: conversation.listing_id,
+    })),
+  });
 
   const conversations = await attachParticipantProfiles((data ?? []).map((conversation) => ({
     ...conversation,
-    messages: sortMessages(conversation.messages),
+    messages: [],
   })));
-  const messageReadCount = conversations.reduce((count, conversation) => count + conversation.messages.length, 0);
   const mappedConversations = conversations
     .map((conversation) => databaseConversationToLegacyConversation(conversation, { currentUserId: authenticatedUserId }))
     .filter(Boolean);
 
   console.info("Supabase conversation read", {
+    authenticatedUserId,
     conversationReadCount: conversations.length,
-    messageReadCount,
     mappedConversationCount: mappedConversations.length,
   });
   return mappedConversations;
@@ -311,7 +350,7 @@ export async function getMessages(conversationId, userId) {
   const authenticatedUserId = await getAuthenticatedUserId(userId);
   const { data, error } = await supabase
     .from("messages")
-    .select("id, conversation_id, sender_id, content, created_at")
+    .select("id, conversation_id, sender_id, content, created_at, read_at")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
   if (error) throw error;
@@ -325,6 +364,14 @@ export async function getMessages(conversationId, userId) {
     mappedMessageCount: mappedMessages.length,
   });
   return mappedMessages;
+}
+
+export async function markConversationMessagesRead(conversationId) {
+  requireSupabase();
+  const resolvedConversationId = canonicalId(conversationId, "conversationId", true);
+  const { error } = await supabase.rpc("mark_conversation_messages_read", { p_conversation_id: resolvedConversationId });
+  if (error) throw error;
+  return resolvedConversationId;
 }
 
 function attachMessageDebug(error, debug) {

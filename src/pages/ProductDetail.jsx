@@ -166,12 +166,13 @@ export default function ProductDetail() {
                   <span className="text-[48px] font-bold leading-none">{Math.floor(Number(product.price) || 0)}</span>
                 </>}
               </div>
-              {isService && seller && !product.availableForTrade && (
+              {seller && !product.availableForTrade && (
                 <button
                   type="button"
                   onClick={handleMessageSeller}
-                  className="w-full rounded-lg bg-[#498467] py-3 text-[16px] text-[#F5F5F5]"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#498467] bg-white py-3 text-[16px] font-medium text-[#498467] transition-colors hover:bg-[#F5FFF6]"
                 >
+                  <span aria-hidden="true">💬</span>
                   Message Seller
                 </button>
               )}

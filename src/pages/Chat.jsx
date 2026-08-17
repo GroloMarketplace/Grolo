@@ -32,7 +32,7 @@ export default function Chat() {
   const [messageDebug, setMessageDebug] = useState(null);
   const inputRef = useRef(null);
   const { listings } = useListings();
-  const { messages, appendMessage, ensureConversation } = useMessages();
+  const { messages, appendMessage, ensureConversation, markConversationRead } = useMessages();
   const { user } = useAuth();
   const { orders } = useOrders();
   const { getSellerProfile } = useSellerSettings();
@@ -101,6 +101,8 @@ export default function Chat() {
       });
       setConversationUUID(resolvedConversationId);
       setConversationReady(true);
+      void markConversationRead(resolvedConversationId);
+      if (id !== resolvedConversationId) void markConversationRead(id);
       setConversationDebug({
         currentAuthUserId: user?.id ?? null,
         buyerId: conversation?.buyerId ?? user?.id ?? null,
@@ -144,7 +146,7 @@ export default function Chat() {
     return () => {
       active = false;
     };
-  }, [conversationAttempt, databaseListingId, ensureConversation, id, listingId, pendingConversation, routeParticipantId, serviceContext, user?.id]);
+  }, [conversationAttempt, databaseListingId, ensureConversation, id, listingId, markConversationRead, pendingConversation, routeParticipantId, serviceContext, user?.id]);
 
   const seller = Object.values(sellers).find((s) => s.id === (conversation?.sellerId ?? listing?.sellerId ?? id)) || { id: conversation?.sellerId ?? listing?.sellerId ?? id, name: "this store" };
   const conversationProfile = getConversationProfile({ ...conversation, sellerId: conversation?.sellerId ?? seller.id, name: conversation?.name ?? seller.name }, getSellerProfile, buyerProfile);
@@ -453,10 +455,7 @@ export default function Chat() {
               <h4 className="text-[16px] font-semibold truncate">{listing.name}</h4>
               <p className="text-[14px] text-[#828282] truncate">{seller.name}</p>
               <p className="text-[16px] font-semibold text-[#498467]">{serviceContext ? formatListingPrice(listing) : `$${Number(listing.price).toFixed(2)}`}</p>
-              {serviceContext ? <span className="text-[12px] text-[#498467]">View Service Listing</span> : <div className="flex flex-wrap gap-x-2 text-[12px] text-[#498467]">
-                {listing.quantityAvailable != null && <span>Available: {listing.quantityAvailable}</span>}
-                {listing.availableForTrade && <span>Open to Trade</span>}
-              </div>}
+              {serviceContext ? <span className="text-[12px] text-[#498467]">View Service Listing</span> : <div className="flex flex-wrap gap-x-2 text-[12px] text-[#498467]"><span>View Listing</span>{listing.quantityAvailable != null && <span>Available: {listing.quantityAvailable}</span>}{listing.availableForTrade && <span>Open to Trade</span>}</div>}
             </div>
           </button>
         ) : (

@@ -1,20 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
-import { sellers } from "../data/mockData";
 import { useMessages } from "../context/MessageContext";
 import { useOrders } from "../context/OrderContext";
+import { useListings } from "../context/ListingContext";
 import { useProfileMode } from "../context/ProfileModeContext";
-import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import ProfileAvatar from "../components/ProfileAvatar";
+import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import OutlineIcon from "../components/OutlineIcon";
 import { getConversationProfile } from "../utils/conversationProfile";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { getOrderStatusClass, getOrderStatusLabel } from "../utils/orderStatus";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
-import { CompactReputationHeader } from "../components/ReputationSummary";
-import { useReputationSnapshot } from "../hooks/useReputationRead";
 
 const TAB_NAMES = ["All", "Selling", "Buying", "Trading", "Orders"];
 
@@ -33,6 +31,7 @@ export default function Messages() {
   const saveMessagesState = (nextTab = tabRef.current) => writeNavigationState("messages", { tab: nextTab, scrollTop: scrollRef.current?.scrollTop ?? 0 });
   const { messages } = useMessages();
   const safeMessages = Array.isArray(messages) ? messages.filter(Boolean) : [];
+  const { listings } = useListings();
   const { orders } = useOrders();
   const { profileMode } = useProfileMode();
   const { getSellerProfile } = useSellerSettings();
@@ -116,6 +115,7 @@ export default function Messages() {
               navigate={navigate}
               getSellerProfile={getSellerProfile}
               buyerProfile={buyerProfile}
+              listings={listings}
             />
           ))
         )}
@@ -125,42 +125,50 @@ export default function Messages() {
   );
 }
 
-function MessageRow({ message, orders, navigate, getSellerProfile, buyerProfile }) {
+function formatRelativeTimestamp(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value || "";
+  const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 172800) return "Yesterday";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function MessageRow({ message, orders, navigate, getSellerProfile, buyerProfile, listings }) {
   const latestMessage = message.messages?.[message.messages.length - 1];
-  const messageSeller = Object.values(sellers).find((seller) => seller.name === message.name);
-  const conversationProfile = getConversationProfile(message, getSellerProfile, buyerProfile);
-  const participantId = messageSeller?.id ?? conversationProfile?.id;
-  const reputationSnapshot = useReputationSnapshot(participantId);
+  const fallbackProfile = getConversationProfile(message, getSellerProfile, buyerProfile);
+  const participantProfile = message.participantProfile ?? fallbackProfile ?? {};
+  const participantId = message.participantId ?? participantProfile.id;
+  const participantName = message.participantName ?? participantProfile.name ?? message.name ?? "User";
+  const listing = listings.find((item) => item.id === message.listingId || item.databaseId === message.listingId);
+  const listingTitle = listing?.name ?? message.subjectTitle ?? message.serviceContext?.title ?? "Marketplace conversation";
+  const conversationProfile = { ...participantProfile, id: participantId, name: participantName, avatar: participantProfile.avatar ?? participantProfile.avatar_url ?? "" };
   const isOrderConversation = message.conversationType === "order" || Boolean(message.orderId || message.orderContext?.orderId);
   const liveOrder = isOrderConversation ? orders.find((order) => order.id === (message.orderId ?? message.orderContext?.orderId)) : null;
   const orderNumber = liveOrder?.id ?? message.orderContext?.orderNumber ?? message.orderId;
   const orderStatus = liveOrder?.status ?? message.orderContext?.status;
 
   return (
-    <div className="flex gap-3 px-4 py-3 border-b border-black/5 relative">
-      <button onClick={() => navigate(`/messages/${message.id}`)} className="flex-1 min-w-0 flex gap-3 text-left">
-        <ProfileAvatar profile={conversationProfile} size="w-8 h-8" className="shrink-0" />
-        <div className="flex-1 min-w-0">
-          <div className="flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap text-[14px]">
-            <Link
-              to={`/seller/${messageSeller?.id || participantId || "current-user"}`}
-              onClick={(event) => event.stopPropagation()}
-              className={`min-w-0 truncate ${message.unread ? "font-bold" : "font-semibold"} text-[#498467] hover:underline`}
-            >
-              {message.name}
-            </Link>
-            <FoundingMemberBadge sellerId={messageSeller?.id} iconOnly />
-            <span className="flex shrink-0 items-center gap-1 text-[#828282]"><OutlineIcon name="location" size={13} />{message.location}</span>
+    <div className={`flex gap-3 border-b border-black/5 px-4 py-3 ${message.unread ? "bg-[#F7FCF8]" : "bg-white"}`}>
+      <button onClick={() => navigate(`/messages/${message.id}`)} className="flex min-w-0 flex-1 gap-3 text-left">
+        <ProfileAvatar profile={conversationProfile} size="h-11 w-11" className="shrink-0" />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-1">
+            <div className={`truncate text-[15px] ${message.unread ? "font-bold" : "font-semibold"} text-[#262626]`}>{participantName}</div>
+            {participantId === message.sellerId && <FoundingMemberBadge sellerId={message.sellerId} compact iconOnly />}
           </div>
-          <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-1 max-w-full" />
+          {(participantProfile.location || message.location) && <div className="mt-0.5 flex items-center gap-1 truncate text-[12px] text-[#828282]"><OutlineIcon name="location" size={12} />{participantProfile.location || message.location}</div>}
+          <div className="mt-0.5 truncate text-[13px] font-medium text-[#498467]">{listingTitle}</div>
+          <p className="mt-1 line-clamp-1 text-[13px] text-[#666]">{latestMessage?.text || "No messages yet"}</p>
           {isOrderConversation && <div className={`mt-1 flex min-w-0 items-center gap-1 text-[12px] ${getOrderStatusClass(orderStatus)}`}><span className="truncate">{orderStatus ? getOrderStatusLabel(orderStatus) : "Order"}</span><span aria-hidden="true">•</span><span className="shrink-0">Order #{String(orderNumber ?? "").replace(/^#/, "")}</span></div>}
           {isTradeConversation(message) && <div className="mt-1 flex items-center gap-1 text-[12px] font-medium text-[#498467]"><OutlineIcon name="trade" size={12} />Trade Proposal</div>}
-          <p className="mt-1 line-clamp-1 text-[14px]">{latestMessage?.text ?? ""}</p>
         </div>
       </button>
-      <div className="flex flex-col items-end gap-1 shrink-0">
-        <span className="text-[12px] text-[#828282]">{latestMessage?.timestamp ?? ""}</span>
-        {message.unread && <div className="w-2.5 h-2.5 rounded-full bg-[#498467] shrink-0" />}
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <span className="text-[11px] text-[#828282]">{formatRelativeTimestamp(latestMessage?.createdAt ?? latestMessage?.timestamp ?? message.timestamp)}</span>
+        {message.unread && <span aria-label="Unread messages" className="flex min-h-5 min-w-5 items-center justify-center rounded-full bg-[#C85A3F] px-1.5 text-[10px] font-bold leading-5 text-white">{message.messages?.filter((item) => item.unread).length || 1}</span>}
       </div>
     </div>
   );

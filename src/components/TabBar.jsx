@@ -4,6 +4,7 @@ import { useProfileMode } from "../context/ProfileModeContext";
 import { useCart } from "../context/CartContext";
 import { useListings } from "../context/ListingContext";
 import { getActiveCartTotalQuantity } from "../utils/cartGrouping";
+import { useMessages } from "../context/MessageContext";
 
 const tabs = [
   {
@@ -96,6 +97,7 @@ export default function TabBar() {
   const { profileMode } = useProfileMode();
   const { items } = useCart();
   const { listings } = useListings();
+  const { unreadCount: unreadMessageCount } = useMessages();
   const totalQuantity = getActiveCartTotalQuantity(items, listings);
   const profileType = profileMode === "seller" ? "seller" : "buyer";
   const profilePath = profileType === "seller" ? "/shop" : "/profile";
@@ -145,6 +147,11 @@ export default function TabBar() {
                 {tab.to === "/cart" && totalQuantity > 0 && (
                   <span className="absolute -right-2 -top-2 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[#498467] px-1 text-[10px] font-semibold leading-4 text-white">
                     {totalQuantity}
+                  </span>
+                )}
+                {tab.to === "/messages" && unreadMessageCount > 0 && (
+                  <span aria-label={`${unreadMessageCount} unread messages`} className="absolute -right-2 -top-2 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[#C85A3F] px-1 text-[10px] font-semibold leading-4 text-white">
+                    {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
                   </span>
                 )}
               </span>

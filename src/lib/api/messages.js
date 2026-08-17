@@ -465,10 +465,11 @@ export async function sendMessage({ conversationId, senderId, recipientId, conte
   return { ...message, messageDebug: successDebug };
 }
 
-export function subscribeToMessages(conversationId, onInsert) {
+export function subscribeToMessages(conversationId, onInsert, onStatus) {
   requireSupabase();
-  return supabase
-    .channel(`messages:${conversationId}`)
+  const channelName = `messages:${conversationId}`;
+  const channel = supabase
+    .channel(channelName)
     .on(
       "postgres_changes",
       {
@@ -477,7 +478,24 @@ export function subscribeToMessages(conversationId, onInsert) {
         table: "messages",
         filter: `conversation_id=eq.${conversationId}`,
       },
-      (payload) => onInsert(payload.new),
-    )
-    .subscribe();
+      (payload) => {
+        console.info("realtime INSERT event received", {
+          channel: channelName,
+          conversationId,
+          messageId: payload.new?.id ?? null,
+          senderId: payload.new?.sender_id ?? null,
+        });
+        onInsert(payload.new);
+      },
+    );
+  channel.subscribe((status, error) => {
+    console.info("realtime channel status", {
+      channel: channelName,
+      conversationId,
+      status,
+      error: error?.message ?? error ?? null,
+    });
+    onStatus?.(status, error);
+  });
+  return channel;
 }

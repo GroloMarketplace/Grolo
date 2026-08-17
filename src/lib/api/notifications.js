@@ -66,15 +66,33 @@ export async function markAllNotificationsRead(userId) {
   if (error) throw error;
 }
 
-export function subscribeToNotifications(userId, onInsert) {
+export function subscribeToNotifications(userId, onInsert, onStatus) {
   requireSupabase();
-  return supabase
-    .channel(`notifications:${userId}`)
+  const channelName = `notifications:${userId}`;
+  const channel = supabase
+    .channel(channelName)
     .on("postgres_changes", {
       event: "INSERT",
       schema: "public",
       table: "notifications",
       filter: `user_id=eq.${userId}`,
-    }, (payload) => onInsert(normalizeNotification(payload.new)))
-    .subscribe();
+    }, (payload) => {
+      console.info("realtime notification INSERT event received", {
+        channel: channelName,
+        userId,
+        notificationId: payload.new?.id ?? null,
+        type: payload.new?.type ?? null,
+      });
+      onInsert(normalizeNotification(payload.new));
+    });
+  channel.subscribe((status, error) => {
+    console.info("realtime notification channel status", {
+      channel: channelName,
+      userId,
+      status,
+      error: error?.message ?? error ?? null,
+    });
+    onStatus?.(status, error);
+  });
+  return channel;
 }

@@ -31,6 +31,12 @@ export function NotificationProvider({ children }) {
       .finally(() => { if (!cancelled) setLoading(false); });
     channel = subscribeToNotifications(user.id, (notification) => {
       setNotifications((current) => [notification, ...current.filter((item) => item.id !== notification.id)]);
+    }, (status, error) => {
+      console.info("realtime notification subscription status", {
+        userId: user.id,
+        status,
+        error: error?.message ?? error ?? null,
+      });
     });
     return () => {
       cancelled = true;

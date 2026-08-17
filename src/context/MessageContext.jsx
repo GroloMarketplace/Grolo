@@ -43,12 +43,25 @@ export function MessageProvider({ children }) {
   const realtimeSubscriptions = useRef(new Map());
   const subscribeToConversationRef = useRef(null);
 
-  const cleanupRealtimeSubscriptions = () => {
+  const cleanupRealtimeSubscriptions = (reason = "unspecified") => {
+    console.info("realtime subscription cleanup triggered", {
+      reason,
+      currentUserId: user?.id ?? null,
+      activeConversationIds: [...realtimeSubscriptions.current.keys()],
+    });
     realtimeSubscriptions.current.forEach((channel, conversationId) => {
       channel.unsubscribe();
-      console.info("realtime subscription cleaned up", { conversationId });
+      console.info("realtime subscription removed", { conversationId, reason });
     });
     realtimeSubscriptions.current.clear();
+  };
+
+  const reconcileRealtimeSubscriptions = (conversationIds) => {
+    const activeConversationIds = new Set(conversationIds.filter(isCanonicalUuid));
+    activeConversationIds.forEach((conversationId) => subscribeToConversationRef.current?.(conversationId));
+    console.info("realtime subscriptions kept active", {
+      activeConversationIds: [...realtimeSubscriptions.current.keys()],
+    });
   };
 
   const subscribeToConversation = (conversationId) => {
@@ -61,9 +74,20 @@ export function MessageProvider({ children }) {
         senderId: incomingMessage?.senderId,
       });
       mergeRealtimeMessage(conversationId, incomingMessage);
+    }, (status, error) => {
+      console.info("realtime message subscription status", {
+        conversationId,
+        currentUserId: user?.id ?? null,
+        status,
+        error: error?.message ?? error ?? null,
+      });
     });
     realtimeSubscriptions.current.set(conversationId, channel);
-    console.info("realtime subscription started", { conversationId });
+    console.info("realtime subscription created", {
+      conversationId,
+      currentUserId: user?.id ?? null,
+      channel: `messages:${conversationId}`,
+    });
   };
   subscribeToConversationRef.current = subscribeToConversation;
 
@@ -71,11 +95,17 @@ export function MessageProvider({ children }) {
     let cancelled = false;
     setMessages([]);
 
+    console.info("realtime subscription dependency change", {
+      dependency: "user.id",
+      currentUserId: user?.id ?? null,
+      supabaseConfigured: isSupabaseConfigured,
+    });
+
     if (!user?.id || !isSupabaseConfigured) {
-      cleanupRealtimeSubscriptions();
+      cleanupRealtimeSubscriptions("auth-user-missing-or-supabase-unconfigured");
       return () => {
         cancelled = true;
-        cleanupRealtimeSubscriptions();
+        cleanupRealtimeSubscriptions("effect-cleanup-without-authenticated-user");
       };
     }
 
@@ -111,10 +141,12 @@ export function MessageProvider({ children }) {
           mappedConversationCount: mappedMessages.length,
         });
         setMessages(mappedMessages);
-        cleanupRealtimeSubscriptions();
-        hydratedConversations
-          .map((conversation) => conversation.databaseId ?? conversation.id)
-          .forEach((conversationId) => subscribeToConversationRef.current?.(conversationId));
+        const activeConversationIds = hydratedConversations.map((conversation) => conversation.databaseId ?? conversation.id);
+        console.info("realtime subscription reconciliation", {
+          currentUserId: user.id,
+          activeConversationIds,
+        });
+        reconcileRealtimeSubscriptions(activeConversationIds);
       } catch (error) {
         if (cancelled) return;
         setMessages([]);
@@ -127,7 +159,7 @@ export function MessageProvider({ children }) {
     loadSupabaseMessages();
     return () => {
       cancelled = true;
-      cleanupRealtimeSubscriptions();
+      cleanupRealtimeSubscriptions("effect-cleanup-user-id-change-or-provider-unmount");
     };
   }, [user?.id]);
 

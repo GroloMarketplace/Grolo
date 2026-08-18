@@ -25,6 +25,7 @@ import DistanceLabel from "../components/DistanceLabel";
 import { CompactReputationHeader } from "../components/ReputationSummary";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useMarketplaceDiscovery } from "../hooks/useEntityResolution";
+import { promotedContentImage } from "../utils/promotionMedia";
 
 const TABS = ["Local", "Map", "History", "My Orders"];
 
@@ -165,7 +166,7 @@ export default function Search() {
         {tab === "Local" && query.trim() ? <SearchResults products={searchResults ?? discoveryProducts} sellers={resolvedSellers} events={resolvedEvents} posts={resolvedPosts} query={query} navigate={navigate} onProduct={rememberProduct} onBack={returnToSearchHome} buyerSettings={buyerSettings} onLoadMore={loadMoreSearch} hasMore={searchHasMore} loadingMore={searchLoadingMore} /> : tab === "Local" && (
           <>
             <PromotionalCarousel onNavigate={navigate} />
-            <CommunitySpotlightCarousel sellers={resolvedSellers} />
+            <CommunitySpotlightCarousel sellers={resolvedSellers} listings={discoveryProducts} events={resolvedEvents} />
             <CategoryRow categories={resolvedCategories} onCategory={(path) => { writeNavigationState("search", { tab, query, scrollTop: scrollRef.current?.scrollTop ?? 0, currentRoutePath: path }); navigate(path, { state: { fromSearch: true } }); }} />
             <CarouselRow
               title="Featured"
@@ -324,7 +325,7 @@ function SavedHistoryCard({ item, onClick, listing, promotion }) {
   );
 }
 
-function CommunitySpotlightCarousel({ sellers }) {
+function CommunitySpotlightCarousel({ sellers, listings, events }) {
   const navigate = useNavigate();
   const { ads } = useAdvertising();
   const touchStartX = useRef(null);
@@ -437,6 +438,9 @@ function CommunitySpotlightCarousel({ sellers }) {
           {slides.map((spotlight, index) => {
             if (!spotlight) return null;
             const seller = sellers.find((item) => item.id === spotlight.sellerId || item.legacyId === spotlight.sellerId) ?? { name: "", avatar: "" };
+            const promotedListing = listings.find((item) => [item.id, item.databaseId, item.legacyId].filter(Boolean).map(String).includes(String(spotlight.productId)));
+            const promotedEvent = events.find((item) => [item.id, item.databaseId, item.legacyId].filter(Boolean).map(String).includes(String(spotlight.eventId)));
+            const spotlightImage = promotedContentImage({ listing: promotedListing, event: promotedEvent, promotion: spotlight, placeholder: spotlight.image });
             return (
               <button
                 key={`${spotlight.id}-${index}`}
@@ -445,7 +449,7 @@ function CommunitySpotlightCarousel({ sellers }) {
                 className="relative h-[136px] w-full shrink-0 overflow-hidden text-left transition-transform duration-150 active:scale-[0.98] active:brightness-90"
                 aria-label={`${spotlight.title} by ${seller.name}`}
               >
-                <img src={spotlight.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                <img src={spotlightImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
                 <span aria-hidden="true" className="absolute bottom-2 right-3 text-[20px] font-light leading-none text-white/75">›</span>
                 <div className="absolute inset-x-3 bottom-2.5 pr-6 text-white">

@@ -16,6 +16,7 @@ import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import DistanceLabel from "../components/DistanceLabel";
 import ReviewSummary from "../components/ReviewSummary";
 import TradeBadge from "../components/TradeBadge";
+import { promotionMatchesListing, promotedContentImage } from "../utils/promotionMedia";
 
 const FILTERS = ["All", "Listings", "Events", "Stores", "Promotions"];
 const SORT_OPTIONS = ["Featured", "Trending", "Newest"];
@@ -52,7 +53,7 @@ export default function Featured() {
     navigate(destination);
   };
   const promotionByProduct = useMemo(
-    () => new Map(listings.map((product) => [product.id, promotions.find((promotion) => promotion.productIds.includes(product.id))])),
+    () => new Map(listings.map((product) => [product.id, promotions.find((promotion) => promotionMatchesListing(promotion, product))])),
     [listings],
   );
   const paidStoreIds = new Set(
@@ -149,7 +150,7 @@ function FeaturedListingCard({ product, promotion, onProduct }) {
     <article className="rounded-lg border border-[#E6E6E6] p-3">
       <Link to={`/product/${product.id}`} onClick={(event) => { if (onProduct) { event.preventDefault(); onProduct(product.id); } }} className="block">
         <div className="relative">
-          <img src={product.image} alt={product.name} className="h-[180px] w-full rounded-lg object-cover" />
+          <img src={promotedContentImage({ listing: product, promotion })} alt={product.name} className="h-[180px] w-full rounded-lg object-cover" />
           {promotion && <PromotionBadge promotion={promotion} className="absolute left-2 top-2" />}
         </div>
         <div className="mt-3 flex items-start justify-between gap-3">
@@ -174,7 +175,7 @@ function FeaturedEventCard({ event }) {
 
   return (
     <button type="button" onClick={() => navigate(`/event/${event.id}`)} className="w-full overflow-hidden rounded-lg border border-[#E6E6E6] text-left">
-      <img src={event.image} alt={event.title} className="h-[180px] w-full object-cover" />
+      <img src={promotedContentImage({ event })} alt={event.title} className="h-[180px] w-full object-cover" />
       <div className="flex flex-col gap-1 p-3">
         <h3 className="text-[16px] font-semibold">{event.title}</h3>
         <p className="text-[13px] text-[#498467]">{seller?.name}</p>

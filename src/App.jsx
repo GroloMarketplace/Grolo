@@ -58,6 +58,7 @@ import CreateEvent from "./pages/CreateEvent";
 import EditEvent from "./pages/EditEvent";
 import CreatePromotion from "./pages/CreatePromotion";
 import Promotions from "./pages/Promotions";
+import PromotionDetail from "./pages/PromotionDetail";
 import CommunityImpact from "./pages/CommunityImpact";
 import Comments from "./pages/Comments";
 import EventDetail from "./pages/EventDetail";
@@ -181,6 +182,7 @@ export default function App() {
             </PhoneFrame>
           }
         />
+        <Route path="/promotion/:promotionId" element={<PhoneFrame><AppErrorBoundary label="Promotion Detail"><PromotionDetail /></AppErrorBoundary></PhoneFrame>} />
         <Route path="/promotions/:sellerId" element={<PhoneFrame><AppErrorBoundary label="Promotions"><Promotions /></AppErrorBoundary></PhoneFrame>} />
         <Route
           path="/edit-promotion/:promotionId"

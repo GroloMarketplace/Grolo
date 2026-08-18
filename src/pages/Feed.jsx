@@ -48,6 +48,7 @@ import { discoveryRadiusLabel, distanceInKmBetween, isWithinDiscoveryRadius, res
 import DistanceLabel from "../components/DistanceLabel";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
 import { contentTimestamp, rankFeedItems } from "../utils/feedRanking";
+import { promotionMatchesListing, promotedContentImage } from "../utils/promotionMedia";
 
 const TABS = ["Following", "Your Community"];
 const COMMUNITY_FILTERS = ["For You", "Posts", "Events", "Listings", "Promotions", "Regrows"];
@@ -60,7 +61,7 @@ function imageReferenceMatches(first, second) {
 // Promotions don't carry their own location, so resolve one from a linked
 // listing (falling back to the promotion itself) for radius filtering/sorting.
 function promotionLocationContent(promotion, listings) {
-  const product = listings.find((item) => promotion.productIds?.includes(item.id));
+  const product = listings.find((item) => promotionMatchesListing(promotion, item));
   return {
     ...promotion,
     location: promotion.location ?? product?.location,
@@ -378,7 +379,7 @@ function getFollowedItems({ posts, events, listings, promotions, allListings, hi
     ...posts.map((post) => ({ type: "post", id: `post:${post.id}`, post })),
     ...events.map((event) => ({ type: "event", id: `event:${event.id}`, event })),
     ...listings.map((product) => ({ type: "listing", id: `listing:${product.id}`, product })),
-    ...promotions.map((promotion) => ({ type: "promotion", id: `promotion:${promotion.id}`, promotion, product: allListings.find((product) => promotion.productIds?.includes(product.id)) })),
+    ...promotions.map((promotion) => ({ type: "promotion", id: `promotion:${promotion.id}`, promotion, product: allListings.find((product) => promotionMatchesListing(promotion, product)) })),
   ];
   const visible = items.filter((item) => !hiddenContentIds.has(item.id));
   // Closer content first; ties (or unknown distance) fall back to newest first.
@@ -475,7 +476,7 @@ function getCommunityItems(filter, { events, listings, posts, currentPromotions,
     type: "promotion",
     id: `promotion:${promotion.id}`,
     promotion,
-    product: listings.find((product) => promotion.productIds?.includes(product.id)),
+    product: listings.find((product) => promotionMatchesListing(promotion, product)),
   }));
   const allItems = [...postItems, ...eventItems, ...listingItems, ...promotionItems];
   const visibleItems = allItems.filter((item) => !hiddenContentIds.has(item.id));
@@ -575,12 +576,11 @@ function PromotionFeedCard({ promotion, product, onOpenDetail, onMenu, onShare }
   const isStorePromotion = !product;
   const storeName = product?.shop || seller.name || seller.shopName || promotion.storeName;
   const storeLocation = product?.location || seller.location || promotion.location;
-  const storeCategory = product?.category || seller.category || promotion.category;
-  const heroImage = product?.image || promotion.image;
-  const destination = isStorePromotion ? `/seller/${promotion.sellerId}` : `/product/${product.id}`;
-  const destinationState = isStorePromotion ? undefined : { sellerId: product.sellerId };
+  const heroImage = promotedContentImage({ listing: product, promotion });
+  const destination = `/promotion/${promotion.id}`;
+  const destinationState = undefined;
   const savedItem = product ? { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName, image: product.image, description: product.name } : null;
-  const menuContent = { id: `promotion:${promotion.id}`, type: "promotion", title: storeName || promotion.title, name: storeName || promotion.title, sellerId: promotion.sellerId, productId: product?.id, sharePath: destination, savedItem: { id: `promotion:${promotion.id}`, type: "promotion", sourceId: promotion.id, name: storeName || promotion.title, storeName, image: heroImage, description: promotion.title, promotion, productId: product?.id } };
+  const menuContent = { id: `promotion:${promotion.id}`, type: "promotion", title: promotion.title, name: promotion.title, sellerId: promotion.sellerId, productId: product?.id, sharePath: destination, savedItem: { id: `promotion:${promotion.id}`, type: "promotion", sourceId: promotion.id, name: promotion.title, storeName, image: heroImage, description: promotion.title, promotion, productId: product?.id } };
   const openDestination = () => openDetail(destination, destinationState);
   const openSeller = () => navigate(`/seller/${promotion.sellerId}`);
 
@@ -601,15 +601,15 @@ function PromotionFeedCard({ promotion, product, onOpenDetail, onMenu, onShare }
         {heroImage ? <img src={heroImage} alt={isStorePromotion ? storeName || "Featured store" : product.name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" /> : <div className="flex h-full w-full items-center justify-center bg-[#EAF5ED] text-[#498467]"><Store aria-hidden="true" className="h-16 w-16" strokeWidth={1.3} /></div>}
         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-transparent" />
         <div className="absolute inset-x-4 bottom-3 text-white">
-          <p className="text-[20px] font-semibold leading-tight tracking-[-0.3px]">{isStorePromotion ? storeName || "Featured store" : product.name}</p>
-          {isStorePromotion && storeCategory && <p className="mt-1 text-[12px] text-white/85">{storeCategory}</p>}
+          <p className="text-[20px] font-semibold leading-tight tracking-[-0.3px]">{promotion.title}</p>
+          <p className="mt-1 text-[12px] text-white/85">{storeName}</p>
         </div>
       </button>
       <div className="p-4 pt-3">
         {!isStorePromotion && <p className="text-[14px] font-semibold text-[#1F5A45]">{storeName}</p>}
         {storeLocation && <DistanceLabel content={{ ...(product ?? promotion), location: storeLocation }} className="mt-1" />}
         <p className="mt-2 text-[12px] font-medium uppercase tracking-[0.4px] text-[#6B756F]">{promotionUrgencyLabel(promotion)}</p>
-        <div className="mt-4 flex items-center justify-between gap-4"><button type="button" onClick={openDestination} className="rounded-xl bg-[#498467] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_8px_rgba(73,132,103,0.18)]">{isStorePromotion ? "Visit Store" : "View Listing"}</button><div className="flex gap-4">{savedItem && <SaveButton savedItem={savedItem} />}<ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>
+        <div className="mt-4 flex items-center justify-between gap-4"><button type="button" onClick={openDestination} className="rounded-xl bg-[#498467] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_8px_rgba(73,132,103,0.18)]">View Promotion</button><div className="flex gap-4">{savedItem && <SaveButton savedItem={savedItem} />}<ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>
       </div>
     </article>
   );

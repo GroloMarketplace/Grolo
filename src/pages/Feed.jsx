@@ -483,7 +483,8 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
   const navigate = useNavigate();
   const { ads } = useAdvertising();
   const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
-  const seller = sellers[product.sellerId];
+  const resolvedSeller = useResolvedSeller(product.sellerId);
+  const seller = resolvedSeller ?? sellers[product.sellerId];
   const paidAd = ads.find((ad) =>
     (ad.status === "Active" || ad.paid === true)
       && ad.destinationId === product.id
@@ -514,7 +515,7 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <button type="button" onClick={openStore} className="flex min-w-0 items-center gap-2 text-left">
-            <img src={seller?.avatar ?? product.image} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+            <img src={seller?.avatar ?? ""} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
             <span className="truncate text-[14px] font-semibold text-[#498467]">{seller?.name ?? product.shop}</span>
           </button>
           <FoundingMemberBadge sellerId={product.sellerId} iconOnly />
@@ -550,18 +551,25 @@ function PromotionFeedCard({ promotion, product, onOpenDetail, onMenu, onShare }
   const storeName = product?.shop || seller.name || seller.shopName || promotion.storeName;
   const storeLocation = product?.location || seller.location || promotion.location;
   const storeCategory = product?.category || seller.category || promotion.category;
-  const heroImage = isStorePromotion ? seller.banner || seller.avatar || promotion.image : product.image;
+  const heroImage = product?.image || promotion.image;
   const destination = isStorePromotion ? `/seller/${promotion.sellerId}` : `/product/${product.id}`;
   const destinationState = isStorePromotion ? undefined : { sellerId: product.sellerId };
   const savedItem = product ? { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName, image: product.image, description: product.name } : null;
   const menuContent = { id: `promotion:${promotion.id}`, type: "promotion", title: storeName || promotion.title, name: storeName || promotion.title, sellerId: promotion.sellerId, productId: product?.id, sharePath: destination, savedItem: { id: `promotion:${promotion.id}`, type: "promotion", sourceId: promotion.id, name: storeName || promotion.title, storeName, image: heroImage, description: promotion.title, promotion, productId: product?.id } };
   const openDestination = () => openDetail(destination, destinationState);
+  const openSeller = () => navigate(`/seller/${promotion.sellerId}`);
 
   return (
     <article className="overflow-hidden rounded-2xl border border-[#DCEBE0] bg-gradient-to-br from-[#F7FCF8] via-white to-[#FFFDF5] shadow-[0_6px_18px_rgba(31,90,69,0.12)]">
       <div className="flex items-center justify-between gap-2 px-4 pt-4">
-        <PromotionBadge promotion={promotion} variant={isStorePromotion ? "featured" : undefined} label={isStorePromotion ? "Featured" : undefined} />
+        <button type="button" onClick={openSeller} className="flex min-w-0 items-center gap-2 text-left">
+          <img src={seller.avatar ?? ""} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+          <span className="truncate text-[14px] font-semibold text-[#498467]">{storeName}</span>
+        </button>
         <MoreButton onClick={() => onMenu(menuContent)} />
+      </div>
+      <div className="px-4 pt-3">
+        <PromotionBadge promotion={promotion} variant={isStorePromotion ? "featured" : undefined} label={isStorePromotion ? "Featured" : undefined} />
       </div>
       <VacationBadge sellerId={promotion.sellerId} />
       <button type="button" onClick={openDestination} className="group relative mt-3 block h-[210px] w-full overflow-hidden text-left">
@@ -648,7 +656,8 @@ function EventPost({ event, onOpenDetail, onComment, onMenu, onShare }) {
   const { toggleSaved } = useSavedItems();
   const { isRegrown, toggleRegrow } = useRegrow();
   const { getEngagement, toggleLike, incrementShares, toggleRegrow: toggleEngagementRegrow } = useEngagement();
-  const seller = sellers[event.sellerId];
+  const resolvedSeller = useResolvedSeller(event.sellerId);
+  const seller = resolvedSeller ?? sellers[event.sellerId];
   const engagement = getEngagement("event", event);
   const likes = engagement.likes;
   const reposts = engagement.regrows;
@@ -803,12 +812,14 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
   const { settings: buyerProfile } = useBuyerSettings();
   const { listings } = useListings();
   const engagement = getPostEngagement(post);
-  const postAvatar = post.authorId === buyerProfile.displayName ? buyerProfile.avatar : post.avatar;
+  const resolvedSeller = useResolvedSeller(post.sellerId ?? post.authorId);
+  const seller = resolvedSeller ?? sellers[post.sellerId] ?? Object.values(sellers).find((item) => item.id === post.sellerId);
+  const postAvatar = seller?.avatar ?? (post.authorId === currentUser.id ? buyerProfile.avatar : "");
+  const sellerName = seller?.name ?? post.name;
   const reposts = engagement.regrows;
   const likes = engagement.likes;
   const comments = engagement.comments;
   const shares = engagement.shares;
-  const seller = Object.values(sellers).find((s) => s.name === post.name);
   const promotion = post.productId ? promotionsForProduct(post.productId)[0] : null;
   const product = post.productId
     ? products.find((item) => item.id === post.productId) ?? listings.find((item) => item.id === post.productId)
@@ -821,7 +832,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
     type: "post",
     sourceId: post.id,
     name: post.body,
-    storeName: post.name,
+    storeName: sellerName,
     storeImage: postAvatar,
     image: post.image,
     description: post.body,
@@ -890,7 +901,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
           onClick={handleSellerClick}
           className="min-w-0 truncate text-left text-[14px] font-semibold text-[#498467] hover:underline"
         >
-          {post.name}
+          {sellerName}
         </button>
         <FoundingMemberBadge sellerId={post.sellerId} iconOnly />
         <span className="shrink-0 text-[14px] text-[#B56576]">in {displayPostClassification(post.classification)}</span>

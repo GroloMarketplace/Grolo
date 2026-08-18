@@ -48,10 +48,29 @@ function buyerAliases(reviewer, reviewerId) {
   return new Set([reviewer, reviewerId].filter(Boolean).map((value) => String(value).trim().toLowerCase()));
 }
 
+function buyerAliasesForIdentity(identity) {
+  return buyerAliases(identity.username, identity.id);
+}
+
 function belongsToBuyer(review, aliases) {
   return [review.reviewer, review.reviewerId, review.userId, review.buyerId, review.authorId, review.username, review.author, review.buyer]
     .filter((value) => typeof value === "string" || typeof value === "number")
     .some((value) => aliases.has(String(value).trim().toLowerCase()));
+}
+
+function isCompletedOrderStatus(status) {
+  return ["completed", "complete", "completed_pickup", "picked_up", "fulfilled"].includes(
+    String(status ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_"),
+  );
+}
+
+function orderMatchesProduct(order, productId) {
+  const product = products.find((item) => [item.id, item.databaseId, item.legacyId].filter(Boolean).map(String).includes(String(productId ?? "")));
+  const targetIds = new Set([productId, product?.id, product?.databaseId, product?.legacyId].filter(Boolean).map(String));
+  const orderIds = [order.productId, order.listingId, order.product_id, order.listing_id, ...(order.orderItems ?? []).flatMap((item) => [item.productId, item.listingId, item.product_id, item.listing_id])]
+    .filter(Boolean)
+    .map(String);
+  return orderIds.some((id) => targetIds.has(id));
 }
 
 function averageWith(baseRating, baseCount, addedRatings) {
@@ -187,14 +206,25 @@ export function ReviewProvider({ children }) {
   );
 
   const completedOrderForProduct = useCallback(
-    (productId) =>
-      orders.find(
-        (o) =>
-          o.productId === productId &&
-          o.status === "Completed" &&
-          String(o.buyer ?? "").toLowerCase() === identity.username.toLowerCase(),
-      ),
-    [identity.username, orders],
+    (productId) => {
+      const buyerAliases = buyerAliasesForIdentity(identity);
+      const order = orders.find((candidate) => {
+        const buyerMatches = [candidate.buyerId, candidate.buyer_id, candidate.buyer, candidate.username]
+          .filter(Boolean)
+          .some((value) => buyerAliases.has(String(value).trim().toLowerCase()));
+        return orderMatchesProduct(candidate, productId) && isCompletedOrderStatus(candidate.status) && buyerMatches;
+      });
+      console.info("review eligibility calculation", {
+        productId,
+        orderId: order?.databaseId ?? order?.orderId ?? order?.id ?? null,
+        orderStatus: order?.status ?? null,
+        fulfillmentType: order?.fulfillmentMethod ?? order?.fulfillment_method ?? null,
+        buyerId: order?.buyerId ?? order?.buyer_id ?? null,
+        eligible: Boolean(order),
+      });
+      return order;
+    },
+    [identity, orders],
   );
 
   const hasReviewedProduct = useCallback(
@@ -210,11 +240,7 @@ export function ReviewProvider({ children }) {
   );
 
   const addReview = useCallback(({ productId, sellerId, rating, text, photos, ...target }) => {
-    const completedOrder = orders.find((order) => (
-      order.productId === productId
-      && order.status === "Completed"
-      && String(order.buyer ?? "").toLowerCase() === identity.username.toLowerCase()
-    ));
+    const completedOrder = completedOrderForProduct(productId);
     const orderItem = completedOrder?.orderItems?.find((item) => (
       item.productId === productId || item.listingId === productId
     ));
@@ -280,7 +306,7 @@ export function ReviewProvider({ children }) {
       });
       return null;
     });
-  }, [identity, orders, user?.id]);
+  }, [completedOrderForProduct, identity, user?.id]);
 
   const value = {
     reviews: allReviews,

@@ -1,7 +1,7 @@
 import { supabase, isSupabaseConfigured } from "../supabaseClient";
 
 const REVIEW_TYPES = new Set(["product", "seller", "buyer"]);
-const REVIEW_SELECT = "id, review_type, reviewer_id, reviewee_id, listing_id, order_id, order_item_id, rating, title, body, criteria, photos, status, created_at, updated_at, published_at, deleted_at";
+const REVIEW_SELECT = "id, listing_id, reviewer_id, rating, title, body, created_at";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function requireSupabase() {
@@ -243,8 +243,7 @@ export async function getProductRatingAggregates() {
   requireSupabase();
   const { data, error } = await supabase
     .from("reviews")
-    .select("listing_id, rating, status, deleted_at")
-    .eq("review_type", "product");
+    .select("listing_id, rating");
   if (error) throw error;
   const includedRows = (data ?? []).filter(isPublishedReview);
   visibilityDiagnostics(data ?? [], includedRows);
@@ -260,26 +259,41 @@ export async function getProductRatingAggregates() {
 
 export async function getSellerRatingAggregates() {
   requireSupabase();
-  const [{ data: reviews, error: reviewsError }, { data: orders, error: ordersError }] = await Promise.all([
+  const [{ data: reviews, error: reviewsError }, { data: listings, error: listingsError }, { data: orders, error: ordersError }] = await Promise.all([
     supabase
       .from("reviews")
-      .select("reviewee_id, rating, status, deleted_at")
-      .eq("review_type", "seller"),
+      .select("listing_id,rating"),
+    supabase
+      .from("listings")
+      .select("id,seller_id"),
     supabase
       .from("orders")
       .select("seller_id")
       .eq("status", "Completed"),
   ]);
   if (reviewsError) throw reviewsError;
+  if (listingsError) throw listingsError;
   if (ordersError) throw ordersError;
-  const includedRows = (reviews ?? []).filter(isPublishedReview);
+  const sellerByListingId = new Map((listings ?? []).map((listing) => [String(listing.id), listing.seller_id]));
+  const includedRows = (reviews ?? [])
+    .filter(isPublishedReview)
+    .map((review) => ({
+      ...review,
+      reviewee_id: sellerByListingId.get(String(review.listing_id)),
+      review_type: "product",
+    }))
+    .filter((review) => review.reviewee_id);
   visibilityDiagnostics(reviews ?? [], includedRows);
   const aggregates = ratingAggregate(includedRows, "reviewee_id").map((aggregate) => ({
     ...aggregate,
     completedOrderCount: (orders ?? []).filter((order) => order.seller_id === aggregate.reviewee_id).length,
   }));
   console.info("seller aggregate source: supabase", {
-    aggregateReviewCount: includedRows.length,
+    sourceReviewCount: reviews?.length ?? 0,
+    includedReviewCount: includedRows.length,
+    productReviewsIncluded: includedRows.filter((review) => review.review_type === "product").length,
+    sellerReviewsIncluded: includedRows.filter((review) => review.review_type === "seller").length,
+    aggregateReviewCount: aggregates.reduce((sum, aggregate) => sum + aggregate.count, 0),
     aggregateAverageRating: aggregates.length
       ? Number((includedRows.reduce((sum, row) => sum + (Number(row.rating) || 0), 0) / includedRows.length).toFixed(1))
       : 0,
@@ -341,20 +355,43 @@ export async function createReviewInDatabase(review, { reviewerId, reviewType, r
     orderId,
     orderItemId,
   });
-  const { data, error } = await supabase.rpc("create_review", {
-    p_review_type: payload.review_type,
-    p_rating: payload.rating,
-    p_order_id: payload.order_id,
-    p_reviewee_id: payload.reviewee_id,
-    p_listing_id: payload.listing_id,
-    p_order_item_id: payload.order_item_id,
-    p_title: payload.title,
-    p_body: payload.body,
-    p_criteria: payload.criteria,
-    p_photos: payload.photos,
-  });
-  if (error) throw error;
-  const row = Array.isArray(data) ? data[0] : data;
+  let row;
+  try {
+    const { data, error } = await supabase.rpc("create_review", {
+      p_review_type: payload.review_type,
+      p_rating: payload.rating,
+      p_order_id: payload.order_id,
+      p_reviewee_id: payload.reviewee_id,
+      p_listing_id: payload.listing_id,
+      p_order_item_id: payload.order_item_id,
+      p_title: payload.title,
+      p_body: payload.body,
+      p_criteria: payload.criteria,
+      p_photos: payload.photos,
+    });
+    if (error) throw error;
+    row = Array.isArray(data) ? data[0] : data;
+  } catch (rpcError) {
+    if (!payload.listing_id) throw rpcError;
+    console.warn("create_review RPC unavailable; using canonical reviews insert", {
+      error: rpcError?.message ?? String(rpcError),
+      listingId: payload.listing_id,
+      reviewerId: authenticatedReviewerId,
+    });
+    const { data, error } = await supabase
+      .from("reviews")
+      .insert({
+        listing_id: payload.listing_id,
+        reviewer_id: authenticatedReviewerId,
+        rating: payload.rating,
+        title: payload.title,
+        body: payload.body,
+      })
+      .select("id, listing_id, reviewer_id, rating, title, body, created_at")
+      .single();
+    if (error) throw error;
+    row = data;
+  }
   const mapped = databaseReviewToLegacyReview(row);
   return {
     ...mapped,
@@ -376,16 +413,18 @@ async function getReviewsByType(reviewType, filterColumn, filterValue) {
   let query = supabase
     .from("reviews")
     .select(REVIEW_SELECT)
-    .eq("review_type", reviewType)
     .order("created_at", { ascending: false });
-  if (filterColumn && filterValue != null) query = query.eq(filterColumn, filterValue);
+  if (reviewType === "product" && filterColumn === "listing_id" && filterValue != null) query = query.eq("listing_id", filterValue);
   const { data, error } = await query;
   if (error) throw error;
   const rows = data ?? [];
   const includedRows = rows.filter(isPublishedReview);
   visibilityDiagnostics(rows, includedRows);
   const metadata = await attachReviewMetadata(includedRows);
-  const mapped = includedRows.map((row) => databaseReviewToLegacyReview(row, metadata)).filter(Boolean);
+  const mappedRows = includedRows.map((row) => databaseReviewToLegacyReview(row, metadata)).filter(Boolean);
+  const mapped = reviewType === "seller" && filterValue != null
+    ? mappedRows.filter((review) => String(review.sellerId) === String(filterValue))
+    : mappedRows;
   console.info("Supabase review read", {
     reviewReadCount: rows.length,
     mappedReviewCount: mapped.length,

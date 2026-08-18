@@ -1,29 +1,43 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import StarRating from "../components/StarRating";
 import { products, sellers } from "../data/mockData";
 import { useReviews } from "../context/ReviewContext";
+import { useListings } from "../context/ListingContext";
 
 export default function LeaveReview() {
   const { productId } = useParams();
   const navigate = useNavigate();
   const fileInput = useRef(null);
   const { addReview, completedOrderForProduct, hasReviewedProduct } = useReviews();
+  const { listings } = useListings();
 
   const [rating, setRating] = useState(0);
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState([]);
   const [submitted, setSubmitted] = useState(false);
 
-  const product = products.find((p) => p.id === productId);
+  const product = products.find((item) => [item.id, item.databaseId, item.legacyId].filter(Boolean).map(String).includes(String(productId)))
+    ?? listings.find((item) => [item.id, item.databaseId, item.legacyId].filter(Boolean).map(String).includes(String(productId)));
   const seller = product
     ? sellers[product.sellerId] ??
       Object.values(sellers).find((s) => s.name === product.shop)
     : null;
-  const purchased = Boolean(completedOrderForProduct(productId));
+  const completedOrder = completedOrderForProduct(productId);
+  const purchased = Boolean(completedOrder);
   const alreadyReviewed = hasReviewedProduct(productId);
+
+  useEffect(() => {
+    console.info("review page order loaded", {
+      orderId: completedOrder?.databaseId ?? completedOrder?.orderId ?? completedOrder?.id ?? null,
+      orderStatus: completedOrder?.status ?? null,
+      fulfillmentType: completedOrder?.fulfillmentMethod ?? completedOrder?.fulfillment_method ?? null,
+      productId,
+      reviewEligible: purchased && !alreadyReviewed,
+    });
+  }, [alreadyReviewed, completedOrder, productId, purchased]);
 
   const handlePhotos = (event) => {
     const files = Array.from(event.target.files ?? []);

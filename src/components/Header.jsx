@@ -1,9 +1,8 @@
-import { Bell, ChevronLeft, Menu, UserRound } from "lucide-react";
+import { ChevronLeft, Menu, UserRound } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
-import { useNotifications } from "../context/NotificationContext";
 
 const ACTION_CLASS = "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E6ECE8] bg-[#F8FAF8] text-[#1F5A45] shadow-[0_2px_8px_rgba(31,90,69,0.08)] transition-colors hover:bg-[#EEF5F0] active:bg-[#E5F0E8]";
 
@@ -16,7 +15,6 @@ export default function Header({ title, titleContent, onBack, onMenu, right, pos
   const { settings: buyerSettings } = useBuyerSettings();
   const { profileMode } = useProfileMode();
   const { getSellerProfile } = useSellerSettings();
-  const { unreadCount } = useNotifications();
   const avatar = profileMode === "seller" ? getSellerProfile("current-user").avatar : buyerSettings.avatar;
   const leftAction = onBack
     ? <HeaderAction label="Back" onClick={onBack}><ChevronLeft className="h-5 w-5" strokeWidth={2.2} /></HeaderAction>
@@ -33,17 +31,9 @@ export default function Header({ title, titleContent, onBack, onMenu, right, pos
         {postButton}
         {shareButton}
         {right ?? (!hideProfile && (
-          <>
-            <div className="relative">
-              <HeaderAction label={`Open Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`} onClick={() => navigate("/notifications")}>
-                <Bell className="h-[19px] w-[19px]" strokeWidth={2} />
-              </HeaderAction>
-              {unreadCount > 0 && <span className="pointer-events-none absolute -right-1 -top-1 min-w-4 rounded-full bg-[#C85A3F] px-1 text-center text-[10px] font-semibold leading-4 text-white">{unreadCount > 99 ? "99+" : unreadCount}</span>}
-            </div>
-            <HeaderAction label="Open Account Settings" onClick={() => navigate("/account-settings")} className="overflow-hidden p-0">
-              {avatar ? <img src={avatar} alt="Profile" className="h-full w-full object-cover" /> : <UserRound className="h-[18px] w-[18px]" strokeWidth={2} />}
-            </HeaderAction>
-          </>
+          <HeaderAction label="Open Account Settings" onClick={() => navigate("/account-settings")} className="overflow-hidden p-0">
+            {avatar ? <img src={avatar} alt="Profile" className="h-full w-full object-cover" /> : <UserRound className="h-[18px] w-[18px]" strokeWidth={2} />}
+          </HeaderAction>
         ))}
       </div>
     </header>

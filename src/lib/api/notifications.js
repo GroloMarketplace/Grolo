@@ -5,18 +5,26 @@ function requireSupabase() {
 }
 
 function normalizeNotification(row) {
-  return {
+  const normalized = {
     ...row,
     relatedId: row.related_id,
     actorId: row.actor_id,
-    actorName: row.actor_name,
-    actorAvatarUrl: row.actor_avatar ?? row.actor_avatar_url,
+    actorName: row.actor_name ?? row.actorName ?? row.actor_display_name ?? row.actor_username ?? null,
+    actorAvatarUrl: row.actor_avatar ?? row.actor_avatar_url ?? row.actorAvatarUrl ?? null,
     subjectTitle: row.subject_title,
     subjectImageUrl: row.subject_image_url,
     storeImageUrl: row.store_image_url,
     isRead: Boolean(row.read),
     createdAt: row.created_at,
   };
+  console.info("notification actor audit", {
+    notificationId: normalized.id ?? null,
+    notificationType: normalized.type ?? null,
+    actorId: normalized.actorId ?? null,
+    actorName: normalized.actorName ?? null,
+    actorAvatar: normalized.actorAvatarUrl ?? null,
+  });
+  return normalized;
 }
 
 export async function getNotifications(userId, { limit = 30, offset = 0 } = {}) {
@@ -25,7 +33,6 @@ export async function getNotifications(userId, { limit = 30, offset = 0 } = {}) 
     .from("notifications")
     .select("id,user_id,type,title,message,related_id,read,created_at,actor_id,actor_name,actor_avatar,subject_title,subject_image_url,store_image_url")
     .eq("user_id", userId)
-    .order("read", { ascending: true })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) throw error;

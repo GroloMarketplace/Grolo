@@ -7,6 +7,27 @@ import { isUserBlocked } from "../lib/api/trustSafety";
 const MessageContext = createContext(null);
 const CURRENT_BUYER_ID = "current-buyer";
 
+function timestampValue(value) {
+  if (!value) return 0;
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function latestActivityAt(conversation, messages) {
+  const latestMessageTime = messages.reduce((latest, message) => Math.max(
+    latest,
+    timestampValue(message.createdAt ?? message.created_at ?? message.timestamp),
+  ), 0);
+  if (latestMessageTime > 0) return new Date(latestMessageTime).toISOString();
+  return conversation.createdAt ?? conversation.created_at ?? null;
+}
+
+export function sortConversations(conversations) {
+  return [...conversations].sort((left, right) => (
+    timestampValue(right.latestActivityAt) - timestampValue(left.latestActivityAt)
+  ));
+}
+
 function normalizeConversation(input) {
   const conversation = input && typeof input === "object" ? input : {};
   const isTrading = conversation.tradeThread === true
@@ -23,6 +44,8 @@ function normalizeConversation(input) {
 
   return {
     ...conversation,
+    createdAt: conversation.createdAt ?? conversation.created_at ?? null,
+    latestActivityAt: latestActivityAt(conversation, normalizedMessages),
     unread: conversation.unread === true || normalizedMessages.some((message) => message.unread === true),
     ...(isTrading ? { conversationType: "trading", category: "Trading", tradeThread: true } : {}),
     ...(isService ? { conversationType: "service" } : {}),
@@ -131,16 +154,19 @@ export function MessageProvider({ children }) {
         }));
         if (cancelled) return;
 
-        const mappedMessages = hydratedConversations
-          .map((conversation) => normalizeConversation(conversation))
-          .filter((conversation) => conversation.id);
+        const normalizedConversations = hydratedConversations.map((conversation) => normalizeConversation(conversation));
+        const mappedMessages = normalizedConversations.filter((conversation) => conversation.id);
+        const sortedMessages = sortConversations(mappedMessages);
         const messageCount = mappedMessages.reduce((count, conversation) => count + conversation.messages.length, 0);
         console.info("Message source: supabase", {
-          conversationCount: conversations.length,
+          totalConversationsLoaded: conversations.length,
+          conversationsAfterNormalization: normalizedConversations.length,
+          conversationsAfterIdFiltering: mappedMessages.length,
+          conversationsAfterSorting: sortedMessages.length,
+          conversationsMissingLatestActivityAt: sortedMessages.filter((conversation) => !conversation.latestActivityAt).length,
           messageCount,
-          mappedConversationCount: mappedMessages.length,
         });
-        setMessages(mappedMessages);
+        setMessages(sortedMessages);
         const activeConversationIds = hydratedConversations.map((conversation) => conversation.databaseId ?? conversation.id);
         console.info("realtime subscription reconciliation", {
           currentUserId: user.id,
@@ -190,7 +216,7 @@ export function MessageProvider({ children }) {
         preview: incomingMessage.text,
         timestamp: incomingMessage.timestamp,
       });
-      const nextMessages = current.map((item, index) => index === conversationIndex ? nextConversation : item);
+      const nextMessages = sortConversations(current.map((item, index) => index === conversationIndex ? nextConversation : item));
       console.info("realtime message merged", {
         conversationId,
         messageId: incomingDatabaseMessageId,
@@ -234,7 +260,7 @@ export function MessageProvider({ children }) {
         const nextMessages = existing
           ? current.map((item) => item.id === existing.id ? { ...item, ...mergedConversation } : item)
           : [mergedConversation, ...current];
-        return nextMessages;
+        return sortConversations(nextMessages);
       });
       return databaseConversation;
     }).catch((error) => {
@@ -267,7 +293,7 @@ export function MessageProvider({ children }) {
           message.id === conversation.id ? { ...message, ...nextConversation } : message
         ))
         : [nextConversation, ...current];
-      return nextMessages;
+      return sortConversations(nextMessages);
     });
   };
 
@@ -279,7 +305,7 @@ export function MessageProvider({ children }) {
     ))) {
       throw new Error("Message insert was confirmed but the message was not visible after reload. Check messages SELECT RLS policy.");
     }
-    setMessages((current) => current.map((conversation) => {
+    setMessages((current) => sortConversations(current.map((conversation) => {
       if (conversation.databaseId !== conversationId && conversation.id !== conversationId) return conversation;
       const latestMessage = refreshedMessages[refreshedMessages.length - 1];
       return normalizeConversation({
@@ -287,7 +313,7 @@ export function MessageProvider({ children }) {
         messages: refreshedMessages,
         ...(latestMessage ? { preview: latestMessage.text, timestamp: latestMessage.timestamp } : {}),
       });
-    }));
+    })));
     console.info("Message list refreshed after insert", {
       conversationId,
       messageCount: refreshedMessages.length,
@@ -335,16 +361,16 @@ export function MessageProvider({ children }) {
           return current;
         }
         const threadMessages = [...(currentConversation.messages ?? []), savedMessage];
-        const savedConversation = {
-          ...normalizeConversation(currentConversation),
+          const savedConversation = normalizeConversation({
+          ...currentConversation,
           messages: threadMessages,
           preview: savedMessage.text ?? savedMessage.content ?? requestedContent,
           timestamp: savedMessage.timestamp ?? savedMessage.createdAt ?? message.timestamp,
-        };
+        });
         const nextMessages = current.some((conversation) => conversation.id === currentConversation.id)
           ? current.map((conversation) => conversation.id === currentConversation.id ? savedConversation : conversation)
           : [savedConversation, ...current];
-        return nextMessages;
+        return sortConversations(nextMessages);
       });
     };
 
@@ -475,7 +501,7 @@ export function MessageProvider({ children }) {
         ? await getMessages(existingConversation.databaseId, user.id)
         : existingConversation.messages ?? [];
       const hydratedConversation = normalizeConversation({ ...existingConversation, messages: hydratedMessages });
-      setMessages((current) => [hydratedConversation, ...current.filter((item) => item.databaseId !== existingConversation.databaseId && item.id !== hydratedConversation.id)]);
+      setMessages((current) => sortConversations([hydratedConversation, ...current.filter((item) => item.databaseId !== existingConversation.databaseId && item.id !== hydratedConversation.id)]));
       subscribeToConversation(existingConversation.databaseId);
       console.info("Conversation recovered before chat send", {
         conversationId: existingConversation.databaseId,
@@ -587,7 +613,7 @@ export function MessageProvider({ children }) {
     if (existing) {
       const updatedConversation = { ...existing, buyerId, listingId, conversationType, ...(serviceContext ? { serviceContext } : {}) };
       persistConversation(updatedConversation, { existing: true });
-      setMessages((current) => current.map((conversation) => conversation.id === existing.id ? updatedConversation : conversation));
+      setMessages((current) => sortConversations(current.map((conversation) => conversation.id === existing.id ? normalizeConversation(updatedConversation) : conversation)));
       return { id: existing.id, serviceContext, conversation: updatedConversation };
     }
 
@@ -610,7 +636,7 @@ export function MessageProvider({ children }) {
     persistConversation(conversation);
     setMessages((current) => {
       if (current.some((item) => item.id === conversation.id)) return current;
-      return [conversation, ...current];
+      return sortConversations([normalizeConversation(conversation), ...current]);
     });
     return { id: conversation.id, serviceContext, conversation };
   };
@@ -709,8 +735,7 @@ export function MessageProvider({ children }) {
     };
     persistConversation(conversation);
     setMessages((current) => {
-      const nextMessages = [conversation, ...current];
-      return nextMessages;
+      return sortConversations([normalizeConversation(conversation), ...current]);
     });
     return { id, conversation };
   };

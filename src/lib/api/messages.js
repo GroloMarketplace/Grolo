@@ -84,6 +84,7 @@ export function databaseConversationToLegacyConversation(row, { currentUserId } 
     ...row,
     id: databaseId,
     databaseId,
+    createdAt: row.created_at ?? row.createdAt ?? row.updated_at ?? row.updatedAt ?? null,
     name: row.name ?? participantName,
     category: row.category ?? (currentUserId === buyerId ? "Buying" : "Selling"),
     participantName,

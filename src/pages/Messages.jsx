@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
-import { useMessages } from "../context/MessageContext";
+import { sortConversations, useMessages } from "../context/MessageContext";
 import { useOrders } from "../context/OrderContext";
 import { useListings } from "../context/ListingContext";
 import { useProfileMode } from "../context/ProfileModeContext";
@@ -20,6 +20,15 @@ function isTradeConversation(conversation) {
   return conversation.conversationType === "trading"
     || conversation.tradeThread === true
     || conversation.category === "Trading";
+}
+
+function latestMessageForConversation(conversation) {
+  return (conversation.messages ?? []).reduce((latest, candidate) => {
+    if (!latest) return candidate;
+    const latestTime = new Date(latest.createdAt ?? latest.created_at ?? latest.timestamp).getTime();
+    const candidateTime = new Date(candidate.createdAt ?? candidate.created_at ?? candidate.timestamp).getTime();
+    return candidateTime > latestTime ? candidate : latest;
+  }, null);
 }
 
 export default function Messages() {
@@ -57,11 +66,24 @@ export default function Messages() {
     };
   }, []);
 
+  const sortedMessages = sortConversations(safeMessages);
   const filteredMessages = tab === "All"
-    ? safeMessages
+    ? sortedMessages
     : tab === "Trading"
-      ? safeMessages.filter(isTradeConversation)
-      : safeMessages.filter((m) => !isTradeConversation(m) && m.category === tab);
+      ? sortedMessages.filter(isTradeConversation)
+      : sortedMessages.filter((m) => !isTradeConversation(m) && m.category === tab);
+
+  useEffect(() => {
+    console.info("Messages list ordering diagnostics", {
+      totalConversationsLoaded: safeMessages.length,
+      conversationsAfterSorting: sortedMessages.length,
+      conversationsAfterTabFiltering: filteredMessages.length,
+      filteredOutConversations: sortedMessages.length - filteredMessages.length,
+      conversationsMissingLatestActivityAt: sortedMessages.filter((conversation) => !conversation.latestActivityAt).length,
+      conversationsMissingMessageArray: sortedMessages.filter((conversation) => !Array.isArray(conversation.messages)).length,
+      activeTab: tab,
+    });
+  }, [filteredMessages, safeMessages, sortedMessages, tab]);
   const unreadCountFor = (tabName) => {
     const tabMessages = tabName === "All"
       ? safeMessages
@@ -137,7 +159,7 @@ function formatRelativeTimestamp(value) {
 }
 
 function MessageRow({ message, orders, navigate, getSellerProfile, buyerProfile, listings }) {
-  const latestMessage = message.messages?.[message.messages.length - 1];
+  const latestMessage = latestMessageForConversation(message);
   const fallbackProfile = getConversationProfile(message, getSellerProfile, buyerProfile);
   const participantProfile = message.participantProfile ?? fallbackProfile ?? {};
   const participantId = message.participantId ?? participantProfile.id;

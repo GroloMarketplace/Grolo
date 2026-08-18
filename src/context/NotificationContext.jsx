@@ -37,6 +37,12 @@ export function NotificationProvider({ children }) {
           setNotifications(rows);
           setHasMore(rows.length === PAGE_SIZE);
           setUnreadCount(count);
+          console.info("notification feed audit", {
+            loadedCount: rows.length,
+            unreadCount: count,
+            eventAttendanceCount: rows.filter((row) => ["event_attendance", "event_rsvp"].includes(row.type)).length,
+            notificationTypes: [...new Set(rows.map((row) => row.type).filter(Boolean))],
+          });
         }
       })
       .catch((error) => console.error("Unable to load notifications", error))
@@ -44,6 +50,13 @@ export function NotificationProvider({ children }) {
     channel = subscribeToNotifications(user.id, (notification) => {
       setNotifications((current) => [notification, ...current.filter((item) => item.id !== notification.id)]);
       if (!notification.read) setUnreadCount((current) => current + 1);
+      console.info("notification realtime audit", {
+        notificationId: notification.id ?? null,
+        type: notification.type ?? null,
+        unread: notification.read !== true,
+        relatedId: notification.relatedId ?? null,
+        actorId: notification.actorId ?? null,
+      });
     }, (status, error) => {
       console.info("realtime notification subscription status", {
         userId: user.id,

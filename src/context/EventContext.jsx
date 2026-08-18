@@ -163,32 +163,53 @@ export function EventProvider({ children }) {
     (attendees[eventId] ?? []).length
   ), [attendees]);
 
-  const toggleAttendance = useCallback((eventId) => {
+  const toggleAttendance = useCallback(async (eventId) => {
+    const event = events.find((item) => item.id === eventId || item.databaseId === eventId);
+    const persistedEventId = event?.databaseId ?? eventId;
+    let removing = false;
+
     setAttendees((current) => {
       const existing = new Set(current[eventId] ?? []);
-      const removing = existing.has(currentUserId);
+      removing = existing.has(currentUserId);
       if (removing) existing.delete(currentUserId);
       else existing.add(currentUserId);
 
       const next = { ...current, [eventId]: [...existing] };
       persistAttendees(next);
-
-      if (isSupabaseConfigured && user?.id) {
-        const request = removing
-          ? supabase.from("event_attendees").delete().eq("event_id", eventId).eq("user_id", user.id)
-          : supabase.from("event_attendees").insert({ event_id: eventId, user_id: user.id });
-        request.then(({ error }) => {
-          if (error) {
-            console.error("Unable to persist event attendance", error);
-          } else if (!removing) {
-            void refreshUserReputation(user?.id ?? currentUserId, { eventKey: `event-attendance:${eventId}:${user?.id ?? currentUserId}` });
-          }
-        });
-      }
-
       return next;
     });
-  }, [currentUserId, user?.id]);
+
+    if (!isSupabaseConfigured || !user?.id) {
+      console.info("event attendance source: local fallback", { eventId, reason: "Supabase or authenticated user unavailable" });
+      return;
+    }
+
+    const request = removing
+      ? supabase.from("event_attendees").delete().eq("event_id", persistedEventId).eq("user_id", user.id)
+      : supabase.from("event_attendees").insert({ event_id: persistedEventId, user_id: user.id });
+    const { error } = await request;
+    if (error) {
+      setAttendees((current) => {
+        const existing = new Set(current[eventId] ?? []);
+        if (removing) existing.add(currentUserId);
+        else existing.delete(currentUserId);
+        const next = { ...current, [eventId]: [...existing] };
+        persistAttendees(next);
+        return next;
+      });
+      console.error("Unable to persist event attendance", {
+        eventId,
+        persistedEventId,
+        removing,
+        error: error?.message ?? String(error),
+      });
+      throw error;
+    }
+
+    if (!removing) {
+      void refreshUserReputation(user?.id ?? currentUserId, { eventKey: `event-attendance:${persistedEventId}:${user?.id ?? currentUserId}` });
+    }
+  }, [currentUserId, events, user?.id]);
 
   const upcomingEvents = useCallback(
     (sellerId) =>

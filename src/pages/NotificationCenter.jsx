@@ -50,6 +50,7 @@ function activityCopy(notification) {
   if (notification.type === "listing_favorited") return `${person} favorited ${listingName(notification)}`;
   if (notification.type === "review_received") return `${person} left a review on your listing`;
   if (notification.type === "new_message" || notification.type === "message_received") return `${person} sent you a message`;
+  if (["event_attendance", "event_rsvp"].includes(notification.type)) return `${person} is attending ${listingName(notification)}`;
   if (["order_received", "order_created"].includes(notification.type)) return `${person} purchased ${listingName(notification)}`;
   if (notification.type === "order_status") return notification.title || `${person} updated an order`;
   return notification.title || "New community activity";
@@ -60,6 +61,7 @@ function notificationActions(notification) {
   if (notification.type === "listing_favorited" || notification.type === "new_listing") return [{ label: "View Listing", path: notification.relatedId ? `/product/${notification.relatedId}` : null }];
   if (notification.type === "review_received") return [{ label: "View Review", path: "/my-shop/reviews" }, { label: "View Store", path: "/shop" }];
   if (notification.type === "new_message" || notification.type === "message_received") return [{ label: "Reply", path: notification.relatedId ? `/messages/${notification.relatedId}` : "/messages" }];
+  if (["event_attendance", "event_rsvp"].includes(notification.type)) return [{ label: "View Event", path: notification.relatedId ? `/event/${notification.relatedId}` : null }];
   if (["order_received", "order_created", "order_status"].includes(notification.type)) return [{ label: "View Order", path: notification.relatedId ? `/orders/${encodeURIComponent(notification.relatedId)}` : "/orders" }];
   return [];
 }
@@ -71,6 +73,7 @@ function notificationPath(notification) {
   if (notification.type === "new_listing" || notification.type === "listing_favorited") return `/product/${notification.relatedId}`;
   if (notification.type === "promotion_created") return `/promotions/${notification.relatedId}`;
   if (notification.type === "new_message" || notification.type === "message_received") return `/messages/${notification.relatedId}`;
+  if (["event_attendance", "event_rsvp"].includes(notification.type)) return `/event/${notification.relatedId}`;
   if (notification.type === "new_follower") return `/profile/${notification.relatedId}`;
   return null;
 }

@@ -128,6 +128,9 @@ export default function Chat() {
       const readAudit = await markConversationRead(resolvedConversationId);
       console.info("markConversationRead invocation completed", {
         conversationId: resolvedConversationId,
+        persistedReadError: readAudit?.persistedReadError ?? null,
+        beforeReadStateError: readAudit?.persistedReadResult?.beforeReadStateError ?? null,
+        afterReadStateError: readAudit?.persistedReadResult?.afterReadStateError ?? null,
         idsMarkedRead: readAudit?.persistedReadResult?.idsMarkedRead ?? readAudit?.idsMarkedRead ?? [],
         idsRemainingUnread: readAudit?.persistedReadResult?.idsRemainingUnread ?? [],
         updatedReadAtCount: readAudit?.persistedReadResult?.updatedReadAtCount ?? 0,

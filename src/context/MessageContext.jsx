@@ -832,6 +832,7 @@ export function MessageProvider({ children }) {
       return sortConversations(nextMessages);
     });
     let persistedReadResult = null;
+    let persistedReadError = null;
     if (isCanonicalUuid(conversationId) && isSupabaseConfigured) {
       try {
         const readResult = await markConversationMessagesRead(conversationId, user);
@@ -858,10 +859,11 @@ export function MessageProvider({ children }) {
         })));
         console.info("conversation read_at updates persisted", { conversationId, ...readResult });
       } catch (error) {
-        console.warn("Unable to mark conversation messages read", { conversationId, error: error?.message ?? String(error) });
+        persistedReadError = error?.message ?? String(error);
+        console.warn("Unable to mark conversation messages read", { conversationId, error: persistedReadError });
       }
     }
-    const auditResult = { conversationId, unreadBefore, unreadAfter, persistedReadResult };
+    const auditResult = { conversationId, unreadBefore, unreadAfter, persistedReadResult, persistedReadError };
     console.info("markConversationRead audit completed", auditResult);
     return auditResult;
   }, [user?.id]);

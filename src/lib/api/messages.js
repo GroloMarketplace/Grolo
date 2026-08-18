@@ -450,6 +450,7 @@ export async function markConversationMessagesRead(conversationId, contextUser =
     return { rows: data ?? [], error: null };
   };
   const before = await readState();
+  const beforeReadStateError = before.error?.message ?? null;
   const incomingUnreadBefore = before.rows.filter((row) => row.sender_id !== currentUserId && !row.read_at);
   const unreadBefore = incomingUnreadBefore.length;
   console.info("mark conversation read requested", {
@@ -518,6 +519,7 @@ export async function markConversationMessagesRead(conversationId, contextUser =
     currentUserId,
   });
   const after = await readState();
+  const afterReadStateError = after.error?.message ?? null;
   const incomingUnreadAfter = after.rows.filter((row) => row.sender_id !== currentUserId && !row.read_at);
   const unreadAfter = incomingUnreadAfter.length;
   const markedReadIds = before.rows
@@ -541,6 +543,8 @@ export async function markConversationMessagesRead(conversationId, contextUser =
     unreadBefore,
     unreadAfter,
     updatedReadAtCount: markedReadIds.length,
+    beforeReadStateError,
+    afterReadStateError,
     messages: after.rows.map((row) => ({ messageId: row.id, readAtAfter: row.read_at ?? null, senderId: row.sender_id })),
   };
   console.info("mark conversation read completed", result);

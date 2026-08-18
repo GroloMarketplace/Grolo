@@ -17,6 +17,7 @@ export default function CreateEvent() {
   const { user } = useAuth();
   const fileInputRef = useRef(null);
   const [imageError, setImageError] = useState("");
+  const [saveError, setSaveError] = useState("");
   const [formData, setFormData] = useState({
     title: "",
     type: "",
@@ -51,11 +52,16 @@ export default function CreateEvent() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setSaveError("");
     const location = formData.locationDetails ?? {};
-    addEvent({ ...formData, location: friendlyLocation(location) || formData.location, neighborhood: location.neighborhood, city: location.city, province: location.province, country: location.country, postalCode: location.postalCode, latitude: location.latitude, longitude: location.longitude });
-    navigate("/", { state: { tab: "Your Community", communityFilter: "Events", eventCreated: true } });
+    try {
+      await addEvent({ ...formData, location: friendlyLocation(location) || formData.location, neighborhood: location.neighborhood, city: location.city, province: location.province, country: location.country, postalCode: location.postalCode, latitude: location.latitude, longitude: location.longitude });
+      navigate("/", { state: { tab: "Your Community", communityFilter: "Events", eventCreated: true } });
+    } catch (error) {
+      setSaveError(error?.message || "Unable to save this event. Please try again.");
+    }
   };
 
   return (
@@ -65,6 +71,7 @@ export default function CreateEvent() {
         onSubmit={handleSubmit}
         className="overflow-y-auto flex-1 no-scrollbar flex flex-col gap-6 px-4 py-6"
       >
+        {saveError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-medium text-red-700">{saveError}</p>}
         <div>
           <label className="block text-[14px] font-medium mb-2">Event Title</label>
           <input

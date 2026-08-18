@@ -44,7 +44,7 @@ import { usePosts } from "../context/PostContext";
 import TradeBadge from "../components/TradeBadge";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useNotifications } from "../context/NotificationContext";
-import { discoveryRadiusLabel, isWithinDiscoveryRadius, resolveUserLocation, sortByDistance } from "../utils/locationRadius";
+import { discoveryRadiusLabel, distanceInKmBetween, isWithinDiscoveryRadius, resolveUserLocation, sortByDistance } from "../utils/locationRadius";
 import DistanceLabel from "../components/DistanceLabel";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
 import { contentTimestamp, rankFeedItems } from "../utils/feedRanking";
@@ -67,6 +67,23 @@ function promotionLocationContent(promotion, listings) {
     latitude: promotion.latitude ?? product?.latitude,
     longitude: promotion.longitude ?? product?.longitude,
   };
+}
+
+function eventMatchesDiscoveryRadius(event, location, radius) {
+  const distance = distanceInKmBetween(event, location);
+  const included = isWithinDiscoveryRadius(event, location, radius);
+  console.info("event feed visibility audit", {
+    event_id: event.databaseId ?? event.id ?? null,
+    event_status: event.status ?? eventStatus(event),
+    visibility: event.visibility ?? null,
+    creator_id: event.sellerId ?? null,
+    event_date: event.date ?? null,
+    distance_km: distance,
+    distance_filter_km: radius,
+    included,
+    approval_state: event.approval_status ?? event.approvalState ?? event.moderation_status ?? event.moderationState ?? null,
+  });
+  return included;
 }
 
 export default function Feed() {
@@ -97,7 +114,7 @@ export default function Feed() {
   const { followedSellers } = useFollow();
   const { savedItems } = useSavedItems();
   const { settings: buyerSettings = {} } = useBuyerSettings();
-  const { orderNotifications, buyerOrders } = useOrders();
+  const { buyerOrders } = useOrders();
   const totalUnreadNotifications = unreadNotificationCount;
 
   useEffect(() => {
@@ -336,7 +353,7 @@ function FollowingFeed({ followedSellers, location, radius, hiddenContentIds, on
   const { listings } = useListings();
   const { posts } = usePosts();
   const { activePromotions } = usePromotions();
-  const events = upcomingEvents().filter((event) => followedSellers.includes(event.sellerId) && isWithinDiscoveryRadius(event, location, radius));
+  const events = upcomingEvents().filter((event) => followedSellers.includes(event.sellerId) && eventMatchesDiscoveryRadius(event, location, radius));
   const followedPosts = [...followingPosts, ...posts].filter((post) => followedSellers.includes(post.sellerId) && isWithinDiscoveryRadius(post, location, radius));
   const followedListings = listings.filter((product) => followedSellers.includes(product.sellerId) && isWithinDiscoveryRadius(product, location, radius));
   const listingsForPromotions = listings;
@@ -380,7 +397,7 @@ function CommunityFeed({ filter, followedSellers, followedSellerIds, interactedS
   const { isRegrown } = useRegrow();
   const { getEngagement } = useEngagement();
   const [touchStart, setTouchStart] = useState(null);
-  const events = upcomingEvents().filter((event) => isWithinDiscoveryRadius(event, location, radius));
+  const events = upcomingEvents().filter((event) => eventMatchesDiscoveryRadius(event, location, radius));
   const nearbyListings = listings.filter((listing) => isWithinDiscoveryRadius(listing, location, radius));
   const nearbyPosts = posts.filter((post) => isWithinDiscoveryRadius(post, location, radius));
   const currentPromotions = activePromotions().filter((promotion) => isWithinDiscoveryRadius(promotionLocationContent(promotion, listings), location, radius));

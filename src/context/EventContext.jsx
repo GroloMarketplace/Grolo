@@ -213,7 +213,7 @@ export function EventProvider({ children }) {
     [events],
   );
 
-  const addEvent = useCallback((event) => {
+  const addEvent = useCallback(async (event) => {
     const optimisticEvent = {
       likes: 0,
       comments: 0,
@@ -231,17 +231,32 @@ export function EventProvider({ children }) {
       persistEvents(storageKey, next);
       return next;
     });
-    if (isSupabaseConfigured && user?.id) {
-      createEventApi(optimisticEvent).then((created) => {
-        if (!created) return;
-        setEvents((current) => {
-          const next = current.map((item) => item.id === optimisticEvent.id ? created : item);
-          persistEvents(storageKey, next);
-          return next;
-        });
-      }).catch((error) => console.warn("event source: local fallback", { operation: "createEvent", error: error?.message ?? String(error) }));
-    } else {
+    if (!isSupabaseConfigured || !user?.id) {
       console.info("event source: local fallback", { operation: "createEvent", reason: "Supabase or authenticated owner unavailable" });
+      return optimisticEvent;
+    }
+
+    try {
+      const created = await createEventApi(optimisticEvent);
+      if (!created) throw new Error("Event was not saved to Supabase.");
+      setEvents((current) => {
+        const next = current.map((item) => item.id === optimisticEvent.id ? created : item);
+        persistEvents(storageKey, next);
+        return next;
+      });
+      return created;
+    } catch (error) {
+      setEvents((current) => {
+        const next = current.filter((item) => item.id !== optimisticEvent.id);
+        persistEvents(storageKey, next);
+        return next;
+      });
+      console.error("Unable to save event", {
+        eventId: optimisticEvent.id,
+        sellerId: optimisticEvent.sellerId,
+        error: error?.message ?? String(error),
+      });
+      throw error;
     }
   }, [storageKey, user?.id]);
 

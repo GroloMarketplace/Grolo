@@ -86,7 +86,17 @@ export async function getEvents() {
     .order("created_at", { ascending: false });
   if (error) throw error;
   const events = (data ?? []).map(eventFromRow);
-  logEventSource("supabase", "getEvents", { count: events.length });
+  logEventSource("supabase", "getEvents", {
+    count: events.length,
+    events: events.map((event) => ({
+      event_id: event.databaseId ?? event.id ?? null,
+      event_status: event.status ?? null,
+      visibility: event.visibility ?? null,
+      creator_id: event.sellerId ?? null,
+      event_date: event.date ?? null,
+      approval_state: event.approval_status ?? event.approvalState ?? event.moderation_status ?? event.moderationState ?? null,
+    })),
+  });
   return events;
 }
 

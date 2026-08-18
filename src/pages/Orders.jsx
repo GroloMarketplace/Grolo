@@ -19,6 +19,14 @@ const ORDER_SECTIONS = [
   { title: "Cancelled Orders", statuses: ["Cancelled"] },
 ];
 
+function orderStatusPresentation(status) {
+  if (["Preparing", "In Progress"].includes(status)) return { icon: "🟡", label: "Preparing", className: "bg-[#FFF8D8] text-[#8A6D00]" };
+  if (status === "Ready for Pickup") return { icon: "🟢", label: "Ready for Pickup", className: "bg-[#E7F8EA] text-[#26733B]" };
+  if (status === "Completed") return { icon: "✅", label: "Completed", className: "bg-[#CFF7D3] text-[#02542D]" };
+  if (status === "Cancelled") return { icon: "", label: "Cancelled", className: "bg-[#FFF1F0] text-[#B42318]" };
+  return { icon: "", label: status, className: "bg-[#F5F5F5] text-[#5F6B64]" };
+}
+
 export default function Orders() {
   const navigate = useNavigate();
   const scrollRef = useRef(null);
@@ -80,6 +88,7 @@ export default function Orders() {
 function OrderRow({ order, product, reviewed, navigate }) {
   const isCompleted = order.status === "Completed";
   const isCancelled = order.status === "Cancelled";
+  const statusPresentation = orderStatusPresentation(order.status);
   const reputationSnapshot = useReputationSnapshot(order.sellerId ?? product.sellerId);
   const openOrderDetails = () => {
     const route = `/orders/${order.id.replace(/^ORD-/, "")}`;
@@ -92,7 +101,7 @@ function OrderRow({ order, product, reviewed, navigate }) {
     <div onClick={openOrderDetails} onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) openOrderDetails(); }} role="button" tabIndex={0} className="cursor-pointer border-b border-[#E6E6E6] p-4">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-[12px] text-[#828282]">{order.id}</span>
-        <span className={`flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-medium ${isCancelled ? "bg-[#FFF1F0] text-[#B42318]" : isCompleted ? "bg-[#CFF7D3] text-[#02542D]" : "bg-[#F5F5F5] text-[#828282]"}`}>{isCancelled && <OutlineIcon name="cancel" size={12} />}{isCancelled ? "Cancelled" : order.status}</span>
+        <span aria-label={`Order status: ${order.status}`} className={`flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-medium ${statusPresentation.className}`}>{statusPresentation.icon || (isCancelled && <OutlineIcon name="cancel" size={12} />)}{statusPresentation.label}</span>
       </div>
       <div className="flex w-full items-center gap-3 text-left">
         <img src={product.image} alt={product.name} className="h-16 w-16 shrink-0 rounded-lg object-cover" />

@@ -52,6 +52,9 @@ function activityCopy(notification) {
   if (notification.type === "new_message" || notification.type === "message_received") return `${person} sent you a message`;
   if (["event_attendance", "event_rsvp"].includes(notification.type)) return `${person} is attending ${listingName(notification)}`;
   if (["order_received", "order_created"].includes(notification.type)) return `${person} purchased ${listingName(notification)}`;
+  if (notification.type === "order_preparing") return notification.message || `${person} has started preparing your order.`;
+  if (notification.type === "order_ready_for_pickup") return notification.message || "Your order is ready for pickup.";
+  if (notification.type === "order_completed") return notification.message || "Your order has been completed.";
   if (notification.type === "order_status") return notification.title || `${person} updated an order`;
   return notification.title || "New community activity";
 }
@@ -62,13 +65,13 @@ function notificationActions(notification) {
   if (notification.type === "review_received") return [{ label: "View Review", path: "/my-shop/reviews" }, { label: "View Store", path: "/shop" }];
   if (notification.type === "new_message" || notification.type === "message_received") return [{ label: "Reply", path: notification.relatedId ? `/messages/${notification.relatedId}` : "/messages" }];
   if (["event_attendance", "event_rsvp"].includes(notification.type)) return [{ label: "View Event", path: notification.relatedId ? `/event/${notification.relatedId}` : null }];
-  if (["order_received", "order_created", "order_status"].includes(notification.type)) return [{ label: "View Order", path: notification.relatedId ? `/orders/${encodeURIComponent(notification.relatedId)}` : "/orders" }];
+  if (["order_received", "order_created", "order_status", "order_preparing", "order_ready_for_pickup", "order_completed"].includes(notification.type)) return [{ label: "View Order", path: notification.relatedId ? `/orders/${encodeURIComponent(notification.relatedId)}` : "/orders" }];
   return [];
 }
 
 function notificationPath(notification) {
   if (!notification.relatedId) return null;
-  if (["order_received", "order_created", "order_status"].includes(notification.type)) return `/orders/${encodeURIComponent(notification.relatedId)}`;
+  if (["order_received", "order_created", "order_status", "order_preparing", "order_ready_for_pickup", "order_completed"].includes(notification.type)) return `/orders/${encodeURIComponent(notification.relatedId)}`;
   if (notification.type === "review_received") return `/my-shop/reviews`;
   if (notification.type === "new_listing" || notification.type === "listing_favorited") return `/product/${notification.relatedId}`;
   if (notification.type === "promotion_created") return `/promotions/${notification.relatedId}`;

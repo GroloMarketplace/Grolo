@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { useAuth } from "./AuthContext";
 import {
   getNotifications,
+  getUnreadNotificationCount,
   markAllNotificationsRead,
   markNotificationRead,
   subscribeToNotifications,
@@ -16,6 +17,7 @@ export function NotificationProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const PAGE_SIZE = 30;
 
   useEffect(() => {
@@ -23,14 +25,25 @@ export function NotificationProvider({ children }) {
     let channel;
     setNotifications([]);
     setHasMore(false);
+    setUnreadCount(0);
     if (!user?.id || !isSupabaseConfigured) return undefined;
     setLoading(true);
-    getNotifications(user.id, { limit: PAGE_SIZE })
-      .then((rows) => { if (!cancelled) { setNotifications(rows); setHasMore(rows.length === PAGE_SIZE); } })
+    Promise.all([
+      getNotifications(user.id, { limit: PAGE_SIZE }),
+      getUnreadNotificationCount(user.id),
+    ])
+      .then(([rows, count]) => {
+        if (!cancelled) {
+          setNotifications(rows);
+          setHasMore(rows.length === PAGE_SIZE);
+          setUnreadCount(count);
+        }
+      })
       .catch((error) => console.error("Unable to load notifications", error))
       .finally(() => { if (!cancelled) setLoading(false); });
     channel = subscribeToNotifications(user.id, (notification) => {
       setNotifications((current) => [notification, ...current.filter((item) => item.id !== notification.id)]);
+      if (!notification.read) setUnreadCount((current) => current + 1);
     }, (status, error) => {
       console.info("realtime notification subscription status", {
         userId: user.id,
@@ -60,18 +73,20 @@ export function NotificationProvider({ children }) {
 
   const markRead = async (id) => {
     setNotifications((current) => current.map((item) => item.id === id ? { ...item, read: true, isRead: true } : item));
+    setUnreadCount((current) => Math.max(0, current - 1));
     try { await markNotificationRead(id); } catch (error) { console.error("Unable to mark notification read", error); }
   };
 
   const markAllRead = async () => {
     if (!user?.id) return;
     setNotifications((current) => current.map((item) => ({ ...item, read: true, isRead: true })));
+    setUnreadCount(0);
     try { await markAllNotificationsRead(user.id); } catch (error) { console.error("Unable to mark all notifications read", error); }
   };
 
   const value = {
     notifications,
-    unreadCount: notifications.filter((item) => !item.read).length,
+    unreadCount,
     loading,
     loadingMore,
     hasMore,

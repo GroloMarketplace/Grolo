@@ -43,6 +43,7 @@ import { useListings } from "../context/ListingContext";
 import { usePosts } from "../context/PostContext";
 import TradeBadge from "../components/TradeBadge";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
+import { useNotifications } from "../context/NotificationContext";
 import { discoveryRadiusLabel, isWithinDiscoveryRadius, resolveUserLocation, sortByDistance } from "../utils/locationRadius";
 import DistanceLabel from "../components/DistanceLabel";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
@@ -92,12 +93,19 @@ export default function Feed() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [feedVersion, setFeedVersion] = useState(0);
   const touchStartRef = useRef(null);
-  const [notificationsRead, setNotificationsRead] = useState(() => localStorage.getItem("grolo-notifications-read") === "true");
+  const { unreadCount: unreadNotificationCount } = useNotifications();
   const { followedSellers } = useFollow();
   const { savedItems } = useSavedItems();
   const { settings: buyerSettings = {} } = useBuyerSettings();
   const { orderNotifications, buyerOrders } = useOrders();
-  const unreadNotifications = notificationsRead ? 0 : notificationsHighlights.length + notificationsFollowers.length + orderNotifications.length;
+  const totalUnreadNotifications = unreadNotificationCount;
+
+  useEffect(() => {
+    console.info("Notification badge audit", {
+      unreadNotificationCount,
+      totalUnreadNotifications,
+    });
+  }, [unreadNotificationCount, totalUnreadNotifications]);
 
   useEffect(() => {
     console.info("Feed mounted");
@@ -233,10 +241,10 @@ export default function Feed() {
             {tab === t && <div className="absolute -bottom-2.5 left-0 right-0 h-0.5 bg-[#498467]" />}
           </button>
         ))}
-        <button type="button" onClick={() => { setNotificationsRead(true); localStorage.setItem("grolo-notifications-read", "true"); navigate("/notifications", { state: { fromTab: tab } }); }} aria-label="Notifications" className="absolute right-4 p-1">
-          <span className={`relative block ${unreadNotifications > 0 ? "animate-pulse" : ""}`}>
+        <button type="button" onClick={() => navigate("/notifications", { state: { fromTab: tab } })} aria-label="Notifications" className="absolute right-4 p-1">
+          <span className={`relative block ${totalUnreadNotifications > 0 ? "animate-pulse" : ""}`}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 21V11m0 0C8 11 5 8.5 5 4c4.5 0 7 2.5 7 7Zm0 2c0-5 3-8 8-8 0 4.5-3 8-8 8Z" stroke="#498467" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            {unreadNotifications > 0 && <span className="absolute -right-1 -top-1 flex h-2 min-w-2 items-center justify-center rounded-full bg-[#498467] px-0.5 text-[8px] font-bold text-white">{unreadNotifications > 9 ? "9+" : unreadNotifications}</span>}
+            {totalUnreadNotifications > 0 && <span className="absolute -right-1 -top-1 flex h-2 min-w-2 items-center justify-center rounded-full bg-[#498467] px-0.5 text-[8px] font-bold text-white">{totalUnreadNotifications > 9 ? "9+" : totalUnreadNotifications}</span>}
           </span>
         </button>
       </div>

@@ -43,6 +43,19 @@ export function databaseMessageToLegacyMessage(row, { currentUserId } = {}) {
   const databaseId = row.id ?? row.databaseId;
   const createdAt = row.created_at ?? row.createdAt;
   const senderId = row.sender_id ?? row.senderId;
+  const readAt = row.read_at ?? row.readAt ?? null;
+  const conversationId = row.conversation_id ?? row.conversationId ?? null;
+  const isIncoming = Boolean(senderId && currentUserId && senderId !== currentUserId);
+  const unread = Boolean(isIncoming && !readAt);
+  console.info("message unread normalization", {
+    messageId: databaseId,
+    conversationId,
+    senderId,
+    currentUserId: currentUserId ?? null,
+    isIncoming,
+    readAt,
+    computedUnread: unread,
+  });
   return {
     ...row,
     id: row.legacy_id ?? row.legacyId ?? databaseId,
@@ -53,8 +66,8 @@ export function databaseMessageToLegacyMessage(row, { currentUserId } = {}) {
     text: row.content ?? row.text ?? "",
     timestamp: row.timestamp ?? createdAt,
     createdAt,
-    readAt: row.read_at ?? row.readAt ?? null,
-    unread: Boolean(row.sender_id && currentUserId && row.sender_id !== currentUserId && !row.read_at && !row.readAt),
+    readAt,
+    unread,
   };
 }
 
@@ -391,15 +404,147 @@ export async function getMessages(conversationId, userId) {
   const mappedMessages = data
     .map((message) => databaseMessageToLegacyMessage(message, { currentUserId: authenticatedUserId }))
     .filter(Boolean);
+  const hydrationRows = mappedMessages.map((message) => ({
+    conversationId,
+    messageId: message.databaseId ?? message.id,
+    senderId: message.senderId,
+    currentUserId: authenticatedUserId,
+    isIncoming: Boolean(message.senderId && authenticatedUserId && message.senderId !== authenticatedUserId),
+    readAt: message.readAt ?? null,
+    computedUnread: message.unread === true,
+  }));
+  const unreadMessageIds = hydrationRows.filter((message) => message.computedUnread).map((message) => message.messageId);
+  console.info("HYDRATED MESSAGE READ STATE");
+  console.table(hydrationRows);
+  console.info("UNREAD MESSAGE IDS FOR CONVERSATION");
+  console.table([{
+    conversationId,
+    unreadMessageCount: unreadMessageIds.length,
+    unreadMessageIds: unreadMessageIds.join(", "),
+  }]);
   return mappedMessages;
 }
 
-export async function markConversationMessagesRead(conversationId) {
+export async function markConversationMessagesRead(conversationId, contextUser = null) {
   requireSupabase();
   const resolvedConversationId = canonicalId(conversationId, "conversationId", true);
-  const { error } = await supabase.rpc("mark_conversation_messages_read", { p_conversation_id: resolvedConversationId });
-  if (error) throw error;
-  return resolvedConversationId;
+  const [authUserResult, sessionResult] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.auth.getSession(),
+  ]);
+  const authCurrentUser = authUserResult.data?.user ?? null;
+  const session = sessionResult.data?.session ?? null;
+  const currentUserId = authCurrentUser?.id ?? contextUser?.id ?? null;
+  const readState = async () => {
+    const { data, error } = await supabase
+      .from("messages")
+      .select("id, sender_id, read_at")
+      .eq("conversation_id", resolvedConversationId);
+    if (error) {
+      console.warn("Unable to inspect message read state", {
+        conversationId: resolvedConversationId,
+        error: error.message,
+      });
+      return { rows: [], error };
+    }
+    return { rows: data ?? [], error: null };
+  };
+  const before = await readState();
+  const incomingUnreadBefore = before.rows.filter((row) => row.sender_id !== currentUserId && !row.read_at);
+  const unreadBefore = incomingUnreadBefore.length;
+  console.info("mark conversation read requested", {
+    conversationId: resolvedConversationId,
+    currentUserId,
+    incomingUnreadBeforeCount: unreadBefore,
+    incomingUnreadBeforeIds: incomingUnreadBefore.map((row) => row.id),
+    messages: before.rows.map((row) => ({ messageId: row.id, readAtBefore: row.read_at ?? null, senderId: row.sender_id })),
+  });
+  console.info("READ AUTH AUDIT", {
+    user: contextUser ? { id: contextUser.id ?? null, email: contextUser.email ?? null } : null,
+    userId: contextUser?.id ?? null,
+    authCurrentUser: authCurrentUser ? { id: authCurrentUser.id ?? null, email: authCurrentUser.email ?? null } : null,
+    authCurrentUserId: authCurrentUser?.id ?? null,
+    currentUserId,
+    session: session ? {
+      userId: session.user?.id ?? null,
+      hasAccessToken: Boolean(session.access_token),
+      expiresAt: session.expires_at ?? null,
+    } : null,
+    authUserError: authUserResult.error?.message ?? null,
+    sessionError: sessionResult.error?.message ?? null,
+  });
+  console.info("mark conversation read RPC start", {
+    conversationId: resolvedConversationId,
+    currentUserId,
+    incomingUnreadBeforeIds: incomingUnreadBefore.map((row) => row.id),
+  });
+  let rpcTimeoutId;
+  const timeout = new Promise((_, reject) => {
+    rpcTimeoutId = globalThis.setTimeout(() => {
+      console.warn("mark conversation read RPC timeout", {
+        conversationId: resolvedConversationId,
+        currentUserId,
+        timeoutMs: 10000,
+      });
+      reject(new Error("mark_conversation_messages_read timed out."));
+    }, 10000);
+  });
+  let rpcResponse;
+  try {
+    rpcResponse = await Promise.race([
+      supabase.rpc("mark_conversation_messages_read", { p_conversation_id: resolvedConversationId }),
+      timeout,
+    ]);
+  } catch (error) {
+    console.warn("mark conversation read RPC error", {
+      conversationId: resolvedConversationId,
+      currentUserId,
+      error: error?.message ?? String(error),
+    });
+    throw error;
+  } finally {
+    globalThis.clearTimeout(rpcTimeoutId);
+  }
+  if (rpcResponse.error) {
+    console.warn("mark conversation read RPC error", {
+      conversationId: resolvedConversationId,
+      currentUserId,
+      error: rpcResponse.error?.message ?? String(rpcResponse.error),
+    });
+    throw rpcResponse.error;
+  }
+  console.info("mark conversation read RPC success", {
+    conversationId: resolvedConversationId,
+    currentUserId,
+  });
+  const after = await readState();
+  const incomingUnreadAfter = after.rows.filter((row) => row.sender_id !== currentUserId && !row.read_at);
+  const unreadAfter = incomingUnreadAfter.length;
+  const markedReadIds = before.rows
+    .filter((row) => row.sender_id !== currentUserId && !row.read_at)
+    .filter((beforeRow) => after.rows.some((afterRow) => afterRow.id === beforeRow.id && afterRow.read_at))
+    .map((row) => row.id);
+  console.info("mark conversation read returned rows updated", {
+    conversationId: resolvedConversationId,
+    currentUserId,
+    updatedReadAtCount: markedReadIds.length,
+    idsMarkedRead: markedReadIds,
+    idsRemainingUnread: incomingUnreadAfter.map((row) => row.id),
+  });
+  const result = {
+    conversationId: resolvedConversationId,
+    currentUserId,
+    incomingUnreadBeforeCount: unreadBefore,
+    incomingUnreadAfterCount: unreadAfter,
+    idsMarkedRead: markedReadIds,
+    idsRemainingUnread: incomingUnreadAfter.map((row) => row.id),
+    unreadBefore,
+    unreadAfter,
+    updatedReadAtCount: markedReadIds.length,
+    messages: after.rows.map((row) => ({ messageId: row.id, readAtAfter: row.read_at ?? null, senderId: row.sender_id })),
+  };
+  console.info("mark conversation read completed", result);
+  return result;
 }
 
 function attachMessageDebug(error, debug) {
@@ -466,7 +611,7 @@ export async function sendMessage({ conversationId, senderId, recipientId, conte
   return { ...message, messageDebug: successDebug };
 }
 
-export function subscribeToMessages(conversationId, onInsert, onStatus) {
+export function subscribeToMessages(conversationId, onInsert, onStatus, onUpdate) {
   requireSupabase();
   const channelName = `messages:${conversationId}`;
   const channel = supabase
@@ -487,6 +632,24 @@ export function subscribeToMessages(conversationId, onInsert, onStatus) {
           senderId: payload.new?.sender_id ?? null,
         });
         onInsert(payload.new);
+      },
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "messages",
+        filter: `conversation_id=eq.${conversationId}`,
+      },
+      (payload) => {
+        console.info("realtime UPDATE event received", {
+          channel: channelName,
+          conversationId,
+          messageId: payload.new?.id ?? null,
+          readAt: payload.new?.read_at ?? null,
+        });
+        onUpdate?.(payload.new);
       },
     );
   channel.subscribe((status, error) => {

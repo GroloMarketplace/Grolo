@@ -58,6 +58,15 @@ export default function Chat() {
 
   useEffect(() => {
     let active = true;
+    if (!user?.id) {
+      console.info("Chat conversation initialization deferred until authentication is ready", {
+        routeConversationId: id,
+        currentUserId: null,
+      });
+      return () => {
+        active = false;
+      };
+    }
     const routeChanged = conversationRouteRef.current !== id;
     if (routeChanged && conversationUUIDRef.current) {
       console.info("Conversation UUID cleared", {
@@ -84,7 +93,7 @@ export default function Chat() {
       participantId: pendingConversation?.participantId ?? pendingConversation?.sellerId ?? routeParticipantId,
       listingId: databaseListingId,
       conversationType: pendingConversation?.conversationType ?? (serviceContext ? "service" : "standard"),
-    }).then((resolvedConversationId) => {
+    }).then(async (resolvedConversationId) => {
       if (!active) return;
       console.info("Conversation initialized", {
         conversationId: resolvedConversationId,
@@ -97,8 +106,33 @@ export default function Chat() {
       });
       setConversationUUID(resolvedConversationId);
       setConversationReady(true);
-      void markConversationRead(resolvedConversationId);
-      if (id !== resolvedConversationId) void markConversationRead(id);
+      const activeConversation = messages.find((item) => item.databaseId === resolvedConversationId || item.id === resolvedConversationId || item.id === id) ?? conversation;
+      console.info("Chat read audit before mark", {
+        conversationId: resolvedConversationId,
+        currentUserId: user?.id ?? null,
+        messageCount: activeConversation?.messages?.length ?? 0,
+        unreadMessageCount: activeConversation?.messages?.filter((message) => message.unread).length ?? 0,
+        messages: activeConversation?.messages?.map((message) => ({
+          messageId: message.databaseId ?? message.id,
+          senderId: message.senderId,
+          readAt: message.readAt ?? null,
+          unread: message.unread === true,
+        })) ?? [],
+      });
+      const incomingUnreadBefore = activeConversation?.messages?.filter((message) => message.unread === true) ?? [];
+      console.info("markConversationRead invocation", {
+        conversationId: resolvedConversationId,
+        incomingUnreadBeforeCount: incomingUnreadBefore.length,
+        incomingUnreadBeforeIds: incomingUnreadBefore.map((message) => message.databaseId ?? message.id),
+      });
+      const readAudit = await markConversationRead(resolvedConversationId);
+      console.info("markConversationRead invocation completed", {
+        conversationId: resolvedConversationId,
+        idsMarkedRead: readAudit?.persistedReadResult?.idsMarkedRead ?? readAudit?.idsMarkedRead ?? [],
+        idsRemainingUnread: readAudit?.persistedReadResult?.idsRemainingUnread ?? [],
+        updatedReadAtCount: readAudit?.persistedReadResult?.updatedReadAtCount ?? 0,
+      });
+      if (id !== resolvedConversationId) await markConversationRead(id);
       console.info("Chat conversation UUID ready", {
         conversationId: resolvedConversationId,
         senderId: user?.id ?? null,

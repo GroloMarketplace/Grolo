@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { databaseMessageToLegacyMessage, getConversations, getMessages, isCanonicalUuid, markConversationMessagesRead, sendMessage, subscribeToMessages, upsertConversationInDatabase } from "../lib/api/messages";
-import { isSupabaseConfigured } from "../lib/supabaseClient";
+import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { isUserBlocked } from "../lib/api/trustSafety";
 
 const MessageContext = createContext(null);
@@ -46,7 +46,7 @@ function normalizeConversation(input) {
     ...conversation,
     createdAt: conversation.createdAt ?? conversation.created_at ?? null,
     latestActivityAt: latestActivityAt(conversation, normalizedMessages),
-    unread: conversation.unread === true || normalizedMessages.some((message) => message.unread === true),
+    unread: normalizedMessages.some((message) => message.unread === true),
     ...(isTrading ? { conversationType: "trading", category: "Trading", tradeThread: true } : {}),
     ...(isService ? { conversationType: "service" } : {}),
     messages: normalizedMessages,
@@ -104,6 +104,9 @@ export function MessageProvider({ children }) {
         status,
         error: error?.message ?? error ?? null,
       });
+    }, (payload) => {
+      const updatedMessage = databaseMessageToLegacyMessage(payload, { currentUserId: user?.id });
+      mergeRealtimeMessage(conversationId, updatedMessage);
     });
     realtimeSubscriptions.current.set(conversationId, channel);
     console.info("realtime subscription created", {
@@ -166,6 +169,27 @@ export function MessageProvider({ children }) {
           conversationsMissingLatestActivityAt: sortedMessages.filter((conversation) => !conversation.latestActivityAt).length,
           messageCount,
         });
+        const hydrationRows = sortedMessages.flatMap((conversation) => conversation.messages.map((message) => ({
+          conversationId: conversation.databaseId ?? conversation.id,
+          messageId: message.databaseId ?? message.id,
+          senderId: message.senderId,
+          currentUserId: user.id,
+          isIncoming: Boolean(message.senderId && user.id && message.senderId !== user.id),
+          readAt: message.readAt ?? null,
+          computedUnread: message.unread === true,
+        })));
+        console.info("HYDRATED MESSAGE READ STATE");
+        console.table(hydrationRows);
+        const unreadSummaryRows = sortedMessages.map((conversation) => {
+          const unreadMessageIds = conversation.messages.filter((message) => message.unread === true).map((message) => message.databaseId ?? message.id);
+          return {
+            conversationId: conversation.databaseId ?? conversation.id,
+            unreadMessageCount: unreadMessageIds.length,
+            unreadMessageIds: unreadMessageIds.join(", "),
+          };
+        });
+        console.info("UNREAD MESSAGE IDS FOR CONVERSATION");
+        console.table(unreadSummaryRows);
         setMessages(sortedMessages);
         const activeConversationIds = hydratedConversations.map((conversation) => conversation.databaseId ?? conversation.id);
         console.info("realtime subscription reconciliation", {
@@ -202,12 +226,23 @@ export function MessageProvider({ children }) {
         (incomingDatabaseMessageId && (message.databaseId === incomingDatabaseMessageId || message.id === incomingDatabaseMessageId))
       ));
       if (duplicate) {
-        console.info("realtime duplicate skipped", {
+        const updatedMessages = (conversation.messages ?? []).map((message) => (
+          message.databaseId === incomingDatabaseMessageId || message.id === incomingDatabaseMessageId
+            ? { ...message, ...incomingMessage }
+            : message
+        ));
+        const nextConversation = normalizeConversation({
+          ...conversation,
+          messages: updatedMessages,
+        });
+        const nextMessages = sortConversations(current.map((item, index) => index === conversationIndex ? nextConversation : item));
+        console.info("realtime message state merged", {
           conversationId,
           messageId: incomingDatabaseMessageId,
-          senderId: incomingMessage.senderId,
+          readAt: incomingMessage.readAt ?? null,
+          unreadMessageCount: nextConversation.messages.filter((message) => message.unread).length,
         });
-        return current;
+        return nextMessages;
       }
       const nextConversation = normalizeConversation({
         ...conversation,
@@ -741,24 +776,95 @@ export function MessageProvider({ children }) {
   };
 
   const markConversationRead = useCallback(async (conversationId) => {
-    if (!conversationId) return;
-    const readAt = new Date().toISOString();
-    setMessages((current) => current.map((conversation) => {
-      if (conversation.id !== conversationId && conversation.databaseId !== conversationId) return conversation;
-      return normalizeConversation({
-        ...conversation,
-        unread: false,
-        messages: (conversation.messages ?? []).map((message) => message.unread ? { ...message, unread: false, readAt } : message),
+    const authResult = isSupabaseConfigured && supabase
+      ? await supabase.auth.getUser()
+      : { data: { user: null }, error: null };
+    const authCurrentUser = authResult.data?.user ?? null;
+    const currentUserId = authCurrentUser?.id ?? user?.id ?? null;
+    console.info("markConversationRead entered", {
+      conversationId: conversationId ?? null,
+      user: user ? { id: user.id, email: user.email ?? null } : null,
+      userId: user?.id ?? null,
+      authCurrentUser: authCurrentUser ? { id: authCurrentUser.id, email: authCurrentUser.email ?? null } : null,
+      currentUserId,
+      authError: authResult.error?.message ?? null,
+    });
+    if (!currentUserId) {
+      console.warn("markConversationRead deferred until authenticated user is available", {
+        conversationId: conversationId ?? null,
+        currentUserId: null,
       });
-    }));
+      return { conversationId: conversationId ?? null, skipped: true, reason: "authenticated user unavailable" };
+    }
+    if (!conversationId) {
+      console.warn("markConversationRead exited without conversation ID");
+      return;
+    }
+    const readAt = new Date().toISOString();
+    let unreadBefore = 0;
+    let unreadAfter = 0;
+    let idsMarkedRead = [];
+    let idsRemainingUnread = [];
+    setMessages((current) => {
+      const nextMessages = current.map((conversation) => {
+        if (conversation.id !== conversationId && conversation.databaseId !== conversationId) return conversation;
+        const unreadBeforeMessages = (conversation.messages ?? []).filter((message) => message.unread === true);
+        unreadBefore = unreadBeforeMessages.length;
+        idsMarkedRead = unreadBeforeMessages.map((message) => message.databaseId ?? message.id);
+        const nextConversation = normalizeConversation({
+          ...conversation,
+          unread: false,
+          messages: (conversation.messages ?? []).map((message) => message.unread ? { ...message, unread: false, readAt } : message),
+        });
+        const unreadAfterMessages = nextConversation.messages.filter((message) => message.unread === true);
+        unreadAfter = unreadAfterMessages.length;
+        idsRemainingUnread = unreadAfterMessages.map((message) => message.databaseId ?? message.id);
+        return nextConversation;
+      });
+      console.info("conversation unread state recalculated", {
+        conversationId,
+        unreadBefore,
+        unreadAfter,
+        idsMarkedRead,
+        idsRemainingUnread,
+        readAt,
+      });
+      return sortConversations(nextMessages);
+    });
+    let persistedReadResult = null;
     if (isCanonicalUuid(conversationId) && isSupabaseConfigured) {
       try {
-        await markConversationMessagesRead(conversationId);
+        const readResult = await markConversationMessagesRead(conversationId, user);
+        persistedReadResult = readResult;
+        setMessages((current) => sortConversations(current.map((conversation) => {
+          if (conversation.id !== conversationId && conversation.databaseId !== conversationId) return conversation;
+          const persistedReadState = new Map((readResult.messages ?? []).map((message) => [message.messageId, message]));
+          const nextConversation = normalizeConversation({
+            ...conversation,
+            messages: (conversation.messages ?? []).map((message) => {
+              const persisted = persistedReadState.get(message.databaseId ?? message.id);
+              if (!persisted || !persisted.readAtAfter || persisted.senderId === readResult.currentUserId) return message;
+              return { ...message, readAt: persisted.readAtAfter, unread: false };
+            }),
+          });
+          const conversationUnreadCount = nextConversation.messages.filter((message) => message.unread).length;
+          console.info("conversation unread count after persisted read", {
+            conversationId,
+            conversationUnreadCount,
+            unreadBefore: readResult.unreadBefore,
+            unreadAfter: readResult.unreadAfter,
+          });
+          return nextConversation;
+        })));
+        console.info("conversation read_at updates persisted", { conversationId, ...readResult });
       } catch (error) {
         console.warn("Unable to mark conversation messages read", { conversationId, error: error?.message ?? String(error) });
       }
     }
-  }, []);
+    const auditResult = { conversationId, unreadBefore, unreadAfter, persistedReadResult };
+    console.info("markConversationRead audit completed", auditResult);
+    return auditResult;
+  }, [user?.id]);
 
   const unreadCount = messages.reduce((count, conversation) => count + (conversation.messages ?? []).filter((message) => message.unread).length, 0);
   const value = useMemo(() => ({ messages, unreadCount, upsertConversation, appendMessage, ensureConversation, markConversationRead, createSellerConversation, createTradeConversation, createTradeProposal, createOrderConversation }), [messages, unreadCount, markConversationRead]);

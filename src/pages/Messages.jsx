@@ -22,6 +22,10 @@ function isTradeConversation(conversation) {
     || conversation.category === "Trading";
 }
 
+function unreadMessageCount(conversation) {
+  return (conversation.messages ?? []).filter((message) => message.unread === true).length;
+}
+
 function latestMessageForConversation(conversation) {
   return (conversation.messages ?? []).reduce((latest, candidate) => {
     if (!latest) return candidate;
@@ -81,6 +85,17 @@ export default function Messages() {
       filteredOutConversations: sortedMessages.length - filteredMessages.length,
       conversationsMissingLatestActivityAt: sortedMessages.filter((conversation) => !conversation.latestActivityAt).length,
       conversationsMissingMessageArray: sortedMessages.filter((conversation) => !Array.isArray(conversation.messages)).length,
+      uiUnreadMessageCount: sortedMessages.reduce((count, conversation) => count + unreadMessageCount(conversation), 0),
+      conversationUnreadDiagnostics: filteredMessages.map((conversation) => {
+        const computedUnreadCount = unreadMessageCount(conversation);
+        return {
+          conversationId: conversation.databaseId ?? conversation.id,
+          messageCount: conversation.messages?.length ?? 0,
+          unreadAfter: computedUnreadCount,
+          renderedUnreadBadgeValue: computedUnreadCount > 0 ? computedUnreadCount : 0,
+          staleConversationUnreadFlag: conversation.unread === true,
+        };
+      }),
       activeTab: tab,
     });
   }, [filteredMessages, safeMessages, sortedMessages, tab]);
@@ -90,7 +105,7 @@ export default function Messages() {
       : tabName === "Trading"
         ? safeMessages.filter(isTradeConversation)
         : safeMessages.filter((m) => !isTradeConversation(m) && m.category === tabName);
-    return tabMessages.filter((message) => message.unread).length;
+    return tabMessages.reduce((count, message) => count + unreadMessageCount(message), 0);
   };
 
   return (
@@ -171,14 +186,23 @@ function MessageRow({ message, orders, navigate, getSellerProfile, buyerProfile,
   const liveOrder = isOrderConversation ? orders.find((order) => order.id === (message.orderId ?? message.orderContext?.orderId)) : null;
   const orderNumber = liveOrder?.id ?? message.orderContext?.orderNumber ?? message.orderId;
   const orderStatus = liveOrder?.status ?? message.orderContext?.status;
+  const conversationUnreadCount = unreadMessageCount(message);
+  const showUnread = conversationUnreadCount > 0;
+
+  console.info("Messages conversation badge render", {
+    conversationId: message.databaseId ?? message.id,
+    unreadAfter: conversationUnreadCount,
+    renderedUnreadBadgeValue: showUnread ? conversationUnreadCount : 0,
+    staleConversationUnreadFlag: message.unread === true,
+  });
 
   return (
-    <div className={`flex gap-3 border-b border-black/5 px-4 py-3 ${message.unread ? "bg-[#F7FCF8]" : "bg-white"}`}>
+    <div className={`flex gap-3 border-b border-black/5 px-4 py-3 ${showUnread ? "bg-[#F7FCF8]" : "bg-white"}`}>
       <button onClick={() => navigate(`/messages/${message.id}`)} className="flex min-w-0 flex-1 gap-3 text-left">
         <ProfileAvatar profile={conversationProfile} size="h-11 w-11" className="shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1">
-            <div className={`truncate text-[15px] ${message.unread ? "font-bold" : "font-semibold"} text-[#262626]`}>{participantName}</div>
+            <div className={`truncate text-[15px] ${showUnread ? "font-bold" : "font-semibold"} text-[#262626]`}>{participantName}</div>
             {participantId === message.sellerId && <FoundingMemberBadge sellerId={message.sellerId} compact iconOnly />}
           </div>
           {(participantProfile.location || message.location) && <div className="mt-0.5 flex items-center gap-1 truncate text-[12px] text-[#828282]"><OutlineIcon name="location" size={12} />{participantProfile.location || message.location}</div>}
@@ -190,7 +214,7 @@ function MessageRow({ message, orders, navigate, getSellerProfile, buyerProfile,
       </button>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <span className="text-[11px] text-[#828282]">{formatRelativeTimestamp(latestMessage?.createdAt ?? latestMessage?.timestamp ?? message.timestamp)}</span>
-        {message.unread && <span aria-label="Unread messages" className="flex min-h-5 min-w-5 items-center justify-center rounded-full bg-[#C85A3F] px-1.5 text-[10px] font-bold leading-5 text-white">{message.messages?.filter((item) => item.unread).length || 1}</span>}
+        {showUnread && <span aria-label="Unread messages" className="flex min-h-5 min-w-5 items-center justify-center rounded-full bg-[#C85A3F] px-1.5 text-[10px] font-bold leading-5 text-white">{conversationUnreadCount}</span>}
       </div>
     </div>
   );

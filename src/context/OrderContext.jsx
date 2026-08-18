@@ -5,7 +5,7 @@ import {
   products,
   sellers,
 } from "../data/mockData";
-import { cancelOrderWithInventory as cancelOrderWithInventoryInApi, createOrderWithItems, getBuyerOrders, getSellerOrders, legacyOrdersFromRows, updateOrderStatus as updateOrderStatusInApi } from "../lib/api/orders";
+import { cancelOrderWithInventory as cancelOrderWithInventoryInApi, createOrderWithItems, getBuyerOrders, getOrderById, getSellerOrders, legacyOrdersFromRows, subscribeToOrders, updateOrderStatus as updateOrderStatusInApi } from "../lib/api/orders";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { refreshUserReputation } from "../lib/api/reputation";
 import { createPayment, getPaymentsForUser } from "../lib/api/payments";
@@ -47,6 +47,89 @@ export function OrderProvider({ children }) {
       };
     }
 
+    const mergeRealtimeOrder = async (payload) => {
+      const orderId = payload.new?.id ?? null;
+      console.info("realtime order event received", {
+        event: payload.eventType,
+        orderId,
+        sellerId: payload.new?.seller_id ?? null,
+        buyerId: payload.new?.buyer_id ?? null,
+        listingIds: payload.new?.listing_id ? [payload.new.listing_id] : [],
+      });
+      if (!orderId) return;
+      try {
+        const order = await getOrderById(orderId);
+        console.info("realtime order hydrate result", {
+          receivedOrderId: orderId,
+          currentUserId: user.id,
+          hydrated: Boolean(order),
+          hydratedOrderId: order?.databaseId ?? null,
+          hydratedSellerId: order?.sellerId ?? null,
+          hydratedBuyerId: order?.buyerId ?? null,
+          hydratedListingIds: order?.items?.map((item) => item.listingId).filter(Boolean) ?? [],
+        });
+        if (!active) {
+          console.info("realtime order merge skipped", {
+            receivedOrderId: orderId,
+            reason: "order provider is no longer active",
+          });
+          return;
+        }
+        if (!order) {
+          console.warn("realtime order merge skipped", {
+            receivedOrderId: orderId,
+            currentUserId: user.id,
+            reason: "order hydration returned no row",
+          });
+          return;
+        }
+        const ownershipMatches = String(order.sellerId) === String(user.id) || String(order.buyerId) === String(user.id);
+        const mappedOrders = legacyOrdersFromRows([order]);
+        console.info("realtime order merge decision", {
+          receivedOrderId: orderId,
+          currentUserId: user.id,
+          ownershipMatches,
+          mappedOrderCount: mappedOrders.length,
+          mappedOrderIds: mappedOrders.map((item) => item.databaseId),
+        });
+        if (!ownershipMatches || !mappedOrders.length) {
+          console.warn("realtime order merge skipped", {
+            receivedOrderId: orderId,
+            currentUserId: user.id,
+            reason: !ownershipMatches ? "authenticated user is not an order participant" : "order has no order items after hydration",
+          });
+          return;
+        }
+        setOrders((current) => [
+          ...current.filter((item) => item.databaseId !== order.databaseId),
+          ...mappedOrders,
+        ]);
+        console.info("realtime order merged", {
+          orderId: order.databaseId,
+          sellerId: order.sellerId,
+          buyerId: order.buyerId,
+          listingIds: order.items?.map((item) => item.listingId) ?? [],
+        });
+      } catch (error) {
+        console.warn("Unable to hydrate realtime order", {
+          receivedOrderId: orderId,
+          currentUserId: user.id,
+          hydrateResult: "error",
+          error: error?.message ?? String(error),
+        });
+      }
+    };
+
+    const orderChannel = isSupabaseConfigured
+      ? subscribeToOrders(user.id, mergeRealtimeOrder, (status, error) => {
+        console.info("realtime order subscription status", {
+          userId: user.id,
+          status,
+          error: error?.message ?? error ?? null,
+        });
+      })
+      : null;
+
     Promise.allSettled([
       getBuyerOrders(user.id),
       getSellerOrders(user.id),
@@ -63,13 +146,19 @@ export function OrderProvider({ children }) {
         if (!active) return;
         setOrders(legacyOrdersFromRows([...rowsById.values()]));
         setPayments(paymentRows);
-        console.info("order source: supabase");
+        console.info("order source: supabase", {
+          buyerOrderCount: buyerRows.length,
+          sellerOrderCount: sellerRows.length,
+          mergedOrderCount: rowsById.size,
+        });
         console.info("payment source: supabase", { count: paymentRows.length });
         if (paymentResult.status === "rejected") console.error("Unable to load payments from Supabase", paymentResult.reason);
       });
 
     return () => {
       active = false;
+      orderChannel?.unsubscribe();
+      console.info("realtime order subscription cleaned up", { userId: user.id });
     };
   }, [user?.id]);
 

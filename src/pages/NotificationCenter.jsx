@@ -6,6 +6,7 @@ import { useProfileMode } from "../context/ProfileModeContext";
 import { useAuth } from "../context/AuthContext";
 
 const SELLER_ACTIVITY_TYPES = new Set([
+  "new_follower",
   "new_message",
   "message_received",
   "order_received",
@@ -85,7 +86,7 @@ function activityCopy(notification) {
 }
 
 function notificationActions(notification) {
-  if (notification.type === "new_follower") return [{ label: "View Profile", path: notification.relatedId ? `/profile/${notification.relatedId}` : null }, { label: "Follow Back", path: "/profile" }];
+  if (notification.type === "new_follower") return [{ label: "View Profile", path: notification.relatedId ? `/profile/${notification.relatedId}` : null }];
   if (notification.type === "listing_favorited" || notification.type === "new_listing") return [{ label: "View Listing", path: notification.relatedId ? `/product/${notification.relatedId}` : null }];
   if (notification.type === "review_received") return [{ label: "View Review", path: "/my-shop/reviews" }, { label: "View Store", path: "/shop" }];
   if (notification.type === "new_message" || notification.type === "message_received") return [{ label: "Reply", path: notification.relatedId ? `/messages/${notification.relatedId}` : "/messages" }];

@@ -271,17 +271,99 @@ export async function getSellerOrders(sellerId) {
   return (data ?? []).map(orderFromRow);
 }
 
+export function subscribeToOrders(userId, onChange, onStatus) {
+  requireSupabase();
+  const channelName = `orders:${userId}`;
+  const channel = supabase
+    .channel(channelName)
+    .on("postgres_changes", {
+      event: "INSERT",
+      schema: "public",
+      table: "orders",
+      filter: `seller_id=eq.${userId}`,
+    }, (payload) => onChange(payload))
+    .on("postgres_changes", {
+      event: "UPDATE",
+      schema: "public",
+      table: "orders",
+      filter: `seller_id=eq.${userId}`,
+    }, (payload) => onChange(payload))
+    .on("postgres_changes", {
+      event: "INSERT",
+      schema: "public",
+      table: "orders",
+      filter: `buyer_id=eq.${userId}`,
+    }, (payload) => onChange(payload))
+    .on("postgres_changes", {
+      event: "UPDATE",
+      schema: "public",
+      table: "orders",
+      filter: `buyer_id=eq.${userId}`,
+    }, (payload) => onChange(payload));
+  channel.subscribe((status, error) => {
+    console.info("realtime order channel status", {
+      channel: channelName,
+      userId,
+      status,
+      error: error?.message ?? error ?? null,
+    });
+    onStatus?.(status, error);
+  });
+  return channel;
+}
+
 export async function getOrderById(orderId) {
   requireSupabase();
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("orders")
     .select(ORDER_SELECT)
     .eq("id", orderId)
     .maybeSingle();
   if (error) {
-    logApiError("getOrderById", error, { orderId });
-    throw error;
+    logApiError("getOrderById", error, { orderId, phase: "order-with-relations" });
+    const fallback = await supabase
+      .from("orders")
+      .select("*")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (fallback.error) {
+      logApiError("getOrderById", fallback.error, { orderId, phase: "order-fallback" });
+      throw error;
+    }
+    data = fallback.data;
+    error = null;
   }
+  if (!data) {
+    console.warn("Supabase getOrderById returned no row", { orderId });
+    return null;
+  }
+
+  let items = Array.isArray(data.order_items) ? data.order_items : [];
+  if (items.length === 0) {
+    const itemsResult = await supabase
+      .from("order_items")
+      .select("*, listings(legacy_id)")
+      .eq("order_id", orderId)
+      .order("created_at", { ascending: true });
+    if (itemsResult.error) {
+      console.warn("Supabase getOrderById order item hydration failed", {
+        orderId,
+        error: itemsResult.error?.message ?? String(itemsResult.error),
+      });
+    } else {
+      items = itemsResult.data ?? [];
+      data = { ...data, order_items: items };
+    }
+  }
+
+  console.info("Supabase getOrderById response", {
+    orderId,
+    found: true,
+    sellerId: data.seller_id ?? null,
+    buyerId: data.buyer_id ?? null,
+    listingIds: items.map((item) => item.listing_id).filter(Boolean),
+    itemCount: items.length,
+  });
   return orderFromRow(data);
 }
 

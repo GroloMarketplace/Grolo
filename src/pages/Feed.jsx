@@ -600,14 +600,10 @@ function PromotionFeedCard({ promotion, product, onOpenDetail, onMenu, onShare }
       <button type="button" onClick={openDestination} className="group relative mt-3 block h-[210px] w-full overflow-hidden text-left">
         {heroImage ? <img src={heroImage} alt={isStorePromotion ? storeName || "Featured store" : product.name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" /> : <div className="flex h-full w-full items-center justify-center bg-[#EAF5ED] text-[#498467]"><Store aria-hidden="true" className="h-16 w-16" strokeWidth={1.3} /></div>}
         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-transparent" />
-        <div className="absolute inset-x-4 bottom-3 text-white">
-          <p className="text-[20px] font-semibold leading-tight tracking-[-0.3px]">{promotion.title}</p>
-          <p className="mt-1 text-[12px] text-white/85">{storeName}</p>
-        </div>
       </button>
       <div className="p-4 pt-3">
-        {!isStorePromotion && <p className="text-[14px] font-semibold text-[#1F5A45]">{storeName}</p>}
-        {storeLocation && <DistanceLabel content={{ ...(product ?? promotion), location: storeLocation }} className="mt-1" />}
+        <h2 className="text-[20px] font-semibold tracking-[-0.3px]">{promotion.title}</h2>
+        {storeLocation && <DistanceLabel content={{ ...(product ?? promotion), location: storeLocation }} className="mt-2" />}
         <p className="mt-2 text-[12px] font-medium uppercase tracking-[0.4px] text-[#6B756F]">{promotionUrgencyLabel(promotion)}</p>
         <div className="mt-4 flex items-center justify-between gap-4"><button type="button" onClick={openDestination} className="rounded-xl bg-[#498467] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_8px_rgba(73,132,103,0.18)]">View Promotion</button><div className="flex gap-4">{savedItem && <SaveButton savedItem={savedItem} />}<ShareButton onClick={() => onShare(menuContent, undefined)} /></div></div>
       </div>

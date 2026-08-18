@@ -28,8 +28,6 @@ export default function Chat() {
   const conversationReadyRef = useRef(false);
   const conversationRouteRef = useRef(null);
   const [conversationAttempt, setConversationAttempt] = useState(0);
-  const [conversationDebug, setConversationDebug] = useState(null);
-  const [messageDebug, setMessageDebug] = useState(null);
   const inputRef = useRef(null);
   const { listings } = useListings();
   const { messages, appendMessage, ensureConversation, markConversationRead } = useMessages();
@@ -74,8 +72,6 @@ export default function Chat() {
       setConversationUUID(null);
       setConversationReady(false);
       conversationReadyRef.current = false;
-      setConversationDebug(null);
-      setMessageDebug(null);
       setSendError("");
     } else {
       console.info("Conversation initialization already established; preserving active UUID", {
@@ -103,14 +99,6 @@ export default function Chat() {
       setConversationReady(true);
       void markConversationRead(resolvedConversationId);
       if (id !== resolvedConversationId) void markConversationRead(id);
-      setConversationDebug({
-        currentAuthUserId: user?.id ?? null,
-        buyerId: conversation?.buyerId ?? user?.id ?? null,
-        sellerId: conversation?.sellerId ?? pendingConversation?.sellerId ?? routeParticipantId,
-        listingId: databaseListingId,
-        conversationUuid: resolvedConversationId,
-        insertError: null,
-      });
       console.info("Chat conversation UUID ready", {
         conversationId: resolvedConversationId,
         senderId: user?.id ?? null,
@@ -119,22 +107,6 @@ export default function Chat() {
     }).catch((error) => {
       if (!active) return;
       setConversationReady(false);
-      const debug = error?.conversationDebug ?? {
-        currentAuthUserId: user?.id ?? null,
-        buyerId: conversation?.buyerId ?? user?.id ?? null,
-        sellerId: conversation?.sellerId ?? pendingConversation?.sellerId ?? routeParticipantId,
-        listingId: databaseListingId,
-        conversationUuid: null,
-        insertError: {
-          message: error?.message ?? String(error),
-          details: error?.details ?? null,
-          hint: error?.hint ?? null,
-          code: error?.code ?? null,
-          status: error?.status ?? null,
-        },
-        fullSupabaseError: error ?? null,
-      };
-      setConversationDebug(debug);
       setSendError(error?.message || "Unable to initialize this conversation. Please try again.");
       console.warn("Chat conversation initialization failed", {
         routeConversationId: id,
@@ -171,22 +143,6 @@ export default function Chat() {
 
   const handleSend = async () => {
     const messageText = text.trim();
-    const diagnosticsPayload = {
-      conversation_id: conversationUUID,
-      sender_id: user?.id ?? null,
-      content: messageText,
-    };
-    setMessageDebug((current) => ({
-      ...(current ?? {}),
-      authUserId: user?.id ?? null,
-      conversationUuid: conversationUUID,
-      senderId: user?.id ?? null,
-      messageContent: messageText || "",
-      messageInsertPayload: diagnosticsPayload,
-      messageInsertResponse: null,
-      messageInsertError: null,
-      fullSupabaseError: null,
-    }));
     if (!messageText) {
       setSendError("Enter a message before sending.");
       return;
@@ -225,59 +181,11 @@ export default function Chat() {
         setConversationReady(true);
       }
       if (!resolvedConversationId) throw new Error("A conversation could not be initialized. Please try again.");
-      setMessageDebug({
-        authUserId: user.id,
-        conversationUuid: resolvedConversationId,
-        senderId: user.id,
-        messageContent: messageText,
-        messageInsertPayload: {
-          conversation_id: resolvedConversationId,
-          sender_id: user.id,
-          content: messageText,
-        },
-        messageInsertResponse: null,
-        messageInsertError: null,
-        fullSupabaseError: null,
-      });
-      const sendResult = await appendMessage(resolvedConversationId, message, conversation);
-      setMessageDebug(sendResult?.messageDebug ?? {
-        authUserId: user.id,
-        conversationUuid: resolvedConversationId,
-        senderId: user.id,
-        messageContent: messageText,
-        messageInsertPayload: {
-          conversation_id: resolvedConversationId,
-          sender_id: user.id,
-          content: messageText,
-        },
-        messageInsertResponse: null,
-        messageInsertError: null,
-        fullSupabaseError: null,
-      });
+      await appendMessage(resolvedConversationId, message, conversation);
       console.info("Chat message confirmed", { conversationId: resolvedConversationId, messageId: message.id, senderId: user.id });
       setText("");
       setSelectedTradeItem(null);
     } catch (error) {
-      setMessageDebug(error?.messageDebug ?? {
-        authUserId: user?.id ?? null,
-        conversationUuid: conversationUUID,
-        senderId: user?.id ?? null,
-        messageContent: messageText,
-        messageInsertPayload: {
-          conversation_id: conversationUUID,
-          sender_id: user?.id ?? null,
-          content: messageText,
-        },
-        messageInsertResponse: null,
-        messageInsertError: {
-          message: error?.message ?? String(error),
-          details: error?.details ?? null,
-          hint: error?.hint ?? null,
-          code: error?.code ?? null,
-          status: error?.status ?? null,
-        },
-        fullSupabaseError: error ?? null,
-      });
       console.warn("Chat message could not be sent; preserving input", {
         conversationId: id,
         messageId: message.id,
@@ -339,40 +247,6 @@ export default function Chat() {
         </div>
         <TrustSafetyActions targetType="message" targetId={conversation?.databaseId ?? conversation?.id ?? id} blockUserId={seller.id} compact />
       </div>
-      <div className="shrink-0 border-b border-[#E6E6E6] bg-[#FFFDF5] px-4 py-1.5 text-[10px] text-[#6B756F]">
-        Conversation UUID: {conversationUUID ?? (conversationReady ? "unavailable" : "initializing…")}
-      </div>
-      <details open className="shrink-0 border-b border-[#E6E6E6] bg-[#FFFDF5] px-4 py-2 text-[10px] text-[#6B756F]">
-        <summary className="cursor-pointer font-medium">Conversation diagnostics</summary>
-        <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-all">{JSON.stringify({
-          "Current Auth User ID": conversationDebug?.currentAuthUserId ?? conversationDebug?.authenticatedUserId ?? user?.id ?? null,
-          "buyer_id": conversationDebug?.buyerId ?? conversation?.buyerId ?? user?.id ?? null,
-          "seller_id": conversationDebug?.sellerId ?? conversation?.sellerId ?? pendingConversation?.sellerId ?? routeParticipantId,
-          "listing_id": conversationDebug?.listingId ?? databaseListingId,
-          "conversation_uuid": conversationDebug?.conversationUuid ?? conversationUUID,
-          "Conversation Insert Error": conversationDebug?.insertError ?? conversationDebug?.error ?? null,
-          "Full Supabase Error Object": conversationDebug?.fullSupabaseError ?? conversationDebug?.error ?? conversationDebug?.supabaseError ?? null,
-        }, null, 2)}</pre>
-      </details>
-      <details open className="shrink-0 border-b border-[#E6E6E6] bg-[#F5FFF6] px-4 py-2 text-[10px] text-[#356B4A]">
-        <summary className="cursor-pointer font-medium">Message insert diagnostics</summary>
-        <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all">{JSON.stringify({
-          "Auth User ID": messageDebug?.authUserId ?? user?.id ?? null,
-          "Conversation UUID": messageDebug?.conversationUuid ?? conversationUUID,
-          "Sender ID": messageDebug?.senderId ?? user?.id ?? null,
-          "Message Content": messageDebug?.messageContent ?? text,
-          "Message Insert Payload": messageDebug?.messageInsertPayload ?? {
-            conversation_id: conversationUUID,
-            sender_id: user?.id ?? null,
-            content: text.trim(),
-          },
-          "Message Insert Response": messageDebug?.messageInsertResponse ?? null,
-          "Message Insert Error": messageDebug?.messageInsertError ?? null,
-          "Full Supabase Error Object": messageDebug?.fullSupabaseError ?? null,
-          "messages_row_created": messageDebug?.messagesRowCreated ?? null,
-        }, null, 2)}</pre>
-      </details>
-
       <div className="min-h-0 flex-1 flex flex-col gap-3 p-4 overflow-y-auto no-scrollbar">
         {isOrderThread && currentOrderContext ? (
           <button

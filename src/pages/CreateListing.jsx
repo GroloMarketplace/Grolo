@@ -33,6 +33,25 @@ function SelectField({ label, value, onChange, options, required }) {
   );
 }
 
+function VariantEditor({ variants, onChange }) {
+  const updateVariant = (index, field, value) => onChange(variants.map((variant, variantIndex) => variantIndex === index ? { ...variant, [field]: value } : variant));
+  return (
+    <div className="rounded-lg border border-[#E6E6E6] p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div><p className="text-[14px] font-medium">Variants <span className="font-normal text-[#828282]">(optional)</span></p><p className="mt-1 text-[12px] text-[#828282]">Offer package sizes or options with their own prices.</p></div>
+        <button type="button" onClick={() => onChange([...variants, { name: "", price: "" }])} className="shrink-0 text-[13px] font-medium text-[#498467]">Add variant</button>
+      </div>
+      {variants.length > 0 && <div className="mt-3 flex flex-col gap-2">
+        {variants.map((variant, index) => <div key={`variant-${index}`} className="flex items-end gap-2">
+          <label className="min-w-0 flex-1"><span className="mb-1 block text-[12px] text-[#828282]">Option Name</span><input value={variant.name} onChange={(event) => updateVariant(index, "name", event.target.value)} placeholder="e.g. Half Dozen" className="w-full rounded-lg border border-[#E6E6E6] px-3 py-2 text-[14px] outline-none focus:border-[#498467]" /></label>
+          <label className="w-28"><span className="mb-1 block text-[12px] text-[#828282]">Price</span><input type="number" min="0.01" step="0.01" value={variant.price} onChange={(event) => updateVariant(index, "price", event.target.value)} placeholder="0.00" className="w-full rounded-lg border border-[#E6E6E6] px-3 py-2 text-[14px] outline-none focus:border-[#498467]" /></label>
+          <button type="button" aria-label={`Remove variant ${index + 1}`} onClick={() => onChange(variants.filter((_, variantIndex) => variantIndex !== index))} className="h-9 px-2 text-[18px] text-[#B42318]">×</button>
+        </div>)}
+      </div>}
+    </div>
+  );
+}
+
 export default function CreateListing() {
   const navigate = useNavigate();
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -50,6 +69,7 @@ export default function CreateListing() {
     price: "",
     pricingType: "",
     quantityAvailable: "25",
+    variants: [],
     serviceType: "",
     availability: "",
     yearsOfExperience: "",
@@ -65,7 +85,7 @@ export default function CreateListing() {
 
   useEffect(() => {
     if (draftChoice !== "resume" || !existingDraft) return;
-    setFormData((current) => ({ ...current, ...(existingDraft.formData ?? {}) }));
+    setFormData((current) => ({ ...current, ...(existingDraft.formData ?? {}), variants: existingDraft.formData?.variants ?? [] }));
     setPhotos(Array.isArray(existingDraft.photos) ? existingDraft.photos : []);
   }, [draftChoice, existingDraft]);
 
@@ -108,6 +128,10 @@ export default function CreateListing() {
       setSubmitError("You can upload up to 5 listing images.");
       return;
     }
+    if (formData.variants.some((variant) => !variant.name.trim() || !Number.isFinite(Number(variant.price)) || Number(variant.price) <= 0)) {
+      setSubmitError("Each variant needs an option name and a price greater than $0.00.");
+      return;
+    }
     try {
     const listing = {
       id: `${formData.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`,
@@ -115,6 +139,7 @@ export default function CreateListing() {
       name: formData.title,
       category: formData.category,
       price: isService ? formData.price : Number(formData.price),
+      variants: isService ? [] : formData.variants.map((variant) => ({ name: variant.name.trim(), price: Number(variant.price) })),
       ...(isService ? {
         pricingType: formData.pricingType,
         serviceType: formData.serviceType,
@@ -225,8 +250,12 @@ export default function CreateListing() {
             </>
           ) : (
             <>
-              <TextField label="Price" type="number" value={formData.price} onChange={updateField("price")} placeholder="0.00" required />
+              <TextField label="Base Price" type="number" value={formData.price} onChange={updateField("price")} placeholder="0.00" required />
               <TextField label="Quantity Available" type="number" value={formData.quantityAvailable} onChange={updateField("quantityAvailable")} placeholder="25" required />
+              <VariantEditor
+                variants={formData.variants}
+                onChange={(variants) => setFormData((current) => ({ ...current, variants }))}
+              />
             </>
           )}
 

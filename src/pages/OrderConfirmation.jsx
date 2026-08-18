@@ -204,6 +204,8 @@ export default function OrderConfirmation() {
             {phase === "confirmed" && <PaymentInstructions paymentSettings={paymentSettings} total={total} orderNumber={orderNumber} />}
           </div>
 
+          {orderItems.some((item) => item.variantName) && <div className="mb-8 rounded-lg border border-[#E6E6E6] p-4"><h2 className="text-[16px] font-semibold">Order Items</h2><div className="mt-3 flex flex-col gap-2">{orderItems.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 text-[13px]"><span>{item.name ?? item.title}{item.variantName && <span className="text-[#666]"> · {item.variantName}</span>}</span><span className="shrink-0 text-[#666]">×{item.quantity}</span></div>)}</div></div>}
+
           {phase === "confirmed" && <Link to={`/orders/${orderId}`} state={{ order: { ...receipt.order, id: orderId, databaseId: orderId } }} className="mb-3 block w-full rounded-lg bg-[#498467] py-3.5 text-center text-[16px] font-medium text-white shadow-sm">Track Order</Link>}
           {phase === "failed" && <button type="button" onClick={() => void createOrderAttempt()} className="mb-3 w-full rounded-lg bg-[#498467] py-3.5 text-[16px] font-medium text-white">Retry Order</button>}
           <button type="button" onClick={() => navigate("/cart")} className="block w-full rounded-lg border border-black py-3.5 text-center text-[16px] font-medium text-black">{phase === "confirmed" ? "Continue Shopping" : "Return to Cart"}</button>

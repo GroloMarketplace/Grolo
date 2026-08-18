@@ -15,6 +15,15 @@ function imageUrlsFor(listing) {
   return listing.image ? [listing.image] : [];
 }
 
+function variantsFor(listing) {
+  return (Array.isArray(listing.variants) ? listing.variants : [])
+    .map((variant) => ({
+      name: String(variant.name ?? variant.optionName ?? "").trim(),
+      price: Number(variant.price),
+    }))
+    .filter((variant) => variant.name && Number.isFinite(variant.price) && variant.price > 0);
+}
+
 function rowForListing(listing, sellerId) {
   const imageUrls = imageUrlsFor(listing);
   const numericPrice = Number(listing.price);
@@ -55,6 +64,7 @@ function rowForListing(listing, sellerId) {
       preferredContactMethod: listing.preferredContactMethod,
       responseTime: listing.responseTime,
       desiredTradeItems: listing.desiredTradeItems,
+      variants: variantsFor(listing),
       views: listing.views ?? 0,
       favorites: listing.favorites ?? 0,
       messages: listing.messages ?? 0,
@@ -101,6 +111,7 @@ export function listingFromRow(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...metadata,
+    variants: variantsFor(metadata),
   };
 }
 

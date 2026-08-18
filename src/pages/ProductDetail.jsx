@@ -32,6 +32,8 @@ export default function ProductDetail() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const [selectedVariant, setSelectedVariant] = useState(null);
+  const [variantError, setVariantError] = useState("");
   const { addToCart } = useCart();
   const { listings } = useListings();
   const { createSellerConversation } = useMessages();
@@ -43,6 +45,7 @@ export default function ProductDetail() {
   const { isFavorite, toggleFavorite } = useFavorites();
   const saved = isFavorite(product.id);
   const available = Math.max(0, Number(product.quantityAvailable) || 0);
+  const variants = Array.isArray(product.variants) ? product.variants : [];
   const isService = product.category === "Services";
   const soldOut = !isService && available === 0;
   const tradePreferences = product.desiredTradeItems?.trim() ?? "";
@@ -56,7 +59,8 @@ export default function ProductDetail() {
   const { getPaymentMethods } = usePaymentMethods();
   const sellerPaymentMethods = getPaymentMethods(seller?.id);
   const { getListingPricing } = usePromotions();
-  const pricing = getListingPricing(product);
+  const pricedProduct = selectedVariant ? { ...product, price: Number(selectedVariant.price) } : product;
+  const pricing = getListingPricing(pricedProduct);
   const promotion = pricing.promotion;
   const { reviewsForProduct, productRating, canReviewProduct } = useReviews();
   const { average, count } = productRating(product.id);
@@ -222,6 +226,13 @@ export default function ProductDetail() {
           </div>
         ) : (
           <>
+            {variants.length > 0 && <div className="flex flex-col gap-2 rounded-lg border border-[#E6E6E6] p-4">
+              <span className="text-[16px] font-semibold">Choose an option</span>
+              <div className="flex flex-col gap-2">
+                {variants.map((variant) => <button key={variant.name} type="button" onClick={() => { setSelectedVariant(variant); setVariantError(""); }} className={`flex items-center justify-between rounded-lg border px-3 py-3 text-left ${selectedVariant?.name === variant.name ? "border-[#498467] bg-[#F5FFF6]" : "border-[#E6E6E6]"}`}><span className="text-[14px] font-medium">{variant.name}</span><span className="text-[14px] text-[#498467]">${Number(variant.price).toFixed(2)}</span></button>)}
+              </div>
+              {variantError && <p role="alert" className="text-[13px] text-[#B42318]">{variantError}</p>}
+            </div>}
             <div className="flex flex-col gap-4">
               <span className="text-[14px] text-[#757575]">Listing Inventory: {available}</span>
               {!soldOut && <div className="flex flex-col gap-2">
@@ -233,7 +244,7 @@ export default function ProductDetail() {
                 </div>
               </div>}
             </div>
-            {soldOut ? <div className="w-full rounded-lg bg-[#E6E6E6] text-[#757575] text-center text-[16px] py-3">Sold Out</div> : vacationMode ? <div className="w-full rounded-lg bg-[#E6E6E6] text-[#757575] text-center text-[16px] py-3">Orders Paused</div> : <button type="button" onClick={() => addToCart(product, quantity)} className="w-full rounded-lg bg-[#498467] text-[#F5F5F5] text-[16px] py-3 border border-[#B2B2B2]">Add to Cart</button>}
+            {soldOut ? <div className="w-full rounded-lg bg-[#E6E6E6] text-[#757575] text-center text-[16px] py-3">Sold Out</div> : vacationMode ? <div className="w-full rounded-lg bg-[#E6E6E6] text-[#757575] text-center text-[16px] py-3">Orders Paused</div> : <button type="button" onClick={() => { if (variants.length > 0 && !selectedVariant) { setVariantError("Choose an option before adding this item to your cart."); return; } addToCart(product, quantity, undefined, selectedVariant); }} className="w-full rounded-lg bg-[#498467] text-[#F5F5F5] text-[16px] py-3 border border-[#B2B2B2]">Add to Cart</button>}
           </>
         )}
 

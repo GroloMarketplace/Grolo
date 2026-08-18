@@ -198,7 +198,8 @@ function SavedForLaterCard({ item, available, onMove, onRemove, onViewListing, o
           ) : (
             <button type="button" onClick={onViewListing} className="text-[12px] font-medium text-[#498467]">View Listing</button>
           )}
-          <button type="button" onClick={onRemove} className="text-[12px] font-medium text-[#B42318]">Remove</button>
+          {item.variantName && <div className="text-[12px] text-[#4F4F4F]">Option: {item.variantName}</div>}
+        <button type="button" onClick={onRemove} className="text-[12px] font-medium text-[#B42318]">Remove</button>
         </div>
       </div>
     </div>
@@ -213,6 +214,7 @@ function CartItem({ item, pricing, updateQuantity, removeItem, saveForLater, ava
         <div className="min-w-0 flex-1">
           <button type="button" onClick={(event) => { event.stopPropagation(); onProductClick("description"); }} className="block text-left text-[12px] text-black/50">{item.description}</button>
           <button type="button" onClick={(event) => { event.stopPropagation(); onProductClick("title"); }} className="block text-left text-[14px] font-medium text-[#498467]">{item.name}</button>
+          {item.variantName && <div className="mt-1 text-[13px] font-medium text-[#4F4F4F]">Option: {item.variantName}</div>}
           <div className="mt-1 text-[12px] text-[#828282]">Listing Inventory: {available}</div>
           <div className="mt-2 flex items-center gap-2">
             <span className="text-[12px] text-black/50">Quantity</span>

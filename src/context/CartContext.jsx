@@ -47,17 +47,20 @@ export function CartProvider({ children }) {
     });
   };
 
-  const addToCart = (product, quantity = 1, availableOverride) => {
+  const addToCart = (product, quantity = 1, availableOverride, selectedVariant = null) => {
     setItems((current) => {
-      const existing = current.find((item) => item.productId === product.id);
+      const variantName = selectedVariant?.name ?? product.variantName ?? null;
+      const variantPrice = selectedVariant?.price ?? product.variantPrice ?? null;
+      const existing = current.find((item) => item.productId === product.id && (item.variantName ?? null) === variantName);
       const listing = listings.find((item) => item.id === product.id || item.databaseId === product.id) ?? product;
+      const pricedListing = variantPrice != null ? { ...listing, price: Number(variantPrice) } : listing;
       const available = Number.isFinite(availableOverride)
         ? availableOverride
         : Number(listing.quantityAvailable) || 0;
       const nextQuantity = (existing?.quantity ?? 0) + quantity;
       const cappedQuantity = Math.min(available, nextQuantity);
       if (cappedQuantity < 1) return current;
-      const pricing = getListingPricing(listing);
+      const pricing = getListingPricing(pricedListing);
       const pricedFields = {
         originalPrice: pricing.originalPrice,
         discountedPrice: pricing.discountedPrice,
@@ -65,8 +68,20 @@ export function CartProvider({ children }) {
         promotionTitle: pricing.promotion?.title ?? null,
       };
       const nextItems = existing
-        ? current.map((item) => item.productId === product.id ? { ...item, ...pricedFields, quantity: cappedQuantity } : item)
-        : [...current, { ...product, ...pricedFields, price: pricing.discountedPrice, productId: product.id, id: `cart-${product.id}`, quantity: cappedQuantity }];
+        ? current.map((item) => item.productId === product.id && (item.variantName ?? null) === variantName
+          ? { ...item, ...pricedFields, variantName, variantPrice, quantity: cappedQuantity }
+          : item)
+        : [...current, {
+          ...product,
+          ...pricedFields,
+          price: pricing.discountedPrice,
+          productId: product.id,
+          listingId: listing.databaseId ?? listing.id,
+          variantName,
+          variantPrice,
+          id: `cart-${product.id}-${variantName ?? "default"}`,
+          quantity: cappedQuantity,
+        }];
       persistCart(storageKey, nextItems);
       if (listing.databaseId && listing.sellerId) {
         void trackAnalyticsEvent("add_to_cart", {
@@ -99,7 +114,8 @@ export function CartProvider({ children }) {
 
   const getItemPricing = useCallback((item) => {
     const listing = listings.find((candidate) => candidate.id === item.productId || candidate.databaseId === item.productId) ?? item;
-    return getListingPricing(listing);
+    const pricedListing = item.variantPrice != null ? { ...listing, price: Number(item.variantPrice) } : listing;
+    return getListingPricing(pricedListing);
   }, [listings, getListingPricing]);
 
   const totalQuantity = useMemo(

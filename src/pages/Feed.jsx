@@ -74,9 +74,11 @@ export default function Feed() {
   const scrollContainerRef = useRef(null);
   const mainTabContentRef = useRef(null);
   const savedFeedState = readNavigationState("feed", { tab: "Your Community", communityFilter: "For You", scrollTop: 0 });
-  const initialTabRef = useRef(TABS.includes(location.state?.tab) ? location.state.tab : savedFeedState.tab);
-  const communityFilterRef = useRef(COMMUNITY_FILTERS.includes(location.state?.communityFilter)
-    ? location.state.communityFilter
+  const requestedFeedTab = location.state?.activeTab ?? location.state?.tab;
+  const requestedCommunityFilter = location.state?.selectedTab ?? location.state?.communityFilter;
+  const initialTabRef = useRef(TABS.includes(requestedFeedTab) ? requestedFeedTab : savedFeedState.tab);
+  const communityFilterRef = useRef(COMMUNITY_FILTERS.includes(requestedCommunityFilter)
+    ? requestedCommunityFilter
     : COMMUNITY_FILTERS.includes(savedFeedState.communityFilter)
       ? savedFeedState.communityFilter
       : "For You");
@@ -96,6 +98,11 @@ export default function Feed() {
   const { settings: buyerSettings = {} } = useBuyerSettings();
   const { orderNotifications, buyerOrders } = useOrders();
   const unreadNotifications = notificationsRead ? 0 : notificationsHighlights.length + notificationsFollowers.length + orderNotifications.length;
+
+  useEffect(() => {
+    console.info("Feed mounted");
+    return () => console.info("Feed unmounted");
+  }, []);
 
   useEffect(() => {
     if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = savedFeedState.scrollTop;

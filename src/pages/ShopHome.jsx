@@ -103,9 +103,10 @@ export default function ShopHome() {
     { label: "Ready", count: storeOrders.filter((o) => o.status === "Ready for Pickup").length },
   ];
   const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name);
-  const activeSellerProducts = sellerProducts.filter((product) => Number(product.quantityAvailable) > 0);
-  const outOfStockSellerProducts = sellerProducts.filter((product) => Number(product.quantityAvailable) <= 0);
-  const lowStockSellerProducts = sellerProducts.filter((product) => Number(product.quantityAvailable) > 0 && Number(product.quantityAvailable) <= 5);
+  const isInventoryTracked = (product) => !Array.isArray(product.variants) || product.variants.length === 0;
+  const activeSellerProducts = sellerProducts.filter((product) => !isInventoryTracked(product) ? product.availableForOrders !== false : Number(product.quantityAvailable) > 0);
+  const outOfStockSellerProducts = sellerProducts.filter((product) => !isInventoryTracked(product) ? product.availableForOrders === false : Number(product.quantityAvailable) <= 0);
+  const lowStockSellerProducts = sellerProducts.filter((product) => isInventoryTracked(product) && Number(product.quantityAvailable) > 0 && Number(product.quantityAvailable) <= 5);
   const sellerPosts = posts.filter((post) => post.sellerId === seller.id && createdBySeller(post));
   const [managedPosts, setManagedPosts] = useState(sellerPosts);
   // Events are read straight from EventContext (which persists to localStorage)

@@ -118,8 +118,8 @@ export default function App() {
         <Route path="/reset-password" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ResetPassword /></PhoneFrame>} />
         <Route path="/account-suspended" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SuspendedAccount /></PhoneFrame>} />
         <Route path="/onboarding" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute><Onboarding /></ProtectedRoute></PhoneFrame>} />
-        <Route path="/" element={<PhoneFrame><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
-        <Route path="/home" element={<PhoneFrame><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
+        <Route path="/" element={<PhoneFrame key="home"><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
+        <Route path="/home" element={<PhoneFrame key="home"><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
         <Route path="/notifications" element={<PhoneFrame><ProtectedRoute><AppErrorBoundary label="Notifications"><NotificationCenter /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
         <Route path="/shop" element={<PhoneFrame><AppErrorBoundary label="Seller Profile"><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></AppErrorBoundary></PhoneFrame>} />
         <Route path="/seller-profile" element={<PhoneFrame><AppErrorBoundary label="Seller Profile"><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></AppErrorBoundary></PhoneFrame>} />
@@ -246,7 +246,7 @@ export default function App() {
         <Route path="/category/:categoryName" element={<PhoneFrame><Category /></PhoneFrame>} />
         <Route path="/featured" element={<PhoneFrame><Featured /></PhoneFrame>} />
         <Route path="/trading" element={<PhoneFrame><Trading /></PhoneFrame>} />
-        <Route path="/search" element={<PhoneFrame><AppErrorBoundary label="Search"><Search /></AppErrorBoundary></PhoneFrame>} />
+        <Route path="/search" element={<PhoneFrame key="search"><AppErrorBoundary label="Search"><Search /></AppErrorBoundary></PhoneFrame>} />
         <Route
           path="/messages"
           element={
@@ -269,7 +269,7 @@ export default function App() {
         <Route path="/checkout" element={<PhoneFrame><Checkout /></PhoneFrame>} />
         <Route path="/checkout/:sellerId" element={<PhoneFrame><StoreCheckout /></PhoneFrame>} />
         <Route path="/delivery-address" element={<PhoneFrame hideTabBar><DeliveryAddress /></PhoneFrame>} />
-        <Route path="/order-confirmation" element={<PhoneFrame><OrderConfirmation /></PhoneFrame>} />
+        <Route path="/order-confirmation" element={<PhoneFrame key="order-confirmation"><OrderConfirmation /></PhoneFrame>} />
         <Route
           path="/profit"
           element={

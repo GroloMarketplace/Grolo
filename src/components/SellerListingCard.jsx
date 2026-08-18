@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PromotionBadge from "./PromotionBadge";
 import { usePromotions } from "../context/PromotionContext";
@@ -14,10 +14,26 @@ export default function SellerListingCard({ product, onDelete, archived = false,
   const { getListingPricing } = usePromotions();
   const pricing = getListingPricing(product);
   const promotion = pricing.promotion;
-  const available = Number(product.quantityAvailable) || 0;
+  const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
+  const inventoryTracked = !hasVariants;
+  const available = inventoryTracked ? Number(product.quantityAvailable) || 0 : null;
+  const computedAvailability = inventoryTracked ? available > 0 : product.availableForOrders !== false;
+  const displayedAvailability = computedAvailability ? "Available" : "Out of Stock";
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [status] = useState(product.status || "Active");
-  const displayStatus = archived ? "Archived" : available === 0 ? "Sold" : status;
+  const displayStatus = archived ? "Archived" : !computedAvailability ? "Sold" : hasVariants ? "Active" : status;
+
+  useEffect(() => {
+    if (!hasVariants) return;
+    console.info("Variant listing stock status", {
+      listingId: product.id,
+      hasVariants,
+      quantityAvailable: product.quantityAvailable,
+      inventoryTracked,
+      computedAvailability,
+      displayedAvailability,
+    });
+  }, [computedAvailability, displayedAvailability, hasVariants, inventoryTracked, product.id, product.quantityAvailable]);
 
   const handleEdit = () => {
     navigate(`/edit-listing/${product.id}`);
@@ -85,7 +101,7 @@ export default function SellerListingCard({ product, onDelete, archived = false,
           {pricing.discountedPrice < pricing.originalPrice ? <div className="flex items-baseline gap-2 text-[16px] font-medium"><span>${pricing.discountedPrice.toFixed(2)}</span><span className="text-[12px] text-[#828282] line-through">${pricing.originalPrice.toFixed(2)}</span></div> : <div className="text-[16px] font-medium text-black">{formatListingPrice(product)}</div>}
           <TradeBadge listing={product} compact />
           <ReviewSummary product={product} />
-          <div className="text-[12px] text-[#828282]">{available} Available</div>
+          <div className="text-[12px] text-[#828282]">{inventoryTracked ? `${available} Available` : `Availability: ${product.availableForOrders === false ? "Unavailable" : "Available"}`}</div>
         </div>
 
         {/* Performance Metrics */}

@@ -77,10 +77,11 @@ export function InventoryProvider({ children }) {
       const filter = listingFilter(listingId);
       const { data, error } = await supabase
         .from("listings")
-        .select("id, legacy_id, inventory_quantity")
+        .select("id, legacy_id, inventory_quantity, metadata")
         .eq(filter.column, filter.value)
         .single();
       if (error) throw error;
+      if (Array.isArray(data.metadata?.variants) && data.metadata.variants.length > 0) continue;
       const quantityBefore = normalizedQuantity(data.inventory_quantity);
       const quantityRequested = Number(item.quantity) || 0;
       const quantityAfter = Math.max(0, quantityBefore - quantityRequested);
@@ -101,10 +102,11 @@ export function InventoryProvider({ children }) {
       const filter = listingFilter(listingId);
       const { data, error } = await supabase
         .from("listings")
-        .select("id, legacy_id, inventory_quantity")
+        .select("id, legacy_id, inventory_quantity, metadata")
         .eq(filter.column, filter.value)
         .single();
       if (error) throw error;
+      if (Array.isArray(data.metadata?.variants) && data.metadata.variants.length > 0) continue;
       await updateListingQuantity(data.legacy_id ?? data.id, normalizedQuantity(data.inventory_quantity) + (Number(item.quantity) || 0));
     }
   }, [updateListingQuantity]);

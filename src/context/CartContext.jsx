@@ -53,10 +53,13 @@ export function CartProvider({ children }) {
       const variantPrice = selectedVariant?.price ?? product.variantPrice ?? null;
       const existing = current.find((item) => item.productId === product.id && (item.variantName ?? null) === variantName);
       const listing = listings.find((item) => item.id === product.id || item.databaseId === product.id) ?? product;
+      const hasVariants = Array.isArray(listing.variants) && listing.variants.length > 0;
       const pricedListing = variantPrice != null ? { ...listing, price: Number(variantPrice) } : listing;
-      const available = Number.isFinite(availableOverride)
-        ? availableOverride
-        : Number(listing.quantityAvailable) || 0;
+      const available = hasVariants
+        ? (listing.availableForOrders === false ? 0 : Infinity)
+        : Number.isFinite(availableOverride)
+          ? availableOverride
+          : Number(listing.quantityAvailable) || 0;
       const nextQuantity = (existing?.quantity ?? 0) + quantity;
       const cappedQuantity = Math.min(available, nextQuantity);
       if (cappedQuantity < 1) return current;

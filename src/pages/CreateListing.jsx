@@ -70,6 +70,7 @@ export default function CreateListing() {
     pricingType: "",
     quantityAvailable: "25",
     variants: [],
+    availableForOrders: true,
     serviceType: "",
     availability: "",
     yearsOfExperience: "",
@@ -148,7 +149,10 @@ export default function CreateListing() {
         yearsOfExperience: formData.yearsOfExperience,
         preferredContactMethod: formData.preferredContactMethod,
         responseTime: formData.responseTime,
-      } : { quantityAvailable: Number(formData.quantityAvailable) }),
+      } : {
+        quantityAvailable: formData.variants.length ? 0 : Number(formData.quantityAvailable),
+        availableForOrders: formData.variants.length ? formData.availableForOrders !== false : true,
+      }),
       description: formData.description,
       location: isService ? formData.serviceArea : formData.location,
       neighborhood: formData.locationDetails?.neighborhood,
@@ -251,11 +255,19 @@ export default function CreateListing() {
           ) : (
             <>
               <TextField label="Base Price" type="number" value={formData.price} onChange={updateField("price")} placeholder="0.00" required />
-              <TextField label="Quantity Available" type="number" value={formData.quantityAvailable} onChange={updateField("quantityAvailable")} placeholder="25" required />
+              {formData.variants.length === 0 && <TextField label="Quantity Available" type="number" value={formData.quantityAvailable} onChange={updateField("quantityAvailable")} placeholder="25" required />}
               <VariantEditor
                 variants={formData.variants}
                 onChange={(variants) => setFormData((current) => ({ ...current, variants }))}
               />
+              {formData.variants.length > 0 && <div className="mt-3 rounded-lg border border-[#E6E6E6] p-3">
+                <p className="text-[14px] font-medium">Availability</p>
+                <label className="mt-2 flex items-center gap-3 text-[14px]">
+                  <input type="checkbox" checked={formData.availableForOrders} onChange={(event) => setFormData((current) => ({ ...current, availableForOrders: event.target.checked }))} />
+                  Available for Orders
+                </label>
+                <p className="mt-1 text-[12px] text-[#828282]">Variant listings use seller-managed availability; inventory tracking is disabled.</p>
+              </div>}
             </>
           )}
 

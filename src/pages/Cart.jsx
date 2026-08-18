@@ -50,7 +50,11 @@ export default function Cart() {
   ));
   const getListingId = (item) => item.listingId ?? getProduct(item)?.id ?? item.productId ?? item.id;
   const getProductId = (item) => getProduct(item)?.id ?? item.productId ?? item.listingId ?? item.id;
-  const getRealInventory = (item) => Math.max(0, Number(getProduct(item)?.quantityAvailable ?? item.quantityAvailable) || 0);
+  const getRealInventory = (item) => {
+    const product = getProduct(item);
+    if (item.variantName || (Array.isArray(product?.variants) && product.variants.length > 0)) return product?.availableForOrders === false || item.availableForOrders === false ? 0 : Infinity;
+    return Math.max(0, Number(product?.quantityAvailable ?? item.quantityAvailable) || 0);
+  };
   const getProductPath = (item) => `/product/${getProductId(item)}`;
   const openProduct = (item) => {
     const listingId = getListingId(item);
@@ -190,7 +194,7 @@ function SavedForLaterCard({ item, available, onMove, onRemove, onViewListing, o
       <div className="min-w-0 flex-1">
         <button type="button" onClick={(event) => { event.stopPropagation(); openProduct(item); }} className="block text-left text-[14px] font-medium text-[#498467]">{item.name}</button>
         <div className="mt-1 text-[13px] text-[#828282]">${item.price.toFixed(2)}</div>
-        <div className="mt-1 text-[12px] text-[#828282]">Listing Inventory: {available}</div>
+        {!item.variantName && <div className="mt-1 text-[12px] text-[#828282]">Listing Inventory: {available}</div>}
         {!canMoveToCart && <p className="mt-2 text-[12px] text-[#828282]">Still Sold Out</p>}
         <div className="mt-3 flex flex-wrap gap-3">
           {canMoveToCart ? (
@@ -215,7 +219,7 @@ function CartItem({ item, pricing, updateQuantity, removeItem, saveForLater, ava
           <button type="button" onClick={(event) => { event.stopPropagation(); onProductClick("description"); }} className="block text-left text-[12px] text-black/50">{item.description}</button>
           <button type="button" onClick={(event) => { event.stopPropagation(); onProductClick("title"); }} className="block text-left text-[14px] font-medium text-[#498467]">{item.name}</button>
           {item.variantName && <div className="mt-1 text-[13px] font-medium text-[#4F4F4F]">Option: {item.variantName}</div>}
-          <div className="mt-1 text-[12px] text-[#828282]">Listing Inventory: {available}</div>
+          {!item.variantName && <div className="mt-1 text-[12px] text-[#828282]">Listing Inventory: {available}</div>}
           <div className="mt-2 flex items-center gap-2">
             <span className="text-[12px] text-black/50">Quantity</span>
             <button type="button" aria-label={`Decrease quantity of ${item.name}`} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, -1, Number(available)); }} disabled={item.quantity <= 1} className="flex h-7 w-7 items-center justify-center rounded border border-[#E6E6E6] text-[16px] disabled:opacity-40">−</button>

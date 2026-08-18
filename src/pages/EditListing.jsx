@@ -40,6 +40,7 @@ export default function EditListing() {
   const [photos, setPhotos] = useState([]);
   const [quantityAvailable, setQuantityAvailable] = useState(0);
   const [variants, setVariants] = useState([]);
+  const [availableForOrders, setAvailableForOrders] = useState(true);
   const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
@@ -54,11 +55,13 @@ export default function EditListing() {
     setPhotos(product.images?.length ? product.images : product.image ? [product.image] : []);
     setQuantityAvailable(product.quantityAvailable ?? 0);
     setVariants(Array.isArray(product.variants) ? product.variants.map((variant) => ({ name: variant.name ?? "", price: variant.price ?? "" })) : []);
+    setAvailableForOrders(product.availableForOrders !== false);
   }, [product]);
 
   const handleSave = async () => {
     if (!product) return;
-    const normalizedQuantity = Number.isInteger(Number(quantityAvailable)) && Number(quantityAvailable) >= 0
+    const hasVariants = variants.length > 0;
+    const normalizedQuantity = !hasVariants && Number.isInteger(Number(quantityAvailable)) && Number(quantityAvailable) >= 0
       ? Number(quantityAvailable)
       : 0;
     if (variants.some((variant) => !variant.name.trim() || !Number.isFinite(Number(variant.price)) || Number(variant.price) <= 0)) {
@@ -77,6 +80,7 @@ export default function EditListing() {
         name: title,
         price: Number(price),
         quantityAvailable: normalizedQuantity,
+        availableForOrders: hasVariants ? availableForOrders : true,
         variants: variants.map((variant) => ({ name: variant.name.trim(), price: Number(variant.price) })),
         description,
         category,
@@ -138,8 +142,7 @@ export default function EditListing() {
           </div>
         </div>
 
-        {/* Quantity Available */}
-        <div className="mb-4">
+        {variants.length === 0 && <div className="mb-4">
           <label className="text-[14px] font-semibold mb-2 block">Quantity Available</label>
           <input
             type="number"
@@ -150,9 +153,17 @@ export default function EditListing() {
             step="1"
             required
           />
-        </div>
+        </div>}
 
         <VariantEditor variants={variants} onChange={setVariants} />
+        {variants.length > 0 && <div className="mb-4 rounded-lg border border-[#E6E6E6] p-3">
+          <p className="text-[14px] font-medium">Availability</p>
+          <label className="mt-2 flex items-center gap-3 text-[14px]">
+            <input type="checkbox" checked={availableForOrders} onChange={(event) => setAvailableForOrders(event.target.checked)} />
+            Available for Orders
+          </label>
+          <p className="mt-1 text-[12px] text-[#828282]">Inventory tracking is disabled for variant listings.</p>
+        </div>}
 
         {/* Description */}
         <div className="mb-4">

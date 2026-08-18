@@ -54,13 +54,20 @@ export default function Search() {
   const { settings: buyerSettings = {} } = useBuyerSettings();
   const location = useLocation();
   const scrollRef = useRef(null);
+  const requestedTab = TABS.includes(location.state?.activeTab) ? location.state.activeTab : null;
   const savedSearchState = location.state?.resetSearch
     ? { tab: "Local", query: "", scrollTop: 0 }
-    : readNavigationState("search", { tab: "Local", query: "", scrollTop: 0 });
+    : requestedTab
+      ? { ...readNavigationState("search", { tab: "Local", query: "", scrollTop: 0 }), tab: requestedTab }
+      : readNavigationState("search", { tab: "Local", query: "", scrollTop: 0 });
   const [tab, setTab] = useState(savedSearchState.tab);
   const [query, setQuery] = useState(savedSearchState.query);
   const tabRef = useRef(tab);
   const queryRef = useRef(query);
+  useEffect(() => {
+    console.info("Search mounted");
+    return () => console.info("Search unmounted");
+  }, []);
   const rememberProduct = (productId, destination = `/product/${productId}`) => {
     writeNavigationState("search", {
       tab,

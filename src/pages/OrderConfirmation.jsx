@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Header from "../components/Header";
 import { useCart } from "../context/CartContext";
@@ -71,13 +71,15 @@ function PaymentInstructions({ paymentSettings, total, orderNumber }) {
 
 export default function OrderConfirmation() {
   const navigate = useNavigate();
-  const { state } = useLocation();
+  const { state, pathname } = useLocation();
   const { items, getItemPricing, removeItems } = useCart();
   const { getPaymentMethods, fulfillmentMethod } = usePaymentMethods();
   const { createOrders } = useOrders();
   const attemptRef = useRef(null);
   if (!attemptRef.current) attemptRef.current = initialAttempt(state, items);
   const requestInFlightRef = useRef(false);
+  const initialCreationStartedRef = useRef(false);
+  const itemsRemovedRef = useRef(false);
   const [isAnimated, setIsAnimated] = useState(false);
   const [phase, setPhase] = useState(() => attemptRef.current.status === "confirmed" ? "confirmed" : attemptRef.current.status === "failed" ? "failed" : "creating");
   const [receipt, setReceipt] = useState(() => attemptRef.current.receipt ?? null);
@@ -150,7 +152,6 @@ export default function OrderConfirmation() {
       persistCheckoutAttempt(attemptRef.current);
       setReceipt(nextReceipt);
       setPhase("confirmed");
-      removeItems(orderItems);
     } catch (error) {
       const message = error?.message ?? "Unable to place your order. Your cart was not changed.";
       attemptRef.current = { ...attemptRef.current, status: "failed", error: message };
@@ -160,23 +161,33 @@ export default function OrderConfirmation() {
     } finally {
       requestInFlightRef.current = false;
     }
-  }, [createOrders, deliveryFee, getItemPricing, orderItems, removeItems, selectedFulfillment, sellerId]);
+  }, [createOrders, deliveryFee, getItemPricing, orderItems, selectedFulfillment, sellerId]);
 
   useEffect(() => {
+    if (initialCreationStartedRef.current) return;
+    initialCreationStartedRef.current = true;
     setIsAnimated(true);
     if (attemptRef.current.status === "confirmed" || attemptRef.current.status === "failed") return;
     void createOrderAttempt();
   }, [createOrderAttempt]);
 
   useEffect(() => {
-    if (phase === "confirmed" && orderItems.length) removeItems(orderItems);
+    if (phase !== "confirmed" || !orderItems.length || itemsRemovedRef.current) return;
+    itemsRemovedRef.current = true;
+    removeItems(orderItems);
   }, [phase, orderItems, removeItems]);
+
+  useEffect(() => {
+    console.info("OrderConfirmation mounted");
+    return () => console.info("OrderConfirmation unmounted");
+  }, []);
 
   const orderId = receipt?.databaseOrderId;
   const orderNumber = receipt?.legacyOrderId ?? orderId;
+  if (pathname !== "/order-confirmation") return null;
 
   return (
-    <div className="flex h-full flex-col">
+    <div data-order-confirmation className="flex h-full flex-col">
       <Header onBack={() => navigate("/cart")} />
       <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto no-scrollbar px-6 pb-12 pt-20">
         <div className="w-full max-w-sm">
@@ -206,9 +217,7 @@ export default function OrderConfirmation() {
 
           {orderItems.some((item) => item.variantName) && <div className="mb-8 rounded-lg border border-[#E6E6E6] p-4"><h2 className="text-[16px] font-semibold">Order Items</h2><div className="mt-3 flex flex-col gap-2">{orderItems.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 text-[13px]"><span>{item.name ?? item.title}{item.variantName && <span className="text-[#666]"> · {item.variantName}</span>}</span><span className="shrink-0 text-[#666]">×{item.quantity}</span></div>)}</div></div>}
 
-          {phase === "confirmed" && <Link to={`/orders/${orderId}`} state={{ order: { ...receipt.order, id: orderId, databaseId: orderId } }} className="mb-3 block w-full rounded-lg bg-[#498467] py-3.5 text-center text-[16px] font-medium text-white shadow-sm">Track Order</Link>}
           {phase === "failed" && <button type="button" onClick={() => void createOrderAttempt()} className="mb-3 w-full rounded-lg bg-[#498467] py-3.5 text-[16px] font-medium text-white">Retry Order</button>}
-          <button type="button" onClick={() => navigate("/cart")} className="block w-full rounded-lg border border-black py-3.5 text-center text-[16px] font-medium text-black">{phase === "confirmed" ? "Continue Shopping" : "Return to Cart"}</button>
         </div>
       </div>
     </div>

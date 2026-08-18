@@ -284,8 +284,9 @@ function EmptyTab({ children }) {
 }
 
 function ListingsTab({ products, promotions, navigate, onOpenPromotions }) {
-  const activeProducts = products.filter((product) => Number(product.quantityAvailable) > 0);
-  const outOfStockProducts = products.filter((product) => Number(product.quantityAvailable) <= 0);
+  const isInventoryTracked = (product) => !Array.isArray(product.variants) || product.variants.length === 0;
+  const activeProducts = products.filter((product) => !isInventoryTracked(product) ? product.availableForOrders !== false : Number(product.quantityAvailable) > 0);
+  const outOfStockProducts = products.filter((product) => !isInventoryTracked(product) ? product.availableForOrders === false : Number(product.quantityAvailable) <= 0);
 
   return (
     <TabPanel>

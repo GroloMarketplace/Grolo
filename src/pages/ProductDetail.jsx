@@ -44,10 +44,14 @@ export default function ProductDetail() {
     ?? { id: productId, name: "Listing unavailable", price: 0, image: "", images: [], sellerId: "", shop: "" };
   const { isFavorite, toggleFavorite } = useFavorites();
   const saved = isFavorite(product.id);
-  const available = Math.max(0, Number(product.quantityAvailable) || 0);
   const variants = Array.isArray(product.variants) ? product.variants : [];
+  const inventoryTracked = variants.length === 0;
+  const availableForOrders = product.availableForOrders !== false;
+  const available = inventoryTracked ? Math.max(0, Number(product.quantityAvailable) || 0) : availableForOrders ? Infinity : 0;
   const isService = product.category === "Services";
-  const soldOut = !isService && available === 0;
+  const computedAvailability = isService ? true : inventoryTracked ? available > 0 : availableForOrders;
+  const displayedAvailability = computedAvailability ? "Available" : "Out of Stock";
+  const soldOut = !computedAvailability;
   const tradePreferences = product.desiredTradeItems?.trim() ?? "";
   const resolvedListing = useResolvedListingWithSeller(product);
   const resolvedSeller = useResolvedSeller(product.sellerId);
@@ -85,10 +89,13 @@ export default function ProductDetail() {
 
   useEffect(() => {
     console.info("Route opened", window.location.pathname, "Component: ProductDetail");
-    console.info("Product Detail inventory", {
+    console.info("Product Detail stock status", {
       listingId: product.id,
-      quantityAvailable: available,
-      displayedAvailable: available,
+      hasVariants: variants.length > 0,
+      quantityAvailable: product.quantityAvailable,
+      inventoryTracked,
+      computedAvailability,
+      displayedAvailability,
     });
     if (product.databaseId && product.sellerId) {
       void trackAnalyticsEvent("listing_view", {
@@ -96,7 +103,7 @@ export default function ProductDetail() {
         listingId: product.databaseId,
       });
     }
-  }, [id, product.id, product.databaseId, product.sellerId, product.quantityAvailable, available]);
+  }, [available, computedAvailability, displayedAvailability, id, inventoryTracked, product.databaseId, product.id, product.quantityAvailable, product.sellerId, product.variants, variants.length]);
 
   useEffect(() => {
     setQuantity((current) => Math.min(current, Math.max(1, available)));
@@ -234,7 +241,7 @@ export default function ProductDetail() {
               {variantError && <p role="alert" className="text-[13px] text-[#B42318]">{variantError}</p>}
             </div>}
             <div className="flex flex-col gap-4">
-              <span className="text-[14px] text-[#757575]">Listing Inventory: {available}</span>
+              {inventoryTracked ? <span className="text-[14px] text-[#757575]">Listing Inventory: {available}</span> : <span className="text-[14px] text-[#757575]">Availability: {availableForOrders ? "Available" : "Unavailable"}</span>}
               {!soldOut && <div className="flex flex-col gap-2">
                 <label className="text-[16px]">Quantity</label>
                 <div className="h-10 flex items-center justify-between rounded-lg border border-[#D9D9D9] px-4">

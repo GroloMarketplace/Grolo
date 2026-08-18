@@ -26,6 +26,7 @@ function variantsFor(listing) {
 
 function rowForListing(listing, sellerId) {
   const imageUrls = imageUrlsFor(listing);
+  const variants = variantsFor(listing);
   const numericPrice = Number(listing.price);
   const isNumericPrice = Number.isFinite(numericPrice);
   return {
@@ -39,7 +40,7 @@ function rowForListing(listing, sellerId) {
     price: isNumericPrice ? numericPrice : 0,
     pricing_details: isNumericPrice ? null : String(listing.price ?? ""),
     condition: listing.condition || null,
-    inventory_quantity: Number.isFinite(Number(listing.quantityAvailable)) ? Number(listing.quantityAvailable) : 0,
+    inventory_quantity: variants.length ? 0 : Number.isFinite(Number(listing.quantityAvailable)) ? Number(listing.quantityAvailable) : 0,
     trade_enabled: Boolean(listing.tradeEnabled ?? listing.availableForTrade),
     pickup_available: listing.pickupAvailable !== false,
     delivery_available: Boolean(listing.deliveryAvailable),
@@ -64,7 +65,8 @@ function rowForListing(listing, sellerId) {
       preferredContactMethod: listing.preferredContactMethod,
       responseTime: listing.responseTime,
       desiredTradeItems: listing.desiredTradeItems,
-      variants: variantsFor(listing),
+      availableForOrders: listing.availableForOrders !== false,
+      variants,
       views: listing.views ?? 0,
       favorites: listing.favorites ?? 0,
       messages: listing.messages ?? 0,
@@ -255,7 +257,7 @@ export async function restoreListingInventory(items) {
   requireSupabase();
   for (const item of items) {
     const listing = await getListingById(item.productId ?? item.id);
-    if (!listing) continue;
+    if (!listing || (Array.isArray(listing.variants) && listing.variants.length > 0) || item.variantName) continue;
     const quantity = Math.max(0, Number(listing.quantityAvailable) || 0) + (Number(item.quantity) || 0);
     const { error } = await supabase
       .from("listings")

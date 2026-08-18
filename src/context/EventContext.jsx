@@ -53,10 +53,18 @@ function readAttendees(currentUserId) {
   }
 }
 
-function groupAttendees(rows) {
+function eventAttendanceKeys(eventId, events) {
+  const event = events.find((item) => item.id === eventId || item.databaseId === eventId);
+  return [...new Set([eventId, event?.id, event?.databaseId].filter(Boolean))];
+}
+
+function groupAttendees(rows, events) {
   return rows.reduce((result, row) => {
-    const current = result[row.event_id] ?? [];
-    result[row.event_id] = current.includes(row.user_id) ? current : [...current, row.user_id];
+    const keys = eventAttendanceKeys(row.event_id, events);
+    keys.forEach((key) => {
+      const current = result[key] ?? [];
+      result[key] = current.includes(row.user_id) ? current : [...current, row.user_id];
+    });
     return result;
   }, {});
 }
@@ -98,6 +106,7 @@ export function EventProvider({ children }) {
   const storageKey = `${EVENTS_STORAGE_KEY}-${currentUserId}`;
   const [events, setEvents] = useState(() => localEvents(readEvents(storageKey)));
   const [attendees, setAttendees] = useState(() => readAttendees(currentUserId));
+  const [attendeeRows, setAttendeeRows] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -143,9 +152,18 @@ export function EventProvider({ children }) {
         .from("event_attendees")
         .select("event_id, user_id");
       if (!error && !cancelled) {
-        const next = groupAttendees(data ?? []);
-        setAttendees(next);
-        persistAttendees(next);
+        const rows = data ?? [];
+        console.info("event attendee count query", {
+          eventIds: [...new Set(rows.map((row) => row.event_id).filter(Boolean))],
+          totalAttendeeRows: rows.length,
+          currentUserId,
+        });
+        setAttendeeRows(rows);
+      } else if (error) {
+        console.error("Unable to load event attendance", {
+          currentUserId,
+          error: error?.message ?? String(error),
+        });
       }
     }
 
@@ -153,15 +171,31 @@ export function EventProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [currentUserId, user?.id]);
 
-  const isAttending = useCallback((eventId) => (
-    (attendees[eventId] ?? []).includes(currentUserId)
-  ), [attendees, currentUserId]);
+  useEffect(() => {
+    const next = groupAttendees(attendeeRows, events);
+    setAttendees(next);
+    persistAttendees(next);
+  }, [attendeeRows, events]);
 
-  const getAttendeeCount = useCallback((eventId) => (
-    (attendees[eventId] ?? []).length
-  ), [attendees]);
+  const isAttending = useCallback((eventId) => {
+    const keys = eventAttendanceKeys(eventId, events);
+    return keys.some((key) => (attendees[key] ?? []).includes(currentUserId));
+  }, [attendees, currentUserId, events]);
+
+  const getAttendeeCount = useCallback((eventId) => {
+    const keys = eventAttendanceKeys(eventId, events);
+    const attendeeIds = new Set(keys.flatMap((key) => attendees[key] ?? []));
+    console.info("event attendee count displayed", {
+      eventId,
+      eventKeys: keys,
+      totalAttendeeRows: attendeeIds.size,
+      displayedAttendeeCount: attendeeIds.size,
+      currentUserId,
+    });
+    return attendeeIds.size;
+  }, [attendees, currentUserId, events]);
 
   const toggleAttendance = useCallback(async (eventId) => {
     const event = events.find((item) => item.id === eventId || item.databaseId === eventId);

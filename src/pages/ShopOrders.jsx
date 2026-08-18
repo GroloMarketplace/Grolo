@@ -76,12 +76,27 @@ export default function ShopOrders() {
 
   const confirmInProgress = async () => {
     if (!inProgressOrder) return;
-    const succeeded = await updateOrderStatus(inProgressOrder.id, "In Progress");
-    setInProgressOrder(null);
-    setStatusToast(succeeded
-      ? "✅ Order marked as In Progress. The buyer can no longer cancel this order."
-      : "Unable to update the order status. Please try again.");
-    window.setTimeout(() => setStatusToast(""), 4000);
+    try {
+      const succeeded = await updateOrderStatus(inProgressOrder.id, "In Progress");
+      setStatusToast(succeeded
+        ? "✅ Order marked as In Progress. The buyer can no longer cancel this order."
+        : "Unable to update the order status. Please try again.");
+    } catch (error) {
+      console.error("Seller order status transition failed", {
+        orderId: inProgressOrder.databaseId ?? inProgressOrder.id ?? null,
+        currentStatus: inProgressOrder.status ?? null,
+        requestedStatus: "In Progress",
+        sellerId: inProgressOrder.sellerId ?? user?.id ?? null,
+        error: error?.message ?? String(error),
+        code: error?.code ?? null,
+        details: error?.details ?? null,
+        hint: error?.hint ?? null,
+      });
+      setStatusToast(error?.message || "Unable to update the order status. Please try again.");
+    } finally {
+      setInProgressOrder(null);
+      window.setTimeout(() => setStatusToast(""), 4000);
+    }
   };
 
   useEffect(() => {

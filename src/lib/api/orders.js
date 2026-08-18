@@ -432,12 +432,13 @@ export async function getOrderById(orderId) {
   return orderFromRow(data);
 }
 
-export async function updateOrderStatus(orderId, status, previousStatus) {
+export async function updateOrderStatus(orderId, status, previousStatus, sellerId) {
   requireSupabase();
   console.info("status update requested", {
     databaseOrderId: orderId,
     previousStatus: previousStatus ?? null,
     newStatus: status,
+    sellerId: sellerId ?? null,
   });
 
   const { data, error } = await supabase.rpc("update_order_status", {
@@ -449,8 +450,9 @@ export async function updateOrderStatus(orderId, status, previousStatus) {
       databaseOrderId: orderId,
       previousStatus: previousStatus ?? null,
       newStatus: status,
+      sellerId: sellerId ?? null,
     });
-    logApiError("updateOrderStatus", error, { orderId, status, previousStatus });
+    logApiError("updateOrderStatus", error, { orderId, status, previousStatus, sellerId });
     throw error;
   }
   const updatedRow = data?.order

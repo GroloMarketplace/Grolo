@@ -315,7 +315,7 @@ export function OrderProvider({ children }) {
     }
 
     try {
-      const updatedRow = await updateOrderStatusInApi(databaseOrderId, status, previousStatus);
+      const updatedRow = await updateOrderStatusInApi(databaseOrderId, status, previousStatus, order.sellerId ?? user?.id);
       const mappedOrders = legacyOrdersFromRows([updatedRow]);
       const updatedOrders = mappedOrders.length ? mappedOrders : [{ ...order, status }];
       setOrders((current) => [
@@ -371,9 +371,13 @@ export function OrderProvider({ children }) {
         databaseOrderId,
         previousStatus,
         newStatus: status,
+        sellerId: order.sellerId ?? user?.id ?? null,
         error: error?.message ?? error,
+        code: error?.code ?? null,
+        details: error?.details ?? null,
+        hint: error?.hint ?? null,
       });
-      return false;
+      throw error;
     }
   }, [orders, user?.id]);
 

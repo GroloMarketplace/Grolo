@@ -172,11 +172,26 @@ export function OrderProvider({ children }) {
   );
 
   const sellerOrders = useCallback(
-    (sellerId) =>
-      orders.filter((o) => {
+    (sellerId) => {
+      const matchedOrders = orders.filter((o) => {
         const product = products.find((p) => p.id === o.productId);
-        return (o.sellerId ?? product?.sellerId) === sellerId;
-      }),
+        return String(o.sellerId ?? product?.sellerId ?? "") === String(sellerId ?? "");
+      });
+      console.info("seller orders query result", {
+        sellerId: sellerId ?? null,
+        orderCount: matchedOrders.length,
+        orders: matchedOrders.map((order) => ({
+          orderId: order.id ?? null,
+          sellerId: order.sellerId ?? null,
+          buyerId: order.buyerId ?? null,
+          listingId: order.listingId ?? order.productId ?? null,
+          variantName: order.variantName ?? null,
+          variantPrice: order.variantPrice ?? null,
+          orderStatus: order.status ?? null,
+        })),
+      });
+      return matchedOrders;
+    },
     [orders],
   );
 

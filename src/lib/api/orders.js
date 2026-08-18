@@ -6,7 +6,7 @@ function requireSupabase() {
   }
 }
 
-const ORDER_SELECT = "*, order_items(*, listings(legacy_id)), payments(*)";
+const ORDER_SELECT = "*, order_items(*, listings(legacy_id,price)), payments(*)";
 
 function logApiError(operation, error, context = {}) {
   console.error(`Supabase ${operation} error`, {
@@ -26,6 +26,7 @@ function orderItemFromRow(row) {
     orderId: row.order_id ?? row.orderId,
     listingId: row.listing_id ?? row.listingId,
     productId: row.product_id ?? row.listings?.legacy_id ?? row.listing_id ?? row.listingId,
+    listingPrice: row.listings?.price ?? null,
     quantity: row.quantity,
     unitPrice: row.unit_price ?? row.unitPrice,
     lineTotal: row.line_total ?? row.lineTotal,
@@ -38,9 +39,30 @@ function orderItemFromRow(row) {
   };
 }
 
+function variantForItem(row, item) {
+  const variantItems = Array.isArray(row?.metadata?.variant_items) ? row.metadata.variant_items : [];
+  return variantItems.find((variant) => String(variant.listingId) === String(item.listing_id ?? item.listingId)) ?? null;
+}
+
 export function orderFromRow(row) {
   if (!row) return null;
-  const items = Array.isArray(row.order_items) ? row.order_items.map(orderItemFromRow) : [];
+  const items = Array.isArray(row.order_items)
+    ? row.order_items.map((item) => ({ ...orderItemFromRow(item), ...(variantForItem(row, item) ?? {}) }))
+    : [];
+  console.info("order hydration audit", {
+    orderId: row.id ?? null,
+    sellerId: row.seller_id ?? null,
+    buyerId: row.buyer_id ?? null,
+    orderStatus: row.status ?? null,
+    items: items.map((item) => ({
+      listingId: item.listingId ?? null,
+      listingPrice: item.listingPrice ?? null,
+      variantName: item.variantName ?? null,
+      variantPrice: item.variantPrice ?? null,
+      unitPrice: item.unitPrice ?? null,
+      lineTotal: item.lineTotal ?? null,
+    })),
+  });
   return {
     ...row,
     id: row.id,
@@ -95,6 +117,7 @@ export function legacyOrderFromRow(row, itemRow, itemIndex = 0) {
   const legacyId = row.metadata?.legacy_order_id ?? row.metadata?.legacyOrderId;
   const orderId = row.id ?? row.databaseId;
   const createdAt = legacyCreatedAt(row.created_at ?? row.createdAt);
+  const variant = variantForItem(row, item);
 
   return {
     id: itemIndex === 0 ? legacyId ?? orderId : `${legacyId ?? orderId}:${itemId}`,
@@ -121,7 +144,9 @@ export function legacyOrderFromRow(row, itemRow, itemIndex = 0) {
     discountedPrice: Number(item.discounted_price ?? item.discountedPrice ?? item.unit_price ?? item.unitPrice) || 0,
     promotionId: item.promotion_id ?? item.promotionId ?? null,
     promotionTitle: item.promotion_title ?? item.promotionTitle ?? null,
-    orderItems: items.map(orderItemFromRow),
+    variantName: variant?.variantName ?? item.variant_name ?? item.variantName ?? null,
+    variantPrice: variant?.variantPrice ?? item.variant_price ?? item.variantPrice ?? null,
+    orderItems: items.map((orderItem) => ({ ...orderItemFromRow(orderItem), ...(variantForItem(row, orderItem) ?? {}) })),
   };
 }
 
@@ -212,9 +237,13 @@ export async function createOrderItems(orderId, items) {
 
 export async function createOrderWithItems(sellerId, items, { fulfillmentMethod = "pickup", deliveryFee = 0, orderId, metadata = {} } = {}) {
   requireSupabase();
+  const { data: authData } = await supabase.auth.getUser();
+  const buyerId = authData.user?.id ?? null;
   const payloadItems = (Array.isArray(items) ? items : []).map((item) => ({
     listing_id: item.databaseId ?? item.listingId ?? item.productId ?? item.id,
     quantity: Number(item.quantity) || 0,
+    variant_name: item.variantName ?? null,
+    variant_price: item.variantPrice != null ? Number(item.variantPrice) : null,
     original_price: item.originalPrice,
     discounted_price: item.discountedPrice,
     promotion_id: item.promotionId,
@@ -223,7 +252,23 @@ export async function createOrderWithItems(sellerId, items, { fulfillmentMethod 
   const payloadMetadata = {
     ...metadata,
     ...(orderId ? { legacy_order_id: orderId } : {}),
+    variant_items: (Array.isArray(items) ? items : []).filter((item) => item.variantName).map((item) => ({
+      listingId: item.databaseId ?? item.listingId ?? item.productId ?? item.id,
+      variantName: item.variantName,
+      variantPrice: Number(item.variantPrice) || Number(item.price) || null,
+    })),
   };
+  console.info("order creation audit", {
+    orderId: orderId ?? null,
+    sellerId,
+    buyerId,
+    orderStatus: "Seller Notified",
+    items: (Array.isArray(items) ? items : []).map((item) => ({
+      listingId: item.databaseId ?? item.listingId ?? item.productId ?? item.id,
+      variantName: item.variantName ?? null,
+      variantPrice: item.variantPrice ?? null,
+    })),
+  });
   const { data, error } = await supabase.rpc("create_order_with_items", {
     p_seller_id: sellerId,
     p_fulfillment_method: fulfillmentMethod,
@@ -238,7 +283,15 @@ export async function createOrderWithItems(sellerId, items, { fulfillmentMethod 
   console.info("Supabase create_order_with_items response", data);
   console.info("Supabase order created", {
     databaseOrderId: data?.order?.id ?? null,
+    sellerId: data?.order?.seller_id ?? sellerId,
+    buyerId: data?.order?.buyer_id ?? buyerId,
+    orderStatus: data?.order?.status ?? null,
     createdItemCount: data?.items?.length ?? 0,
+    items: (data?.items ?? []).map((item) => ({
+      listingId: item.listing_id ?? null,
+      variantName: payloadMetadata.variant_items?.find((variant) => String(variant.listingId) === String(item.listing_id))?.variantName ?? null,
+      variantPrice: payloadMetadata.variant_items?.find((variant) => String(variant.listingId) === String(item.listing_id))?.variantPrice ?? null,
+    })),
   });
   return data;
 }
@@ -268,6 +321,18 @@ export async function getSellerOrders(sellerId) {
     logApiError("getSellerOrders", error, { seller_id: sellerId });
     throw error;
   }
+  console.info("seller orders database result", {
+    sellerId,
+    orderCount: data?.length ?? 0,
+    orders: (data ?? []).map((row) => ({
+      orderId: row.id ?? null,
+      sellerId: row.seller_id ?? null,
+      buyerId: row.buyer_id ?? null,
+      orderStatus: row.status ?? null,
+      listingIds: (row.order_items ?? []).map((item) => item.listing_id).filter(Boolean),
+      variantItems: row.metadata?.variant_items ?? [],
+    })),
+  });
   return (data ?? []).map(orderFromRow);
 }
 

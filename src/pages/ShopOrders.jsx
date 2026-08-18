@@ -37,18 +37,34 @@ export default function ShopOrders() {
   const savedOrderState = readNavigationState("store-orders", { scrollTop: 0 });
   const sellerId = user?.id ?? "current-user";
   const storeOrders = useMemo(
-    () => sellerOrders(sellerId).filter((order) => Number(order.createdAt) >= storeOpenedAt),
+    () => sellerOrders(sellerId).filter((order) => {
+      const createdAt = typeof order.createdAt === "number" ? order.createdAt : Date.parse(order.createdAt);
+      return !storeOpenedAt || (Number.isFinite(createdAt) && createdAt >= storeOpenedAt);
+    }),
     [sellerId, sellerOrders, storeOpenedAt],
   );
 
   useEffect(() => {
     console.info("ShopOrders order source", {
-      sellerIdOnOrders: storeOrders.map((order) => ({ id: order.id, sellerId: order.sellerId })),
+      sellerIdOnOrders: storeOrders.map((order) => ({
+        orderId: order.id,
+        sellerId: order.sellerId,
+        buyerId: order.buyerId,
+        listingId: order.listingId ?? order.productId,
+        listingPrice: order.listingPrice ?? null,
+        variantName: order.variantName ?? null,
+        variantPrice: order.variantPrice ?? null,
+        unitPrice: order.unitPrice ?? null,
+        lineTotal: order.lineTotal ?? null,
+        orderStatus: order.status,
+        createdAt: order.createdAt,
+      })),
       currentAuthenticatedSellerUuid: user?.id ?? null,
       sellerOrdersFilterInput: sellerId,
+      storeOpenedAt,
       visibleOrderCount: storeOrders.length,
     });
-  }, [sellerId, storeOrders, user?.id]);
+  }, [sellerId, storeOpenedAt, storeOrders, user?.id]);
 
   const requestStatusChange = (order, status) => {
     if (status === "In Progress") {
@@ -145,6 +161,7 @@ export default function ShopOrders() {
                             <div className="text-[14px] font-medium">
                               {product.name}
                             </div>
+                            {order.variantName && <div className="text-[13px] font-medium text-[#4F4F4F]">{order.variantName}</div>}
                             <div className="text-[12px] text-[#828282]">
                               Qty {order.quantity} • {order.date}
                             </div>
@@ -162,7 +179,7 @@ export default function ShopOrders() {
                             </div>
                           </div>
                           <div className="text-[14px] font-semibold">
-                            ${order.total.toFixed(2)}
+                            ${Number(order.lineTotal ?? order.total ?? 0).toFixed(2)}
                           </div>
                         </div>
 

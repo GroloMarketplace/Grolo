@@ -41,19 +41,42 @@ export default function StoreCheckout() {
   const { listings } = useListings();
   const getListing = (item) => listings.find((listing) => listing.id === getCartItemProductId(item, listings));
   const allStoreItems = items.filter((item) => getCartItemSellerId(item, listings) === sellerId);
-  const inventoryAvailable = allStoreItems.length > 0 && allStoreItems.every((item) => {
-    const available = Number(getListing(item)?.quantityAvailable) || 0;
-    return available > 0 && item.quantity <= available;
-  });
-  const storeItems = allStoreItems.filter((item) => (Number(getListing(item)?.quantityAvailable) || 0) > 0);
-  const storeListing = getListing(storeItems[0]) ?? getListing(allStoreItems[0]);
   const seller = sellers[sellerId] ?? { id: sellerId, name: "this store" };
+  const storeListing = getListing(allStoreItems[0]);
   const sellerProfile = getSellerProfile(seller.id);
   const settings = getPaymentMethods(seller.id);
+  const stockStatus = allStoreItems.map((item) => {
+    const listing = getListing(item);
+    const hasVariants = Array.isArray(listing?.variants) && listing.variants.length > 0;
+    const inventoryValue = listing?.inventory_quantity ?? listing?.quantityAvailable ?? item.inventory_quantity ?? item.quantityAvailable;
+    const available = hasVariants
+      ? (listing?.availableForOrders === false || item.availableForOrders === false ? 0 : Infinity)
+      : Math.max(0, Number(inventoryValue) || 0);
+    return {
+      listingId: listing?.databaseId ?? listing?.id ?? item.listingId ?? item.productId ?? null,
+      inventoryValue: inventoryValue ?? null,
+      calculatedAvailableStock: available,
+      soldOut: available <= 0 || item.quantity > available,
+      requestedQuantity: item.quantity,
+    };
+  });
+  const inventoryAvailable = stockStatus.length > 0 && stockStatus.every(({ soldOut }) => !soldOut);
+  const storeItems = allStoreItems.filter((_, index) => !stockStatus[index].soldOut);
   const storeName = storeListing?.shop || sellerProfile.name || seller.name;
   const pickupAddress = sellerProfile.pickupLocation || sellerProfile.location || settings.pickupLocation;
   const pickupSettings = { ...settings, pickupLocation: pickupAddress };
   const vacationMode = sellerProfile.vacationMode;
+  const checkoutButtonState = vacationMode ? "Orders Paused" : inventoryAvailable ? "Checkout" : "Sold Out";
+
+  useEffect(() => {
+    console.info("Store Checkout inventory diagnostics", {
+      sellerId,
+      stockStatus,
+      inventoryAvailable,
+      soldOut: !inventoryAvailable,
+      checkoutButtonState,
+    });
+  }, [checkoutButtonState, inventoryAvailable, sellerId, stockStatus]);
 
   useEffect(() => {
     console.info("Store Checkout pickup data returned", {

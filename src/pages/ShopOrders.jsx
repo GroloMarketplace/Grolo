@@ -198,7 +198,7 @@ export default function ShopOrders() {
                           </div>
                         </div>
 
-                        {order.status === "Completed" && !hasReviewedOrder(order.id) && <button type="button" onClick={() => setReviewOrder(order)} className="mt-3 w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">Review Buyer</button>}
+                        {order.status === "Completed" && !hasReviewedOrder(order.databaseId ?? order.orderId ?? order.id) && <button type="button" onClick={() => setReviewOrder(order)} className="mt-3 w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">Review Buyer</button>}
 
                         {nextStatuses(order.status, order.fulfillmentMethod).length > 0 && (
                           <div className="flex flex-col gap-2 mt-3">
@@ -241,7 +241,21 @@ function BuyerReviewForm({ order, onClose }) {
   const options = ["Arrived for Pickup", "Communicated Well", "Polite and Respectful", "Would Transact Again"];
   const submit = () => {
     const product = listings.find((item) => item.id === order.productId);
-    addReview({ buyer: order.buyer, orderId: order.id, sellerId: order.sellerId ?? product?.sellerId ?? STORE_ID, productId: order.productId, criteria, notes });
+    const rating = criteria.includes("Would Transact Again") ? 5 : 4;
+    const reviewInput = { buyer: order.buyer, buyerId: order.buyerId, orderId: order.databaseId ?? order.orderId ?? order.id, sellerId: order.sellerId ?? product?.sellerId ?? STORE_ID, productId: order.productId, reviewType: "buyer", rating, criteria, notes };
+    console.info("buyer review modal submit fired", {
+      reviewType: reviewInput.reviewType,
+      rating: reviewInput.rating,
+      criteria: reviewInput.criteria,
+      buyerId: reviewInput.buyerId ?? null,
+      orderId: reviewInput.orderId ?? null,
+    });
+    const request = addReview(reviewInput);
+    console.info("buyer review modal submit dispatched", { orderId: reviewInput.orderId ?? null });
+    request?.catch?.((error) => console.error("buyer review modal submit rejected", {
+      orderId: reviewInput.orderId ?? null,
+      error: error?.message ?? String(error),
+    }));
     onClose();
   };
   return <div className="absolute inset-0 z-50 flex items-end bg-black/30"><div className="w-full rounded-t-2xl bg-white p-5"><div className="flex items-center justify-between"><h2 className="text-[18px] font-semibold">Review Buyer</h2><button type="button" onClick={onClose} className="text-[14px] text-[#828282]">Close</button></div><p className="mt-1 text-[13px] text-[#828282]">Share positive feedback about {order.buyer}.</p><div className="mt-4 flex flex-col gap-3">{options.map((option) => <Checkbox key={option} label={option} checked={criteria.includes(option)} onChange={() => setCriteria((current) => current.includes(option) ? current.filter((item) => item !== option) : [...current, option])} />)}</div><label className="mt-4 flex flex-col gap-2 text-[14px] font-medium">Additional Notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-2 text-[14px] font-normal outline-none focus:border-[#498467]" /></label><button type="button" onClick={submit} className="mt-4 w-full rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">Save Review</button></div></div>;

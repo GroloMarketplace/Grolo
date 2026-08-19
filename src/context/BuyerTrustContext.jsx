@@ -8,8 +8,14 @@ import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const BuyerTrustContext = createContext(null);
 
-function buyerMatches(review, buyer) {
-  const aliases = new Set([buyer, buyer === "you" ? "current-user" : null].filter(Boolean).map((value) => String(value).toLowerCase()));
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isCanonicalUuid(value) {
+  return typeof value === "string" && UUID_PATTERN.test(value);
+}
+
+function buyerMatches(review, buyer, currentUserId) {
+  const aliases = new Set([buyer, buyer === "you" ? "current-user" : null, buyer === "you" ? currentUserId : null].filter(Boolean).map((value) => String(value).toLowerCase()));
   return [review.buyer, review.buyerId, review.userId].some((value) => value != null && aliases.has(String(value).toLowerCase()));
 }
 
@@ -80,23 +86,36 @@ export function BuyerTrustProvider({ children }) {
     };
   }, [user?.id]);
 
-  const addReview = ({ buyer, orderId, sellerId, criteria = [], notes = "", rating = 0, productId }) => {
+  const addReview = ({ buyer, buyerId, orderId, sellerId, criteria = [], notes = "", rating = 0, productId }) => {
+    console.info("BuyerTrustContext.addReview called", {
+      reviewType: "buyer",
+      rating,
+      criteria,
+      sellerId: sellerId ?? null,
+      buyerId: buyerId ?? null,
+      orderId: orderId ?? null,
+      listingId: productId ?? null,
+    });
     const order = orders.find((candidate) => (
       candidate.id === orderId
       || candidate.orderId === orderId
       || candidate.databaseId === orderId
     ));
-    const databaseOrderId = order?.databaseId ?? order?.orderId ?? orderId;
-    const revieweeId = order?.buyerId ?? (buyer && buyer.includes("-") ? buyer : null);
+    const databaseOrderId = order?.databaseId ?? order?.orderId ?? (isCanonicalUuid(orderId) ? orderId : null);
+    const resolvedBuyerId = order?.buyerId ?? buyerId ?? (isCanonicalUuid(buyer) ? buyer : null);
+    const numericRating = Number(rating);
+    const resolvedRating = Number.isInteger(numericRating) && numericRating >= 1 && numericRating <= 5
+      ? numericRating
+      : criteria.includes("Would Transact Again") ? 5 : 4;
     const reviewerId = user?.id ?? null;
     const localReview = {
       id: `buyer-trust-${Date.now()}`,
       reviewType: "buyer",
       buyer,
-      buyerId: buyer === "you" ? "current-user" : buyer,
-      orderId,
+      buyerId: resolvedBuyerId ?? buyer,
+      orderId: databaseOrderId,
       sellerId,
-      rating: rating || (criteria.includes("Would Transact Again") ? 5 : 4),
+      rating: resolvedRating,
       criteria,
       notes,
       productId,
@@ -104,8 +123,9 @@ export function BuyerTrustProvider({ children }) {
     };
     const logContext = {
       reviewId: localReview.id,
-      revieweeId,
-      orderId: databaseOrderId ?? null,
+      revieweeId: resolvedBuyerId,
+      orderId: databaseOrderId,
+      rating: resolvedRating,
       reviewerId,
     };
     console.info("buyer review requested", logContext);
@@ -118,19 +138,19 @@ export function BuyerTrustProvider({ children }) {
     return createReviewInDatabase(localReview, {
       reviewerId: user.id,
       reviewType: "buyer",
-      revieweeId,
+      revieweeId: resolvedBuyerId,
       orderId: databaseOrderId,
     }).then((createdReview) => {
       console.info("buyer review succeeded", {
         reviewId: createdReview?.databaseId ?? createdReview?.id,
-        revieweeId: createdReview?.revieweeId ?? revieweeId,
+        revieweeId: createdReview?.revieweeId ?? resolvedBuyerId,
         orderId: createdReview?.orderId ?? databaseOrderId,
         reviewerId: createdReview?.reviewerId ?? user.id,
       });
       setReviews((current) => [...current, createdReview]);
       const reviewId = createdReview?.databaseId ?? createdReview?.id ?? localReview.id;
       void refreshUserReputation(reviewerId, { eventKey: `published-buyer-review:${reviewId}:reviewer` });
-      void refreshUserReputation(createdReview?.revieweeId ?? revieweeId, { eventKey: `published-buyer-review:${reviewId}:reviewee` });
+      void refreshUserReputation(createdReview?.revieweeId ?? resolvedBuyerId, { eventKey: `published-buyer-review:${reviewId}:reviewee` });
       return createdReview;
     }).catch((error) => {
       console.warn("buyer review failed", {
@@ -141,7 +161,7 @@ export function BuyerTrustProvider({ children }) {
     });
   };
 
-  const reviewsForBuyer = (buyer = "you") => visibleReviews(reviews).filter((review) => buyerMatches(review, buyer));
+  const reviewsForBuyer = (buyer = "you") => visibleReviews(reviews).filter((review) => buyerMatches(review, buyer, user?.id));
   const getBuyerTrust = (buyer = "you") => {
     const buyerReviews = reviewsForBuyer(buyer);
     const accountCreatedAt = user?.created_at ? new Date(user.created_at) : null;

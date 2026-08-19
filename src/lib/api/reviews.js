@@ -1,13 +1,42 @@
-import { supabase, isSupabaseConfigured } from "../supabaseClient";
+import { isSupabaseConfigured, supabase, supabaseEnvironmentDiagnostics, supabaseProjectReference, supabaseProjectUrl } from "../supabaseClient";
 
 const REVIEW_TYPES = new Set(["product", "seller", "buyer"]);
-const REVIEW_SELECT = "id, listing_id, reviewer_id, rating, title, body, created_at";
+const REVIEW_SELECT = `
+id,
+review_type,
+reviewer_id,
+reviewee_id,
+listing_id,
+order_id,
+order_item_id,
+rating,
+title,
+body,
+criteria,
+photos,
+status,
+created_at,
+updated_at,
+published_at,
+deleted_at
+`;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function requireSupabase() {
   if (!isSupabaseConfigured) {
     throw new Error("Supabase is not configured. See .env.example.");
   }
+}
+
+function classifyReviewRpcError(error) {
+  const text = `${error?.code ?? ""} ${error?.message ?? ""} ${error?.details ?? ""}`.toLowerCase();
+  if (text.includes("could not find the function") || text.includes("404")) return "function_not_found_or_schema_cache";
+  if (text.includes("permission denied") || text.includes("42501")) return "permission_denied";
+  if (text.includes("row-level security") || text.includes("rls")) return "rls_violation";
+  if (text.includes("completed order")) return "completed_order_validation_failure";
+  if (text.includes("seller and the buyer") || text.includes("matching purchased listing")) return "seller_buyer_relationship_validation_failure";
+  if (text.includes("review type") || text.includes("rating") || text.includes("criteria") || text.includes("photos")) return "review_validation_failure";
+  return "unknown_database_or_http_error";
 }
 
 function isCanonicalUuid(value) {
@@ -130,7 +159,9 @@ export function legacyReviewToDatabasePayload(review, { reviewerId, reviewType, 
     ?? (source.buyerId || source.buyer || source.criteria ? "buyer" : "product");
   const resolvedReviewerId = canonicalOrNull(reviewerId ?? source.reviewerId ?? source.reviewer_id ?? source.userId ?? source.user_id);
   const resolvedRevieweeId = canonicalOrNull(revieweeId ?? source.revieweeId ?? source.reviewee_id ?? (resolvedType === "buyer" ? source.buyerId ?? source.buyer_id : source.sellerId ?? source.seller_id));
-  const resolvedListingId = canonicalOrNull(listingId ?? source.listingId ?? source.listing_id ?? source.productId ?? source.product_id);
+  const resolvedListingId = resolvedType === "product"
+    ? canonicalOrNull(listingId ?? source.listingId ?? source.listing_id ?? source.productId ?? source.product_id)
+    : null;
   const resolvedOrderId = canonicalOrNull(orderId ?? source.orderId ?? source.order_id);
   const resolvedOrderItemId = canonicalOrNull(orderItemId ?? source.orderItemId ?? source.order_item_id);
   const status = source.status
@@ -345,6 +376,16 @@ async function getAuthenticatedUserId(requestedReviewerId) {
 }
 
 export async function createReviewInDatabase(review, { reviewerId, reviewType, revieweeId, listingId, orderId, orderItemId } = {}) {
+  console.info("reviews.js createReviewInDatabase called", {
+    supabaseProjectUrl,
+    supabaseProjectReference,
+    supabaseEnvironmentDiagnostics,
+    sellerId: reviewerId ?? null,
+    buyerId: reviewType === "buyer" ? revieweeId ?? review?.buyerId ?? null : null,
+    orderId: orderId ?? review?.orderId ?? null,
+    listingId: listingId ?? review?.listingId ?? review?.productId ?? null,
+    reviewType: reviewType ?? review?.reviewType ?? null,
+  });
   requireSupabase();
   const authenticatedReviewerId = await getAuthenticatedUserId(reviewerId);
   const payload = legacyReviewToDatabasePayload(review, {
@@ -355,9 +396,17 @@ export async function createReviewInDatabase(review, { reviewerId, reviewType, r
     orderId,
     orderItemId,
   });
+  console.info("review insert payload", {
+    sellerId: authenticatedReviewerId,
+    buyerId: payload.review_type === "buyer" ? payload.reviewee_id : null,
+    orderId: payload.order_id,
+    listingId: payload.listing_id,
+    reviewType: payload.review_type,
+    payload,
+  });
   let row;
   try {
-    const { data, error } = await supabase.rpc("create_review", {
+    const rpcArgs = {
       p_review_type: payload.review_type,
       p_rating: payload.rating,
       p_order_id: payload.order_id,
@@ -368,30 +417,98 @@ export async function createReviewInDatabase(review, { reviewerId, reviewType, r
       p_body: payload.body,
       p_criteria: payload.criteria,
       p_photos: payload.photos,
+    };
+    console.info("reviews.js create_review RPC called", {
+      supabaseProjectUrl,
+      supabaseProjectReference,
+      sellerId: authenticatedReviewerId,
+      buyerId: payload.review_type === "buyer" ? payload.reviewee_id : null,
+      orderId: payload.order_id,
+      listingId: payload.listing_id,
+      reviewType: payload.review_type,
+      rpcArgs,
+    });
+    const result = await supabase.rpc("create_review", rpcArgs);
+    console.log("reviews.js create_review RPC full result", result);
+    const { data, error, status, statusText } = result;
+    console.info("reviews.js create_review RPC response", {
+      sellerId: authenticatedReviewerId,
+      buyerId: payload.review_type === "buyer" ? payload.reviewee_id : null,
+      orderId: payload.order_id,
+      listingId: payload.listing_id,
+      reviewType: payload.review_type,
+      data,
+      error,
+      errorCategory: classifyReviewRpcError(error),
+      status,
+      statusText,
     });
     if (error) throw error;
     row = Array.isArray(data) ? data[0] : data;
   } catch (rpcError) {
+    console.error("reviews.js create_review RPC error", {
+      sellerId: authenticatedReviewerId,
+      buyerId: payload.review_type === "buyer" ? payload.reviewee_id : null,
+      orderId: payload.order_id,
+      listingId: payload.listing_id,
+      reviewType: payload.review_type,
+      errorCategory: classifyReviewRpcError(rpcError),
+      error: { message: rpcError?.message, code: rpcError?.code, details: rpcError?.details, hint: rpcError?.hint },
+    });
     if (!payload.listing_id) throw rpcError;
     console.warn("create_review RPC unavailable; using canonical reviews insert", {
       error: rpcError?.message ?? String(rpcError),
       listingId: payload.listing_id,
       reviewerId: authenticatedReviewerId,
     });
+    const insertPayload = {
+      review_type: payload.review_type,
+      reviewer_id: authenticatedReviewerId,
+      reviewee_id: payload.reviewee_id,
+      listing_id: payload.listing_id,
+      order_id: payload.order_id,
+      order_item_id: payload.order_item_id,
+      rating: payload.rating,
+      title: payload.title,
+      body: payload.body,
+      criteria: payload.criteria,
+      photos: payload.photos,
+      status: payload.status,
+    };
+    console.info("reviews.js reviews insert called", {
+      sellerId: authenticatedReviewerId,
+      buyerId: payload.review_type === "buyer" ? payload.reviewee_id : null,
+      orderId: payload.order_id,
+      listingId: payload.listing_id,
+      reviewType: payload.review_type,
+      payload: insertPayload,
+    });
     const { data, error } = await supabase
       .from("reviews")
-      .insert({
-        listing_id: payload.listing_id,
-        reviewer_id: authenticatedReviewerId,
-        rating: payload.rating,
-        title: payload.title,
-        body: payload.body,
-      })
-      .select("id, listing_id, reviewer_id, rating, title, body, created_at")
+      .insert(insertPayload)
+      .select(REVIEW_SELECT)
       .single();
+    console.info("reviews.js reviews insert response", {
+      sellerId: authenticatedReviewerId,
+      buyerId: payload.review_type === "buyer" ? payload.reviewee_id : null,
+      orderId: payload.order_id,
+      listingId: payload.listing_id,
+      reviewType: payload.review_type,
+      row: data ?? null,
+      error: error ? { message: error.message, code: error.code, details: error.details, hint: error.hint } : null,
+    });
     if (error) throw error;
     row = data;
   }
+  console.info("reviews.js review row created", {
+    created: Boolean(row?.id),
+    reviewId: row?.id ?? null,
+    reviewType: row?.review_type ?? payload.review_type,
+    reviewerId: row?.reviewer_id ?? authenticatedReviewerId,
+    revieweeId: row?.reviewee_id ?? payload.reviewee_id ?? null,
+    orderId: row?.order_id ?? payload.order_id ?? null,
+    listingId: row?.listing_id ?? payload.listing_id ?? null,
+  });
   const mapped = databaseReviewToLegacyReview(row);
   return {
     ...mapped,

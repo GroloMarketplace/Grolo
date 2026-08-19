@@ -11,6 +11,22 @@ function requireSupabase() {
   }
 }
 
+function isMissingReputationObjectError(error) {
+  const text = `${error?.code ?? ""} ${error?.message ?? ""}`.toLowerCase();
+  return text.includes("pgrst205")
+    || text.includes("42p01")
+    || text.includes("could not find the table")
+    || text.includes("relation") && text.includes("does not exist");
+}
+
+function missingReputationDiagnostics(objectName, error) {
+  console.warn("Optional reputation object unavailable; continuing without it", {
+    objectName,
+    error: { message: error?.message, code: error?.code, details: error?.details, hint: error?.hint },
+  });
+  return emptyDiagnostics({ statusSource: "unavailable", aggregateSource: "reviews, orders" });
+}
+
 async function resolveReputationUserId(userId) {
   if (typeof userId === "string" && UUID_PATTERN.test(userId)) return userId;
   if (userId && !["current-user", "current-buyer"].includes(userId)) return null;
@@ -104,7 +120,13 @@ export async function getUserBadges(userId) {
     .select("id, user_id, badge_id, status, awarded_at, expires_at, revoked_at, metadata, badge_definitions(id, code, name, description, icon, badge_type, criteria, active)")
     .eq("user_id", resolvedUserId)
     .order("awarded_at", { ascending: false });
-  if (error) throw error;
+  if (error) {
+    if (isMissingReputationObjectError(error)) {
+      const diagnostics = missingReputationDiagnostics("user_badges/badge_definitions", error);
+      return { userId, user_id: userId, badges: [], earnedBadges: [], earned_badges: [], activeBadges: [], active_badges: [], diagnostics };
+    }
+    throw error;
+  }
 
   const badges = (data ?? []).map(mapBadge);
   const activeBadges = badges.filter((badge) => activeBadge(badge));
@@ -204,7 +226,13 @@ async function getStatusRow(userId, audience) {
     .eq("user_id", userId)
     .eq("audience", audience)
     .maybeSingle();
-  if (error) throw error;
+  if (error) {
+    if (isMissingReputationObjectError(error)) {
+      missingReputationDiagnostics("user_reputation_status", error);
+      return null;
+    }
+    throw error;
+  }
   return data;
 }
 
@@ -469,7 +497,13 @@ export async function evaluateUserBadges(userId) {
     supabase.from("user_follows").select("follower_id", { count: "exact", head: true }).eq("seller_id", resolvedUserId),
     supabase.from("event_attendees").select("event_id", { count: "exact", head: true }).eq("user_id", resolvedUserId),
   ]);
-  if (definitionsError) throw definitionsError;
+  if (definitionsError) {
+    if (isMissingReputationObjectError(definitionsError)) {
+      const diagnostics = missingReputationDiagnostics("badge_definitions", definitionsError);
+      return { userId, checked: [], awarded: [], alreadyOwned: [], diagnostics };
+    }
+    throw definitionsError;
+  }
   if (authResult.error) throw authResult.error;
   if (followersResult.error) throw followersResult.error;
   if (eventsResult.error) throw eventsResult.error;

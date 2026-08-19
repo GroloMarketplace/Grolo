@@ -15,7 +15,11 @@ export default function Checkout() {
   const { listings } = useListings();
   const activeItems = items.filter((item) => {
     const listing = listings.find((candidate) => candidate.id === getCartItemProductId(item, listings));
-    return Number(listing?.quantityAvailable) > 0;
+    const hasVariants = Array.isArray(listing?.variants) && listing.variants.length > 0;
+    const available = hasVariants
+      ? (listing?.availableForOrders === false || item.availableForOrders === false ? 0 : Infinity)
+      : Number(listing?.inventory_quantity ?? listing?.quantityAvailable ?? item.inventory_quantity ?? item.quantityAvailable) || 0;
+    return available > 0;
   });
   const groups = groupCartItemsByStore(activeItems, listings);
   const stores = groups.map(([sellerId, storeItems]) => ({

@@ -148,6 +148,14 @@ export function BuyerTrustProvider({ children }) {
         reviewerId: createdReview?.reviewerId ?? user.id,
       });
       setReviews((current) => [...current, createdReview]);
+      if (resolvedBuyerId) {
+        void getBuyerTrustAggregate(resolvedBuyerId)
+          .then((aggregate) => setTrustAggregate(aggregate))
+          .catch((aggregateError) => console.warn("buyer trust aggregate refresh failed after review", {
+            buyerId: resolvedBuyerId,
+            error: aggregateError?.message ?? String(aggregateError),
+          }));
+      }
       const reviewId = createdReview?.databaseId ?? createdReview?.id ?? localReview.id;
       void refreshUserReputation(reviewerId, { eventKey: `published-buyer-review:${reviewId}:reviewer` });
       void refreshUserReputation(createdReview?.revieweeId ?? resolvedBuyerId, { eventKey: `published-buyer-review:${reviewId}:reviewee` });

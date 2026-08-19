@@ -38,14 +38,16 @@ export default function BuyerProfile() {
   const { events: liveEvents, attendingEventIds } = useEvents();
   const { followedSellers } = useFollow();
   const { buyerOrders } = useOrders();
-  const { reviewsForBuyer, communityImpact } = useBuyerTrust();
+  const { reviewsForBuyer, getBuyerTrust, communityImpact } = useBuyerTrust();
   const reputationSnapshot = useReputationSnapshot("current-user");
+  const buyerTrust = getBuyerTrust("you");
   const sellerReviews = (reviewsForBuyer?.("you") ?? []).sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0));
   const localImpactMetrics = getBuyerImpactMetrics({ orders: buyerOrders(), events: liveEvents, attendingEventIds, followedSellers, reviewsWritten: sellerReviews.length });
   const impactMetrics = {
     ...localImpactMetrics,
     ...Object.fromEntries(Object.entries(communityImpact?.metrics ?? {}).filter(([key]) => ["businessesSupported", "purchasesMade", "eventsAttended", "storesFollowed", "reviewsGiven"].includes(key))),
     reviewsWritten: communityImpact?.metrics?.reviewsGiven ?? localImpactMetrics.reviewsWritten,
+    buyerReviewsReceived: buyerTrust.sellerReviews ?? 0,
   };
   const buyerProfile = { ...BUYER, username: settings.displayName, handle: settings.username, bio: settings.bio, avatar: settings.avatar };
   const publicLocation = settings.showLocationPublicly && settings.location.trim() ? `${settings.location.trim()}, Calgary` : "";
@@ -209,7 +211,8 @@ export function CommunityImpactTab({ metrics, publicView = false, profileId = "y
     reviewsWritten: 0,
     ...(metrics ?? {}),
   };
-  const impactTotal = Object.values(safeMetrics).reduce((total, value) => total + (typeof value === "number" ? value : 0), 0);
+  const impactTotal = ["businessesSupported", "purchasesMade", "eventsAttended", "storesFollowed", "reviewsWritten"]
+    .reduce((total, key) => total + (Number(safeMetrics[key]) || 0), 0);
   const impactStats = [
     { label: "Local businesses supported", value: safeMetrics.businessesSupported, icon: "store" },
     { label: "Local purchases made", value: safeMetrics.purchasesMade, icon: "bag" },
@@ -217,10 +220,14 @@ export function CommunityImpactTab({ metrics, publicView = false, profileId = "y
     { label: "Stores followed", value: safeMetrics.storesFollowed, icon: "heart" },
     { label: "Seller reviews", value: safeMetrics.reviewsWritten, icon: "star" },
   ];
+  const buyerReviewsReceived = Number(safeMetrics.buyerReviewsReceived) || 0;
   const impactBadges = [
     { name: "Local Supporter", progress: `${safeMetrics.purchasesMade} / 5 purchases completed`, value: safeMetrics.purchasesMade, goal: 5 },
     { name: "Market Explorer", progress: `${safeMetrics.businessesSupported} / 5 local businesses visited`, value: safeMetrics.businessesSupported, goal: 5 },
-    { name: "Trusted Buyer", progress: `${safeMetrics.reviewsWritten} seller reviews received`, value: safeMetrics.reviewsWritten, goal: 25 },
+    { name: "Trusted Buyer", progress: `${buyerReviewsReceived} / 1 buyer review received`, value: buyerReviewsReceived, goal: 1 },
+    { name: "Established Buyer", progress: `${buyerReviewsReceived} / 5 buyer reviews received`, value: buyerReviewsReceived, goal: 5 },
+    { name: "Community Favorite Buyer", progress: `${buyerReviewsReceived} / 10 buyer reviews received`, value: buyerReviewsReceived, goal: 10 },
+    { name: "Marketplace Trusted Buyer", progress: `${buyerReviewsReceived} / 25 buyer reviews received`, value: buyerReviewsReceived, goal: 25 },
     { name: "Community Champion", progress: `${impactTotal} community actions completed`, value: impactTotal, goal: 50 },
   ];
   return (

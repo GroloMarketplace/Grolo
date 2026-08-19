@@ -107,6 +107,9 @@ export function databaseReviewToLegacyReview(row, { profilesById = new Map(), li
     reviewType,
     review_type: reviewType,
     reviewer,
+    sellerName: reviewType === "buyer"
+      ? reviewerProfile?.shop_name ?? reviewerProfile?.display_name ?? reviewerProfile?.username ?? null
+      : null,
     reviewerId: row.reviewer_id,
     reviewer_id: row.reviewer_id,
     buyer,

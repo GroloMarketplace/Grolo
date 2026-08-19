@@ -8,7 +8,7 @@ import { useListings } from "../context/ListingContext";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import OutlineIcon from "../components/OutlineIcon";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
-import { getActiveCartItems, groupCartItemsByStore } from "../utils/cartGrouping";
+import { getActiveCartItems, getCartItemStoreName, groupCartItemsByStore } from "../utils/cartGrouping";
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -85,12 +85,16 @@ export default function Cart() {
   const activeSubtotal = activeItems.reduce((sum, item) => sum + getItemPricing(item).discountedPrice * item.quantity, 0);
   const canCheckout = activeItems.length > 0;
   const storeGroups = groupCartItemsByStore(activeItems, listings);
-  const storeNames = storeGroups.map(([sellerId]) => sellers[sellerId]?.name ?? sellerId);
-  const storeNamesKey = storeNames.join(",");
+  const stores = storeGroups.map(([sellerId, storeItems]) => ({
+    sellerId,
+    storeName: getCartItemStoreName(storeItems[0], listings) ?? sellers[sellerId]?.name ?? sellerId,
+    itemCount: storeItems.length,
+  }));
+  const storesKey = JSON.stringify(stores);
 
   useEffect(() => {
-    console.info("Cart Stores:", storeNamesKey ? storeNamesKey.split(",") : []);
-  }, [storeNamesKey]);
+    console.info("Cart store data returned", JSON.parse(storesKey));
+  }, [storesKey]);
 
   return (
     <MobileScreenLayout>
@@ -108,10 +112,12 @@ export default function Cart() {
         {activeItems.length === 0 && soldOutItems.length === 0 ? (
           <div className="px-4 py-12 text-center"><h2 className="text-[20px] font-semibold">Your cart is empty.</h2><p className="mt-2 text-[14px] leading-[140%] text-[#828282]">Discover local products, services, and promotions from your community.</p><button type="button" onClick={() => navigate("/")} className="mt-5 rounded-lg bg-[#498467] px-5 py-3 text-[14px] font-medium text-white">Explore Community</button></div>
         ) : <CartSection title="Active Cart Items">
-          {storeGroups.map(([sellerId, storeItems]) => (
+          {storeGroups.map(([sellerId, storeItems]) => {
+            const storeName = getCartItemStoreName(storeItems[0], listings) ?? sellers[sellerId]?.name ?? sellerId;
+            return (
             <div key={sellerId} className="rounded-lg border border-[#E6E6E6] p-3">
               <div className="flex items-center justify-between gap-2">
-                <button type="button" onClick={() => navigate(`/seller/${sellerId}`)} className="text-left text-[14px] font-normal text-[#1E1E1E]">{sellers[sellerId]?.name ?? "Local Store"}</button>
+                <button type="button" onClick={() => navigate(`/seller/${sellerId}`)} className="text-left text-[14px] font-normal text-[#1E1E1E]">{storeName}</button>
                 {getSellerProfile(sellerId)?.vacationMode && <span className="text-[11px] font-medium text-[#4F4F4F]">Temporarily Closed</span>}
                 <button type="button" onClick={() => navigate(`/seller/${sellerId}`)} className="text-[14px] font-normal text-[#498467]">View Store <span aria-hidden="true" className="text-[16px] text-[#498467]">›</span></button>
               </div>
@@ -119,7 +125,8 @@ export default function Cart() {
               <div className="mt-3 text-[12px] font-medium">ITEMS</div>
               <div className="mt-3 flex flex-col gap-4">{storeItems.map((item) => <CartItem key={item.id} item={item} pricing={getItemPricing(item)} updateQuantity={updateQuantity} removeItem={() => removeCartItem(item)} saveForLater={() => { addItems([item]); removeCartItems([item]); }} available={getRealInventory(item)} onProductClick={() => openProduct(item)} />)}</div>
             </div>
-          ))}
+            );
+          })}
         </CartSection>}
         {(soldOutItems.length > 0 || savedForLaterSoldOutItems.length > 0) && (
           <CartSection title="Temporarily Sold Out">

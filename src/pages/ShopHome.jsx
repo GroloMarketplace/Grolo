@@ -155,7 +155,7 @@ export default function ShopHome() {
   };
 
   const handleSaveStore = () => runSave(async () => {
-    await updateSellerProfile(seller.id, { name: storeName, location: friendlyLocation(locationDetails) || location, neighborhood: locationDetails?.neighborhood, city: locationDetails?.city, province: locationDetails?.province, country: locationDetails?.country, postalCode: locationDetails?.postalCode, latitude: locationDetails?.latitude, longitude: locationDetails?.longitude, description });
+    await updateSellerProfile(seller.id, { name: storeName, pickupLocation, location: friendlyLocation(locationDetails) || location, neighborhood: locationDetails?.neighborhood, city: locationDetails?.city, province: locationDetails?.province, country: locationDetails?.country, postalCode: locationDetails?.postalCode, latitude: locationDetails?.latitude, longitude: locationDetails?.longitude, description });
     updatePaymentMethods(seller.id, paymentMethods);
     updateFulfillment(seller.id, fulfillmentMethods, deliveryFee, deliveryRadius, pickupLocation, pickupNotes);
     setIsEditing(false);

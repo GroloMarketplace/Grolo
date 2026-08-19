@@ -6,6 +6,7 @@ const SELLER_PROFILE_FIELDS = {
   vacationMode: "vacation_mode",
   vacationMessage: "vacation_message",
   returnDate: "return_date",
+  pickupLocation: "store_location",
 };
 
 export function sellerProfileUpdates(updates) {

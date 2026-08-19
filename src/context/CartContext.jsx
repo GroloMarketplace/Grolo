@@ -72,7 +72,7 @@ export function CartProvider({ children }) {
       };
       const nextItems = existing
         ? current.map((item) => item.productId === product.id && (item.variantName ?? null) === variantName
-          ? { ...item, ...pricedFields, variantName, variantPrice, quantity: cappedQuantity }
+          ? { ...item, ...pricedFields, variantName, variantPrice, storeName: listing.shop || product.shop || item.storeName || null, quantity: cappedQuantity }
           : item)
         : [...current, {
           ...product,
@@ -82,6 +82,7 @@ export function CartProvider({ children }) {
           listingId: listing.databaseId ?? listing.id,
           variantName,
           variantPrice,
+          storeName: listing.shop || product.shop || null,
           id: `cart-${product.id}-${variantName ?? "default"}`,
           quantity: cappedQuantity,
         }];

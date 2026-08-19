@@ -14,7 +14,7 @@ const initialSettings = Object.fromEntries(
       fulfillmentMethods: seller.fulfillmentMethods ?? DEFAULT_FULFILLMENT,
       deliveryFee: seller.deliveryFee ?? 0,
       deliveryRadius: seller.deliveryRadius ?? 0,
-      pickupLocation: seller.pickupLocation ?? seller.location ?? "Store pickup address",
+      pickupLocation: seller.pickupLocation ?? seller.location ?? "",
       pickupNotes: seller.pickupNotes ?? "",
     },
   ]),
@@ -30,7 +30,7 @@ export function PaymentMethodsProvider({ children }) {
     fulfillmentMethods: DEFAULT_FULFILLMENT,
     deliveryFee: 0,
     deliveryRadius: 0,
-    pickupLocation: "Store pickup address",
+    pickupLocation: "",
     pickupNotes: "",
   };
 
@@ -53,7 +53,7 @@ export function PaymentMethodsProvider({ children }) {
         fulfillmentMethods,
         deliveryFee: Number(deliveryFee) || 0,
         deliveryRadius: Number(deliveryRadius) || 0,
-        pickupLocation: pickupLocation || "Store pickup address",
+        pickupLocation: pickupLocation || "",
         pickupNotes: pickupNotes || "",
       },
     }));

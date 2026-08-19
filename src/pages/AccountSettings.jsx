@@ -68,6 +68,7 @@ function SellerAccountSettings() {
     setName(profile.name);
     setDescription(profile.description || "");
     setLocation(profile.location || "");
+    setPickupLocation(profile.pickupLocation || paymentSettings.pickupLocation || "");
     setLocationDetails(profile.neighborhood ? { neighborhood: profile.neighborhood, city: profile.city, province: profile.province, country: profile.country, postalCode: profile.postalCode, latitude: profile.latitude, longitude: profile.longitude } : null);
     setAvatar(profile.avatar);
     setBanner(profile.banner);
@@ -141,6 +142,7 @@ function SellerAccountSettings() {
     await updateSellerProfile(SELLER_ID, {
       name,
       description,
+      pickupLocation,
       location: friendlyLocation(locationDetails) || location,
       neighborhood: locationDetails?.neighborhood,
       city: locationDetails?.city,

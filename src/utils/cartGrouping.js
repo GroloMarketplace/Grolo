@@ -1,19 +1,24 @@
-export function getCartItemProductId(item, listings = []) {
+function getListingForCartItem(item, listings = []) {
   return listings.find((listing) => (
     listing.id === item.productId
       || listing.id === item.listingId
+      || listing.databaseId === item.productId
+      || listing.databaseId === item.listingId
       || listing.id === item.id
       || listing.name === item.name
-  ))?.id ?? item.productId ?? item.listingId ?? item.id;
+  ));
+}
+
+export function getCartItemProductId(item, listings = []) {
+  return getListingForCartItem(item, listings)?.id ?? item.productId ?? item.listingId ?? item.id;
 }
 
 export function getCartItemSellerId(item, listings = []) {
-  return listings.find((listing) => (
-    listing.id === item.productId
-      || listing.id === item.listingId
-      || listing.id === item.id
-      || listing.name === item.name
-  ))?.sellerId ?? item.sellerId ?? "current-user";
+  return getListingForCartItem(item, listings)?.sellerId ?? item.sellerId ?? "current-user";
+}
+
+export function getCartItemStoreName(item, listings = []) {
+  return getListingForCartItem(item, listings)?.shop || item.storeName || item.shop || null;
 }
 
 export function groupCartItemsByStore(items, listings = []) {

@@ -2,9 +2,9 @@ import { useState } from "react";
 import { formatListingPrice } from "../utils/listingDisplay";
 import TradeBadge from "./TradeBadge";
 
-export default function AttachListingModal({ listings, selectedListingId, onSelect, onClose }) {
-  const [pendingId, setPendingId] = useState(selectedListingId ?? null);
-  const pendingListing = listings.find((listing) => listing.id === pendingId);
+export default function AttachListingModal({ listings, selectedListingId, selectedListingIds, onSelect, onClose }) {
+  const [pendingIds, setPendingIds] = useState(() => selectedListingIds ?? (selectedListingId ? [selectedListingId] : []));
+  const pendingListings = listings.filter((listing) => pendingIds.includes(listing.id));
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="attach-listing-title">
@@ -16,12 +16,12 @@ export default function AttachListingModal({ listings, selectedListingId, onSele
           ) : (
             <div className="flex flex-col gap-2">
               {listings.map((listing) => {
-                const checked = pendingId === listing.id;
+                const checked = pendingIds.includes(listing.id);
                 return (
                   <button
                     key={listing.id}
                     type="button"
-                    onClick={() => setPendingId(checked ? null : listing.id)}
+                    onClick={() => setPendingIds((current) => checked ? current.filter((id) => id !== listing.id) : [...current, listing.id])}
                     className={`flex items-center gap-3 rounded-lg border p-3 text-left ${checked ? "border-[#498467] bg-[#F5FFF6]" : "border-[#E6E6E6]"}`}
                   >
                     <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${checked ? "border-[#498467] bg-[#498467]" : "border-[#828282]"}`}>
@@ -43,8 +43,8 @@ export default function AttachListingModal({ listings, selectedListingId, onSele
           <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-[#E6E6E6] py-3 text-[14px] font-medium">Cancel</button>
           <button
             type="button"
-            disabled={!pendingListing}
-            onClick={() => pendingListing && onSelect(pendingListing)}
+            disabled={!pendingListings.length}
+            onClick={() => pendingListings.length && onSelect(pendingListings)}
             className="flex-1 rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white disabled:opacity-50"
           >
             Select

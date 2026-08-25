@@ -84,6 +84,8 @@ migration as a substitute.
    11. `supabase/migrations/20260813_phase_9a6_suspended_user_enforcement.sql`
    12. `supabase/migrations/20260815_phase_9b_posts.sql`
    13. `supabase/migrations/20260824_add_founding_member_flag.sql`
+   14. `supabase/migrations/20260824_trade_orders.sql`
+   15. `supabase/migrations/20260824_trade_proposals.sql`
 
 4. Run `supabase/verify_bootstrap.sql` in the same project. The script must
    finish with `Grolo Supabase bootstrap verification passed` and must not

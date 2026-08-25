@@ -3,6 +3,9 @@ import { useAuth } from "./AuthContext";
 import { databaseMessageToLegacyMessage, getConversations, getMessages, isCanonicalUuid, markConversationMessagesRead, sendMessage, subscribeToMessages, upsertConversationInDatabase } from "../lib/api/messages";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { isUserBlocked } from "../lib/api/trustSafety";
+import { createTradeOrder } from "../lib/api/tradeOrders";
+import { createTradeProposalRecord } from "../lib/api/tradeProposals";
+import { createNotification } from "../lib/api/notifications";
 
 const MessageContext = createContext(null);
 const CURRENT_BUYER_ID = "current-buyer";
@@ -713,7 +716,7 @@ export function MessageProvider({ children }) {
     return { id, draft, conversation };
   };
 
-  const createTradeProposal = ({ listing, seller, buyerName, message, offeredListing, photos }) => {
+  const createTradeProposal = ({ listing, seller, buyerName, message, offeredListing, offeredListings, photos }) => {
     ensureActiveAccount();
     const id = `trade-${listing.id}-${Date.now()}`;
     const buyerId = user?.id ?? CURRENT_BUYER_ID;
@@ -724,14 +727,13 @@ export function MessageProvider({ children }) {
         name: listing.name,
         image: listing.images?.[0] ?? listing.image,
       },
-      offeredListing: offeredListing
-        ? {
-          id: offeredListing.id,
-          name: offeredListing.name,
-          image: offeredListing.images?.[0] ?? offeredListing.image,
-          price: offeredListing.price,
-        }
-        : null,
+      offeredListings: (offeredListings ?? (offeredListing ? [offeredListing] : [])).map((offeredItem) => ({
+        id: offeredItem.id,
+        name: offeredItem.name,
+        image: offeredItem.images?.[0] ?? offeredItem.image,
+        price: offeredItem.price,
+      })),
+      offeredListing: null,
       message,
       photos: photos ?? [],
     };
@@ -768,11 +770,77 @@ export function MessageProvider({ children }) {
       tradeProposal,
       messages: [firstMessage],
     };
-    persistConversation(conversation);
+    const conversationWrite = persistConversation(conversation);
+    conversationWrite.then((databaseConversation) => {
+      const conversationId = databaseConversation?.databaseId ?? databaseConversation?.id ?? null;
+      console.info("trade proposal delivery audit", {
+        trade_proposal_id: id,
+        buyer_id: buyerId,
+        seller_id: seller.id,
+        conversation_id: conversationId,
+        message_id: firstMessage.id,
+      });
+      if (!conversationId) return;
+      return Promise.allSettled([
+        appendMessage(conversationId, firstMessage, { ...conversation, databaseId: conversationId, id: conversationId, messages: [] }),
+        createTradeProposalRecord({ id, buyerId, sellerId: seller.id, conversationId, requestedListing: tradeProposal.requestedListing, offeredListings: tradeProposal.offeredListings, message, photos }),
+        createNotification({ userId: seller.id, type: "trade_proposal", title: "New Trade Offer", message: `${buyerName || "A buyer"} sent you a trade offer.`, relatedId: id }),
+      ]).then(([messageResult, proposalResult, notificationResult]) => console.info("trade proposal delivery verified", {
+        trade_proposal_id: id,
+        buyer_id: buyerId,
+        seller_id: seller.id,
+        conversation_id: conversationId,
+        message_id: messageResult.status === "fulfilled" ? messageResult.value?.databaseId ?? messageResult.value?.id ?? firstMessage.id : null,
+        proposal_row_created: proposalResult.status === "fulfilled" && Boolean(proposalResult.value),
+        notification_created: notificationResult.status === "fulfilled" && Boolean(notificationResult.value),
+      }));
+    }).catch((error) => console.warn("trade proposal delivery failed", { trade_proposal_id: id, buyer_id: buyerId, seller_id: seller.id, error: error?.message ?? String(error) }));
     setMessages((current) => {
       return sortConversations([normalizeConversation(conversation), ...current]);
     });
     return { id, conversation };
+  };
+
+  const respondToTradeProposal = ({ conversationId, action, counterMessage = "" }) => {
+    ensureActiveAccount();
+    const existing = messages.find((item) => item.id === conversationId || item.databaseId === conversationId);
+    if (!existing?.tradeProposal) return null;
+    const normalizedAction = action === "accept" ? "accepted" : action === "counter" ? "countered" : "declined";
+    const offeredListings = existing.tradeProposal.offeredListings ?? (existing.tradeProposal.offeredListing ? [existing.tradeProposal.offeredListing] : []);
+    const responseMessage = normalizedAction === "accepted"
+      ? "Trade offer accepted."
+      : normalizedAction === "countered"
+        ? counterMessage || "I would like to make a counter offer."
+        : "Trade offer declined.";
+    const tradeOrder = normalizedAction === "accepted" ? {
+      id: `TRADE-${Date.now()}`,
+      type: "trade",
+      status: "Accepted",
+      buyerReceives: existing.tradeProposal.requestedListing,
+      sellerReceives: offeredListings,
+      createdAt: new Date().toISOString(),
+    } : existing.tradeOrder ?? null;
+    const response = { id: `${existing.id}-${normalizedAction}-${Date.now()}`, from: "me", text: responseMessage, timestamp: "Just now", tradeAction: normalizedAction };
+    const updatedConversation = normalizeConversation({
+      ...existing,
+      tradeStatus: normalizedAction,
+      tradeOrder,
+      preview: responseMessage,
+      messages: [...(existing.messages ?? []), response],
+    });
+    setMessages((current) => current.map((item) => item.id === existing.id || item.databaseId === existing.databaseId ? updatedConversation : item));
+    if (normalizedAction === "accepted" && tradeOrder) {
+      void createTradeOrder({
+        buyerId: existing.buyerId,
+        sellerId: existing.sellerId,
+        requestedListing: existing.tradeProposal.requestedListing,
+        offeredListings,
+      }).then((persistedTradeOrder) => {
+        if (!persistedTradeOrder) return;
+        setMessages((current) => current.map((item) => item.id === existing.id || item.databaseId === existing.databaseId ? { ...updatedConversation, tradeOrder: persistedTradeOrder } : item));
+      }).catch((error) => console.warn("Trade order persistence failed", { conversationId, error: error?.message ?? String(error) }));
+    }
+    return updatedConversation;
   };
 
   const markConversationRead = useCallback(async (conversationId) => {
@@ -869,7 +937,7 @@ export function MessageProvider({ children }) {
   }, [user?.id]);
 
   const unreadCount = messages.reduce((count, conversation) => count + (conversation.messages ?? []).filter((message) => message.unread).length, 0);
-  const value = useMemo(() => ({ messages, unreadCount, upsertConversation, appendMessage, ensureConversation, markConversationRead, createSellerConversation, createTradeConversation, createTradeProposal, createOrderConversation }), [messages, unreadCount, markConversationRead]);
+  const value = useMemo(() => ({ messages, unreadCount, upsertConversation, appendMessage, ensureConversation, markConversationRead, createSellerConversation, createTradeConversation, createTradeProposal, respondToTradeProposal, createOrderConversation }), [messages, unreadCount, markConversationRead]);
   return <MessageContext.Provider value={value}>{children}</MessageContext.Provider>;
 }
 

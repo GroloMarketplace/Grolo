@@ -37,10 +37,10 @@ export default function ProposeTrade() {
   const [message, setMessage] = useState("");
   const [images, setImages] = useState([]);
   const [imageError, setImageError] = useState("");
-  const [offeredListingId, setOfferedListingId] = useState(null);
+  const [offeredListingIds, setOfferedListingIds] = useState([]);
   const [showListingPicker, setShowListingPicker] = useState(false);
 
-  const offeredListing = offeredListingId ? myListings.find((item) => item.id === offeredListingId) : null;
+  const offeredListings = myListings.filter((item) => offeredListingIds.includes(item.id));
 
   const openImagePicker = () => fileInputRef.current?.click();
 
@@ -64,12 +64,12 @@ export default function ProposeTrade() {
 
   const removeImage = (index) => setImages((current) => current.filter((_, i) => i !== index));
 
-  const handleAttachListing = (item) => {
-    setOfferedListingId(item.id);
+  const handleAttachListing = (items) => {
+    setOfferedListingIds(items.map((item) => item.id));
     setShowListingPicker(false);
   };
 
-  const removeOfferedListing = () => setOfferedListingId(null);
+  const removeOfferedListing = (listingId) => setOfferedListingIds((current) => current.filter((id) => id !== listingId));
 
   const handleSend = () => {
     if (!listing || !seller) return;
@@ -78,7 +78,7 @@ export default function ProposeTrade() {
       seller,
       buyerName: buyerProfile.displayName || user?.user_metadata?.name || "A buyer",
       message: message.trim(),
-      offeredListing,
+      offeredListings,
       photos: images,
     });
     navigate(`/messages/${id}`, {
@@ -130,30 +130,17 @@ export default function ProposeTrade() {
 
         <div className="mb-4">
           <p className="mb-1 text-[14px] font-semibold">Optional Listing</p>
-          <p className="mb-2 text-[13px] text-[#828282]">Attach one of your listings to the proposal.</p>
-          {offeredListing ? (
+          <p className="mb-2 text-[13px] text-[#828282]">Select one or more of your listings to offer.</p>
+          {offeredListings.length > 0 ? (
             <div className="border border-[#E6E6E6] rounded-lg p-3">
-              <p className="mb-2 text-[12px] font-medium text-[#828282]">Offered Listing</p>
-              <div className="flex items-center gap-3">
-                <img src={offeredListing.image} alt={offeredListing.name} className="h-12 w-12 rounded-lg object-cover" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14px] font-semibold">{offeredListing.name}</p>
-                  <p className="text-[13px] text-[#498467]">{formatListingPrice(offeredListing)}</p>
-                </div>
+              <p className="mb-2 text-[12px] font-medium text-[#828282]">Offered Listings</p>
+              <div className="flex flex-col gap-2">
+                {offeredListings.map((offeredListing) => <div key={offeredListing.id} className="flex items-center gap-3"><img src={offeredListing.image} alt={offeredListing.name} className="h-12 w-12 rounded-lg object-cover" /><div className="min-w-0 flex-1"><p className="truncate text-[14px] font-semibold">{offeredListing.name}</p><p className="text-[13px] text-[#498467]">{formatListingPrice(offeredListing)}</p></div><button type="button" onClick={() => removeOfferedListing(offeredListing.id)} className="text-[12px] font-medium text-red-500">Remove</button></div>)}
               </div>
-              <div className="mt-3 flex gap-2">
-                <button type="button" onClick={() => setShowListingPicker(true)} className="flex-1 rounded-lg border border-[#498467] py-2 text-[13px] font-medium text-[#498467]">Change</button>
-                <button type="button" onClick={removeOfferedListing} className="flex-1 rounded-lg border border-red-500 py-2 text-[13px] font-medium text-red-500">Remove</button>
-              </div>
+              <button type="button" onClick={() => setShowListingPicker(true)} className="mt-3 w-full rounded-lg border border-[#498467] py-2 text-[13px] font-medium text-[#498467]">Add or Change Listings</button>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => setShowListingPicker(true)}
-              className="w-full border border-[#E6E6E6] rounded-lg p-3 text-left text-[14px] text-[#828282]"
-            >
-              Select Listing
-            </button>
+            <button type="button" onClick={() => setShowListingPicker(true)} className="w-full border border-[#E6E6E6] rounded-lg p-3 text-left text-[14px] text-[#828282]">Select Listings</button>
           )}
         </div>
 
@@ -211,7 +198,7 @@ export default function ProposeTrade() {
       {showListingPicker && (
         <AttachListingModal
           listings={myListings}
-          selectedListingId={offeredListingId}
+          selectedListingIds={offeredListingIds}
           onSelect={handleAttachListing}
           onClose={() => setShowListingPicker(false)}
         />

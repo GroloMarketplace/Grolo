@@ -33,7 +33,7 @@ export default function Chat() {
   const [conversationAttempt, setConversationAttempt] = useState(0);
   const inputRef = useRef(null);
   const { listings } = useListings();
-  const { messages, appendMessage, ensureConversation, markConversationRead } = useMessages();
+  const { messages, appendMessage, ensureConversation, markConversationRead, respondToTradeProposal } = useMessages();
   const { user } = useAuth();
   const { orders } = useOrders();
   const { getSellerProfile } = useSellerSettings();
@@ -185,6 +185,13 @@ export default function Chat() {
     ?.split(",")
     .map((item) => item.trim())
     .filter(Boolean) ?? [];
+  const tradeOfferings = conversation?.tradeProposal?.offeredListings
+    ?? (conversation?.tradeProposal?.offeredListing ? [conversation.tradeProposal.offeredListing] : []);
+  const isTradeSeller = isTradeThread && String(user?.id) === String(conversation?.sellerId);
+  const handleTradeResponse = (action) => {
+    const counterMessage = action === "counter" ? window.prompt("Counter offer message", "I would like to make a counter offer.") : "";
+    if (action !== "counter" || counterMessage?.trim()) respondToTradeProposal({ conversationId: conversation.id, action, counterMessage: counterMessage?.trim() });
+  };
 
   const updateTradeDraft = (tradeItem) => {
     const nextText = `Hi ${seller.name}! I'd like to make a trade for ${tradeItem}.`;
@@ -342,17 +349,10 @@ export default function Chat() {
                 <h4 className="text-[14px] font-semibold truncate">{conversation.tradeProposal.requestedListing.name}</h4>
               </div>
             </button>
-            {conversation.tradeProposal.offeredListing && (
-              <div className="flex gap-3">
-                <img
-                  src={conversation.tradeProposal.offeredListing.image}
-                  alt={conversation.tradeProposal.offeredListing.name}
-                  className="w-16 h-16 rounded-lg object-cover shrink-0"
-                />
-                <div className="flex-1 flex flex-col justify-center min-w-0">
-                  <p className="text-[12px] text-[#828282]">Offered</p>
-                  <h4 className="text-[14px] font-semibold truncate">{conversation.tradeProposal.offeredListing.name}</h4>
-                </div>
+            {tradeOfferings.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className="text-[12px] text-[#828282]">Buyer offers</p>
+                {tradeOfferings.map((offeredListing) => <div key={offeredListing.id} className="flex gap-3"><img src={offeredListing.image} alt={offeredListing.name} className="w-16 h-16 rounded-lg object-cover shrink-0" /><div className="flex flex-col justify-center min-w-0"><h4 className="text-[14px] font-semibold truncate">{offeredListing.name}</h4></div></div>)}
               </div>
             )}
             {conversation.tradeProposal.message && (
@@ -368,6 +368,9 @@ export default function Chat() {
                 ))}
               </div>
             )}
+            {conversation.tradeStatus && <p className="text-[13px] font-medium text-[#356B4A]">Trade offer {conversation.tradeStatus}.</p>}
+            {isTradeSeller && !conversation.tradeStatus && <div className="flex gap-2"><button type="button" onClick={() => handleTradeResponse("accept")} className="flex-1 rounded-lg bg-[#498467] py-2 text-[13px] font-medium text-white">Accept</button><button type="button" onClick={() => handleTradeResponse("counter")} className="flex-1 rounded-lg border border-[#498467] py-2 text-[13px] font-medium text-[#498467]">Counter Offer</button><button type="button" onClick={() => handleTradeResponse("decline")} className="flex-1 rounded-lg border border-red-400 py-2 text-[13px] font-medium text-red-500">Decline</button></div>}
+            {conversation.tradeOrder && <div className="rounded-lg border border-[#E7C66A] bg-[#FFF9E6] p-3 text-[13px]"><p className="font-semibold text-[#6F5B1A]">Trade Order {conversation.tradeOrder.id}</p><p className="mt-1"><span className="font-medium">Buyer receives:</span> {conversation.tradeOrder.buyerReceives.name}</p><p className="mt-1"><span className="font-medium">Seller receives:</span> {conversation.tradeOrder.sellerReceives.map((item) => item.name).join(", ") || "No item specified"}</p></div>}
           </div>
         ) : listing ? (
           <button

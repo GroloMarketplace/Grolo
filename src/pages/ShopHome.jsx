@@ -428,7 +428,7 @@ export default function ShopHome() {
                   onScroll={handleContentScroll}
                   className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
                 >
-                <ShopListingsTab products={activeSellerProducts} lowStockProducts={lowStockSellerProducts} outOfStockProducts={outOfStockSellerProducts} archivedProducts={archivedListings.filter((product) => product.sellerId === seller.id)} hasOrderHistory={(product) => storeOrders.some((order) => order.productId === product.id || order.orderItems?.some((item) => item.productId === product.id || item.listingId === product.databaseId))} promotions={sellerPromotions} navigate={navigate} onDelete={handleDeleteListing} onOpenPromotions={() => navigate(`/promotions/${seller.id}`)} />
+                <ShopListingsTab sellerId={seller.id} products={activeSellerProducts} lowStockProducts={lowStockSellerProducts} outOfStockProducts={outOfStockSellerProducts} archivedProducts={archivedListings.filter((product) => product.sellerId === seller.id)} hasOrderHistory={(product) => storeOrders.some((order) => order.productId === product.id || order.orderItems?.some((item) => item.productId === product.id || item.listingId === product.databaseId))} promotions={sellerPromotions} navigate={navigate} onDelete={handleDeleteListing} onOpenPromotions={() => navigate(`/promotions/${seller.id}`)} />
                 <ShopPostsTab posts={managedPosts} onEdit={handleEditPost} onDelete={handleDeletePost} onCreate={handleCreatePost} />
                 <ShopEventsTab events={sellerEvents} navigate={navigate} onEdit={handleEditEvent} onDelete={handleDeleteEvent} />
                 </div>
@@ -472,7 +472,17 @@ function ShopEmptyTab({ children }) {
   return <div className="py-10 text-center text-[14px] text-[#828282]">{children}</div>;
 }
 
-function ShopListingsTab({ products, lowStockProducts, outOfStockProducts, archivedProducts, hasOrderHistory, promotions, navigate, onDelete, onOpenPromotions }) {
+function groupListingsByCategory(products) {
+  const groups = new Map();
+  products.forEach((product) => {
+    const category = product.category?.trim() || "Other";
+    groups.set(category, [...(groups.get(category) ?? []), product]);
+  });
+  return [...groups.entries()];
+}
+
+function ShopListingsTab({ sellerId, products, lowStockProducts, outOfStockProducts, archivedProducts, hasOrderHistory, promotions, navigate, onDelete, onOpenPromotions }) {
+  const categoryGroups = groupListingsByCategory(products);
   return (
     <ShopTabPanel>
       <div className="mb-3 flex items-center justify-between">
@@ -483,9 +493,9 @@ function ShopListingsTab({ products, lowStockProducts, outOfStockProducts, archi
         </div>
       </div>
       {promotions.length > 0 && <PromotionsBanner count={promotions.length} onClick={onOpenPromotions} />}
-      {products.length === 0 ? <ShopEmptyTab>No listings yet. Create your first listing to start selling on Grolo.</ShopEmptyTab> : <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{products.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div>}
+      {products.length === 0 ? <ShopEmptyTab>No listings yet. Create your first listing to start selling on Grolo.</ShopEmptyTab> : categoryGroups.map(([category, categoryProducts]) => <section key={category} className="mb-5 last:mb-0"><button type="button" onClick={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/${encodeURIComponent(category)}`)} className="mb-3 flex w-full items-center justify-between text-left"><h2 className="text-[16px] font-semibold">{category} ({categoryProducts.length})</h2><span aria-hidden="true" className="text-[20px] text-[#828282]">›</span></button><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{categoryProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>)}
       {lowStockProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Low Stock</h2><p className="mb-3 text-[13px] text-[#9A6700]">These listings have five or fewer items remaining.</p><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{lowStockProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>}
-      {outOfStockProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Out of Stock</h2><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{outOfStockProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>}
+      {outOfStockProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><button type="button" onClick={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/Out%20of%20Stock`)} className="mb-3 flex w-full items-center justify-between text-left"><h2 className="text-[18px] font-semibold">Out of Stock ({outOfStockProducts.length})</h2><span aria-hidden="true" className="text-[20px] text-[#828282]">›</span></button><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{outOfStockProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>}
       {archivedProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Archived Listings</h2><p className="mb-3 text-[13px] text-[#828282]">Listings with previous orders are retained here for historical records.</p><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{archivedProducts.map((product) => <SellerListingCard key={product.id} product={product} archived />)}</div></section>}
     </ShopTabPanel>
   );

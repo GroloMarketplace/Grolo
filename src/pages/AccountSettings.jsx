@@ -191,7 +191,7 @@ function SellerAccountSettings() {
 
             <Section title="Seller Status">
               <div className="flex items-center gap-3 rounded-lg bg-[#F5FFF6] p-3">
-                <ReputationStatusPill status={{ currentStatus: "established_seller" }} audience="seller" />
+                <ReputationStatusPill status={{ currentStatus: "established_seller" }} audience="seller" onClick={() => navigate("/seller-statuses")} />
                 <FoundingMemberBadge sellerId={SELLER_ID} ownerId={user?.id} foundingMember={profile.foundingMember} />
                 <div><div className="text-[12px] text-[#828282]">Read-only seller status</div></div>
                 <button type="button" onClick={() => navigate("/profit")} className="ml-auto text-[12px] font-medium text-[#498467]">View Progress <span aria-hidden="true">›</span></button>

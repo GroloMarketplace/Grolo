@@ -221,7 +221,7 @@ export default function SellerProfile() {
               onScroll={handleContentScroll}
               className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
             >
-            <ListingsTab products={sellerProducts} promotions={sellerPromotions} navigate={navigate} onOpenPromotions={() => navigate(`/promotions/${seller.id}`)} />
+            <ListingsTab sellerId={seller.id} products={sellerProducts} promotions={sellerPromotions} navigate={navigate} onOpenPromotions={() => navigate(`/promotions/${seller.id}`)} />
             <PostsTab posts={sellerPosts} navigate={navigate} profile={sellerProfile} />
             <EventsTab events={sellerEvents} navigate={navigate} profile={sellerProfile} />
             </div>
@@ -260,18 +260,30 @@ function EmptyTab({ children }) {
   return <div className="py-10 text-center text-[14px] text-[#828282]">{children}</div>;
 }
 
-function ListingsTab({ products, promotions, navigate, onOpenPromotions }) {
+function groupListingsByCategory(products) {
+  const groups = new Map();
+  products.forEach((product) => {
+    const category = product.category?.trim() || "Other";
+    groups.set(category, [...(groups.get(category) ?? []), product]);
+  });
+  return [...groups.entries()];
+}
+
+function ListingsTab({ sellerId, products, promotions, navigate, onOpenPromotions }) {
   const isInventoryTracked = (product) => !Array.isArray(product.variants) || product.variants.length === 0;
   const activeProducts = products.filter((product) => !isInventoryTracked(product) ? product.availableForOrders !== false : Number(product.quantityAvailable) > 0);
   const outOfStockProducts = products.filter((product) => !isInventoryTracked(product) ? product.availableForOrders === false : Number(product.quantityAvailable) <= 0);
+  const categoryGroups = groupListingsByCategory(activeProducts);
 
   return (
     <TabPanel>
       {promotions.length > 0 && <PromotionsBanner count={promotions.length} onClick={onOpenPromotions} />}
-      <ListingSection title="Listings" products={activeProducts} promotions={promotions} navigate={navigate} />
+      {categoryGroups.length === 0 ? <EmptyTab>No active listings</EmptyTab> : categoryGroups.map(([category, categoryProducts]) => (
+        <ListingSection key={category} title={category} count={categoryProducts.length} products={categoryProducts} promotions={promotions} navigate={navigate} onCategory={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/${encodeURIComponent(category)}`)} />
+      ))}
       {outOfStockProducts.length > 0 && (
         <section className="mt-6 border-t border-black/5 pt-4">
-          <h2 className="mb-3 text-[16px] font-semibold">Out of Stock</h2>
+          <button type="button" onClick={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/Out%20of%20Stock`)} className="mb-3 flex w-full items-center justify-between text-left"><h2 className="text-[16px] font-semibold">Out of Stock ({outOfStockProducts.length})</h2><span aria-hidden="true" className="text-[20px] text-[#828282]">›</span></button>
           <div className="grid w-full min-w-0 grid-cols-2 gap-3">
             {outOfStockProducts.map((product) => (
               <button key={product.id} type="button" onClick={() => navigate(`/product/${product.id}`)} className="rounded-lg border border-[#E6E6E6] p-3 text-left">
@@ -291,10 +303,13 @@ function ListingsTab({ products, promotions, navigate, onOpenPromotions }) {
   );
 }
 
-function ListingSection({ title, products, promotions, navigate }) {
+function ListingSection({ title, count, products, promotions, navigate, onCategory }) {
   return (
     <section>
-      <h2 className="mb-3 text-[16px] font-semibold">{title}</h2>
+      <button type="button" onClick={onCategory} className="mb-3 flex w-full items-center justify-between text-left">
+        <h2 className="text-[16px] font-semibold">{title} ({count})</h2>
+        <span aria-hidden="true" className="text-[20px] text-[#828282]">›</span>
+      </button>
       {products.length === 0 ? (
         <EmptyTab>No active listings</EmptyTab>
       ) : (

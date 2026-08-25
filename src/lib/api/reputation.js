@@ -313,7 +313,12 @@ export async function getSellerStatus(userId) {
   const resolvedUserId = await resolveReputationUserId(userId);
   if (!resolvedUserId) return statusPayload(null, "unranked", {}, {}, emptyDiagnostics());
   const [row, aggregate] = await Promise.all([getStatusRow(resolvedUserId, "seller"), getSellerAggregate(resolvedUserId)]);
-  const fallbackStatus = aggregate.metrics.completedOrderCount > 0 || aggregate.metrics.activeListingCount > 0 ? "established_seller" : "unranked";
+  const fallbackStatus = aggregate.metrics.completedOrderCount >= 10
+    && aggregate.metrics.activeDays >= 30
+    && aggregate.metrics.activeListingCount >= 5
+    && aggregate.metrics.reviewCount >= 1
+    ? "established_seller"
+    : "unranked";
   const diagnostics = emptyDiagnostics({ statusSource: row ? "user_reputation_status" : "derived", aggregateSource: "reviews, orders, listings" });
   return { userId, user_id: userId, ...statusPayload(row, fallbackStatus, aggregate.progress, aggregate.metrics, diagnostics) };
 }

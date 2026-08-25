@@ -49,6 +49,7 @@ import SellerProfile from "./pages/SellerProfile";
 import CreatePost from "./pages/CreatePost";
 import ProposeTrade from "./pages/ProposeTrade";
 import StoreReviews from "./pages/StoreReviews";
+import StoreCategory from "./pages/StoreCategory";
 import AdminRoute from "./components/AdminRoute";
 import Orders from "./pages/Orders";
 import LeaveReview from "./pages/LeaveReview";
@@ -69,6 +70,7 @@ import CreateAdvertisingAd from "./pages/CreateAdvertisingAd";
 import Trading from "./pages/Trading";
 import DeliveryAddress from "./pages/DeliveryAddress";
 import GroloStatuses from "./pages/GroloStatuses";
+import SellerStatuses from "./pages/SellerStatuses";
 import FoundingMember from "./pages/FoundingMember";
 import TrustReputation from "./pages/TrustReputation";
 import SuspendedAccount from "./pages/SuspendedAccount";
@@ -208,6 +210,7 @@ export default function App() {
         />
         <Route path="/community-impact" element={<PhoneFrame><CommunityImpact /></PhoneFrame>} />
         <Route path="/grolo-statuses" element={<PhoneFrame><GroloStatuses /></PhoneFrame>} />
+        <Route path="/seller-statuses" element={<PhoneFrame><SellerStatuses /></PhoneFrame>} />
         <Route path="/founding-member/:memberId" element={<PhoneFrame><FoundingMember /></PhoneFrame>} />
 
         <Route path="/trust-reputation" element={<PhoneFrame><TrustReputation /></PhoneFrame>} />
@@ -247,6 +250,7 @@ export default function App() {
           }
         />
         <Route path="/seller/:sellerId" element={<PhoneFrame><AppErrorBoundary label="Seller Profile"><SellerProfile /></AppErrorBoundary></PhoneFrame>} />
+        <Route path="/seller/:sellerId/category/:categoryName" element={<PhoneFrame><StoreCategory /></PhoneFrame>} />
         <Route path="/category/:categoryName" element={<PhoneFrame><Category /></PhoneFrame>} />
         <Route path="/featured" element={<PhoneFrame><Featured /></PhoneFrame>} />
         <Route path="/trading" element={<PhoneFrame><Trading /></PhoneFrame>} />

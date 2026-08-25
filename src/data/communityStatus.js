@@ -7,10 +7,10 @@ export const BUYER_STATUS_LEVELS = [
 ];
 
 export const SELLER_STATUS_LEVELS = [
-  { name: "Community Seeding", icon: "sprout", requirements: [] },
-  { name: "Community Growing", icon: "leaf", requirements: [{ key: "listingsCreated", label: "Listings Created", target: 5 }, { key: "completedOrders", label: "Completed Orders", target: 1 }, { key: "profileVisits", label: "Profile Visits", target: 25 }, { key: "followers", label: "Followers", target: 5 }] },
-  { name: "Community Flourishing", icon: "tree", requirements: [{ key: "completedOrders", label: "Completed Orders", target: 10 }, { key: "followers", label: "Followers", target: 15 }, { key: "sellerReviews", label: "Seller Reviews", target: 3 }, { key: "marketplaceInteractions", label: "Marketplace Interactions", target: 10 }, { key: "activeDays", label: "Store Active", target: 30 }] },
-  { name: "Grolo Partner", icon: "heart", requirements: [{ key: "completedOrders", label: "Completed Orders", target: 25 }, { key: "followers", label: "Followers", target: 25 }, { key: "sellerReviews", label: "Seller Reviews", target: 10 }, { key: "averageRating", label: "Average Rating", target: 4.5 }, { key: "activeDays", label: "Store Active", target: 90 }, { key: "communityContribution", label: "Community Contribution", target: 1 }] },
+  { name: "New Seller", icon: "sprout", requirements: [{ key: "profileCompleted", label: "Store profile completed", target: 1 }, { key: "activeListings", label: "At least 1 active listing", target: 1 }, { key: "accountInGoodStanding", label: "Account in good standing", target: 1 }] },
+  { name: "Established Seller", icon: "tree", requirements: [{ key: "completedOrders", label: "Minimum 10 completed orders", target: 10 }, { key: "activeStoreDays", label: "Active store for 30+ days", target: 30 }, { key: "activeListings", label: "Minimum 5 active listings", target: 5 }, { key: "noTrustSafetyViolations", label: "No trust & safety violations", target: 1 }, { key: "buyerReviews", label: "At least 1 completed buyer review", target: 1 }] },
+  { name: "Trusted Seller", icon: "star", requirements: [{ key: "completedOrders", label: "Minimum 50 completed orders", target: 50 }, { key: "averageRating", label: "Average rating of 4.7 or higher", target: 4.7 }, { key: "buyerReviews", label: "Minimum 15 buyer reviews", target: 15 }, { key: "activeStoreDays", label: "Active store for 90+ days", target: 90 }, { key: "noUnresolvedDisputes", label: "No unresolved disputes", target: 1 }, { key: "responseRate", label: "Response rate of 90% or higher", target: 90 }] },
+  { name: "Community Champion", icon: "trophy", requirements: [{ key: "completedOrders", label: "Minimum 100 completed orders", target: 100 }, { key: "averageRating", label: "Average rating of 4.8 or higher", target: 4.8 }, { key: "buyerReviews", label: "Minimum 25 buyer reviews", target: 25 }, { key: "activeStoreDays", label: "Active store for 180+ days", target: 180 }, { key: "communityContribution", label: "2 hosted community events or significant contribution", target: 1 }, { key: "noTrustSafetyViolations", label: "No trust & safety violations", target: 1 }] },
 ];
 
 export const buyerActions = {
@@ -35,14 +35,16 @@ export function getBuyerStatus(metrics = {}) {
 
 function sellerMetrics(metrics = {}) {
   return {
-    listingsCreated: Number(metrics.listingsCreated ?? metrics.productsCreated ?? 0),
-    completedOrders: Number(metrics.completedOrders ?? metrics.ordersFulfilled ?? 0),
-    profileVisits: Number(metrics.profileVisits ?? 0),
-    followers: Number(metrics.followers ?? metrics.followersGained ?? 0),
-    sellerReviews: Number(metrics.sellerReviews ?? metrics.reviewsReceived ?? 0),
-    marketplaceInteractions: Number(metrics.marketplaceInteractions ?? 0),
-    activeDays: Number(metrics.activeDays ?? 0),
-    averageRating: Number(metrics.averageRating ?? 0),
+    profileCompleted: Number(Boolean(metrics.profileCompleted ?? metrics.profile_completed)),
+    activeListings: Number(metrics.activeListings ?? metrics.activeListingCount ?? metrics.active_listing_count ?? metrics.listingsCreated ?? 0),
+    accountInGoodStanding: Number(metrics.accountInGoodStanding ?? metrics.account_in_good_standing ?? 0),
+    completedOrders: Number(metrics.completedOrders ?? metrics.ordersFulfilled ?? metrics.completedOrderCount ?? metrics.completed_order_count ?? 0),
+    activeStoreDays: Number(metrics.activeStoreDays ?? metrics.active_days ?? metrics.activeDays ?? 0),
+    buyerReviews: Number(metrics.buyerReviews ?? metrics.buyerReviewCount ?? metrics.buyer_review_count ?? metrics.sellerReviews ?? metrics.reviewCount ?? metrics.reviewsReceived ?? 0),
+    averageRating: Number(metrics.averageRating ?? metrics.average_rating ?? 0),
+    noTrustSafetyViolations: Number(metrics.noTrustSafetyViolations ?? metrics.no_trust_safety_violations ?? 0),
+    noUnresolvedDisputes: Number(metrics.noUnresolvedDisputes ?? metrics.no_unresolved_disputes ?? 0),
+    responseRate: Number(metrics.responseRate ?? metrics.response_rate ?? 0),
     communityContribution: Number(metrics.communityContribution ?? (metrics.eventsHosted || metrics.promotionsCreated ? 1 : 0)),
   };
 }

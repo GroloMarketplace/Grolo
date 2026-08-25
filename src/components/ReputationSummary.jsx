@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import TrustLevelIcon from "./TrustLevelIcon";
 import FoundingMemberBadge from "./FoundingMemberBadge";
 
@@ -21,15 +22,13 @@ function labelForCode(code) {
     .join(" ");
 }
 
-export function ReputationStatusPill({ status, audience = "buyer" }) {
+export function ReputationStatusPill({ status, audience = "buyer", onClick }) {
   if (!status?.currentStatus) return null;
   const code = status.currentStatus;
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-[#F5FFF6] px-2 py-1 text-[11px] font-medium text-[#498467]">
-      <TrustLevelIcon name={BADGE_ICONS[code] ?? (audience === "seller" ? "tree" : "sprout")} className="h-4 w-4" />
-      {labelForCode(code)}
-    </span>
-  );
+  const className = "inline-flex items-center gap-1 rounded-full bg-[#F5FFF6] px-2 py-1 text-[11px] font-medium text-[#498467]";
+  const content = <><TrustLevelIcon name={BADGE_ICONS[code] ?? (audience === "seller" ? "tree" : "sprout")} className="h-4 w-4" />{labelForCode(code)}</>;
+  if (onClick) return <button type="button" onClick={onClick} className={`${className} transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#498467]`}>{content}</button>;
+  return <span className={className}>{content}</span>;
 }
 
 export function BadgeRow({ badges = [], compact = false, includeFoundingMember = true }) {
@@ -74,6 +73,7 @@ function formatMemberSince(storeCreatedAt, memberSince) {
 }
 
 export function CompactReputationHeader({ snapshot, audience = "seller", includeFoundingMember = true, className = "" }) {
+  const navigate = useNavigate();
   const status = audience === "seller" ? { ...(snapshot?.sellerStatus ?? {}), currentStatus: "established_seller" } : snapshot?.buyerStatus;
   const metrics = status?.metrics ?? {};
   const activeBadges = snapshot?.activeBadges ?? [];
@@ -93,7 +93,7 @@ export function CompactReputationHeader({ snapshot, audience = "seller", include
 
   return (
     <div className={`flex min-w-0 items-center gap-2 rounded-md bg-[#F5FFF6] px-2 py-1.5 ${className}`} aria-label="Compact reputation summary">
-      <ReputationStatusPill status={status} audience={audience} />
+      <ReputationStatusPill status={status} audience={audience} onClick={audience === "seller" ? () => navigate("/seller-statuses") : undefined} />
       <CompactBadgeStack badges={activeBadges} includeFoundingMember={includeFoundingMember} />
       <span className="min-w-0 truncate text-[10px] text-[#828282]">{values}</span>
     </div>
@@ -124,6 +124,7 @@ export function TrustMetricSummary({ metrics = {}, audience = "buyer", memberSin
 }
 
 export default function ReputationSummary({ snapshot, audience = "buyer", memberSince, storeCreatedAt, sellerId, foundingMember = false, compact = false, includeFoundingMember = true, runtimeDiagnostic = false, className = "" }) {
+  const navigate = useNavigate();
   const status = audience === "seller" ? { ...(snapshot?.sellerStatus ?? {}), currentStatus: "established_seller" } : snapshot?.buyerStatus;
   const metrics = status?.metrics ?? {};
   const activeBadges = snapshot?.activeBadges ?? [];
@@ -146,7 +147,7 @@ export default function ReputationSummary({ snapshot, audience = "buyer", member
       </div>
       <div className="mt-2 flex flex-nowrap items-center gap-1 whitespace-nowrap">
         {audience === "seller" && <FoundingMemberBadge sellerId={sellerId} foundingMember={foundingMember} runtimeDiagnostic={runtimeDiagnostic} />}
-        <ReputationStatusPill status={status} audience={audience} />
+        <ReputationStatusPill status={status} audience={audience} onClick={audience === "seller" ? () => navigate("/seller-statuses") : undefined} />
       </div>
       {audience !== "seller" && <div className="mt-2"><BadgeRow badges={activeBadges} compact={compact} includeFoundingMember={includeFoundingMember} /></div>}
       <div className="mt-2">

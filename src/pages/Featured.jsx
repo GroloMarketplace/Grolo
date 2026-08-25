@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import SearchBar from "../components/SearchBar";
 import PromotionBadge from "../components/PromotionBadge";
-import { formatEventDate, formatEventTime } from "../context/EventContext";
+import { formatEventDate, formatEventTime, useEvents } from "../context/EventContext";
 import { useFollow } from "../context/FollowContext";
 import { useAdvertising } from "../context/AdvertisingContext";
 import { useListings } from "../context/ListingContext";
+import { useOrders } from "../context/OrderContext";
+import { trendingScore } from "../utils/trendingScore";
 import { events, promotions, sellers } from "../data/mockData";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
@@ -26,6 +28,9 @@ export default function Featured() {
   const navigate = useNavigate();
   const { ads } = useAdvertising();
   const { listings } = useListings();
+  const { events: liveEvents, getAttendeeCount } = useEvents();
+  const { orders } = useOrders();
+  const { getFollowerCount } = useFollow();
   const scrollRef = useRef(null);
   const savedFeaturedState = readNavigationState("featured", { query: "", filter: "All", sort: "Featured", scrollTop: 0 });
   const [query, setQuery] = useState(savedFeaturedState.query);
@@ -56,22 +61,33 @@ export default function Featured() {
     () => new Map(listings.map((product) => [product.id, promotions.find((promotion) => promotionMatchesListing(promotion, product))])),
     [listings],
   );
-  const paidStoreIds = new Set(
+  const paidStoreIds = useMemo(() => new Set(
     ads
       .filter((ad) => (ad.status === "Trial" || ad.status === "Active") && ad.type === "Store")
       .map((ad) => ad.destinationId),
-  );
-  const featuredStores = [
+  ), [ads]);
+  const featuredStores = useMemo(() => [
     ...Object.values(sellers).filter((store) => paidStoreIds.has(store.id)),
     ...Object.values(sellers).filter((store) => !paidStoreIds.has(store.id)),
-  ].slice(0, 4);
+  ].slice(0, 4).map((store) => ({
+    ...store,
+    followers: getFollowerCount(store.id),
+    orders: orders.filter((order) => String(order.sellerId ?? order.seller_id ?? "") === String(store.id) && String(order.status).toLowerCase() === "completed").length,
+  })), [getFollowerCount, orders, paidStoreIds]);
   const feed = useMemo(
     () => [
-      ...featuredStores.map((store) => ({ type: "store", item: store })),
-      ...listings.map((product) => ({ type: "listing", item: product, promotion: promotionByProduct.get(product.id) })),
-      ...events.slice(0, 6).map((event) => ({ type: "event", item: event })),
+      ...featuredStores.map((store) => ({ type: "store", item: store, trending: trendingScore("store", store) })),
+      ...listings.map((product) => {
+        const promotion = promotionByProduct.get(product.id);
+        return { type: "listing", item: product, promotion, trending: trendingScore("listing", product) + (promotion ? trendingScore("promotion", promotion) : 0) };
+      }),
+      ...(liveEvents ?? events).slice(0, 6).map((event) => ({
+        type: "event",
+        item: { ...event, attendingCount: getAttendeeCount(event.id) },
+        trending: trendingScore("event", { ...event, attendingCount: getAttendeeCount(event.id) }),
+      })),
     ],
-    [featuredStores, listings, promotionByProduct],
+    [featuredStores, getAttendeeCount, listings, liveEvents, promotionByProduct],
   );
   const filteredFeed = feed
     .filter((entry) => filter === "All" || (filter === "Listings" && entry.type === "listing") || (filter === "Events" && entry.type === "event") || (filter === "Stores" && entry.type === "store") || (filter === "Promotions" && entry.promotion))
@@ -85,7 +101,7 @@ export default function Featured() {
       return searchableText.toLowerCase().includes(query.trim().toLowerCase());
     })
     .sort((a, b) => {
-      if (sort === "Trending") return (b.item.views ?? b.item.likes ?? b.item.followers ?? 0) - (a.item.views ?? a.item.likes ?? a.item.followers ?? 0);
+      if (sort === "Trending") return b.trending - a.trending;
       if (sort === "Newest") return String(b.item.date ?? b.item.id).localeCompare(String(a.item.date ?? a.item.id));
       return 0;
     });

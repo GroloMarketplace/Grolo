@@ -178,15 +178,32 @@ export default function Chat() {
   const seller = liveSeller?.name || liveSeller?.avatar ? liveSeller : legacySeller ?? { id: sellerId, name: listing?.shop ?? conversation?.storeName ?? "Seller" };
   const conversationProfile = getConversationProfile({ ...conversation, sellerId, participantId: conversation?.participantId ?? (String(user?.id) === String(sellerId) ? conversation?.buyerId : sellerId), name: conversation?.name ?? seller.name }, getSellerProfile, buyerProfile, user?.id);
   const isOrderThread = location.state?.orderConversation === true || conversation?.conversationType === "order";
+  const tradeProposal = conversation?.tradeProposal
+    ?? conversation?.metadata?.tradeProposal
+    ?? conversation?.messages?.find((message) => message?.tradeProposal)?.tradeProposal;
   const isTradeThread = location.state?.tradeThread === true
     || conversation?.conversationType === "trading"
-    || conversation?.tradeThread === true;
+    || conversation?.conversationType === "trade_proposal"
+    || conversation?.metadata?.conversationType === "trading"
+    || conversation?.metadata?.conversationType === "trade_proposal"
+    || conversation?.tradeThread === true
+    || conversation?.metadata?.tradeThread === true
+    || Boolean(tradeProposal);
+  useEffect(() => {
+    if (!isTradeThread || !conversation) return;
+    console.info("trade conversation displayed identity audit", {
+      displayed_conversation_id: conversation.databaseId ?? conversation.id ?? null,
+      displayed_conversation_object: conversation,
+      displayed_conversation_metadata: conversation.metadata ?? null,
+      displayed_trade_proposal: tradeProposal ?? null,
+    });
+  }, [conversation, isTradeThread, tradeProposal]);
   const tradeOptions = listing?.desiredTradeItems
     ?.split(",")
     .map((item) => item.trim())
     .filter(Boolean) ?? [];
-  const tradeOfferings = conversation?.tradeProposal?.offeredListings
-    ?? (conversation?.tradeProposal?.offeredListing ? [conversation.tradeProposal.offeredListing] : []);
+  const tradeOfferings = tradeProposal?.offeredListings
+    ?? (tradeProposal?.offeredListing ? [tradeProposal.offeredListing] : []);
   const isTradeSeller = isTradeThread && String(user?.id) === String(conversation?.sellerId);
   const handleTradeResponse = (action) => {
     const counterMessage = action === "counter" ? window.prompt("Counter offer message", "I would like to make a counter offer.") : "";
@@ -328,25 +345,25 @@ export default function Chat() {
               <div className="flex flex-wrap gap-x-2 text-[12px] text-[#498467]"><span>{currentOrderContext.fulfillmentMethod === "delivery" ? "Delivery" : "Pickup"}</span><span className={getOrderStatusClass(currentOrderContext.status)}>{getOrderStatusLabel(currentOrderContext.status)}</span></div>
             </div>
           </button>
-        ) : isTradeThread && conversation?.tradeProposal ? (
+        ) : isTradeThread && tradeProposal ? (
           <div className="flex flex-col gap-3 p-3 rounded-lg border border-[#A7DDB5] bg-[#F5FFF6]">
             <div className="flex items-center gap-2 text-[13px] font-semibold text-[#356B4A]">
               <OutlineIcon name="trade" size={14} />
               Trade Proposal
             </div>
-            <p className="text-[12px] text-[#828282]">From {conversation.tradeProposal.buyerName}</p>
+            <p className="text-[12px] text-[#828282]">From {tradeProposal.buyerName}</p>
             <button
-              onClick={() => navigate(`/product/${conversation.tradeProposal.requestedListing.id}`)}
+              onClick={() => navigate(`/product/${tradeProposal.requestedListing.id}`)}
               className="flex gap-3 text-left"
             >
               <img
-                src={conversation.tradeProposal.requestedListing.image}
-                alt={conversation.tradeProposal.requestedListing.name}
+                src={tradeProposal.requestedListing.image}
+                alt={tradeProposal.requestedListing.name}
                 className="w-16 h-16 rounded-lg object-cover shrink-0"
               />
               <div className="flex-1 flex flex-col justify-center min-w-0">
                 <p className="text-[12px] text-[#828282]">Requesting</p>
-                <h4 className="text-[14px] font-semibold truncate">{conversation.tradeProposal.requestedListing.name}</h4>
+                <h4 className="text-[14px] font-semibold truncate">{tradeProposal.requestedListing.name}</h4>
               </div>
             </button>
             {tradeOfferings.length > 0 && (
@@ -355,15 +372,15 @@ export default function Chat() {
                 {tradeOfferings.map((offeredListing) => <div key={offeredListing.id} className="flex gap-3"><img src={offeredListing.image} alt={offeredListing.name} className="w-16 h-16 rounded-lg object-cover shrink-0" /><div className="flex flex-col justify-center min-w-0"><h4 className="text-[14px] font-semibold truncate">{offeredListing.name}</h4></div></div>)}
               </div>
             )}
-            {conversation.tradeProposal.message && (
+            {tradeProposal.message && (
               <div className="text-[13px] text-[#4F4F4F]">
                 <span className="font-medium text-[#356B4A]">Message: </span>
-                {conversation.tradeProposal.message}
+                {tradeProposal.message}
               </div>
             )}
-            {conversation.tradeProposal.photos?.length > 0 && (
+            {tradeProposal.photos?.length > 0 && (
               <div className="flex gap-2 overflow-x-auto">
-                {conversation.tradeProposal.photos.map((photo, index) => (
+                {tradeProposal.photos.map((photo, index) => (
                   <img key={index} src={photo} alt={`Trade photo ${index + 1}`} className="w-16 h-16 rounded-lg object-cover shrink-0" />
                 ))}
               </div>

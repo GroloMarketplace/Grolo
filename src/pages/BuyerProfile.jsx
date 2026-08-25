@@ -11,7 +11,7 @@ import { getBuyerImpactMetrics } from "../utils/buyerImpact";
 import { impactTimeline } from "../data/communityImpact";
 import OutlineIcon from "../components/OutlineIcon";
 import ImpactIcon from "../components/ImpactIcon";
-import { getBuyerTrustLevel, BUYER_TRUST_LEVELS } from "../data/buyerTrust";
+import { getBuyerTrustLevel, getBuyerStatusPresentation } from "../data/buyerTrust";
 import TrustLevelIcon from "../components/TrustLevelIcon";
 import { useSavedItems } from "../context/SavedContext";
 import { useBuyerTrust } from "../context/BuyerTrustContext";
@@ -123,7 +123,7 @@ export default function BuyerProfile() {
                 {editing ? <input defaultValue={buyerProfile.username} className="w-full border-b border-[#E6E6E6] text-[20px] font-semibold outline-none" /> : <h1 className="text-[20px] font-semibold">{buyerProfile.username}</h1>}
                 <p className="text-[12px] text-[#828282]">@{buyerProfile.handle}</p>
                 <FoundingMemberBadge sellerId="current-user" />
-                <TrustStatusBadge buyerId="you" />
+                <TrustStatusBadge status={reputationSnapshot?.buyerStatus} buyerId="you" />
                 {publicLocation && <p className="mt-0.5 flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{publicLocation}</p>}
               </div>
             </div>
@@ -170,7 +170,7 @@ export default function BuyerProfile() {
                   </div>
                 )}
               </div>
-              <CommunityImpactTab metrics={impactMetrics} profileId="you" />
+              <CommunityImpactTab metrics={impactMetrics} profileId="you" buyerStatus={reputationSnapshot?.buyerStatus} />
               <ReviewsTab reviews={sellerReviews} />
             </div>
           </div>
@@ -188,23 +188,22 @@ function buildActivity() {
   return [];
 }
 
-export function TrustStatusBadge({ buyerId = "you" }) {
+export function TrustStatusBadge({ status }) {
   const navigate = useNavigate();
-  const { getBuyerTrust } = useBuyerTrust();
-  const trust = getBuyerTrust(buyerId) ?? {};
-  const { current = BUYER_TRUST_LEVELS[0] } = getBuyerTrustLevel(trust);
+  const current = getBuyerStatusPresentation(status?.currentStatus);
+  if (!status?.currentStatus) return null;
   return <button type="button" onClick={() => navigate("/trust-reputation")} aria-label={`Open ${current.name} trust details`} className="group mt-1 inline-flex w-fit items-center gap-1 rounded-md text-[13px] font-medium text-[#498467] transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#498467]"><TrustLevelIcon name={current.icon} className="h-4 w-4" /><span className="group-hover:underline">{current.name}</span><span aria-hidden="true" className="text-[15px] opacity-60">›</span></button>;
 }
 
-function TrustReputationCard({ buyerId = "you" }) {
+function TrustReputationCard({ buyerId = "you", status }) {
   const navigate = useNavigate();
   const { getBuyerTrust } = useBuyerTrust();
   const trust = getBuyerTrust(buyerId) ?? {};
-  const { current = BUYER_TRUST_LEVELS[0] } = getBuyerTrustLevel(trust);
+  const current = getBuyerStatusPresentation(status?.currentStatus) ?? getBuyerTrustLevel(trust).current;
   return <button type="button" onClick={() => navigate("/trust-reputation")} aria-label="Open Trust and Reputation details" className="group mt-4 w-full rounded-lg border border-[#CFF7D3] bg-[#F5FFF6] p-4 text-left transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#498467]"><div className="flex items-center justify-between"><div className="text-[12px] font-medium uppercase tracking-[0.4px] text-[#498467]">Trust & Reputation</div><span aria-hidden="true" className="text-[20px] text-[#498467] opacity-60 transition-transform group-hover:translate-x-0.5">›</span></div><div className="mt-2 flex items-center gap-2 text-[17px] font-semibold"><TrustLevelIcon name={current.icon} /> {current.name}</div><div className="mt-3 grid grid-cols-3 gap-2 text-[11px] leading-[130%] text-[#828282]"><div><div className="text-[17px] font-semibold text-[#498467]">{trust.completedTransactions ?? 0}</div>Completed Transactions</div><div><div className="text-[17px] font-semibold text-[#498467]">{trust.sellerRecommendations ?? 0}</div>Seller Recommended</div><div><div className="text-[17px] font-semibold text-[#498467]">{trust.wouldTransactAgain ?? 0}</div>Would Transact Again</div></div></button>;
 }
 
-export function CommunityImpactTab({ metrics, publicView = false, profileId = "you" }) {
+export function CommunityImpactTab({ metrics, publicView = false, profileId = "you", buyerStatus }) {
   const safeMetrics = {
     businessesSupported: 0,
     purchasesMade: 0,
@@ -247,7 +246,7 @@ export function CommunityImpactTab({ metrics, publicView = false, profileId = "y
           </div>
         ))}
       </div>
-      <TrustReputationCard buyerId={profileId} />
+      <TrustReputationCard buyerId={profileId} status={buyerStatus} />
       <section className="mt-5">
         <h3 className="text-[18px] font-semibold">Impact timeline</h3>
         <div className="mt-3 flex flex-col">

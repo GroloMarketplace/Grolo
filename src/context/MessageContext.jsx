@@ -4,7 +4,7 @@ import { databaseMessageToLegacyMessage, getConversations, getMessages, isCanoni
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { isUserBlocked } from "../lib/api/trustSafety";
 import { createTradeOrder } from "../lib/api/tradeOrders";
-import { createTradeProposalRecord } from "../lib/api/tradeProposals";
+import { createTradeProposalRecord, verifyTradeProposalDelivery } from "../lib/api/tradeProposals";
 import { createNotification } from "../lib/api/notifications";
 
 const MessageContext = createContext(null);
@@ -35,6 +35,11 @@ function normalizeConversation(input) {
   const conversation = input && typeof input === "object" ? input : {};
   const isTrading = conversation.tradeThread === true
     || conversation.conversationType === "trading"
+    || conversation.conversationType === "trade_proposal"
+    || conversation.metadata?.tradeThread === true
+    || conversation.metadata?.conversationType === "trading"
+    || conversation.metadata?.conversationType === "trade_proposal"
+    || Boolean(conversation.metadata?.tradeProposal)
     || conversation.category === "Trading";
   const isService = conversation.conversationType === "service"
     || Boolean(conversation.serviceContext?.listingId);
@@ -44,11 +49,17 @@ function normalizeConversation(input) {
       ? conversation.threadMessages
       : [];
   const normalizedMessages = messages.filter(Boolean);
+  const latestMessage = normalizedMessages.reduce((latest, message) => (
+    !latest || timestampValue(message.createdAt ?? message.created_at ?? message.timestamp) > timestampValue(latest.createdAt ?? latest.created_at ?? latest.timestamp) ? message : latest
+  ), null);
 
   return {
     ...conversation,
+    ...(conversation.metadata?.tradeProposal && !conversation.tradeProposal ? { tradeProposal: conversation.metadata.tradeProposal } : {}),
     createdAt: conversation.createdAt ?? conversation.created_at ?? null,
     latestActivityAt: latestActivityAt(conversation, normalizedMessages),
+    preview: latestMessage?.text ?? latestMessage?.content ?? conversation.preview ?? "",
+    timestamp: latestMessage?.timestamp ?? latestMessage?.createdAt ?? conversation.timestamp ?? conversation.updated_at ?? null,
     unread: normalizedMessages.some((message) => message.unread === true),
     ...(isTrading ? { conversationType: "trading", category: "Trading", tradeThread: true } : {}),
     ...(isService ? { conversationType: "service" } : {}),
@@ -210,8 +221,13 @@ export function MessageProvider({ children }) {
     };
 
     loadSupabaseMessages();
+    const refreshOnFocus = () => loadSupabaseMessages();
+    window.addEventListener("focus", refreshOnFocus);
+    const refreshTimer = window.setInterval(loadSupabaseMessages, 3000);
     return () => {
       cancelled = true;
+      window.removeEventListener("focus", refreshOnFocus);
+      window.clearInterval(refreshTimer);
       cleanupRealtimeSubscriptions("effect-cleanup-user-id-change-or-provider-unmount");
     };
   }, [user?.id]);
@@ -509,10 +525,23 @@ export function MessageProvider({ children }) {
     const pendingWriteKey = localConversation?.id ?? pendingConversation?.id;
     const pendingWrite = pendingWriteKey ? pendingConversationWrites.current.get(pendingWriteKey) : null;
     if (pendingWrite) {
+      console.info("Trade conversation persistence pending", {
+        pendingConversationId: pendingWriteKey,
+        currentUserId: user.id,
+        recipientId: routeParticipantId,
+      });
       const databaseConversation = await pendingWrite;
       if (databaseConversation?.databaseId) return databaseConversation.databaseId;
+      throw new Error("Trade conversation persistence did not return a conversation UUID.");
     }
 
+    console.info("Conversation participant validation", {
+      routeConversationId: conversationId,
+      currentUserId: user.id,
+      recipientId: routeParticipantId,
+      recipientIdIsUuid: isCanonicalUuid(routeParticipantId),
+      conversationType,
+    });
     if (!isCanonicalUuid(routeParticipantId)) {
       throw new Error("The other participant must have a valid account UUID.");
     }
@@ -718,9 +747,22 @@ export function MessageProvider({ children }) {
 
   const createTradeProposal = ({ listing, seller, buyerName, message, offeredListing, offeredListings, photos }) => {
     ensureActiveAccount();
+    const sellerUserId = seller?.userId ?? seller?.user_id ?? seller?.accountId ?? seller?.id;
+    const listingId = listing?.databaseId ?? listing?.id ?? null;
+    const storeId = listing?.storeId ?? listing?.store_id ?? seller?.storeId ?? seller?.store_id ?? seller?.shopSlug ?? null;
+    const sellerProfileId = seller?.databaseId ?? seller?.profileId ?? seller?.profile_id ?? seller?.id ?? null;
+    console.info("trade proposal recipient audit", {
+      listing_id: listingId,
+      store_id: storeId,
+      seller_profile_id: sellerProfileId,
+      seller_user_id: sellerUserId ?? null,
+      recipient_id: sellerUserId ?? null,
+    });
+    if (!isCanonicalUuid(sellerUserId)) throw new Error("The seller account could not be resolved to a valid user UUID.");
     const id = `trade-${listing.id}-${Date.now()}`;
     const buyerId = user?.id ?? CURRENT_BUYER_ID;
     const tradeProposal = {
+      id,
       buyerName: buyerName || "A buyer",
       requestedListing: {
         id: listing.id,
@@ -746,9 +788,9 @@ export function MessageProvider({ children }) {
     const conversation = {
       id,
       name: seller.name,
-      sellerId: seller.id,
+      sellerId: sellerUserId,
       buyerId,
-      participantId: seller.id,
+      participantId: sellerUserId,
       location: seller.location,
       timestamp: "Just now",
       preview: firstMessage.text,
@@ -770,31 +812,64 @@ export function MessageProvider({ children }) {
       tradeProposal,
       messages: [firstMessage],
     };
-    const conversationWrite = persistConversation(conversation);
+    const conversationWrite = persistConversation(conversation, { throwOnError: true });
     conversationWrite.then((databaseConversation) => {
       const conversationId = databaseConversation?.databaseId ?? databaseConversation?.id ?? null;
+      console.info("trade proposal null dereference audit", {
+        trade_proposal_id: tradeProposal?.id ?? id,
+        trade_proposal_object: tradeProposal ?? null,
+        conversation_id: conversationId,
+        conversation_object: databaseConversation ?? null,
+        message_id: firstMessage?.id ?? null,
+        message_object: firstMessage ?? null,
+      });
       console.info("trade proposal delivery audit", {
         trade_proposal_id: id,
+        source_conversation_id: conversation.id,
+        persisted_conversation_id: conversationId,
+        conversation_lookup_id: databaseConversation?.databaseId ?? databaseConversation?.id ?? null,
         buyer_id: buyerId,
-        seller_id: seller.id,
+        seller_id: sellerUserId,
         conversation_id: conversationId,
         message_id: firstMessage.id,
+        conversation_created: Boolean(conversationId),
+        conversation_category: conversation.category,
+        conversation_type: conversation.conversationType,
       });
       if (!conversationId) return;
-      return Promise.allSettled([
-        appendMessage(conversationId, firstMessage, { ...conversation, databaseId: conversationId, id: conversationId, messages: [] }),
-        createTradeProposalRecord({ id, buyerId, sellerId: seller.id, conversationId, requestedListing: tradeProposal.requestedListing, offeredListings: tradeProposal.offeredListings, message, photos }),
-        createNotification({ userId: seller.id, type: "trade_proposal", title: "New Trade Offer", message: `${buyerName || "A buyer"} sent you a trade offer.`, relatedId: id }),
-      ]).then(([messageResult, proposalResult, notificationResult]) => console.info("trade proposal delivery verified", {
-        trade_proposal_id: id,
-        buyer_id: buyerId,
-        seller_id: seller.id,
-        conversation_id: conversationId,
-        message_id: messageResult.status === "fulfilled" ? messageResult.value?.databaseId ?? messageResult.value?.id ?? firstMessage.id : null,
-        proposal_row_created: proposalResult.status === "fulfilled" && Boolean(proposalResult.value),
-        notification_created: notificationResult.status === "fulfilled" && Boolean(notificationResult.value),
-      }));
-    }).catch((error) => console.warn("trade proposal delivery failed", { trade_proposal_id: id, buyer_id: buyerId, seller_id: seller.id, error: error?.message ?? String(error) }));
+      return appendMessage(conversationId, { ...firstMessage, tradeProposal, metadata: { tradeProposal } }, { ...conversation, databaseId: conversationId, id: conversationId, messages: [] })
+        .then(async (messageResult) => {
+          const message = messageResult?.message ?? null;
+          console.info("trade proposal post-message null dereference audit", {
+            trade_proposal_id: tradeProposal?.id ?? id,
+            trade_proposal_object: tradeProposal ?? null,
+            conversation_id: conversationId,
+            conversation_object: conversation ?? null,
+            message_id: message?.databaseId ?? message?.id ?? null,
+            message_object: message,
+          });
+          if (!message) throw new Error("Trade proposal message creation returned no message object.");
+          const messageId = message.databaseId ?? message.id ?? firstMessage.id;
+          const [proposal, notification] = await Promise.all([
+            createTradeProposalRecord({ id, buyerId, sellerId: sellerUserId, conversationId, requestedListing: tradeProposal.requestedListing, offeredListings: tradeProposal.offeredListings, message, photos }),
+            createNotification({ userId: sellerUserId, type: "trade_proposal", title: "New Trade Offer", message: `${buyerName || "A buyer"} sent you a trade offer.`, relatedId: id }),
+          ]);
+          const verification = await verifyTradeProposalDelivery({ tradeProposalId: id, buyerId, sellerId: sellerUserId, conversationId, messageId });
+          console.info("trade proposal delivery notification", {
+            ...verification,
+            notification_id: notification?.id ?? null,
+            proposal_row_created: Boolean(proposal),
+          });
+          return { message: messageResult, proposal, notification, verification };
+        });
+    }).catch((error) => console.warn("trade proposal delivery failed", {
+      trade_proposal_id: id,
+      buyer_id: buyerId,
+      seller_id: sellerUserId,
+      recipient_id: sellerUserId,
+      listing_id: listingId,
+      error: error?.message ?? String(error),
+    }));
     setMessages((current) => {
       return sortConversations([normalizeConversation(conversation), ...current]);
     });

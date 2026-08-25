@@ -2,6 +2,9 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import TrustLevelIcon from "./TrustLevelIcon";
 import FoundingMemberBadge from "./FoundingMemberBadge";
+import { getBuyerStatusPresentation, normalizeBuyerStatusCode } from "../data/buyerTrust";
+
+const BUYER_STATUS_CODES = new Set(["new_buyer", "trusted_buyer", "established_buyer", "community_champion", "community_trusted", "grolo_ambassador"]);
 
 const BADGE_ICONS = {
   founding_member: "trophy",
@@ -24,15 +27,16 @@ function labelForCode(code) {
 
 export function ReputationStatusPill({ status, audience = "buyer", onClick }) {
   if (!status?.currentStatus) return null;
-  const code = status.currentStatus;
+  const code = audience === "buyer" ? normalizeBuyerStatusCode(status.currentStatus) : status.currentStatus;
+  const presentation = audience === "buyer" ? getBuyerStatusPresentation(code) : null;
   const className = "inline-flex items-center gap-1 rounded-full bg-[#F5FFF6] px-2 py-1 text-[11px] font-medium text-[#498467]";
-  const content = <><TrustLevelIcon name={BADGE_ICONS[code] ?? (audience === "seller" ? "tree" : "sprout")} className="h-4 w-4" />{labelForCode(code)}</>;
+  const content = <><TrustLevelIcon name={presentation?.icon ?? BADGE_ICONS[code] ?? (audience === "seller" ? "tree" : "sprout")} className="h-4 w-4" />{presentation?.name ?? labelForCode(code)}</>;
   if (onClick) return <button type="button" onClick={onClick} className={`${className} transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#498467]`}>{content}</button>;
   return <span className={className}>{content}</span>;
 }
 
 export function BadgeRow({ badges = [], compact = false, includeFoundingMember = true }) {
-  const visibleBadges = badges.filter((badge) => includeFoundingMember || badge.code !== "founding_member");
+  const visibleBadges = badges.filter((badge) => !BUYER_STATUS_CODES.has(badge.code) && (includeFoundingMember || badge.code !== "founding_member"));
   if (!visibleBadges.length) return null;
   return (
     <div className="flex flex-wrap items-center gap-1.5" aria-label="Earned reputation badges">
@@ -51,7 +55,7 @@ export function BadgeRow({ badges = [], compact = false, includeFoundingMember =
 }
 
 export function CompactBadgeStack({ badges = [], includeFoundingMember = true }) {
-  const visibleBadges = badges.filter((badge) => includeFoundingMember || badge.code !== "founding_member");
+  const visibleBadges = badges.filter((badge) => !BUYER_STATUS_CODES.has(badge.code) && (includeFoundingMember || badge.code !== "founding_member"));
   if (!visibleBadges.length) return null;
   return (
     <div className="flex items-center gap-0.5" aria-label={`${visibleBadges.length} earned reputation badges`}>
@@ -93,7 +97,7 @@ export function CompactReputationHeader({ snapshot, audience = "seller", include
 
   return (
     <div className={`flex min-w-0 items-center gap-2 rounded-md bg-[#F5FFF6] px-2 py-1.5 ${className}`} aria-label="Compact reputation summary">
-      <ReputationStatusPill status={status} audience={audience} onClick={audience === "seller" ? () => navigate("/seller-statuses") : undefined} />
+      <ReputationStatusPill status={status} audience={audience} onClick={() => navigate(audience === "seller" ? "/seller-statuses" : "/trust-reputation")} />
       <CompactBadgeStack badges={activeBadges} includeFoundingMember={includeFoundingMember} />
       <span className="min-w-0 truncate text-[10px] text-[#828282]">{values}</span>
     </div>
@@ -147,7 +151,7 @@ export default function ReputationSummary({ snapshot, audience = "buyer", member
       </div>
       <div className="mt-2 flex flex-nowrap items-center gap-1 whitespace-nowrap">
         {audience === "seller" && <FoundingMemberBadge sellerId={sellerId} foundingMember={foundingMember} runtimeDiagnostic={runtimeDiagnostic} />}
-        <ReputationStatusPill status={status} audience={audience} onClick={audience === "seller" ? () => navigate("/seller-statuses") : undefined} />
+        <ReputationStatusPill status={status} audience={audience} onClick={() => navigate(audience === "seller" ? "/seller-statuses" : "/trust-reputation")} />
       </div>
       {audience !== "seller" && <div className="mt-2"><BadgeRow badges={activeBadges} compact={compact} includeFoundingMember={includeFoundingMember} /></div>}
       <div className="mt-2">

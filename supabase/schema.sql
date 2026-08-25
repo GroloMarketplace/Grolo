@@ -392,6 +392,7 @@ create table if not exists conversations (
   buyer_id uuid not null references profiles(id) on delete cascade,
   seller_id uuid not null references profiles(id) on delete cascade,
   listing_id uuid references listings(id) on delete set null,
+  metadata jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 

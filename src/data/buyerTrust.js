@@ -1,12 +1,14 @@
 export const BUYER_TRUST_LEVELS = [
   {
-    name: "Building Trust",
+    code: "new_buyer",
+    name: "New Buyer",
     icon: "sprout",
     description: "New members beginning their marketplace journey.",
     benefits: "Start building a reliable transaction history and earn seller confidence.",
     requirements: [],
   },
   {
+    code: "trusted_buyer",
     name: "Trusted Buyer",
     icon: "leaf",
     description: "Consistently completing successful purchases and receiving positive seller experiences.",
@@ -18,6 +20,7 @@ export const BUYER_TRUST_LEVELS = [
     ],
   },
   {
+    code: "established_buyer",
     name: "Established Buyer",
     icon: "tree",
     description: "A highly engaged community member with a strong transaction history.",
@@ -30,6 +33,7 @@ export const BUYER_TRUST_LEVELS = [
     ],
   },
   {
+    code: "community_champion",
     name: "Community Champion",
     icon: "star",
     description: "An active buyer who supports local businesses and participates in the community.",
@@ -41,33 +45,19 @@ export const BUYER_TRUST_LEVELS = [
       { key: "eventsAttended", label: "Attend 5 community events", target: 5 },
     ],
   },
-  {
-    name: "Community Trusted",
-    icon: "trophy",
-    description: "One of the most trusted buyers on Grolo.",
-    benefits: "Be recognized as a long-term, dependable member of the Grolo marketplace.",
-    requirements: [
-      { key: "completedTransactions", label: "Complete 75 transactions", target: 75 },
-      { key: "sellerRecommendations", label: "Be Seller Recommended by 20 sellers", target: 20 },
-      { key: "wouldTransactAgain", label: "Receive 40 would-transact-again ratings", target: 40 },
-      { key: "eventsAttended", label: "Attend 10 community events", target: 10 },
-      { key: "accountAgeMonths", label: "Keep your account active for 6 months", target: 6 }
-    ],
-  },
-  {
-    name: "Grolo Ambassador",
-    icon: "diamond",
-    description: "The highest level of trust and commitment within the Grolo community.",
-    benefits: "Represent the highest standard of reliability, participation, and positive marketplace experience on Grolo.",
-    requirements: [
-      { key: "completedTransactions", label: "Complete 150 transactions", target: 150 },
-      { key: "sellerRecommendations", label: "Be Seller Recommended by 50 sellers", target: 50 },
-      { key: "wouldTransactAgain", label: "Receive 75 would-transact-again ratings", target: 75 },
-      { key: "eventsAttended", label: "Attend 20 community events", target: 20 },
-      { key: "accountAgeMonths", label: "Keep your account active for 1 year", target: 12 }
-    ],
-  },
 ];
+
+export const BUYER_STATUS_BY_CODE = Object.freeze(Object.fromEntries(BUYER_TRUST_LEVELS.map((level) => [level.code, level])));
+
+export function normalizeBuyerStatusCode(code) {
+  if (BUYER_STATUS_BY_CODE[code]) return code;
+  if (["community_trusted", "grolo_ambassador"].includes(code)) return "community_champion";
+  return "new_buyer";
+}
+
+export function getBuyerStatusPresentation(code) {
+  return BUYER_STATUS_BY_CODE[normalizeBuyerStatusCode(code)];
+}
 
 export function getBuyerTrustLevel(trust = {}) {
   let currentIndex = 0;

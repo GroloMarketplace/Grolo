@@ -1,4 +1,5 @@
 import { isSupabaseConfigured, supabase } from "../supabaseClient";
+import { normalizeBuyerStatusCode } from "../../data/buyerTrust";
 
 const REVIEW_SELECT = "reviewee_id, reviewer_id, review_type, rating, criteria, status, deleted_at, created_at";
 const COMPLETED_ORDER_STATUS = "Completed";
@@ -301,11 +302,13 @@ async function getSellerAggregate(userId) {
 export async function getBuyerStatus(userId) {
   requireSupabase();
   const resolvedUserId = await resolveReputationUserId(userId);
-  if (!resolvedUserId) return statusPayload(null, "unranked", {}, {}, emptyDiagnostics());
+  if (!resolvedUserId) return statusPayload(null, "new_buyer", {}, {}, emptyDiagnostics());
   const [row, aggregate] = await Promise.all([getStatusRow(resolvedUserId, "buyer"), getBuyerAggregate(resolvedUserId)]);
-  const fallbackStatus = aggregate.metrics.completedTransactionCount > 0 ? "established_buyer" : "unranked";
+  const fallbackStatus = aggregate.metrics.completedTransactionCount > 0 ? "established_buyer" : "new_buyer";
   const diagnostics = emptyDiagnostics({ statusSource: row ? "user_reputation_status" : "derived", aggregateSource: "reviews, orders" });
-  return { userId, user_id: userId, ...statusPayload(row, fallbackStatus, aggregate.progress, aggregate.metrics, diagnostics) };
+  const payload = statusPayload(row, fallbackStatus, aggregate.progress, aggregate.metrics, diagnostics);
+  const currentStatus = normalizeBuyerStatusCode(payload.currentStatus);
+  return { userId, user_id: userId, ...payload, currentStatus, current_status: currentStatus };
 }
 
 export async function getSellerStatus(userId) {
@@ -583,12 +586,10 @@ export async function evaluateUserBadges(userId) {
 }
 
 const BUYER_STATUS_RULES = [
-  { code: "building_trust", metrics: {} },
+  { code: "new_buyer", metrics: {} },
   { code: "trusted_buyer", metrics: { completedTransactions: 5, sellerRecommendations: 2, wouldTransactAgain: 3 } },
   { code: "established_buyer", metrics: { completedTransactions: 15, sellerRecommendations: 5, wouldTransactAgain: 10, accountAgeDays: 60 } },
   { code: "community_champion", metrics: { completedTransactions: 35, sellerRecommendations: 10, wouldTransactAgain: 20, eventsAttended: 5 } },
-  { code: "community_trusted", metrics: { completedTransactions: 75, sellerRecommendations: 20, wouldTransactAgain: 40, eventsAttended: 10, accountAgeMonths: 6 } },
-  { code: "grolo_ambassador", metrics: { completedTransactions: 150, sellerRecommendations: 50, wouldTransactAgain: 75, eventsAttended: 20, accountAgeMonths: 12 } },
 ];
 
 const SELLER_STATUS_RULES = [

@@ -52,13 +52,16 @@ export async function getUnreadNotificationCount(userId) {
 
 export async function createNotification({ userId, recipientId, type, title, message, relatedId }) {
   requireSupabase();
-  const { data, error } = await supabase
-    .from("notifications")
-    .insert({ user_id: userId ?? recipientId, type, title, message, related_id: relatedId ?? null })
-    .select("*")
-    .single();
+  const targetUserId = userId ?? recipientId;
+  const { error } = await supabase.rpc("create_activity_notification", {
+    p_user_id: targetUserId,
+    p_type: type,
+    p_title: title,
+    p_message: message,
+    p_related_id: relatedId ?? null,
+  });
   if (error) throw error;
-  return normalizeNotification(data);
+  return { user_id: targetUserId, type, title, message, related_id: relatedId ?? null };
 }
 
 export async function markNotificationRead(id) {

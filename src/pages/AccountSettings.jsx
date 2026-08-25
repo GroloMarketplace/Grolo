@@ -4,7 +4,6 @@ import Header from "../components/Header";
 import ProfileSwitcher from "../components/ProfileSwitcher";
 import Sidebar from "../components/Sidebar";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import OutlineIcon from "../components/OutlineIcon";
 import { useOrders } from "../context/OrderContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
@@ -13,7 +12,7 @@ import { useAuth } from "../context/AuthContext";
 import { uploadImage, removeImage } from "../lib/imageStorage";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useSidebar } from "../hooks/useSidebar";
-import { buyerActions, getBuyerStatus } from "../data/communityStatus";
+import { buyerActions } from "../data/communityStatus";
 import { products } from "../data/mockData";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { ReputationStatusPill } from "../components/ReputationSummary";
@@ -257,12 +256,7 @@ function BuyerAccountSettings() {
   const { status: saveStatus, errorMessage: saveError, lastSavedAt, runSave } = useSaveFeedback();
   const reputationSnapshot = useReputationSnapshot(user?.id ?? "current-user");
   const buyerReputationMetrics = reputationSnapshot?.buyerStatus?.metrics ?? {};
-  const status = getBuyerStatus({
-    purchasesCompleted: buyerReputationMetrics.completedTransactionCount ?? buyerActions.purchasesCompleted,
-    reviewsWritten: buyerReputationMetrics.buyerReviewCount ?? buyerActions.reviewsWritten,
-    eventsAttended: buyerReputationMetrics.eventsAttended ?? buyerActions.eventsAttended,
-    tradesCompleted: buyerActions.tradesCompleted,
-  });
+  const status = reputationSnapshot?.buyerStatus ?? { currentStatus: "new_buyer" };
   const buyerSnapshot = {
     businessesSupported: reputationSnapshot?.communityImpact?.metrics?.businessesSupported ?? buyerActions.businessesSupported,
     reviewsWritten: buyerReputationMetrics.buyerReviewCount ?? buyerActions.reviewsWritten,
@@ -359,8 +353,8 @@ function BuyerAccountSettings() {
 
             <Section title="Buyer Status">
               <div className="flex items-center gap-3 rounded-lg bg-[#F5FFF6] p-3">
-                <span className="text-[#498467]"><OutlineIcon name={status.icon} size={25} /></span>
-                <div><div className="text-[12px] font-medium text-[#498467]">Buyer Status</div><div className="text-[15px] font-semibold">{status.name}</div></div>
+                <ReputationStatusPill status={status} />
+                <div><div className="text-[12px] font-medium text-[#498467]">Buyer Status</div></div>
                 <button type="button" onClick={() => navigate("/community-impact")} className="ml-auto text-[12px] font-medium text-[#498467]">View Progress <span aria-hidden="true">›</span></button>
               </div>
             </Section>

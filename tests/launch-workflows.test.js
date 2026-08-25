@@ -255,7 +255,7 @@ test("conversation creation uses the conversations table contract", async () => 
   assert.match(api, /buyer_id: payload\.buyer_id/);
   assert.match(api, /seller_id: payload\.seller_id/);
   assert.doesNotMatch(api, /rpc\("upsert_conversation"/);
-  assert.doesNotMatch(api, /order_id:|conversation_type:|metadata:|preview:/);
+  assert.doesNotMatch(api, /order_id:|conversation_type:|preview:/);
   assert.match(api, /\.from\("messages"\)/);
   assert.match(api, /conversation_id: resolvedConversationId/);
   assert.match(api, /sender_id: authenticatedUserId/);

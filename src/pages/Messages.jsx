@@ -179,6 +179,15 @@ function MessageRow({ message, orders, navigate, getSellerProfile, buyerProfile,
   const conversationUnreadCount = unreadMessageCount(message);
   const showUnread = conversationUnreadCount > 0;
 
+  console.info("Messages conversation visibility audit", {
+    conversationId: message.databaseId ?? message.id,
+    updatedAt: message.updated_at ?? message.updatedAt ?? null,
+    latestMessageId: latestMessage?.databaseId ?? latestMessage?.id ?? null,
+    latestMessageText: latestMessage?.text ?? null,
+    preview: latestMessage?.text ?? message.preview ?? null,
+    conversationCategory: message.category ?? null,
+    conversationType: message.conversationType ?? null,
+  });
   console.info("Messages conversation badge render", {
     conversationId: message.databaseId ?? message.id,
     unreadAfter: conversationUnreadCount,

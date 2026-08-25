@@ -192,7 +192,8 @@ export async function resolveLegacySellerId(sellerId) {
   const requestedId = typeof sellerId === "object" ? sellerId.id ?? sellerId.sellerId ?? sellerId.legacyId : sellerId;
   if (isUuid(requestedId)) return requestedId;
   const seller = await getSellerProfileById(requestedId);
-  const resolvedId = seller?.databaseId ?? seller?.id ?? requestedId ?? null;
+  const candidateId = seller?.databaseId ?? seller?.id;
+  const resolvedId = isUuid(candidateId) ? candidateId : null;
   console.info(`entity source: ${seller ? "supabase" : "legacy fallback"}`, {
     entityType: "seller id",
     requestedSellerId: requestedId,

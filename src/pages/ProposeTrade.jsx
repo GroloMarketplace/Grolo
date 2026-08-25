@@ -12,6 +12,7 @@ import { CompactBadgeStack, ReputationStatusPill, TrustMetricSummary } from "../
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useResolvedListingWithSeller, useResolvedSeller } from "../hooks/useEntityResolution";
+import { resolveLegacySellerId } from "../lib/api/entities";
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_PHOTOS = 5;
@@ -35,6 +36,7 @@ export default function ProposeTrade() {
   const myListings = listings.filter((item) => item.sellerId === buyerId && item.id !== listing?.id);
 
   const [message, setMessage] = useState("");
+  const [recipientError, setRecipientError] = useState("");
   const [images, setImages] = useState([]);
   const [imageError, setImageError] = useState("");
   const [offeredListingIds, setOfferedListingIds] = useState([]);
@@ -71,11 +73,34 @@ export default function ProposeTrade() {
 
   const removeOfferedListing = (listingId) => setOfferedListingIds((current) => current.filter((id) => id !== listingId));
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!listing || !seller) return;
+    setRecipientError("");
+    let sellerUserId;
+    try {
+      sellerUserId = await resolveLegacySellerId(seller);
+    } catch (error) {
+      console.warn("trade proposal seller resolution failed", { seller_id: seller.id ?? null, error: error?.message ?? String(error) });
+      setRecipientError("This seller account could not be resolved. Please reopen the listing and try again.");
+      return;
+    }
+    const listingId = listing.databaseId ?? listing.id;
+    const storeId = listing.storeId ?? listing.store_id ?? seller.storeId ?? seller.store_id ?? seller.shopSlug ?? null;
+    const sellerProfileId = seller.databaseId ?? seller.profileId ?? seller.profile_id ?? seller.id ?? null;
+    console.info("trade proposal recipient audit", {
+      listing_id: listingId,
+      store_id: storeId,
+      seller_profile_id: sellerProfileId,
+      seller_user_id: sellerUserId,
+      recipient_id: sellerUserId,
+    });
+    if (!sellerUserId) {
+      setRecipientError("This seller account could not be resolved. Please reopen the listing and try again.");
+      return;
+    }
     const { id, conversation } = createTradeProposal({
       listing,
-      seller,
+      seller: { ...seller, id: sellerUserId, databaseId: sellerUserId },
       buyerName: buyerProfile.displayName || user?.user_metadata?.name || "A buyer",
       message: message.trim(),
       offeredListings,
@@ -191,7 +216,8 @@ export default function ProposeTrade() {
 
         <div className="flex gap-3">
           <button type="button" onClick={() => navigate(-1)} className="flex-1 rounded-lg border border-[#E6E6E6] py-3 text-[16px] font-medium">Cancel</button>
-          <button type="button" onClick={handleSend} className="flex-1 rounded-lg bg-[#498467] py-3 text-[16px] font-medium text-white">Send Trade Proposal</button>
+          {recipientError && <p className="mb-3 text-[13px] text-red-600">{recipientError}</p>}
+        <button type="button" onClick={handleSend} className="flex-1 rounded-lg bg-[#498467] py-3 text-[16px] font-medium text-white">Send Trade Proposal</button>
         </div>
       </div>
 

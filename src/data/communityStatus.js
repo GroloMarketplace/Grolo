@@ -1,4 +1,8 @@
-export const BUYER_STATUS_LEVELS = [
+import { BUYER_TRUST_LEVELS, getBuyerTrustLevel } from "./buyerTrust";
+
+export const BUYER_STATUS_LEVELS = BUYER_TRUST_LEVELS;
+
+const LEGACY_BUYER_STATUS_LEVELS = [
   { name: "Community Seedling", icon: "sprout", threshold: 0, nextThreshold: 10 },
   { name: "Community Supporter", icon: "leaf", threshold: 10, nextThreshold: 25 },
   { name: "Community Champion", icon: "tree", threshold: 25, nextThreshold: 75 },
@@ -23,14 +27,14 @@ export const buyerActions = {
 
 export const sellerActions = {};
 
-function resolveStatus(levels, metrics) {
-  const total = Object.values(metrics).reduce((sum, value) => sum + Number(value || 0), 0);
-  const current = [...levels].reverse().find((level) => total >= level.threshold) ?? levels[0];
-  return { ...current, total, metrics, progress: Math.min((total / (current.nextThreshold || 1)) * 100, 100) };
-}
-
 export function getBuyerStatus(metrics = {}) {
-  return resolveStatus(BUYER_STATUS_LEVELS, metrics);
+  return getBuyerTrustLevel({
+    completedTransactions: metrics.purchasesCompleted ?? metrics.completedTransactions,
+    sellerRecommendations: metrics.sellerRecommendations,
+    wouldTransactAgain: metrics.wouldTransactAgain,
+    eventsAttended: metrics.eventsAttended,
+    accountAgeDays: metrics.accountAgeDays,
+  });
 }
 
 function sellerMetrics(metrics = {}) {
@@ -62,4 +66,4 @@ export function getSellerStatus(metrics = {}) {
   return { ...current, total: currentIndex, metrics: normalized, nextLevel: next, progressItems, progress: next ? (completedRequirements / next.requirements.length) * 100 : 100 };
 }
 
-export const COMMUNITY_STATUS_LEVELS = BUYER_STATUS_LEVELS;
+export const COMMUNITY_STATUS_LEVELS = LEGACY_BUYER_STATUS_LEVELS;

@@ -2,7 +2,8 @@ import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { useBuyerTrust } from "../context/BuyerTrustContext";
-import { getBuyerTrustLevel, BUYER_TRUST_LEVELS } from "../data/buyerTrust";
+import { getBuyerTrustLevel, BUYER_TRUST_LEVELS, getBuyerStatusPresentation } from "../data/buyerTrust";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 import TrustLevelIcon from "../components/TrustLevelIcon";
 
 const trustStats = [
@@ -26,8 +27,11 @@ function remainingRequirement(requirement, remaining) {
 export default function TrustReputation() {
   const navigate = useNavigate();
   const { getBuyerTrust } = useBuyerTrust();
+  const snapshot = useReputationSnapshot("current-user");
   const trust = getBuyerTrust("you") ?? {};
-  const { current, next, nextRequirements, progress } = getBuyerTrustLevel(trust);
+  const fallback = getBuyerTrustLevel(trust);
+  const current = getBuyerStatusPresentation(snapshot?.buyerStatus?.currentStatus) ?? fallback.current;
+  const { next, nextRequirements, progress } = fallback;
 
   return (
     <MobileScreenLayout>

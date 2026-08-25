@@ -3,8 +3,8 @@ import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { useListings } from "../context/ListingContext";
 import { useOrders } from "../context/OrderContext";
-import { getBuyerStatus } from "../data/communityStatus";
-import OutlineIcon from "../components/OutlineIcon";
+import { ReputationStatusPill } from "../components/ReputationSummary";
+import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useBuyerTrust } from "../context/BuyerTrustContext";
@@ -23,6 +23,11 @@ const SECTIONS = [
   { title: "Delivery Orders · Delivered", statuses: ["Delivered"], fulfillmentMethod: "delivery" },
   { title: "Cancelled Orders", statuses: ["Cancelled"] },
 ];
+
+function BuyerOrderStatus({ buyerId }) {
+  const reputationSnapshot = useReputationSnapshot(buyerId);
+  return <ReputationStatusPill status={reputationSnapshot?.buyerStatus} />;
+}
 
 export default function ShopOrders() {
   const navigate = useNavigate();
@@ -220,7 +225,7 @@ export default function ShopOrders() {
                               <span className="text-[12px] text-[#828282]">
                                 {buyerName}
                               </span>
-                              <span className="text-[#498467]"><OutlineIcon name={getBuyerStatus().icon} size={13} /></span>
+                              <BuyerOrderStatus buyerId={order.buyerId} />
                               {getBuyerTrust(buyerName).reliable && <span className="ml-1 rounded-full bg-[#F5FFF6] px-1.5 py-0.5 text-[10px] font-medium text-[#498467]">Reliable Buyer</span>}
                             </div>
                           </div>

@@ -58,6 +58,7 @@ export function databaseMessageToLegacyMessage(row, { currentUserId } = {}) {
   });
   return {
     ...row,
+    ...(row.metadata?.tradeProposal ? { tradeProposal: row.metadata.tradeProposal } : {}),
     id: row.legacy_id ?? row.legacyId ?? databaseId,
     databaseId,
     conversationId: row.conversation_id ?? row.conversationId,
@@ -93,8 +94,10 @@ export function databaseConversationToLegacyConversation(row, { currentUserId } 
   const rawMessages = Array.isArray(row.messages) ? row.messages : [];
   const mappedMessages = rawMessages.map((message) => databaseMessageToLegacyMessage(message, { currentUserId })).filter(Boolean);
 
+  const metadata = row.metadata ?? {};
   return {
     ...row,
+    ...metadata,
     id: databaseId,
     databaseId,
     createdAt: row.created_at ?? row.createdAt ?? row.updated_at ?? row.updatedAt ?? null,
@@ -128,10 +131,20 @@ export function legacyConversationToDatabasePayload(conversation, { buyerId, sel
     buyer_id: resolvedBuyerId,
     seller_id: resolvedSellerId,
     ...(resolvedListingId ? { listing_id: resolvedListingId } : {}),
+    metadata: {
+      conversationType: source.conversationType ?? null,
+      tradeThread: source.tradeThread ?? false,
+      tradeProposal: source.tradeProposal ?? source.metadata?.tradeProposal ?? null,
+      tradePreferences: source.tradePreferences ?? source.metadata?.tradePreferences ?? null,
+      productContext: source.productContext ?? null,
+      category: source.category ?? null,
+      name: source.name ?? null,
+      location: source.location ?? null,
+    },
   };
 }
 
-const CONVERSATION_SELECT = "id, buyer_id, seller_id, listing_id, updated_at";
+const CONVERSATION_SELECT = "id, buyer_id, seller_id, listing_id, metadata, updated_at";
 
 function databaseErrorDetails(error) {
   return {
@@ -147,6 +160,16 @@ function attachConversationDebug(error, debug) {
   const enrichedError = error instanceof Error ? error : new Error(error?.message ?? String(error));
   enrichedError.conversationDebug = debug;
   return enrichedError;
+}
+
+function tradeProposalFingerprint(proposal) {
+  if (!proposal) return null;
+  return JSON.stringify({
+    requestedListingId: proposal.requestedListing?.id ?? null,
+    offeredListingIds: (proposal.offeredListings ?? (proposal.offeredListing ? [proposal.offeredListing] : [])).map((item) => item?.id ?? null),
+    message: proposal.message ?? "",
+    photos: proposal.photos ?? [],
+  });
 }
 
 export async function upsertConversationInDatabase(conversation, { buyerId, sellerId, listingId, currentUserId } = {}) {
@@ -185,10 +208,12 @@ export async function upsertConversationInDatabase(conversation, { buyerId, sell
         buyer_id: payload.buyer_id,
         seller_id: payload.seller_id,
         listing_id: payload.listing_id ?? null,
+        metadata: payload.metadata,
       })
       .eq("id", payload.id)
       .select(CONVERSATION_SELECT)
-      .single());
+      .limit(1)
+      .maybeSingle());
   } else {
     let existingQuery = supabase
       .from("conversations")
@@ -198,7 +223,20 @@ export async function upsertConversationInDatabase(conversation, { buyerId, sell
     existingQuery = payload.listing_id
       ? existingQuery.eq("listing_id", payload.listing_id)
       : existingQuery.is("listing_id", null);
+    console.info("Trade conversation metadata lookup request", {
+      conversation_id: payload.id ?? null,
+      buyer_id: payload.buyer_id,
+      seller_id: payload.seller_id,
+      listing_id: payload.listing_id ?? null,
+      filter: "buyer_id + seller_id + listing_id",
+    });
     const existingResult = await existingQuery.limit(1).maybeSingle();
+    console.info("Trade conversation metadata lookup result", {
+      conversation_id: existingResult.data?.id ?? null,
+      conversation_object: existingResult.data ?? null,
+      conversation_row_count: existingResult.data ? 1 : 0,
+      error: existingResult.error?.message ?? null,
+    });
     if (existingResult.error) {
       console.warn("Conversation table lookup failed", {
         ...requestDetails,
@@ -214,6 +252,99 @@ export async function upsertConversationInDatabase(conversation, { buyerId, sell
     }
     if (existingResult.data) {
       row = existingResult.data;
+      const existingTradeProposal = row.metadata?.tradeProposal ?? null;
+      const incomingTradeProposal = payload.metadata?.tradeProposal ?? null;
+      const existingTradeProposalId = existingTradeProposal?.id ?? row.metadata?.tradeProposalId ?? null;
+      const incomingTradeProposalId = incomingTradeProposal?.id ?? payload.metadata?.tradeProposalId ?? null;
+      const existingProposalFingerprint = tradeProposalFingerprint(existingTradeProposal);
+      const incomingProposalFingerprint = tradeProposalFingerprint(incomingTradeProposal);
+      const sameTradeProposal = Boolean(existingTradeProposal && incomingTradeProposal && (
+        existingTradeProposalId === incomingTradeProposalId
+        || existingProposalFingerprint === incomingProposalFingerprint
+      ));
+      console.info("Trade proposal comparison decision", {
+        conversation_id: row.id,
+        existing_proposal_id: existingTradeProposalId,
+        incoming_proposal_id: incomingTradeProposalId,
+        existing_proposal_fingerprint: existingProposalFingerprint,
+        incoming_proposal_fingerprint: incomingProposalFingerprint,
+        existing_proposal_present: Boolean(existingTradeProposal),
+        incoming_proposal_present: Boolean(incomingTradeProposal),
+        metadata_update_skipped: sameTradeProposal,
+        difference_reason: !existingTradeProposal ? "no existing proposal" : sameTradeProposal ? "matching id or content" : "proposal id/content differs",
+      });
+      if (sameTradeProposal) {
+        console.info("Trade conversation metadata update skipped", {
+          ...requestDetails,
+          conversation_id: row.id,
+          reason: "metadata already contains this trade proposal",
+          existing_trade_proposal_id: existingTradeProposalId,
+          incoming_trade_proposal_id: incomingTradeProposalId,
+        });
+      } else if (payload.metadata?.tradeProposal) {
+        const conversationIdBeforeMetadataUpdate = row?.id ?? null;
+        console.info("Trade conversation metadata update request", {
+          ...requestDetails,
+          conversation_id: conversationIdBeforeMetadataUpdate,
+          conversation_object: row ?? null,
+          update_filter: { id: conversationIdBeforeMetadataUpdate },
+          metadata_keys: Object.keys(payload.metadata ?? {}),
+        });
+        const metadataUpdateResult = await supabase
+          .from("conversations")
+          .update({ metadata: payload.metadata, listing_id: payload.listing_id ?? null }, { count: "exact" })
+          .eq("id", conversationIdBeforeMetadataUpdate);
+        console.info("Trade conversation metadata update result", {
+          ...requestDetails,
+          conversation_id: conversationIdBeforeMetadataUpdate,
+          update_where: { id: conversationIdBeforeMetadataUpdate },
+          update_result_row_count: metadataUpdateResult.count ?? 0,
+          metadata_update_result: metadataUpdateResult.data ?? null,
+          error: metadataUpdateResult.error?.message ?? null,
+        });
+        if (metadataUpdateResult.error) throw metadataUpdateResult.error;
+        if (metadataUpdateResult.count !== 1) {
+          const lookupAfterUpdate = await supabase
+            .from("conversations")
+            .select(CONVERSATION_SELECT)
+            .eq("id", conversationIdBeforeMetadataUpdate)
+            .limit(1);
+          const rowAfterUpdate = lookupAfterUpdate.data?.[0] ?? null;
+          const sameProposalAfterUpdate = Boolean(rowAfterUpdate?.metadata?.tradeProposal && incomingTradeProposal && (
+            rowAfterUpdate.metadata.tradeProposal.id === incomingTradeProposalId
+            || tradeProposalFingerprint(rowAfterUpdate.metadata.tradeProposal) === incomingProposalFingerprint
+          ));
+          console.info("Trade conversation lookup after metadata update", {
+            conversation_id: conversationIdBeforeMetadataUpdate,
+            conversation_row_count: lookupAfterUpdate.data?.length ?? 0,
+            conversation_object: rowAfterUpdate,
+            metadata_update_skipped: sameProposalAfterUpdate,
+            reason: sameProposalAfterUpdate ? "existing metadata already matches incoming proposal" : "update matched no row",
+            error: lookupAfterUpdate.error?.message ?? null,
+          });
+          if (sameProposalAfterUpdate) {
+            row = rowAfterUpdate;
+          } else {
+            throw new Error("Trade conversation metadata update matched no conversation row.");
+          }
+        }
+        const updatedExistingResult = await supabase
+          .from("conversations")
+          .select(CONVERSATION_SELECT)
+          .eq("id", conversationIdBeforeMetadataUpdate)
+          .limit(1)
+          .maybeSingle();
+        console.info("Trade conversation metadata readback", {
+          conversation_id: conversationIdBeforeMetadataUpdate,
+          readback_result_row_count: updatedExistingResult.data ? 1 : 0,
+          metadata_update_result: updatedExistingResult.data ?? null,
+          trade_proposal_attached: Boolean(updatedExistingResult.data?.metadata?.tradeProposal),
+          error: updatedExistingResult.error?.message ?? null,
+        });
+        if (updatedExistingResult.error) throw updatedExistingResult.error;
+        if (!updatedExistingResult.data) throw new Error("Trade conversation metadata update readback returned no conversation row.");
+        row = updatedExistingResult.data;
+      }
       console.info("Conversation table existing row recovered", {
         ...requestDetails,
         conversationUuid: row.id,
@@ -226,12 +357,17 @@ export async function upsertConversationInDatabase(conversation, { buyerId, sell
           buyer_id: payload.buyer_id,
           seller_id: payload.seller_id,
           listing_id: payload.listing_id ?? null,
+          metadata: payload.metadata,
         })
         .select(CONVERSATION_SELECT)
-        .single());
+        .limit(1)
+        .maybeSingle());
     }
   }
 
+  if (!error && !row) {
+    error = new Error("Conversation query returned no row.");
+  }
   if (error) {
     console.warn("Conversation table insert/update failed", {
       ...requestDetails,
@@ -312,7 +448,7 @@ async function attachParticipantProfiles(conversations) {
 export async function getConversations(userId) {
   requireSupabase();
   const authenticatedUserId = await getAuthenticatedUserId(userId);
-  const select = "id, buyer_id, seller_id, listing_id, updated_at";
+  const select = "id, buyer_id, seller_id, listing_id, metadata, updated_at";
   const [buyerResult, sellerResult] = await Promise.all([
     supabase.from("conversations").select(select).eq("buyer_id", authenticatedUserId).order("updated_at", { ascending: false }),
     supabase.from("conversations").select(select).eq("seller_id", authenticatedUserId).order("updated_at", { ascending: false }),
@@ -328,6 +464,18 @@ export async function getConversations(userId) {
   }
   const rowsById = new Map([...(buyerResult.data ?? []), ...(sellerResult.data ?? [])].map((conversation) => [conversation.id, conversation]));
   const data = [...rowsById.values()].sort((left, right) => new Date(right.updated_at ?? 0).getTime() - new Date(left.updated_at ?? 0).getTime());
+  console.info("seller inbox conversation audit", {
+    authenticatedUserId,
+    sellerConversationCount: sellerResult.data?.length ?? 0,
+    sellerConversationIds: (sellerResult.data ?? []).map((conversation) => conversation.id),
+    sellerConversationParticipantIds: (sellerResult.data ?? []).map((conversation) => ({
+      conversationId: conversation.id,
+      buyerId: conversation.buyer_id,
+      sellerId: conversation.seller_id,
+      category: conversation.metadata?.category ?? null,
+      conversationType: conversation.metadata?.conversationType ?? null,
+    })),
+  });
   console.info("Conversation retrieval diagnostics", {
     authenticatedUserId,
     buyerQueryCount: buyerResult.data?.length ?? 0,

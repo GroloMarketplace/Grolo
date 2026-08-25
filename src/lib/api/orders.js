@@ -126,8 +126,10 @@ export function legacyOrderFromRow(row, itemRow, itemIndex = 0) {
     productId: item.product_id ?? item.productId ?? item.listings?.legacy_id ?? item.listing_id ?? item.listingId,
     quantity: Number(item.quantity) || 0,
     total: Number(row.total) || 0,
-    buyer: row.buyer ?? row.metadata?.buyer ?? row.buyer_id ?? row.buyerId ?? "Buyer",
-    buyerAvatar: row.buyerAvatar ?? row.metadata?.buyerAvatar,
+    buyer: row.buyer ?? row.metadata?.buyer ?? "Customer",
+    buyerUsername: row.buyerUsername ?? row.metadata?.buyerUsername ?? null,
+    buyerDisplayName: row.buyerDisplayName ?? row.metadata?.buyerDisplayName ?? null,
+    buyerAvatar: row.buyerAvatar ?? row.metadata?.buyerAvatar ?? null,
     buyerId: row.buyer_id ?? row.buyerId,
     sellerId: row.seller_id ?? row.sellerId,
     status: row.status,
@@ -321,10 +323,40 @@ export async function getSellerOrders(sellerId) {
     logApiError("getSellerOrders", error, { seller_id: sellerId });
     throw error;
   }
+  const buyerIds = [...new Set((data ?? []).map((row) => row.buyer_id).filter(Boolean))];
+  const buyerProfileResults = await Promise.all(buyerIds.map(async (buyerId) => {
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, username, display_name, avatar_url")
+      .eq("id", buyerId)
+      .maybeSingle();
+    console.info("seller order buyer profile lookup", {
+      order_ids: (data ?? []).filter((row) => String(row.buyer_id) === String(buyerId)).map((row) => row.id),
+      buyer_id: buyerId,
+      profile_id: profile?.id ?? null,
+      display_name: profile?.display_name ?? null,
+      username: profile?.username ?? null,
+      avatar_url: profile?.avatar_url ?? null,
+      profile_found: Boolean(profile),
+      error: profileError?.message ?? null,
+    });
+    return [String(buyerId), profile];
+  }));
+  const profilesById = new Map(buyerProfileResults);
+  const hydratedRows = (data ?? []).map((row) => {
+    const profile = profilesById.get(String(row.buyer_id));
+    return profile ? {
+      ...row,
+      buyer: profile.display_name ?? profile.username ?? "Customer",
+      buyerUsername: profile.username ?? null,
+      buyerDisplayName: profile.display_name ?? null,
+      buyerAvatar: profile.avatar_url ?? null,
+    } : row;
+  });
   console.info("seller orders database result", {
     sellerId,
-    orderCount: data?.length ?? 0,
-    orders: (data ?? []).map((row) => ({
+    orderCount: hydratedRows.length,
+    orders: hydratedRows.map((row) => ({
       orderId: row.id ?? null,
       sellerId: row.seller_id ?? null,
       buyerId: row.buyer_id ?? null,
@@ -333,7 +365,7 @@ export async function getSellerOrders(sellerId) {
       variantItems: row.metadata?.variant_items ?? [],
     })),
   });
-  return (data ?? []).map(orderFromRow);
+  return hydratedRows.map(orderFromRow);
 }
 
 export function subscribeToOrders(userId, onChange, onStatus) {

@@ -25,6 +25,7 @@ import DistanceLabel from "../components/DistanceLabel";
 import { CompactReputationHeader } from "../components/ReputationSummary";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useMarketplaceDiscovery } from "../hooks/useEntityResolution";
+import { useTrustSafety } from "../context/TrustSafetyContext";
 import { promotedContentImage } from "../utils/promotionMedia";
 
 const TABS = ["Local", "Map", "History", "My Orders"];
@@ -53,6 +54,7 @@ export default function Search() {
   const [searchHasMore, setSearchHasMore] = useState(false);
   const [searchLoadingMore, setSearchLoadingMore] = useState(false);
   const { settings: buyerSettings = {} } = useBuyerSettings();
+  const { blockedUserIds } = useTrustSafety();
   const location = useLocation();
   const scrollRef = useRef(null);
   const requestedTab = TABS.includes(location.state?.activeTab) ? location.state.activeTab : null;
@@ -163,7 +165,7 @@ export default function Search() {
           <SearchBar value={query} onChange={(event) => { queryRef.current = event.target.value; setQuery(event.target.value); }} />
         </div>
 
-        {tab === "Local" && query.trim() ? <SearchResults products={searchResults ?? discoveryProducts} sellers={resolvedSellers} events={resolvedEvents} posts={resolvedPosts} query={query} navigate={navigate} onProduct={rememberProduct} onBack={returnToSearchHome} buyerSettings={buyerSettings} onLoadMore={loadMoreSearch} hasMore={searchHasMore} loadingMore={searchLoadingMore} /> : tab === "Local" && (
+        {tab === "Local" && query.trim() ? <SearchResults products={searchResults ?? discoveryProducts} sellers={resolvedSellers} events={resolvedEvents} posts={resolvedPosts} blockedUserIds={blockedUserIds} query={query} navigate={navigate} onProduct={rememberProduct} onBack={returnToSearchHome} buyerSettings={buyerSettings} onLoadMore={loadMoreSearch} hasMore={searchHasMore} loadingMore={searchLoadingMore} /> : tab === "Local" && (
           <>
             <PromotionalCarousel onNavigate={navigate} />
             <CommunitySpotlightCarousel sellers={resolvedSellers} listings={discoveryProducts} events={resolvedEvents} />
@@ -188,7 +190,8 @@ export default function Search() {
   );
 }
 
-function SearchResults({ products, sellers, events, posts, query, navigate, onProduct, onBack, buyerSettings, onLoadMore, hasMore, loadingMore }) {
+function SearchResults({ products, sellers, events, posts, blockedUserIds, query, navigate, onProduct, onBack, buyerSettings, onLoadMore, hasMore, loadingMore }) {
+  const visibleAccount = (accountId) => !blockedUserIds.has(String(accountId));
   const normalizedQuery = query.trim().toLowerCase();
   // Search covers all content; results are just sorted nearest-first so local
   // matches surface at the top without hiding results outside the radius.
@@ -196,11 +199,11 @@ function SearchResults({ products, sellers, events, posts, query, navigate, onPr
   const nearestFirst = (items) => sortByDistance(items, userLocation);
   const allPosts = posts ?? [];
   const matches = (value) => String(value ?? "").toLowerCase().includes(normalizedQuery);
-  const productResults = nearestFirst(products.filter((product) => matches(`${product.name} ${product.description} ${product.shop}`)));
-  const storeResults = nearestFirst(sellers.filter((seller) => matches(`${seller.name} ${seller.description} ${seller.location}`)));
-  const eventResults = nearestFirst(events.filter((event) => matches(`${event.title} ${event.description} ${event.type} ${event.location}`)));
-  const postResults = nearestFirst(allPosts.filter((post, index, posts) => posts.findIndex((item) => item.id === post.id) === index && matches(`${post.body} ${post.name} ${post.classification}`)));
-  const tradeResults = nearestFirst(products.filter((product) => product.availableForTrade && matches(`${product.name} ${product.tradeAvailableFor} ${product.desiredTradeItems}`)));
+  const productResults = nearestFirst(products.filter((product) => visibleAccount(product.sellerId) && matches(`${product.name} ${product.description} ${product.shop}`)));
+  const storeResults = nearestFirst(sellers.filter((seller) => visibleAccount(seller.id) && matches(`${seller.name} ${seller.description} ${seller.location}`)));
+  const eventResults = nearestFirst(events.filter((event) => visibleAccount(event.sellerId) && matches(`${event.title} ${event.description} ${event.type} ${event.location}`)));
+  const postResults = nearestFirst(allPosts.filter((post, index, posts) => visibleAccount(post.sellerId ?? post.authorId) && posts.findIndex((item) => item.id === post.id) === index && matches(`${post.body} ${post.name} ${post.classification}`)));
+  const tradeResults = nearestFirst(products.filter((product) => visibleAccount(product.sellerId) && product.availableForTrade && matches(`${product.name} ${product.tradeAvailable} ${product.desiredTradeItems}`)));
   const groups = [
     { title: "Products", items: productResults, render: (product) => <ProductSearchRow key={product.id} product={product} onProduct={onProduct} /> },
     { title: "Stores", items: storeResults, render: (seller) => <SellerResultRow key={seller.id} seller={seller} onClick={() => navigate(`/seller/${seller.id}`)} /> },

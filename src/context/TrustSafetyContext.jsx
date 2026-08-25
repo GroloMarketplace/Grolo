@@ -16,12 +16,12 @@ export function TrustSafetyProvider({ children }) {
       return undefined;
     }
     getBlockedUsers(user.id)
-      .then((rows) => { if (!cancelled) setBlockedUserIds(new Set(rows.map((row) => row.blocked_id))); })
+      .then((rows) => { if (!cancelled) setBlockedUserIds(new Set(rows.map((row) => String(row.blocked_id)))); })
       .catch((error) => console.error("Unable to load blocked users", error));
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  const isBlocked = useCallback((userId) => blockedUserIds.has(userId), [blockedUserIds]);
+  const isBlocked = useCallback((userId) => blockedUserIds.has(String(userId)), [blockedUserIds]);
   const checkBlocked = useCallback(async (userId) => {
     if (!user?.id || !userId || !isSupabaseConfigured) return false;
     return isUserBlocked(user.id, userId);
@@ -29,14 +29,14 @@ export function TrustSafetyProvider({ children }) {
   const block = useCallback(async (userId) => {
     if (!user?.id) throw new Error("You must be signed in to block a user.");
     await blockUser(user.id, userId);
-    setBlockedUserIds((current) => new Set([...current, userId]));
+    setBlockedUserIds((current) => new Set([...current, String(userId)]));
   }, [user?.id]);
   const unblock = useCallback(async (userId) => {
     if (!user?.id) return;
     await unblockUser(user.id, userId);
     setBlockedUserIds((current) => {
       const next = new Set(current);
-      next.delete(userId);
+      next.delete(String(userId));
       return next;
     });
   }, [user?.id]);

@@ -34,9 +34,15 @@ export async function getMyReports(reporterId) {
 
 export async function getBlockedUsers(userId) {
   requireSupabase();
-  const { data, error } = await supabase.from("user_blocks").select("blocked_id, created_at").eq("blocker_id", userId);
+  const { data, error } = await supabase
+    .from("user_blocks")
+    .select("blocker_id, blocked_id, created_at")
+    .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`);
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map((row) => ({
+    ...row,
+    blocked_id: String(row.blocker_id) === String(userId) ? row.blocked_id : row.blocker_id,
+  }));
 }
 
 export async function blockUser(blockerId, blockedId) {

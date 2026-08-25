@@ -25,6 +25,8 @@ import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useResolvedListingWithSeller, useResolvedSeller } from "../hooks/useEntityResolution";
 import TrustSafetyActions from "../components/TrustSafetyActions";
 import { trackAnalyticsEvent } from "../lib/api/analytics";
+import UnavailableAccount from "../components/UnavailableAccount";
+import { useBlockedAccount } from "../hooks/useBlockedAccount";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -58,6 +60,7 @@ export default function ProductDetail() {
   const seller = resolvedListing?.seller ?? resolvedSeller;
   const { getSellerProfile } = useSellerSettings();
   const sellerProfile = getSellerProfile(seller?.id);
+  const blocked = useBlockedAccount(product.sellerId ?? seller?.id);
   const reputationSnapshot = useReputationSnapshot(seller?.id);
   const vacationMode = sellerProfile?.vacationMode ?? false;
   const { getPaymentMethods } = usePaymentMethods();
@@ -108,6 +111,8 @@ export default function ProductDetail() {
   useEffect(() => {
     setQuantity((current) => Math.min(current, Math.max(1, available)));
   }, [available]);
+
+  if (blocked) return <UnavailableAccount onBack={() => navigate(-1)} />;
 
   if (!listings.some((listing) => listing.id === productId || listing.id === listingId)) {
     return (

@@ -78,7 +78,36 @@ export async function getPosts() {
     .eq("visibility", "public")
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []).map(postFromRow);
+  const rows = data ?? [];
+  const commentCounts = new Map();
+  let commentCountsAvailable = false;
+  const contentIds = rows.flatMap((row) => [row.id, row.legacy_id]).filter(Boolean).map(String);
+  if (contentIds.length) {
+    const { data: commentRows, error: commentError } = await supabase
+      .from("comments")
+      .select("content_id")
+      .eq("content_type", "post")
+      .in("content_id", contentIds);
+    if (commentError) {
+      console.warn("Unable to load post comment counts", { error: commentError?.message ?? String(commentError) });
+    } else {
+      commentCountsAvailable = true;
+      (commentRows ?? []).forEach((row) => commentCounts.set(row.content_id, (commentCounts.get(row.content_id) ?? 0) + 1));
+    }
+  }
+  return rows.map((row) => {
+    const contentId = String(row.legacy_id ?? row.id);
+    const actualCommentCount = commentCounts.get(contentId) ?? 0;
+    const post = postFromRow({ ...row, comments: commentCountsAvailable ? actualCommentCount : row.comments ?? 0 });
+    console.info("post engagement counts loaded", {
+      post_id: post.id,
+      displayed_comment_count: post.comments ?? 0,
+      actual_comments_returned: commentCountsAvailable ? actualCommentCount : null,
+      persisted_post_count: row.comments ?? 0,
+      displayed_like_count: post.likes ?? 0,
+    });
+    return post;
+  });
 }
 
 export async function createPost(post, ownerId) {

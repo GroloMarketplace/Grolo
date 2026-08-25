@@ -10,6 +10,7 @@ import { readNavigationState, writeNavigationState } from "../hooks/navigationSt
 import { useBuyerTrust } from "../context/BuyerTrustContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useAuth } from "../context/AuthContext";
+import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 
 const SECTIONS = [
   { title: "Pickup Orders · New", statuses: ["Seller Notified", "Order Placed"], fulfillmentMethod: "pickup" },
@@ -33,6 +34,7 @@ export default function ShopOrders() {
   const [reviewOrder, setReviewOrder] = useState(null);
   const [inProgressOrder, setInProgressOrder] = useState(null);
   const [statusToast, setStatusToast] = useState("");
+  const [buyerProfiles, setBuyerProfiles] = useState({});
   const scrollRef = useRef(null);
   const savedOrderState = readNavigationState("store-orders", { scrollTop: 0 });
   const sellerId = user?.id ?? "current-user";
@@ -43,6 +45,28 @@ export default function ShopOrders() {
     }),
     [sellerId, sellerOrders, storeOpenedAt],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isSupabaseConfigured || !supabase) return () => { cancelled = true; };
+    const buyerIds = [...new Set(storeOrders.map((order) => order.buyerId).filter(Boolean))];
+    Promise.all(buyerIds.map(async (buyerId) => {
+      const { data: profile, error } = await supabase.from("profiles").select("id, display_name, username, avatar_url").eq("id", buyerId).maybeSingle();
+      console.info("ShopOrders direct buyer profile lookup", {
+        buyer_id: buyerId,
+        profile_id: profile?.id ?? null,
+        display_name: profile?.display_name ?? null,
+        username: profile?.username ?? null,
+        avatar_url: profile?.avatar_url ?? null,
+        profile_found: Boolean(profile),
+        error: error?.message ?? null,
+      });
+      return [String(buyerId), profile];
+    })).then((entries) => {
+      if (!cancelled) setBuyerProfiles(Object.fromEntries(entries.filter(([, profile]) => profile)));
+    });
+    return () => { cancelled = true; };
+  }, [storeOrders]);
 
   useEffect(() => {
     console.info("ShopOrders order source", {
@@ -143,6 +167,8 @@ export default function ShopOrders() {
                     // hiding the order if the listing was since deleted.
                     const product = listings.find((p) => p.id === order.productId)
                       ?? { id: order.productId, name: "Listing unavailable", image: "" };
+                    const buyerProfile = buyerProfiles[String(order.buyerId)] ?? null;
+                    const buyerName = getBuyerDisplayName(order, buyerProfile);
 
                     return (
                       <div
@@ -180,17 +206,18 @@ export default function ShopOrders() {
                             <div className="text-[12px] text-[#828282]">
                               Qty {order.quantity} • {order.date}
                             </div>
-                            <div className="flex items-center gap-1.5 mt-1">
+                            <div className="mt-1 text-[11px] font-medium text-[#828282]">Order from</div>
+                            <div className="flex items-center gap-1.5">
                               <img
-                                src={order.buyerAvatar}
-                                alt={order.buyer}
+                                src={buyerProfile?.avatar_url ?? order.buyerAvatar}
+                                alt={buyerName}
                                 className="w-5 h-5 rounded-full object-cover"
                               />
                               <span className="text-[12px] text-[#828282]">
-                                {order.buyer}
+                                {buyerName}
                               </span>
-                              {order.buyer !== "you" && <span className="text-[#498467]"><OutlineIcon name={getBuyerStatus().icon} size={13} /></span>}
-                              {getBuyerTrust(order.buyer).reliable && <span className="ml-1 rounded-full bg-[#F5FFF6] px-1.5 py-0.5 text-[10px] font-medium text-[#498467]">Reliable Buyer</span>}
+                              <span className="text-[#498467]"><OutlineIcon name={getBuyerStatus().icon} size={13} /></span>
+                              {getBuyerTrust(buyerName).reliable && <span className="ml-1 rounded-full bg-[#F5FFF6] px-1.5 py-0.5 text-[10px] font-medium text-[#498467]">Reliable Buyer</span>}
                             </div>
                           </div>
                           <div className="text-[14px] font-semibold">
@@ -242,7 +269,8 @@ function BuyerReviewForm({ order, onClose }) {
   const submit = () => {
     const product = listings.find((item) => item.id === order.productId);
     const rating = criteria.includes("Would Transact Again") ? 5 : 4;
-    const reviewInput = { buyer: order.buyer, buyerId: order.buyerId, orderId: order.databaseId ?? order.orderId ?? order.id, sellerId: order.sellerId ?? product?.sellerId ?? STORE_ID, productId: order.productId, reviewType: "buyer", rating, criteria, notes };
+    const buyerName = getBuyerDisplayName(order);
+    const reviewInput = { buyer: buyerName, buyerId: order.buyerId, orderId: order.databaseId ?? order.orderId ?? order.id, sellerId: order.sellerId ?? product?.sellerId ?? STORE_ID, productId: order.productId, reviewType: "buyer", rating, criteria, notes };
     console.info("buyer review modal submit fired", {
       reviewType: reviewInput.reviewType,
       rating: reviewInput.rating,
@@ -258,9 +286,18 @@ function BuyerReviewForm({ order, onClose }) {
     }));
     onClose();
   };
-  return <div className="absolute inset-0 z-50 flex items-end bg-black/30"><div className="w-full rounded-t-2xl bg-white p-5"><div className="flex items-center justify-between"><h2 className="text-[18px] font-semibold">Review Buyer</h2><button type="button" onClick={onClose} className="text-[14px] text-[#828282]">Close</button></div><p className="mt-1 text-[13px] text-[#828282]">Share positive feedback about {order.buyer}.</p><div className="mt-4 flex flex-col gap-3">{options.map((option) => <Checkbox key={option} label={option} checked={criteria.includes(option)} onChange={() => setCriteria((current) => current.includes(option) ? current.filter((item) => item !== option) : [...current, option])} />)}</div><label className="mt-4 flex flex-col gap-2 text-[14px] font-medium">Additional Notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-2 text-[14px] font-normal outline-none focus:border-[#498467]" /></label><button type="button" onClick={submit} className="mt-4 w-full rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">Save Review</button></div></div>;
+  return <div className="absolute inset-0 z-50 flex items-end bg-black/30"><div className="w-full rounded-t-2xl bg-white p-5"><div className="flex items-center justify-between"><h2 className="text-[18px] font-semibold">Review Buyer</h2><button type="button" onClick={onClose} className="text-[14px] text-[#828282]">Close</button></div><p className="mt-1 text-[13px] text-[#828282]">Share positive feedback about {getBuyerDisplayName(order)}.</p><div className="mt-4 flex flex-col gap-3">{options.map((option) => <Checkbox key={option} label={option} checked={criteria.includes(option)} onChange={() => setCriteria((current) => current.includes(option) ? current.filter((item) => item !== option) : [...current, option])} />)}</div><label className="mt-4 flex flex-col gap-2 text-[14px] font-medium">Additional Notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-2 text-[14px] font-normal outline-none focus:border-[#498467]" /></label><button type="button" onClick={submit} className="mt-4 w-full rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">Save Review</button></div></div>;
 }
 
 function Checkbox({ label, checked, onChange }) {
   return <label className="flex items-center gap-3 text-[14px]"><input type="checkbox" checked={checked} onChange={onChange} className="h-4 w-4 accent-[#498467]" />{label}</label>;
+}
+
+function isUuid(value) {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function getBuyerDisplayName(order, profile = null) {
+  const candidate = profile?.display_name ?? profile?.username ?? (order?.buyer && order.buyer !== "you" ? order.buyer : order?.buyerDisplayName ?? order?.buyerUsername);
+  return candidate && !isUuid(candidate) ? candidate : "Customer";
 }

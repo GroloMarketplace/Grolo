@@ -6,6 +6,8 @@ import { promotionDaysRemaining, promotionDisplayLabel, usePromotions } from "..
 import { useListings } from "../context/ListingContext";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
 import { promotionMatchesListing, promotedContentImage } from "../utils/promotionMedia";
+import UnavailableAccount from "../components/UnavailableAccount";
+import { useBlockedAccount } from "../hooks/useBlockedAccount";
 
 export default function PromotionDetail() {
   const navigate = useNavigate();
@@ -14,11 +16,14 @@ export default function PromotionDetail() {
   const { listings } = useListings();
   const promotion = promotions.find((item) => String(item.id) === String(promotionId));
   const seller = useResolvedSeller(promotion?.sellerId);
+  const blocked = useBlockedAccount(promotion?.sellerId);
   const eligibleProducts = promotion
     ? listings.filter((listing) => promotionMatchesListing(promotion, listing))
     : [];
   const heroImage = promotedContentImage({ listing: eligibleProducts[0], promotion });
   const daysRemaining = promotion ? promotionDaysRemaining(promotion) : null;
+
+  if (blocked) return <UnavailableAccount onBack={() => navigate(-1)} />;
 
   if (!promotion) {
     return (

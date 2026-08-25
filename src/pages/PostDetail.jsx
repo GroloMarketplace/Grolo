@@ -19,6 +19,8 @@ import { toggleCommentLike as persistCommentLike } from "../lib/api/commentLikes
 import { createComment, getComments } from "../lib/api/comments";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
+import UnavailableAccount from "../components/UnavailableAccount";
+import { useBlockedAccount } from "../hooks/useBlockedAccount";
 
 function imageReferenceMatches(first, second) {
   if (!first || !second) return true;
@@ -41,6 +43,7 @@ export default function PostDetail() {
   const [comments, setComments] = useState(post?.commentItems ?? []);
   const replyInputRef = useRef(null);
   const resolvedSeller = useResolvedSeller(post?.sellerId ?? post?.authorId);
+  const blocked = useBlockedAccount(post?.sellerId ?? post?.authorId);
   const seller = post ? resolvedSeller ?? sellers[post.sellerId] ?? Object.values(sellers).find((item) => item.name === post.name) : null;
   const postAvatar = post?.authorId === authUser?.id ? buyerProfile.avatar : seller?.avatar ?? post?.avatar;
   const engagement = getPostEngagement(post);
@@ -55,11 +58,15 @@ export default function PostDetail() {
     let cancelled = false;
     getComments("post", post.id)
       .then((rows) => {
-        if (!cancelled) setComments(buildCommentTree(rows));
+        if (!cancelled) {
+          const commentItems = buildCommentTree(rows);
+          setComments(commentItems);
+          updatePost(post.id, { comments: countComments(commentItems) });
+        }
       })
       .catch((error) => console.warn("comments source: local fallback", { operation: "loadComments", parent_type: "post", parent_id: String(post.id), error: error?.message ?? String(error) }));
     return () => { cancelled = true; };
-  }, [post?.id]);
+  }, [post?.id, updatePost]);
 
   useEffect(() => {
     if (!state?.notificationId) return;
@@ -122,6 +129,8 @@ export default function PostDetail() {
     void nextLiked;
   };
 
+  if (blocked) return <UnavailableAccount onBack={() => navigate(-1)} />;
+
   if (!post) {
     return <MobileScreenLayout><Header title="Post" onBack={() => navigate(-1)} /><div className="p-6 text-center text-[14px] text-[#828282]">Post not found</div></MobileScreenLayout>;
   }
@@ -160,7 +169,7 @@ export default function PostDetail() {
             </div>
           </button>
         )}
-        <div className="mt-6 flex items-center justify-between border-y border-[#E6E6E6] py-3"><EngagementButton label={engagement.likes} active={engagement.liked} ariaLabel="Like post" onClick={handlePostLike}><LikeIcon active={engagement.liked} /></EngagementButton><EngagementButton label={engagement.comments} ariaLabel="View comments" onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })}><CommentIcon /></EngagementButton><EngagementButton label={engagement.shares} ariaLabel="Share post" onClick={() => setShowShareSheet(true)}><ShareIcon /></EngagementButton><EngagementButton label={engagement.regrows} active={regrown} ariaLabel="Regrow post" onClick={() => setShowRegrowConfirm(true)}><RegrowIcon active={regrown} /></EngagementButton></div>
+        <div className="mt-6 flex items-center justify-between border-y border-[#E6E6E6] py-3"><EngagementButton label={null} active={engagement.liked} ariaLabel="Like post" onClick={handlePostLike}><LikeIcon active={engagement.liked} /></EngagementButton><EngagementButton label={engagement.comments} ariaLabel="View comments" onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })}><CommentIcon /></EngagementButton><EngagementButton label={null} ariaLabel="Share post" onClick={() => setShowShareSheet(true)}><ShareIcon /></EngagementButton><EngagementButton label={null} active={regrown} ariaLabel="Regrow post" onClick={() => setShowRegrowConfirm(true)}><RegrowIcon active={regrown} /></EngagementButton></div>
         <section className="mt-6 border-t border-[#E6E6E6] pt-5">
           <h2 className="text-[18px] font-semibold">Comments</h2>
           {state?.commentId && !findComment(comments, state.commentId) ? <p className="mt-3 rounded-lg bg-[#F5F5F5] p-3 text-[14px] text-[#828282]">This comment is no longer available.</p> : (
@@ -225,7 +234,7 @@ function containsComment(comments, id) {
 }
 
 function EngagementButton({ children, label, onClick, ariaLabel, active }) {
-  return <button type="button" onClick={onClick} aria-label={ariaLabel} aria-pressed={active} className="flex items-center gap-2 text-[14px] font-medium text-[#1E1E1E]">{children}<span>{label}</span></button>;
+  return <button type="button" onClick={onClick} aria-label={ariaLabel} aria-pressed={active} className="flex items-center gap-2 text-[14px] font-medium text-[#1E1E1E]">{children}{label !== null && <span>{label}</span>}</button>;
 }
 function LikeIcon({ active }) { return <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M17.37 3.84a4.13 4.13 0 0 0-6.49-.5L10 4.22l-.88-.88a4.13 4.13 0 0 0-6.13 5.5l.63.88L10 17.19l6.48-6.48.63-.88a4.13 4.13 0 0 0 .26-6.49Z" stroke={active ? "#498467" : "#1E1E1E"} fill={active ? "#498467" : "none"} strokeWidth="2" /></svg>; }
 function CommentIcon() { return <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M17.5 12.5a1.67 1.67 0 0 1-1.67 1.67H5.83L2.5 17.5V4.17A1.67 1.67 0 0 1 4.17 2.5h11.66a1.67 1.67 0 0 1 1.67 1.67v8.33Z" stroke="#1E1E1E" strokeWidth="2" /></svg>; }

@@ -9,12 +9,17 @@ import {
 } from "../context/EventContext";
 import EventRsvp from "../components/EventRsvp";
 import DistanceLabel from "../components/DistanceLabel";
+import UnavailableAccount from "../components/UnavailableAccount";
+import { useBlockedAccount } from "../hooks/useBlockedAccount";
 
 export default function EventDetail() {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const { getEvent, eventSeller } = useEvents();
   const event = getEvent(eventId);
+  const blocked = useBlockedAccount(event?.sellerId);
+
+  if (blocked) return <UnavailableAccount onBack={() => navigate(-1)} />;
 
   if (!event) {
     return (

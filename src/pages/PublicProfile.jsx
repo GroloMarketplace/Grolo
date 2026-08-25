@@ -12,6 +12,8 @@ import { readNavigationState, writeNavigationState } from "../hooks/navigationSt
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useResolvedPublicProfile } from "../hooks/useEntityResolution";
 import TrustSafetyActions from "../components/TrustSafetyActions";
+import UnavailableAccount from "../components/UnavailableAccount";
+import { useBlockedAccount } from "../hooks/useBlockedAccount";
 
 const FALLBACK_AVATAR = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80";
 const PROFILE_BANNER = "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80";
@@ -37,6 +39,7 @@ export default function PublicProfile() {
   const { reviewsForBuyer } = useBuyerTrust();
   const reputationSnapshot = useReputationSnapshot(userId);
   const resolvedProfile = useResolvedPublicProfile(userId);
+  const blocked = useBlockedAccount(resolvedProfile?.id ?? userId);
   const profile = resolvedProfile
     ? {
       username: resolvedProfile.username ?? resolvedProfile.name ?? userId,
@@ -84,6 +87,8 @@ export default function PublicProfile() {
       tabScroll?.removeEventListener("scroll", saveState);
     };
   }, [activeTab, userId]);
+
+  if (blocked) return <UnavailableAccount onBack={() => navigate(-1)} />;
 
   const handleTabChange = (index) => {
     setActiveTab(index);

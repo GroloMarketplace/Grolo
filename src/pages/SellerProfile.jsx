@@ -33,6 +33,8 @@ import DistanceLabel from "../components/DistanceLabel";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import ReputationSummary from "../components/ReputationSummary";
+import UnavailableAccount from "../components/UnavailableAccount";
+import { useBlockedAccount } from "../hooks/useBlockedAccount";
 
 export default function SellerProfile() {
   const { sellerId } = useParams();
@@ -50,6 +52,7 @@ export default function SellerProfile() {
   const { storeOpenedAt } = useProfileMode();
   const seller = sellers[sellerId] || { id: sellerId, name: "Seller" };
   const sellerProfile = getSellerProfile(seller.id);
+  const blocked = useBlockedAccount(seller.id);
   const foundingMember = getFoundingMember(seller.id);
   const reputationSnapshot = useReputationSnapshot(seller.id);
   const sellerPaymentMethods = getPaymentMethods(seller.id);
@@ -80,7 +83,6 @@ export default function SellerProfile() {
     (post, index, allPosts) =>
       String(post.sellerId) === String(seller.id) && createdBySeller(post) && allPosts.findIndex((item) => item.id === post.id) === index,
   );
-  const sellerRegrows = sellerPosts.slice(0, 2);
   const savedProfileState = readNavigationState(`seller-profile-${seller.id}`, { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 });
   const [activeTab, setActiveTab] = useState(savedProfileState.activeTab);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -101,7 +103,10 @@ export default function SellerProfile() {
       tabScroll?.removeEventListener("scroll", saveState);
     };
   }, [activeTab, seller.id]);
-  const tabs = ["Listings", "Posts", "Events", "Regrows"];
+
+  if (blocked) return <UnavailableAccount onBack={() => navigate(-1)} />;
+
+  const tabs = ["Listings", "Posts", "Events"];
 
   const handleTabChange = (index) => {
     setActiveTab(index);
@@ -242,7 +247,6 @@ export default function SellerProfile() {
             <ListingsTab products={sellerProducts} promotions={sellerPromotions} navigate={navigate} onOpenPromotions={() => navigate(`/promotions/${seller.id}`)} />
             <PostsTab posts={sellerPosts} navigate={navigate} profile={sellerProfile} />
             <EventsTab events={sellerEvents} navigate={navigate} profile={sellerProfile} />
-              <RegrowsTab posts={sellerRegrows} navigate={navigate} profile={sellerProfile} />
             </div>
           </div>
         </div>
@@ -373,14 +377,6 @@ function EventsTab({ events, navigate, profile }) {
           ))}
         </div>
       )}
-    </TabPanel>
-  );
-}
-
-function RegrowsTab({ posts, navigate, profile }) {
-  return (
-    <TabPanel>
-      {posts.length === 0 ? <EmptyTab>No regrows yet</EmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{posts.map((post) => <ActivityCard key={post.id} activity={{ id: post.id, type: "post", label: `🌱 Regrew a community post`, timestamp: post.time, post }} navigate={navigate} profile={profile} />)}</div>}
     </TabPanel>
   );
 }

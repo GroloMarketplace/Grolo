@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import OutlineIcon from "./OutlineIcon";
 
 export default function ThreadedComments({
   comments,
@@ -97,7 +98,7 @@ function CommentBranch({ comment, depth, highlightedCommentId, commentRefs, onRe
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2"><span className="text-[14px] font-semibold">{comment.username}</span><span className="text-[12px] text-[#828282]">{comment.timestamp}</span></div>
             <p className="mt-1 text-[14px] leading-[140%]">{comment.text}</p>
-            <button type="button" onClick={() => onReply(comment)} className="mt-2 text-[12px] text-[#828282]">↩ Reply</button>
+            <button type="button" onClick={() => onReply(comment)} className="mt-2 inline-flex items-center gap-1 text-[12px] text-[#828282]"><OutlineIcon name="reply" size={14} />Reply</button>
           </div>
         </div>
         <div className="flex justify-center">

@@ -42,6 +42,7 @@ export default function Comments() {
           const next = mergeHighlightedComment(commentsFromRows(remoteComments), state?.highlightedComment);
           setComments(next);
           persistLocalComments(storageKey, next);
+          if (content.type === "post" && content.post?.id != null) updatePost(content.post.id, { comments: countComments(next) });
         }
       } catch (error) {
         console.warn("comments source: local fallback", { operation: "loadComments", parent_type: content.type, parent_id: String(contentId), error: error?.message ?? String(error) });
@@ -49,7 +50,7 @@ export default function Comments() {
     }
     loadComments();
     return () => { cancelled = true; };
-  }, [content.type, contentId, state?.highlightedComment, storageKey, user?.id]);
+  }, [content.type, contentId, state?.highlightedComment, storageKey, updatePost, user?.id]);
 
   const handleSubmit = async ({ text, parentComment }) => {
     const localComment = {

@@ -13,6 +13,8 @@ import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { getOrderStatusClass, getOrderStatusLabel } from "../utils/orderStatus";
 import { formatListingPrice } from "../utils/listingDisplay";
 import TrustSafetyActions from "../components/TrustSafetyActions";
+import { useBlockedAccount } from "../hooks/useBlockedAccount";
+import { useTrustSafety } from "../context/TrustSafetyContext";
 import { formatMessageTimestamp } from "../utils/messageTimestamp";
 
 export default function Chat() {
@@ -36,6 +38,7 @@ export default function Chat() {
   const { orders } = useOrders();
   const { getSellerProfile } = useSellerSettings();
   const { settings: buyerProfile } = useBuyerSettings();
+  const { unblock } = useTrustSafety();
   const pendingConversation = location.state?.pendingConversation;
   const conversation = messages.find((message) => message.id === id || message.databaseId === conversationUUID || message.id === conversationUUID) ?? pendingConversation;
   const orderContext = conversation?.orderContext;
@@ -56,6 +59,8 @@ export default function Chat() {
       return id ?? "";
     }
   })();
+  const otherParticipantId = conversation?.participantId ?? (String(user?.id) === String(conversation?.sellerId) ? conversation?.buyerId : conversation?.sellerId ?? routeParticipantId);
+  const blocked = useBlockedAccount(otherParticipantId);
 
   useLayoutEffect(() => {
     const textarea = inputRef.current;
@@ -428,6 +433,7 @@ export default function Chat() {
       </div>
 
       <div className="shrink-0 p-2 border-t border-[#E6E6E6]">
+        {blocked && <div className="mb-2 flex items-center justify-between gap-3 rounded-lg bg-[#FFF7F5] px-3 py-2 text-[12px] text-[#B42318]"><span>You have blocked this account.</span><button type="button" onClick={() => unblock(otherParticipantId).catch((error) => setSendError(error.message))} className="shrink-0 font-semibold underline">Unblock</button></div>}
         {sendError && (
           <div role="alert" className="mb-2 flex items-center justify-between gap-3 px-2 text-[12px] text-red-600">
             <p>{sendError}</p>
@@ -457,6 +463,7 @@ export default function Chat() {
           <textarea
             ref={inputRef}
             rows={1}
+            disabled={blocked}
             value={text}
             onChange={(e) => {
               const nextText = e.target.value;
@@ -481,7 +488,7 @@ export default function Chat() {
             placeholder="Message..."
             className="min-h-6 max-h-[120px] flex-1 resize-none overflow-y-hidden break-words text-[14px] leading-5 text-[#828282] outline-none"
           />
-          <button type="button" onClick={handleSend} disabled={!user || !conversationUUID || !conversationReady || sending} aria-label="Send message" className="mb-1 shrink-0 text-[#498467] disabled:opacity-50">
+          <button type="button" onClick={handleSend} disabled={blocked || !user || !conversationUUID || !conversationReady || sending} aria-label="Send message" className="mb-1 shrink-0 text-[#498467] disabled:opacity-50">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path
                 d="M3 20V4l19 8-19 8Z"

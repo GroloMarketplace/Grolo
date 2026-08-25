@@ -44,6 +44,7 @@ import { usePosts } from "../context/PostContext";
 import TradeBadge from "../components/TradeBadge";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useNotifications } from "../context/NotificationContext";
+import { useTrustSafety } from "../context/TrustSafetyContext";
 import { discoveryRadiusLabel, distanceInKmBetween, isWithinDiscoveryRadius, resolveUserLocation, sortByDistance } from "../utils/locationRadius";
 import DistanceLabel from "../components/DistanceLabel";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
@@ -51,7 +52,7 @@ import { contentTimestamp, rankFeedItems } from "../utils/feedRanking";
 import { promotionMatchesListing, promotedContentImage } from "../utils/promotionMedia";
 
 const TABS = ["Following", "Your Community"];
-const COMMUNITY_FILTERS = ["For You", "Posts", "Events", "Listings", "Promotions", "Regrows"];
+const COMMUNITY_FILTERS = ["For You", "Posts", "Events", "Listings", "Promotions"];
 
 function imageReferenceMatches(first, second) {
   if (!first || !second) return true;
@@ -116,6 +117,7 @@ export default function Feed() {
   const { savedItems } = useSavedItems();
   const { settings: buyerSettings = {} } = useBuyerSettings();
   const { buyerOrders } = useOrders();
+  const { blockedUserIds } = useTrustSafety();
   const totalUnreadNotifications = unreadNotificationCount;
 
   useEffect(() => {
@@ -299,6 +301,7 @@ export default function Feed() {
                 location={resolveUserLocation(buyerSettings)}
                 radius={buyerSettings.locationRadius ?? 25}
                 hiddenContentIds={hiddenContentIds}
+                blockedUserIds={blockedUserIds}
                 onComment={openComments}
                 onMenu={setActionContent}
                 onShare={openShare}
@@ -320,6 +323,7 @@ export default function Feed() {
                 interactedSellerIds={buyerOrders().map((order) => order.sellerId ?? order.seller?.id).filter(Boolean)}
                 savedItems={savedItems}
                 hiddenContentIds={hiddenContentIds}
+                blockedUserIds={blockedUserIds}
               />
             </div>
 
@@ -349,18 +353,19 @@ export default function Feed() {
   );
 }
 
-function FollowingFeed({ followedSellers, location, radius, hiddenContentIds, onComment, onMenu, onShare }) {
+function FollowingFeed({ followedSellers, location, radius, hiddenContentIds, blockedUserIds, onComment, onMenu, onShare }) {
   const { upcomingEvents } = useEvents();
   const { listings } = useListings();
   const { posts } = usePosts();
   const { activePromotions } = usePromotions();
-  const events = upcomingEvents().filter((event) => followedSellers.includes(event.sellerId) && eventMatchesDiscoveryRadius(event, location, radius));
-  const followedPosts = [...followingPosts, ...posts].filter((post) => followedSellers.includes(post.sellerId) && isWithinDiscoveryRadius(post, location, radius));
-  const followedListings = listings.filter((product) => followedSellers.includes(product.sellerId) && isWithinDiscoveryRadius(product, location, radius));
+  const visibleAccount = (accountId) => !blockedUserIds.has(String(accountId));
+  const events = upcomingEvents().filter((event) => visibleAccount(event.sellerId) && followedSellers.includes(event.sellerId) && eventMatchesDiscoveryRadius(event, location, radius));
+  const followedPosts = [...followingPosts, ...posts].filter((post) => visibleAccount(post.sellerId) && followedSellers.includes(post.sellerId) && isWithinDiscoveryRadius(post, location, radius));
+  const followedListings = listings.filter((product) => visibleAccount(product.sellerId) && followedSellers.includes(product.sellerId) && isWithinDiscoveryRadius(product, location, radius));
   const listingsForPromotions = listings;
   const postsForItems = followedPosts;
   const listingsForItems = followedListings;
-  const promotions = activePromotions().filter((promotion) => followedSellers.includes(promotion.sellerId) && isWithinDiscoveryRadius(promotionLocationContent(promotion, listings), location, radius));
+  const promotions = activePromotions().filter((promotion) => visibleAccount(promotion.sellerId) && followedSellers.includes(promotion.sellerId) && isWithinDiscoveryRadius(promotionLocationContent(promotion, listings), location, radius));
   const items = getFollowedItems({ posts: postsForItems, events, listings: listingsForItems, promotions, allListings: listingsForPromotions, hiddenContentIds, location });
 
   return (
@@ -390,18 +395,18 @@ function feedItemContent(item) {
   return item.post ?? item.event ?? item.product ?? item.promotion ?? {};
 }
 
-function CommunityFeed({ filter, followedSellers, followedSellerIds, interactedSellerIds, savedItems, onFilterChange, onOpenDetail, onComment, onMenu, onShare, location, radius, hiddenContentIds }) {
+function CommunityFeed({ filter, followedSellers, followedSellerIds, interactedSellerIds, savedItems, onFilterChange, onOpenDetail, onComment, onMenu, onShare, location, radius, hiddenContentIds, blockedUserIds }) {
   const { upcomingEvents } = useEvents();
   const { listings } = useListings();
   const { posts } = usePosts();
   const { activePromotions } = usePromotions();
-  const { isRegrown } = useRegrow();
   const { getEngagement } = useEngagement();
   const [touchStart, setTouchStart] = useState(null);
-  const events = upcomingEvents().filter((event) => eventMatchesDiscoveryRadius(event, location, radius));
-  const nearbyListings = listings.filter((listing) => isWithinDiscoveryRadius(listing, location, radius));
-  const nearbyPosts = posts.filter((post) => isWithinDiscoveryRadius(post, location, radius));
-  const currentPromotions = activePromotions().filter((promotion) => isWithinDiscoveryRadius(promotionLocationContent(promotion, listings), location, radius));
+  const visibleAccount = (accountId) => !blockedUserIds.has(String(accountId));
+  const events = upcomingEvents().filter((event) => visibleAccount(event.sellerId) && eventMatchesDiscoveryRadius(event, location, radius));
+  const nearbyListings = listings.filter((listing) => visibleAccount(listing.sellerId) && isWithinDiscoveryRadius(listing, location, radius));
+  const nearbyPosts = posts.filter((post) => visibleAccount(post.sellerId ?? post.authorId) && isWithinDiscoveryRadius(post, location, radius));
+  const currentPromotions = activePromotions().filter((promotion) => visibleAccount(promotion.sellerId) && isWithinDiscoveryRadius(promotionLocationContent(promotion, listings), location, radius));
   const items = getCommunityItems(filter, {
     events,
     listings: nearbyListings,
@@ -412,7 +417,6 @@ function CommunityFeed({ filter, followedSellers, followedSellerIds, interactedS
     interactedSellerIds,
     savedItems,
     getEngagement,
-    isRegrown,
     hiddenContentIds,
     location,
     radius,
@@ -468,7 +472,7 @@ function CommunityFeed({ filter, followedSellers, followedSellerIds, interactedS
   );
 }
 
-function getCommunityItems(filter, { events, listings, posts, currentPromotions, followedSellers = [], followedSellerIds = followedSellers, interactedSellerIds = [], savedItems = [], getEngagement, isRegrown, hiddenContentIds, location, radius }) {
+function getCommunityItems(filter, { events, listings, posts, currentPromotions, followedSellers = [], followedSellerIds = followedSellers, interactedSellerIds = [], savedItems = [], getEngagement, hiddenContentIds, location, radius }) {
   const listingItems = listings.map((product) => ({ type: "listing", id: `listing:${product.id}`, product }));
   const postItems = posts.map((post) => ({ type: "post", id: `post:${post.id}`, post }));
   const eventItems = events.map((event) => ({ type: "event", id: `event:${event.id}`, event }));
@@ -482,9 +486,7 @@ function getCommunityItems(filter, { events, listings, posts, currentPromotions,
   const visibleItems = allItems.filter((item) => !hiddenContentIds.has(item.id));
   const filtered = filter === "For You"
     ? visibleItems
-    : filter === "Regrows"
-      ? visibleItems.filter((item) => isRegrown(item.id))
-      : visibleItems.filter((item) => item.type === filter.slice(0, -1).toLowerCase());
+    : visibleItems.filter((item) => item.type === filter.slice(0, -1).toLowerCase());
 
   return rankFeedItems(filtered, {
     location,
@@ -954,6 +956,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
         onComment={() => onComment({ type: "post", post })}
         onRepost={handleRepost}
         onShare={() => onShare(menuContent, () => incrementPostShares(post.id))}
+        showNonCommentCounts={false}
       />
     </>
   );
@@ -998,10 +1001,11 @@ function EngagementRow({
   onComment,
   onRepost,
   onShare,
+  showNonCommentCounts = true,
 }) {
   return (
     <div className="flex items-center gap-11">
-      <IconCount label={likes} onClick={onLike} ariaLabel="Like" active={liked}>
+      <IconCount label={showNonCommentCounts ? likes : null} onClick={onLike} ariaLabel="Like" active={liked}>
         <path
           d="M17.37 3.84a4.13 4.13 0 0 0-6.49-.5L10 4.22l-.88-.88a4.13 4.13 0 0 0-6.13 5.5l.63.88L10 17.19l6.48-6.48.63-.88a4.13 4.13 0 0 0 .26-6.49Z"
           stroke={liked ? "#498467" : "black"}
@@ -1020,7 +1024,7 @@ function EngagementRow({
           strokeLinejoin="round"
         />
       </IconCount>
-      <IconCount label={reposts} onClick={onRepost} ariaLabel="Regrow" active={reposted}>
+      <IconCount label={showNonCommentCounts ? reposts : null} onClick={onRepost} ariaLabel="Regrow" active={reposted}>
         <path
           d="M5.83 7.5 2.5 4.17 5.83.83M2.5 4.17h11.67a3.33 3.33 0 0 1 3.33 3.33v1.67M14.17 12.5l3.33 3.33-3.33 3.34M17.5 15.83H5.83A3.33 3.33 0 0 1 2.5 12.5v-1.66"
           stroke={reposted ? "#498467" : "#1E1E1E"}
@@ -1029,7 +1033,7 @@ function EngagementRow({
           strokeLinejoin="round"
         />
       </IconCount>
-      <IconCount label={shares} onClick={onShare} ariaLabel="Share">
+      <IconCount label={showNonCommentCounts ? shares : null} onClick={onShare} ariaLabel="Share">
         <path
           d="M18.33 1.67 9.17 10.83M9.17 10.83 1.67 7.5l16.66-5.83-5.83 16.66-3.33-7.5Z"
           stroke="#1E1E1E"
@@ -1048,7 +1052,7 @@ function IconCount({ children, label, onClick, ariaLabel, active }) {
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         {children}
       </svg>
-      <span className="text-[14px] font-medium">{label}</span>
+      {label !== null && <span className="text-[14px] font-medium">{label}</span>}
     </>
   );
 

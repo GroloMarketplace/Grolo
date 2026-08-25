@@ -12,7 +12,6 @@ import PromotionsBanner from "../components/PromotionsBanner";
 import { useOrders } from "../context/OrderContext";
 import { formatEventDate, formatEventTime, useEvents } from "../context/EventContext";
 import { usePromotions } from "../context/PromotionContext";
-import { useRegrow } from "../context/RegrowContext";
 import { useFollow } from "../context/FollowContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { getSellerStatus } from "../data/communityStatus";
@@ -71,7 +70,6 @@ export default function ShopHome() {
   const { posts } = usePosts();
   const { sellerRating } = useReviews();
   const { promotionsForSeller } = usePromotions();
-  const { isRegrown } = useRegrow();
   const { getFollowerCount } = useFollow();
   const reputationSnapshot = useReputationSnapshot(user?.id ?? "current-user");
   const createdBySeller = useCallback((item) => {
@@ -121,7 +119,7 @@ export default function ShopHome() {
     if (routeLocation.state?.activeTab === "Events") setActiveTab(2);
     if (routeLocation.state?.eventUpdated) showToast("Event Updated — Your event has been successfully updated.");
   }, [routeLocation.state?.activeTab, routeLocation.state?.eventUpdated]);
-  const tabs = ["Listings", "Posts", "Events", "Regrows"];
+  const tabs = ["Listings", "Posts", "Events"];
   const sellerPromotions = promotionsForSeller(seller.id, { createdAfter: storeOpenedAt });
   const remoteMetrics = reputationSnapshot?.sellerStatus?.metrics ?? {};
   const localSellerRating = sellerRating(seller.id);
@@ -435,7 +433,6 @@ export default function ShopHome() {
                 <ShopListingsTab products={activeSellerProducts} lowStockProducts={lowStockSellerProducts} outOfStockProducts={outOfStockSellerProducts} archivedProducts={archivedListings.filter((product) => product.sellerId === seller.id)} hasOrderHistory={(product) => storeOrders.some((order) => order.productId === product.id || order.orderItems?.some((item) => item.productId === product.id || item.listingId === product.databaseId))} promotions={sellerPromotions} navigate={navigate} onDelete={handleDeleteListing} onOpenPromotions={() => navigate(`/promotions/${seller.id}`)} />
                 <ShopPostsTab posts={managedPosts} onEdit={handleEditPost} onDelete={handleDeletePost} onCreate={handleCreatePost} />
                 <ShopEventsTab events={sellerEvents} navigate={navigate} onEdit={handleEditEvent} onDelete={handleDeleteEvent} />
-                  <ShopRegrowsTab products={sellerProducts} posts={managedPosts} events={sellerEvents} promotions={sellerPromotions} isRegrown={isRegrown} />
                 </div>
               </div>
             </div>

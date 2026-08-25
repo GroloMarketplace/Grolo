@@ -13,6 +13,7 @@ import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { getOrderStatusClass, getOrderStatusLabel } from "../utils/orderStatus";
 import { formatListingPrice } from "../utils/listingDisplay";
 import TrustSafetyActions from "../components/TrustSafetyActions";
+import { formatMessageTimestamp } from "../utils/messageTimestamp";
 
 export default function Chat() {
   const location = useLocation();
@@ -157,8 +158,11 @@ export default function Chat() {
     };
   }, [conversationAttempt, databaseListingId, ensureConversation, id, listingId, markConversationRead, pendingConversation, routeParticipantId, serviceContext, user?.id]);
 
-  const seller = Object.values(sellers).find((s) => s.id === (conversation?.sellerId ?? listing?.sellerId ?? id)) || { id: conversation?.sellerId ?? listing?.sellerId ?? id, name: "this store" };
-  const conversationProfile = getConversationProfile({ ...conversation, sellerId: conversation?.sellerId ?? seller.id, name: conversation?.name ?? seller.name }, getSellerProfile, buyerProfile);
+  const sellerId = conversation?.sellerId ?? listing?.sellerId ?? id;
+  const liveSeller = getSellerProfile(sellerId);
+  const legacySeller = Object.values(sellers).find((s) => s.id === sellerId);
+  const seller = liveSeller?.name || liveSeller?.avatar ? liveSeller : legacySeller ?? { id: sellerId, name: listing?.shop ?? conversation?.storeName ?? "Seller" };
+  const conversationProfile = getConversationProfile({ ...conversation, sellerId, participantId: conversation?.participantId ?? (String(user?.id) === String(sellerId) ? conversation?.buyerId : sellerId), name: conversation?.name ?? seller.name }, getSellerProfile, buyerProfile, user?.id);
   const isOrderThread = location.state?.orderConversation === true || conversation?.conversationType === "order";
   const isTradeThread = location.state?.tradeThread === true
     || conversation?.conversationType === "trading"
@@ -270,7 +274,7 @@ export default function Chat() {
         </button>
         <ProfileAvatar profile={conversationProfile} size="w-8 h-8" />
         <div className="flex-1">
-          <div className="text-[16px] font-semibold">{seller.name}</div>
+          <div className="text-[16px] font-semibold">{conversationProfile.name}</div>
           {isOrderThread && currentOrderContext ? (
             <div className={`text-[12px] ${getOrderStatusClass(currentOrderContext.status)}`}>{getOrderStatusLabel(currentOrderContext.status)} · Order {currentOrderContext.orderNumber}</div>
           ) : isTradeThread ? (
@@ -282,7 +286,7 @@ export default function Chat() {
             <div className="text-[12px] text-black/50">Active 11m ago</div>
           )}
         </div>
-        <TrustSafetyActions targetType="message" targetId={conversation?.databaseId ?? conversation?.id ?? id} blockUserId={seller.id} compact />
+        <TrustSafetyActions targetType="message" targetId={conversation?.databaseId ?? conversation?.id ?? id} blockUserId={conversationProfile.id} compact />
       </div>
       <div className="min-h-0 flex-1 flex flex-col gap-3 p-4 overflow-y-auto no-scrollbar">
         {isOrderThread && currentOrderContext ? (
@@ -402,7 +406,7 @@ export default function Chat() {
               >
                 {message.text}
               </div>
-              <span className="text-[11px] text-[#828282] mt-1">{message.timestamp}</span>
+              <span className="text-[11px] text-[#828282] mt-1">{formatMessageTimestamp(message.createdAt ?? message.timestamp)}</span>
             </div>
           </div>
         ))}

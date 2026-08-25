@@ -58,7 +58,7 @@ export default function OrderTracking() {
   // mockData catalog.
   const product = listings.find((item) => item.id === order?.productId);
   const sellerId = order?.sellerId ?? product?.sellerId ?? "current-user";
-  const seller = sellers[sellerId] ?? { id: sellerId, name: "this store" };
+  const seller = sellers[sellerId] ?? { id: sellerId, name: "Seller" };
   const settings = getPaymentMethods(seller.id);
   const fulfillmentMethod = order?.fulfillmentMethod ?? "pickup";
   const isDelivery = fulfillmentMethod === "delivery";

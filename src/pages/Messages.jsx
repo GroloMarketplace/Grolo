@@ -13,6 +13,7 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { getOrderStatusClass, getOrderStatusLabel } from "../utils/orderStatus";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
+import { formatMessageTimestamp } from "../utils/messageTimestamp";
 
 const TAB_NAMES = ["All", "Selling", "Buying", "Trading", "Orders"];
 
@@ -162,17 +163,6 @@ export default function Messages() {
   );
 }
 
-function formatRelativeTimestamp(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value || "";
-  const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
-  if (seconds < 60) return "just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 172800) return "Yesterday";
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
 function MessageRow({ message, orders, navigate, getSellerProfile, buyerProfile, listings }) {
   const latestMessage = latestMessageForConversation(message);
   const fallbackProfile = getConversationProfile(message, getSellerProfile, buyerProfile);
@@ -213,7 +203,7 @@ function MessageRow({ message, orders, navigate, getSellerProfile, buyerProfile,
         </div>
       </button>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="text-[11px] text-[#828282]">{formatRelativeTimestamp(latestMessage?.createdAt ?? latestMessage?.timestamp ?? message.timestamp)}</span>
+        <span className="text-[11px] text-[#828282]">{formatMessageTimestamp(latestMessage?.createdAt ?? latestMessage?.timestamp ?? message.timestamp)}</span>
         {showUnread && <span aria-label="Unread messages" className="flex min-h-5 min-w-5 items-center justify-center rounded-full bg-[#C85A3F] px-1.5 text-[10px] font-bold leading-5 text-white">{conversationUnreadCount}</span>}
       </div>
     </div>

@@ -48,7 +48,7 @@ export default function SellerProfile() {
   const { listings } = useListings();
   const { getFoundingMember } = useFoundingMember();
   const { storeOpenedAt } = useProfileMode();
-  const seller = sellers[sellerId] || { id: sellerId, name: "this store" };
+  const seller = sellers[sellerId] || { id: sellerId, name: "Seller" };
   const sellerProfile = getSellerProfile(seller.id);
   const foundingMember = getFoundingMember(seller.id);
   const reputationSnapshot = useReputationSnapshot(seller.id);

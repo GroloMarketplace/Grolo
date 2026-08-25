@@ -42,7 +42,7 @@ export default function StoreCheckout() {
   const { listings } = useListings();
   const getListing = (item) => listings.find((listing) => listing.id === getCartItemProductId(item, listings));
   const allStoreItems = items.filter((item) => getCartItemSellerId(item, listings) === sellerId);
-  const seller = sellers[sellerId] ?? { id: sellerId, name: "this store" };
+  const seller = sellers[sellerId] ?? { id: sellerId, name: "Seller" };
   const storeListing = getListing(allStoreItems[0]);
   const sellerProfile = getSellerProfile(seller.id);
   const settings = getPaymentMethods(seller.id);

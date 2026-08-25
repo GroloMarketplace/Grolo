@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { sellers } from "../data/mockData";
 import { useListings } from "../context/ListingContext";
 import { useMessages } from "../context/MessageContext";
@@ -56,6 +56,15 @@ export default function Chat() {
       return id ?? "";
     }
   })();
+
+  useLayoutEffect(() => {
+    const textarea = inputRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    const nextHeight = Math.min(textarea.scrollHeight, 120);
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY = textarea.scrollHeight > nextHeight ? "auto" : "hidden";
+  }, [text]);
 
   useEffect(() => {
     let active = true;
@@ -444,9 +453,10 @@ export default function Chat() {
             ))}
           </div>
         )}
-        <div className="flex items-center gap-4 px-4 py-2 rounded-lg border border-[#E0E0E0]">
-          <input
+        <div className="flex items-end gap-4 rounded-lg border border-[#E0E0E0] px-4 py-2">
+          <textarea
             ref={inputRef}
+            rows={1}
             value={text}
             onChange={(e) => {
               const nextText = e.target.value;
@@ -469,9 +479,9 @@ export default function Chat() {
               }));
             }}
             placeholder="Message..."
-            className="flex-1 text-[14px] text-[#828282] outline-none"
+            className="min-h-6 max-h-[120px] flex-1 resize-none overflow-y-hidden break-words text-[14px] leading-5 text-[#828282] outline-none"
           />
-          <button type="button" onClick={handleSend} disabled={!user || !conversationUUID || !conversationReady || sending} aria-label="Send message" className="text-[#498467] disabled:opacity-50">
+          <button type="button" onClick={handleSend} disabled={!user || !conversationUUID || !conversationReady || sending} aria-label="Send message" className="mb-1 shrink-0 text-[#498467] disabled:opacity-50">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path
                 d="M3 20V4l19 8-19 8Z"

@@ -80,7 +80,6 @@ function SellerAccountSettings() {
   const [uploadWarning, setUploadWarning] = useState("");
   const [uploadProgress, setUploadProgress] = useState(null);
   const orders = sellerOrders(SELLER_ID);
-  const reputationSnapshot = useReputationSnapshot(user?.id ?? SELLER_ID);
   const snapshot = {
     followers: getFollowerCount(SELLER_ID),
     listings: products.filter((product) => product.sellerId === SELLER_ID).length,

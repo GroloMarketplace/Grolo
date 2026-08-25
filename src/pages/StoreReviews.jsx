@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -16,7 +16,7 @@ export default function StoreReviews() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState("All");
   const [sortBy, setSortBy] = useState("Most Recent");
-  const { reviewsForSeller, sellerRating, submittedReviews } = useReviews();
+  const { reviewsForSeller, sellerRating } = useReviews();
   const { listings } = useListings();
   const { user } = useAuth();
   const requestedStoreId = user?.id ?? STORE_ID;
@@ -27,15 +27,26 @@ export default function StoreReviews() {
   const sortOptions = ["Most Recent", "Oldest", "Highest Rating", "Lowest Rating"];
 
   const { average: averageRating, count: totalReviews } = sellerRating(resolvedStoreId);
+  useEffect(() => {
+    console.info("store review page audit", {
+      store_id: resolvedStoreId,
+      reviewCountFromReviewsTable: totalReviews,
+      averageRatingFromReviewsTable: averageRating,
+      reviewsPageDisplayedReviewCount: totalReviews,
+      reviewsPageDisplayedRating: averageRating,
+      source: "ReviewContext sellerRating aggregate",
+    });
+  }, [averageRating, resolvedStoreId, totalReviews]);
   const reputationSnapshot = useReputationSnapshot(resolvedStoreId);
   const hasReputation = Boolean(reputationSnapshot?.sellerStatus || reputationSnapshot?.activeBadges?.length);
 
+  const storeReviews = reviewsForSeller(resolvedStoreId);
   const ratingBreakdown = [5, 4, 3, 2, 1].map((stars) => ({
     stars,
-    count: submittedReviews.filter((review) => review.sellerId === resolvedStoreId && review.rating === stars).length,
+    count: storeReviews.filter((review) => review.rating === stars).length,
   }));
 
-  const filteredReviews = reviewsForSeller(resolvedStoreId)
+  const filteredReviews = storeReviews
     .filter((review) => filter === "All" || review.rating === parseInt(filter, 10))
     .sort((a, b) => {
       if (sortBy === "Most Recent") return b.createdAt.localeCompare(a.createdAt);

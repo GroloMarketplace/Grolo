@@ -164,7 +164,7 @@ export function ReviewProvider({ children }) {
   );
 
   const reviewsForSeller = useCallback(
-    (sellerId) => allReviews.filter((r) => r.sellerId === sellerId),
+    (sellerId) => allReviews.filter((review) => String(review.sellerId ?? review.reviewee_id ?? "") === String(sellerId ?? "")),
     [allReviews],
   );
 
@@ -194,15 +194,15 @@ export function ReviewProvider({ children }) {
 
   const sellerRating = useCallback(
     (sellerId) => {
+      const sellerReviews = allReviews
+        .filter((review) => String(review.sellerId ?? review.reviewee_id ?? "") === String(sellerId ?? ""));
+      if (sellerReviews.length) return averageWith(0, 0, sellerReviews.map((review) => review.rating));
       const aggregate = sellerAggregates.get(sellerId);
       if (aggregate) return aggregate;
       const seller = sellers[sellerId];
-      const added = visibleReviews(submittedReviews)
-        .filter((r) => r.sellerId === sellerId)
-        .map((r) => r.rating);
-      return averageWith(seller?.rating ?? 0, seller?.reviewCount ?? 0, added);
+      return averageWith(seller?.rating ?? 0, seller?.reviewCount ?? 0, []);
     },
-    [sellerAggregates, submittedReviews],
+    [allReviews, sellerAggregates],
   );
 
   const completedOrderForProduct = useCallback(

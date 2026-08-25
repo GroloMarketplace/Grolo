@@ -118,8 +118,18 @@ export default function ShopHome() {
   }, [routeLocation.state?.activeTab, routeLocation.state?.eventUpdated]);
   const tabs = ["Listings", "Posts", "Events"];
   const sellerPromotions = promotionsForSeller(seller.id, { createdAfter: storeOpenedAt });
-  const remoteMetrics = reputationSnapshot?.sellerStatus?.metrics ?? {};
   const localSellerRating = sellerRating(seller.id);
+
+  useEffect(() => {
+    console.info("store review summary audit", {
+      store_id: seller.id,
+      reviewCountFromReviewsTable: localSellerRating.count,
+      averageRatingFromReviewsTable: localSellerRating.average,
+      profileDisplayedReviewCount: localSellerRating.count,
+      profileDisplayedRating: localSellerRating.average,
+      source: "ReviewContext sellerRating aggregate",
+    });
+  }, [localSellerRating.average, localSellerRating.count, seller.id]);
 
   const showToast = (message) => {
     setToastMessage(message);
@@ -326,13 +336,13 @@ export default function ShopHome() {
                         strokeWidth="1"
                       />
                     </svg>
-                    <span className="text-[14px] font-semibold">{remoteMetrics.averageRating ?? localSellerRating.average}</span>
+                    <span className="text-[14px] font-semibold">{localSellerRating.average}</span>
                   </div>
                   <button
                     onClick={() => navigate("/my-shop/reviews")}
                     className="text-[14px] text-[#828282] hover:text-[#498467]"
                   >
-                    ({remoteMetrics.reviewCount ?? localSellerRating.count} reviews)
+                    ({localSellerRating.count} reviews)
                   </button>
                   <span className="text-[14px] text-[#828282]">•</span>
                   <span className="text-[14px] text-[#828282]">{getFollowerCount(seller.id)} followers</span>

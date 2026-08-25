@@ -47,6 +47,7 @@ alter table profiles add column if not exists social_links text;
 alter table profiles add column if not exists seller_status text not null default 'buyer';
 alter table profiles add column if not exists store_onboarding_status boolean not null default false;
 alter table profiles add column if not exists store_opened_at timestamptz;
+alter table profiles add column if not exists founding_member boolean not null default false;
 alter table profiles add column if not exists onboarding_completed boolean not null default false;
 
 alter table profiles enable row level security;

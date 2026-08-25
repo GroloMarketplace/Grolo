@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import TrustLevelIcon from "./TrustLevelIcon";
+import FoundingMemberBadge from "./FoundingMemberBadge";
 
 const BADGE_ICONS = {
   founding_member: "trophy",
@@ -65,12 +66,19 @@ export function CompactBadgeStack({ badges = [], includeFoundingMember = true })
   );
 }
 
+function formatMemberSince(storeCreatedAt, memberSince) {
+  const date = [storeCreatedAt, memberSince]
+    .map((value) => value ? new Date(value) : null)
+    .find((candidate) => candidate && !Number.isNaN(candidate.getTime()));
+  return date ? date.toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "—";
+}
+
 export function CompactReputationHeader({ snapshot, audience = "seller", includeFoundingMember = true, className = "" }) {
-  const status = audience === "seller" ? snapshot?.sellerStatus : snapshot?.buyerStatus;
+  const status = audience === "seller" ? { ...(snapshot?.sellerStatus ?? {}), currentStatus: "established_seller" } : snapshot?.buyerStatus;
   const metrics = status?.metrics ?? {};
   const activeBadges = snapshot?.activeBadges ?? [];
   const values = audience === "seller"
-    ? `${metrics.averageRating ?? metrics.average_rating ?? 0} rating • ${metrics.reviewCount ?? metrics.review_count ?? 0} reviews • ${metrics.completedOrderCount ?? metrics.completed_order_count ?? 0} orders`
+    ? `${metrics.reviewCount ?? metrics.review_count ?? 0} reviews • ${metrics.completedOrderCount ?? metrics.completed_order_count ?? 0} orders`
     : `${metrics.completedTransactionCount ?? metrics.completed_transaction_count ?? 0} transactions • ${metrics.sellerRecommendationCount ?? metrics.seller_recommendation_count ?? 0} recommended`;
 
   useEffect(() => {
@@ -92,11 +100,10 @@ export function CompactReputationHeader({ snapshot, audience = "seller", include
   );
 }
 
-export function TrustMetricSummary({ metrics = {}, audience = "buyer", compact = false }) {
+export function TrustMetricSummary({ metrics = {}, audience = "buyer", memberSince, storeCreatedAt, compact = false }) {
   const values = audience === "seller"
     ? [
-      ["Rating", metrics.averageRating ?? metrics.average_rating ?? 0],
-      ["Reviews", metrics.reviewCount ?? metrics.review_count ?? 0],
+      ["Local Vendor Since", formatMemberSince(storeCreatedAt, memberSince)],
       ["Orders", metrics.completedOrderCount ?? metrics.completed_order_count ?? 0],
     ]
     : [
@@ -105,7 +112,7 @@ export function TrustMetricSummary({ metrics = {}, audience = "buyer", compact =
       ["Again", metrics.wouldTransactAgainCount ?? metrics.would_transact_again_count ?? 0],
     ];
   return (
-    <div className={`grid grid-cols-3 gap-2 ${compact ? "text-[10px]" : "text-[11px]"}`}>
+    <div className={`grid ${values.length === 2 ? "grid-cols-2" : "grid-cols-3"} gap-2 ${compact ? "text-[10px]" : "text-[11px]"}`}>
       {values.map(([label, value]) => (
         <div key={label} className="rounded-md bg-[#F5FFF6] px-2 py-1.5 text-center text-[#828282]">
           <div className="text-[15px] font-semibold text-[#498467]">{value}</div>
@@ -116,8 +123,8 @@ export function TrustMetricSummary({ metrics = {}, audience = "buyer", compact =
   );
 }
 
-export default function ReputationSummary({ snapshot, audience = "buyer", compact = false, includeFoundingMember = true, className = "" }) {
-  const status = audience === "seller" ? snapshot?.sellerStatus : snapshot?.buyerStatus;
+export default function ReputationSummary({ snapshot, audience = "buyer", memberSince, storeCreatedAt, sellerId, foundingMember = false, compact = false, includeFoundingMember = true, runtimeDiagnostic = false, className = "" }) {
+  const status = audience === "seller" ? { ...(snapshot?.sellerStatus ?? {}), currentStatus: "established_seller" } : snapshot?.buyerStatus;
   const metrics = status?.metrics ?? {};
   const activeBadges = snapshot?.activeBadges ?? [];
 
@@ -136,13 +143,14 @@ export default function ReputationSummary({ snapshot, audience = "buyer", compac
     <section className={`rounded-lg border border-[#E6E6E6] bg-white p-3 ${className}`} aria-label="Reputation summary">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] font-medium uppercase tracking-[0.4px] text-[#498467]">Reputation</span>
+      </div>
+      <div className="mt-2 flex flex-nowrap items-center gap-1 whitespace-nowrap">
+        {audience === "seller" && <FoundingMemberBadge sellerId={sellerId} foundingMember={foundingMember} runtimeDiagnostic={runtimeDiagnostic} />}
         <ReputationStatusPill status={status} audience={audience} />
       </div>
+      {audience !== "seller" && <div className="mt-2"><BadgeRow badges={activeBadges} compact={compact} includeFoundingMember={includeFoundingMember} /></div>}
       <div className="mt-2">
-        <BadgeRow badges={activeBadges} compact={compact} includeFoundingMember={includeFoundingMember} />
-      </div>
-      <div className="mt-2">
-        <TrustMetricSummary metrics={metrics} audience={audience} compact={compact} />
+        <TrustMetricSummary metrics={metrics} audience={audience} memberSince={memberSince} storeCreatedAt={storeCreatedAt} compact={compact} />
       </div>
     </section>
   );

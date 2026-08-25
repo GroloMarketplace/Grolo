@@ -34,6 +34,7 @@ export default function ShopOrders() {
   const [reviewOrder, setReviewOrder] = useState(null);
   const [inProgressOrder, setInProgressOrder] = useState(null);
   const [statusToast, setStatusToast] = useState("");
+  const [reviewedOrderKeys, setReviewedOrderKeys] = useState(() => new Set());
   const [buyerProfiles, setBuyerProfiles] = useState({});
   const scrollRef = useRef(null);
   const savedOrderState = readNavigationState("store-orders", { scrollTop: 0 });
@@ -169,6 +170,9 @@ export default function ShopOrders() {
                       ?? { id: order.productId, name: "Listing unavailable", image: "" };
                     const buyerProfile = buyerProfiles[String(order.buyerId)] ?? null;
                     const buyerName = getBuyerDisplayName(order, buyerProfile);
+                    const orderReviewKey = String(order.databaseId ?? order.orderId ?? order.id);
+                    const buyerReviewSubmitted = reviewedOrderKeys.has(orderReviewKey)
+                      || hasReviewedOrder(order.databaseId ?? order.orderId ?? order.id, order.buyerId);
 
                     return (
                       <div
@@ -225,7 +229,7 @@ export default function ShopOrders() {
                           </div>
                         </div>
 
-                        {order.status === "Completed" && !hasReviewedOrder(order.databaseId ?? order.orderId ?? order.id) && <button type="button" onClick={() => setReviewOrder(order)} className="mt-3 w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">Review Buyer</button>}
+                        {order.status === "Completed" && (buyerReviewSubmitted ? <div className="mt-3 w-full rounded-lg bg-[#F5FFF6] py-2.5 text-center text-[14px] font-medium text-[#498467]">✅ Buyer Reviewed</div> : <button type="button" onClick={() => setReviewOrder(order)} className="mt-3 w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">Review Buyer</button>)}
 
                         {nextStatuses(order.status, order.fulfillmentMethod).length > 0 && (
                           <div className="flex flex-col gap-2 mt-3">
@@ -251,7 +255,7 @@ export default function ShopOrders() {
       </div>
       {statusToast && <div className="absolute bottom-[76px] left-1/2 z-40 w-[calc(100%-2rem)] max-w-[343px] -translate-x-1/2 rounded-lg bg-[#02542D] p-3 text-center text-[14px] font-medium text-white shadow-lg" role="status">{statusToast}</div>}
       {inProgressOrder && <InProgressConfirmation onKeepNew={() => setInProgressOrder(null)} onConfirm={confirmInProgress} />}
-      {reviewOrder && <BuyerReviewForm order={reviewOrder} onClose={() => setReviewOrder(null)} />}
+      {reviewOrder && <BuyerReviewForm order={reviewOrder} onClose={() => setReviewOrder(null)} onSubmitted={() => { setReviewedOrderKeys((current) => new Set([...current, String(reviewOrder.databaseId ?? reviewOrder.orderId ?? reviewOrder.id)])); setReviewOrder(null); }} />}
     </MobileScreenLayout>
   );
 }
@@ -260,13 +264,13 @@ function InProgressConfirmation({ onKeepNew, onConfirm }) {
   return <div className="absolute inset-0 z-50 flex items-end bg-black/30"><div className="w-full rounded-t-2xl bg-white p-5"><h2 className="text-[18px] font-semibold">Start Preparing Order?</h2><p className="mt-3 text-[14px] leading-6 text-[#4F4F4F]">Once this order is marked as In Progress:</p><ul className="mt-2 list-disc pl-5 text-[14px] leading-6 text-[#4F4F4F]"><li>The buyer can no longer cancel the order.</li><li>This confirms that preparation has begun.</li><li>The order will move to Preparing Orders.</li></ul><div className="mt-5 flex gap-3"><button type="button" onClick={onKeepNew} className="flex-1 rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467]">Keep as New Order</button><button type="button" onClick={onConfirm} className="flex-1 rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">Mark as In Progress</button></div></div></div>;
 }
 
-function BuyerReviewForm({ order, onClose }) {
+function BuyerReviewForm({ order, onClose, onSubmitted }) {
   const { addReview } = useBuyerTrust();
   const { listings } = useListings();
   const [criteria, setCriteria] = useState([]);
   const [notes, setNotes] = useState("");
   const options = ["Arrived for Pickup", "Communicated Well", "Polite and Respectful", "Would Transact Again"];
-  const submit = () => {
+  const submit = async () => {
     const product = listings.find((item) => item.id === order.productId);
     const rating = criteria.includes("Would Transact Again") ? 5 : 4;
     const buyerName = getBuyerDisplayName(order);
@@ -278,13 +282,14 @@ function BuyerReviewForm({ order, onClose }) {
       buyerId: reviewInput.buyerId ?? null,
       orderId: reviewInput.orderId ?? null,
     });
-    const request = addReview(reviewInput);
-    console.info("buyer review modal submit dispatched", { orderId: reviewInput.orderId ?? null });
-    request?.catch?.((error) => console.error("buyer review modal submit rejected", {
-      orderId: reviewInput.orderId ?? null,
-      error: error?.message ?? String(error),
-    }));
-    onClose();
+    try {
+      const createdReview = await addReview(reviewInput);
+      console.info("buyer review modal submit dispatched", { orderId: reviewInput.orderId ?? null, reviewCreated: Boolean(createdReview) });
+      if (createdReview) onSubmitted?.(createdReview);
+      else onClose();
+    } catch (error) {
+      console.error("buyer review modal submit rejected", { orderId: reviewInput.orderId ?? null, error: error?.message ?? String(error) });
+    }
   };
   return <div className="absolute inset-0 z-50 flex items-end bg-black/30"><div className="w-full rounded-t-2xl bg-white p-5"><div className="flex items-center justify-between"><h2 className="text-[18px] font-semibold">Review Buyer</h2><button type="button" onClick={onClose} className="text-[14px] text-[#828282]">Close</button></div><p className="mt-1 text-[13px] text-[#828282]">Share positive feedback about {getBuyerDisplayName(order)}.</p><div className="mt-4 flex flex-col gap-3">{options.map((option) => <Checkbox key={option} label={option} checked={criteria.includes(option)} onChange={() => setCriteria((current) => current.includes(option) ? current.filter((item) => item !== option) : [...current, option])} />)}</div><label className="mt-4 flex flex-col gap-2 text-[14px] font-medium">Additional Notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-2 text-[14px] font-normal outline-none focus:border-[#498467]" /></label><button type="button" onClick={submit} className="mt-4 w-full rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">Save Review</button></div></div>;
 }

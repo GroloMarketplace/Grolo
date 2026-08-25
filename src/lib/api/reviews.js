@@ -509,6 +509,8 @@ export async function createReviewInDatabase(review, { reviewerId, reviewType, r
     reviewType: row?.review_type ?? payload.review_type,
     reviewerId: row?.reviewer_id ?? authenticatedReviewerId,
     revieweeId: row?.reviewee_id ?? payload.reviewee_id ?? null,
+    rating: row?.rating ?? payload.rating ?? null,
+    createdAt: row?.created_at ?? null,
     orderId: row?.order_id ?? payload.order_id ?? null,
     listingId: row?.listing_id ?? payload.listing_id ?? null,
   });
@@ -534,7 +536,7 @@ async function getReviewsByType(reviewType, filterColumn, filterValue) {
     .from("reviews")
     .select(REVIEW_SELECT)
     .order("created_at", { ascending: false });
-  if (reviewType === "product" && filterColumn === "listing_id" && filterValue != null) query = query.eq("listing_id", filterValue);
+  if (filterValue != null && filterColumn) query = query.eq(filterColumn, filterValue);
   const { data, error } = await query;
   if (error) throw error;
   const rows = data ?? [];
@@ -548,6 +550,16 @@ async function getReviewsByType(reviewType, filterColumn, filterValue) {
   console.info("Supabase review read", {
     reviewReadCount: rows.length,
     mappedReviewCount: mapped.length,
+    reviewQuery: { reviewType, filterColumn, filterValue: filterValue ?? null },
+    reviews: mapped.map((review) => ({
+      review_id: review.databaseId ?? review.id ?? null,
+      reviewer_id: review.reviewerId ?? null,
+      reviewee_id: review.revieweeId ?? null,
+      rating: review.rating ?? null,
+      created_at: review.createdAt ?? null,
+      review_type: review.reviewType ?? null,
+    })),
+
     productReviewCount: reviewType === "product" ? mapped.length : 0,
     sellerReviewCount: reviewType === "seller" ? mapped.length : 0,
     buyerReviewCount: reviewType === "buyer" ? mapped.length : 0,
@@ -565,4 +577,8 @@ export function getSellerReviews(sellerId) {
 
 export function getBuyerReviews(buyerId) {
   return getReviewsByType("buyer", "reviewee_id", buyerId);
+}
+
+export function getBuyerReviewsWrittenBy(reviewerId) {
+  return getReviewsByType("buyer", "reviewer_id", reviewerId);
 }

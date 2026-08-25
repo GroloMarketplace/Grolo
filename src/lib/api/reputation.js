@@ -214,8 +214,13 @@ export async function awardBadge(userIdOrOptions, badgeCode, metadata = {}) {
 export async function getFoundingMember(userId) {
   requireSupabase();
   const badges = await getUserBadges(userId);
-  const member = foundingMemberFromBadge(badges.badges.find((badge) => badge.code === "founding_member"));
-  if (member) console.info("founding member source: supabase", { userId: userId ?? null });
+  const foundingBadge = badges.badges.find((badge) => badge.code === "founding_member");
+  const member = foundingMemberFromBadge(foundingBadge);
+  console.info("founding member badge lookup", {
+    userId: userId ?? null,
+    foundingMemberBadgeRowPresent: Boolean(foundingBadge),
+    foundingMemberMetadataValid: Boolean(member),
+  });
   return member;
 }
 

@@ -43,7 +43,7 @@ from (values
   ('seller_notifications'), ('show_location_publicly'), ('shop_name'),
   ('shop_slug'), ('store_description'), ('store_location'), ('vacation_mode'),
   ('vacation_message'), ('return_date'), ('social_links'), ('seller_status'),
-  ('store_onboarding_status'), ('store_opened_at'), ('onboarding_completed'),
+  ('store_onboarding_status'), ('store_opened_at'), ('founding_member'), ('onboarding_completed'),
   ('is_admin'), ('suspended_at')
 ) required(required_name);
 

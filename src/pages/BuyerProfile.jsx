@@ -24,6 +24,7 @@ import { EventAttendanceCount } from "../components/EventRsvp";
 import SellerReviewCard from "../components/SellerReviewCard";
 import ReputationSummary from "../components/ReputationSummary";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
+import FoundingMemberBadge from "../components/FoundingMemberBadge";
 
 const BUYER = {
   username: "remi",
@@ -121,6 +122,7 @@ export default function BuyerProfile() {
               <div className="flex-1">
                 {editing ? <input defaultValue={buyerProfile.username} className="w-full border-b border-[#E6E6E6] text-[20px] font-semibold outline-none" /> : <h1 className="text-[20px] font-semibold">{buyerProfile.username}</h1>}
                 <p className="text-[12px] text-[#828282]">@{buyerProfile.handle}</p>
+                <FoundingMemberBadge sellerId="current-user" />
                 <TrustStatusBadge buyerId="you" />
                 {publicLocation && <p className="mt-0.5 flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{publicLocation}</p>}
               </div>

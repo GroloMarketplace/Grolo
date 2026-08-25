@@ -6,7 +6,6 @@ import { useReviews } from "../context/ReviewContext";
 import { useListings } from "../context/ListingContext";
 import { useAuth } from "../context/AuthContext";
 import ReputationSummary from "../components/ReputationSummary";
-import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useResolvedStoreProfile } from "../hooks/useEntityResolution";
 
@@ -111,9 +110,8 @@ export default function StoreReviews() {
           <div className="px-4 py-3 border-b border-[#E6E6E6]">
             <div className="mb-2 flex items-center gap-2 text-[13px] font-medium text-[#498467]">
               Seller reputation
-              <FoundingMemberBadge sellerId={resolvedStoreId} iconOnly />
             </div>
-            <ReputationSummary snapshot={reputationSnapshot} audience="seller" compact className="border-0 p-0" />
+            <ReputationSummary snapshot={reputationSnapshot} audience="seller" sellerId={resolvedStoreId} foundingMember={storeProfile?.founding_member ?? storeProfile?.foundingMember} memberSince={storeProfile?.created_at ?? storeProfile?.createdAt} storeCreatedAt={storeProfile?.store_opened_at ?? storeProfile?.storeOpenedAt} compact className="border-0 p-0" />
           </div>
         )}
 

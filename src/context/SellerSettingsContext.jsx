@@ -50,6 +50,7 @@ function sellerProfileFromRow(row) {
   return {
     ...emptyProfile,
     id: row.id,
+    createdAt: row.created_at ?? row.createdAt ?? null,
     name: row.shop_name ?? "",
     description: row.store_description ?? row.bio ?? "",
     location: row.location ?? "",
@@ -73,6 +74,7 @@ function sellerProfileFromRow(row) {
     sellerStatus: row.seller_status ?? "buyer",
     storeOnboardingStatus: Boolean(row.store_onboarding_status),
     storeOpenedAt: row.store_opened_at ?? null,
+    foundingMember: Boolean(row.founding_member ?? row.foundingMember),
     socialLinks: row.social_links ?? "",
     instagram: row.instagram_handle ?? "",
     facebook: row.facebook_handle ?? "",

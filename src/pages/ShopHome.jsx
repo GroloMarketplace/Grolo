@@ -14,10 +14,7 @@ import { formatEventDate, formatEventTime, useEvents } from "../context/EventCon
 import { usePromotions } from "../context/PromotionContext";
 import { useFollow } from "../context/FollowContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
-import { getSellerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
-import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
-import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { usePosts } from "../context/PostContext";
@@ -123,16 +120,6 @@ export default function ShopHome() {
   const sellerPromotions = promotionsForSeller(seller.id, { createdAfter: storeOpenedAt });
   const remoteMetrics = reputationSnapshot?.sellerStatus?.metrics ?? {};
   const localSellerRating = sellerRating(seller.id);
-  const sellerStatus = getSellerStatus({
-    listingsCreated: remoteMetrics.activeListingCount ?? sellerProducts.length,
-    completedOrders: remoteMetrics.completedOrderCount ?? storeOrders.filter((order) => order.status === "Completed").length,
-    followers: getFollowerCount(seller.id),
-    sellerReviews: remoteMetrics.reviewCount ?? 0,
-    marketplaceInteractions: remoteMetrics.marketplaceInteractions ?? 0,
-    activeDays: remoteMetrics.activeDays ?? 0,
-    averageRating: remoteMetrics.averageRating ?? 0,
-    communityContribution: sellerEvents.length || sellerPromotions.length ? 1 : 0,
-  });
 
   const showToast = (message) => {
     setToastMessage(message);
@@ -256,14 +243,13 @@ export default function ShopHome() {
                     ) : (
                       <h1 className="text-[20px] font-semibold">{storeName}</h1>
                     )}
-                    <InteractiveStatusBadge status={sellerStatus} className="mt-1" />
-                    <FoundingMemberBadge sellerId={seller.id} />
-                    <ReputationSummary snapshot={reputationSnapshot} audience="seller" includeFoundingMember={false} className="mt-3" />
+
                     {isEditing ? (
                       <LocationAutocomplete label="Store location" value={location} location={locationDetails} onChange={(value) => { setLocationDetails(value); setLocation(friendlyLocation(value)); }} placeholder="Search neighborhood, city, or postal code" />
                     ) : (
                       <p className="flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{location}</p>
                     )}
+                    <FulfillmentType methods={fulfillmentMethods} />
                   </div>
                 </div>
 
@@ -326,6 +312,8 @@ export default function ShopHome() {
                 )}
 
                 {!isEditing && <PaymentMethodsList methods={getPaymentMethods(seller.id).methods} />}
+
+                <ReputationSummary snapshot={reputationSnapshot} audience="seller" sellerId={seller.id} foundingMember={sellerProfile.foundingMember} memberSince={sellerProfile.createdAt} storeCreatedAt={sellerProfile.storeOpenedAt} includeFoundingMember={false} runtimeDiagnostic className="mt-3" />
 
                 {/* Rating */}
                 <div className="flex items-center gap-2 mt-3">
@@ -446,6 +434,14 @@ export default function ShopHome() {
       <SaveToast status={saveStatus} errorMessage={saveError} lastSavedAt={lastSavedAt} />
     </>
   );
+}
+
+function FulfillmentType({ methods = [] }) {
+  const pickup = methods.includes("pickup");
+  const delivery = methods.includes("delivery");
+  if (!pickup && !delivery) return null;
+  const label = pickup && delivery ? "Pickup & Delivery" : pickup ? "Pickup Only" : "Delivery Available";
+  return <p className="mt-1 flex items-center gap-1 text-[13px] text-[#4F4F4F]"><OutlineIcon name={delivery && !pickup ? "sales" : "home"} size={15} />{label}</p>;
 }
 
 function PaymentMethodsList({ methods }) {

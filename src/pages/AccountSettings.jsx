@@ -13,11 +13,10 @@ import { useAuth } from "../context/AuthContext";
 import { uploadImage, removeImage } from "../lib/imageStorage";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useSidebar } from "../hooks/useSidebar";
-import { buyerActions, getBuyerStatus, getSellerStatus } from "../data/communityStatus";
+import { buyerActions, getBuyerStatus } from "../data/communityStatus";
 import { products } from "../data/mockData";
-import { useFoundingMember } from "../context/FoundingMemberContext";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
-import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
+import { ReputationStatusPill } from "../components/ReputationSummary";
 import { useFollow } from "../context/FollowContext";
 import { LOCATION_RADIUS_OPTIONS, discoveryRadiusLabel } from "../utils/locationRadius";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
@@ -82,19 +81,6 @@ function SellerAccountSettings() {
   const [uploadProgress, setUploadProgress] = useState(null);
   const orders = sellerOrders(SELLER_ID);
   const reputationSnapshot = useReputationSnapshot(user?.id ?? SELLER_ID);
-  const remoteMetrics = reputationSnapshot?.sellerStatus?.metrics ?? {};
-  const sellerStatus = getSellerStatus({
-    listingsCreated: remoteMetrics.activeListingCount ?? products.filter((product) => product.sellerId === SELLER_ID).length,
-    completedOrders: remoteMetrics.completedOrderCount ?? orders.filter((order) => order.status === "Completed").length,
-    followers: getFollowerCount(SELLER_ID),
-    sellerReviews: remoteMetrics.reviewCount ?? 0,
-    marketplaceInteractions: remoteMetrics.marketplaceInteractions ?? 0,
-    activeDays: remoteMetrics.activeDays ?? 0,
-    averageRating: remoteMetrics.averageRating ?? seller.rating,
-    communityContribution: 0,
-  });
-  const { getFoundingMember } = useFoundingMember();
-  const foundingMember = getFoundingMember(SELLER_ID);
   const snapshot = {
     followers: getFollowerCount(SELLER_ID),
     listings: products.filter((product) => product.sellerId === SELLER_ID).length,
@@ -206,28 +192,13 @@ function SellerAccountSettings() {
 
             <Section title="Seller Status">
               <div className="flex items-center gap-3 rounded-lg bg-[#F5FFF6] p-3">
-                <InteractiveStatusBadge status={sellerStatus} className="mt-0 text-[14px]" />
+                <ReputationStatusPill status={{ currentStatus: "established_seller" }} audience="seller" />
+                <FoundingMemberBadge sellerId={SELLER_ID} ownerId={user?.id} foundingMember={profile.foundingMember} />
                 <div><div className="text-[12px] text-[#828282]">Read-only seller status</div></div>
                 <button type="button" onClick={() => navigate("/profit")} className="ml-auto text-[12px] font-medium text-[#498467]">View Progress <span aria-hidden="true">›</span></button>
               </div>
             </Section>
 
-
-
-            {foundingMember && <Section title="Founder Benefits">
-              <div className="rounded-lg border border-[#E7C66A] bg-[#FFF8DD] p-3">
-                <FoundingMemberBadge sellerId={SELLER_ID} />
-                <div className="mt-2 text-[13px] font-medium text-[#5F4A00]">Member #{foundingMember.registrationNumber} of 100</div>
-                <div className="mt-2 text-[12px] font-medium text-[#5F4A00]">Benefits</div>
-                <div className="mt-1 flex flex-col gap-1 text-[12px] text-[#6F5B1A]">
-                  <div>✓ 6 Months Complimentary Community Spotlight Advertising</div>
-                  <div className="pl-4 text-[11px] text-[#806D2A]">Expires: {foundingMember.expiresAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
-                  <div>✓ Priority Placement in Featured Listings</div>
-                  <div>✓ Exclusive Founder Memorabilia</div>
-                  <div>✓ Lifetime Founding Member Status</div>
-                </div>
-              </div>
-            </Section>}
 
             <Section title="Vacation Mode">
               <div className="flex items-center justify-between rounded-lg bg-[#F5FFF6] p-3"><div><div className="text-[14px] font-medium">Vacation Mode</div><div className="text-[12px] text-[#828282]">Pause new orders while keeping your store visible</div></div><button type="button" role="switch" aria-checked={vacationMode} onClick={() => setVacationMode((current) => !current)} className={`relative h-7 w-12 rounded-full transition-colors ${vacationMode ? "bg-[#498467]" : "bg-[#D9D9D9]"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${vacationMode ? "translate-x-6" : "translate-x-1"}`} /></button></div>

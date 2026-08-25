@@ -16,13 +16,8 @@ import {
 } from "../context/EventContext";
 import { usePromotions } from "../context/PromotionContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
-import { useOrders } from "../context/OrderContext";
 import { usePosts } from "../context/PostContext";
-import { getSellerStatus } from "../data/communityStatus";
 import OutlineIcon from "../components/OutlineIcon";
-import InteractiveStatusBadge from "../components/InteractiveStatusBadge";
-import FoundingMemberBadge from "../components/FoundingMemberBadge";
-import { useFoundingMember } from "../context/FoundingMemberContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { formatListingPrice } from "../utils/listingDisplay";
@@ -44,16 +39,13 @@ export default function SellerProfile() {
   const { upcomingEvents } = useEvents();
   const { promotionsForSeller } = usePromotions();
   const { getPaymentMethods } = usePaymentMethods();
-  const { sellerOrders } = useOrders();
   const { posts } = usePosts();
   const { getSellerProfile } = useSellerSettings();
   const { listings } = useListings();
-  const { getFoundingMember } = useFoundingMember();
   const { storeOpenedAt } = useProfileMode();
   const seller = sellers[sellerId] || { id: sellerId, name: "Seller" };
   const sellerProfile = getSellerProfile(seller.id);
   const blocked = useBlockedAccount(seller.id);
-  const foundingMember = getFoundingMember(seller.id);
   const reputationSnapshot = useReputationSnapshot(seller.id);
   const sellerPaymentMethods = getPaymentMethods(seller.id);
   const createdBySeller = (item) => {
@@ -65,20 +57,6 @@ export default function SellerProfile() {
   const sellerRatingData = sellerRating(seller.id);
   const { average, count } = sellerRatingData;
   const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name || p.shop === seller.name);
-  const sellerOrdersForStatus = sellerOrders(seller.id).filter(createdBySeller);
-  const remoteMetrics = reputationSnapshot?.sellerStatus?.metrics ?? {};
-  const sellerStatus = getSellerStatus({
-    ordersFulfilled: remoteMetrics.completedOrderCount ?? sellerOrdersForStatus.filter((order) => order.status === "Completed").length,
-    productsSold: sellerOrdersForStatus.reduce((total, order) => total + order.quantity, 0),
-    reviewsReceived: remoteMetrics.reviewCount ?? count,
-    eventsHosted: sellerEvents.length,
-    followersGained: getFollowerCount(seller.id),
-    tradesCompleted: 3,
-    sellerReviews: remoteMetrics.reviewCount ?? count,
-    marketplaceInteractions: remoteMetrics.marketplaceInteractions ?? 0,
-    activeDays: remoteMetrics.activeDays ?? 0,
-    averageRating: remoteMetrics.averageRating ?? average,
-  });
   const sellerPosts = [...followingPosts, ...communityPosts, ...posts].filter(
     (post, index, allPosts) =>
       String(post.sellerId) === String(seller.id) && createdBySeller(post) && allPosts.findIndex((item) => item.id === post.id) === index,
@@ -164,8 +142,7 @@ export default function SellerProfile() {
               />
               <div className="flex-1">
                 <h1 className="text-[20px] font-semibold">{sellerProfile.name}</h1>
-                <SellerStatusBadge status={sellerStatus} />
-                {foundingMember && <FoundingMemberBadge sellerId={seller.id} />}
+
                 <p className="mt-0.5 flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{sellerProfile.location}</p>
                 <DistanceLabel content={sellerProfile} />
                 <FulfillmentAvailability methods={sellerPaymentMethods.fulfillmentMethods} />
@@ -175,9 +152,9 @@ export default function SellerProfile() {
             <p className="text-[14px] mt-3 leading-[140%]">{sellerProfile.description}</p>
             <PaymentMethodsList paymentSettings={sellerPaymentMethods} />
 
-            {/* Rating */}
-            <ReputationSummary snapshot={reputationSnapshot} audience="seller" includeFoundingMember={false} className="mt-3" />
+            <ReputationSummary snapshot={reputationSnapshot} audience="seller" sellerId={seller.id} foundingMember={sellerProfile.foundingMember} memberSince={sellerProfile.createdAt} storeCreatedAt={sellerProfile.storeOpenedAt} includeFoundingMember={false} runtimeDiagnostic className="mt-3" />
 
+            {/* Rating */}
             <div className="flex items-center gap-2 mt-3">
               <div className="flex items-center gap-1">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
@@ -190,7 +167,7 @@ export default function SellerProfile() {
                 </svg>
                 <span className="text-[14px] font-semibold">{average}</span>
               </div>
-              <span className="text-[14px] text-[#828282]">({count} reviews)</span>
+              <button type="button" onClick={() => navigate("/my-shop/reviews")} className="text-[14px] text-[#828282] hover:text-[#498467]">({count} reviews)</button>
               <span className="text-[14px] text-[#828282]">•</span>
               <span className="flex items-center gap-1 text-[14px] text-[#828282]"><OutlineIcon name="users" size={14} />{getFollowerCount(seller.id)} followers</span>
             </div>
@@ -254,10 +231,6 @@ export default function SellerProfile() {
       {isShareModalOpen && <SellerProfileShareModal seller={seller} profile={sellerProfile} onClose={() => setIsShareModalOpen(false)} />}
     </MobileScreenLayout>
   );
-}
-
-function SellerStatusBadge({ status }) {
-  return <InteractiveStatusBadge status={status} />;
 }
 
 function FulfillmentAvailability({ methods }) {

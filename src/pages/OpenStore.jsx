@@ -4,7 +4,6 @@ import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
-import { useFoundingMember } from "../context/FoundingMemberContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage, removeImage } from "../lib/imageStorage";
@@ -44,7 +43,6 @@ export default function OpenStore() {
   const navigate = useNavigate();
   const { activateStore, storeActive } = useProfileMode();
   const { getSellerProfile, updateSellerProfile } = useSellerSettings();
-  const { awardFoundingMember } = useFoundingMember();
   const { settings: buyerSettings } = useBuyerSettings();
   const { user } = useAuth();
   const storageKey = `${DRAFT_KEY}-${user?.id ?? "anonymous"}`;
@@ -127,7 +125,6 @@ export default function OpenStore() {
       if (previousBanner && previousBanner !== form.banner) await removeImage(previousBanner, user.id).catch((error) => console.error("Unable to remove previous banner", error));
       await activateStore();
       try { localStorage.removeItem(storageKey); } catch { /* Ignore storage cleanup failures. */ }
-      awardFoundingMember(SELLER_ID);
       navigate("/shop", { replace: true });
     } catch (error) {
       setFormError(error.message || "Your store could not be saved.");

@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect } from "react";
 import { useOrders } from "./OrderContext";
 import { useEvents } from "./EventContext";
 import { useAuth } from "./AuthContext";
-import { createReviewInDatabase, getBuyerReviews, getBuyerTrustAggregate, visibleReviews } from "../lib/api/reviews";
+import { createReviewInDatabase, getBuyerReviews, getBuyerReviewsWrittenBy, getBuyerTrustAggregate, visibleReviews } from "../lib/api/reviews";
 import { getReputationSnapshot, refreshUserReputation } from "../lib/api/reputation";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
@@ -15,6 +15,7 @@ function isCanonicalUuid(value) {
 }
 
 function buyerMatches(review, buyer, currentUserId) {
+  if (review.reviewType !== "buyer" && review.review_type !== "buyer") return false;
   const aliases = new Set([buyer, buyer === "you" ? "current-user" : null, buyer === "you" ? currentUserId : null].filter(Boolean).map((value) => String(value).toLowerCase()));
   return [review.buyer, review.buyerId, review.userId].some((value) => value != null && aliases.has(String(value).toLowerCase()));
 }
@@ -43,9 +44,10 @@ export function BuyerTrustProvider({ children }) {
       };
     }
 
-    getBuyerReviews()
-      .then((remoteReviews) => {
+    Promise.all([getBuyerReviews(user.id), getBuyerReviewsWrittenBy(user.id)])
+      .then(([receivedReviews, writtenReviews]) => {
         if (cancelled) return;
+        const remoteReviews = [...new Map([...receivedReviews, ...writtenReviews].map((review) => [review.databaseId ?? review.id, review])).values()];
         setReviews(remoteReviews);
         getBuyerTrustAggregate(user.id)
           .then((aggregate) => {
@@ -71,7 +73,8 @@ export function BuyerTrustProvider({ children }) {
           reviewCount: remoteReviews.length,
           productReviewCount: 0,
           sellerReviewCount: 0,
-          buyerReviewCount: remoteReviews.length,
+          buyerReviewCount: receivedReviews.length,
+          buyerReviewsWrittenCount: writtenReviews.length,
         });
       })
       .catch((error) => {
@@ -102,6 +105,9 @@ export function BuyerTrustProvider({ children }) {
       || candidate.databaseId === orderId
     ));
     const databaseOrderId = order?.databaseId ?? order?.orderId ?? (isCanonicalUuid(orderId) ? orderId : null);
+    const orderItem = order?.orderItems?.find((item) => item.listingId === productId || item.productId === productId) ?? order?.orderItems?.[0];
+    const resolvedListingId = orderItem?.listingId ?? (isCanonicalUuid(productId) ? productId : null);
+    const resolvedOrderItemId = orderItem?.databaseId ?? orderItem?.id ?? null;
     const resolvedBuyerId = order?.buyerId ?? buyerId ?? (isCanonicalUuid(buyer) ? buyer : null);
     const numericRating = Number(rating);
     const resolvedRating = Number.isInteger(numericRating) && numericRating >= 1 && numericRating <= 5
@@ -129,6 +135,10 @@ export function BuyerTrustProvider({ children }) {
       reviewerId,
     };
     console.info("buyer review requested", logContext);
+    if (hasReviewedOrder(databaseOrderId, resolvedBuyerId)) {
+      console.info("buyer review duplicate prevented", logContext);
+      return Promise.resolve(null);
+    }
 
     if (!user?.id || !isSupabaseConfigured) {
       console.warn("buyer review failed", { ...logContext, error: "Supabase is not configured or user is unauthenticated." });
@@ -140,12 +150,17 @@ export function BuyerTrustProvider({ children }) {
       reviewType: "buyer",
       revieweeId: resolvedBuyerId,
       orderId: databaseOrderId,
+      listingId: resolvedListingId,
+      orderItemId: resolvedOrderItemId,
     }).then((createdReview) => {
       console.info("buyer review succeeded", {
         reviewId: createdReview?.databaseId ?? createdReview?.id,
         revieweeId: createdReview?.revieweeId ?? resolvedBuyerId,
         orderId: createdReview?.orderId ?? databaseOrderId,
         reviewerId: createdReview?.reviewerId ?? user.id,
+        rating: createdReview?.rating ?? resolvedRating,
+        createdAt: createdReview?.createdAt ?? null,
+        reviewType: createdReview?.reviewType ?? "buyer",
       });
       setReviews((current) => [...current, createdReview]);
       if (resolvedBuyerId) {
@@ -203,7 +218,12 @@ export function BuyerTrustProvider({ children }) {
         : buyerReviews.length > 0 && buyerReviews.every((review) => review.criteria?.includes("Would Transact Again"))),
     };
   };
-  const hasReviewedOrder = (orderId) => visibleReviews(reviews).some((review) => review.orderId === orderId);
+  const hasReviewedOrder = (orderId, revieweeId) => visibleReviews(reviews).some((review) => (
+    (review.reviewType === "buyer" || review.review_type === "buyer")
+      && [review.orderId, review.order_id].filter(Boolean).some((value) => String(value) === String(orderId))
+      && String(review.reviewerId ?? review.reviewer_id) === String(user?.id)
+      && (!revieweeId || String(review.revieweeId ?? review.reviewee_id) === String(revieweeId))
+  ));
 
   const value = { reviews, addReview, reviewsForBuyer, getBuyerTrust, hasReviewedOrder, communityImpact };
   return <BuyerTrustContext.Provider value={value}>{children}</BuyerTrustContext.Provider>;

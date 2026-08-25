@@ -32,8 +32,10 @@ export function groupCartItemsByStore(items, listings = []) {
 
 export function getActiveCartItems(items, listings = []) {
   return items.filter((item) => {
-    const listing = listings.find((candidate) => candidate.id === getCartItemProductId(item, listings));
-    return Number(listing?.quantityAvailable ?? item.quantityAvailable) > 0;
+    const listing = getListingForCartItem(item, listings);
+    const hasVariants = Boolean(item.variantName) || (Array.isArray(listing?.variants) && listing.variants.length > 0);
+    if (hasVariants) return listing?.availableForOrders !== false && item.availableForOrders !== false;
+    return Number(listing?.quantityAvailable ?? listing?.inventory_quantity ?? item.quantityAvailable ?? item.inventory_quantity) > 0;
   });
 }
 

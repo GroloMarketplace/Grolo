@@ -246,10 +246,16 @@ export function AuthProvider({ children }) {
 
   async function signUpWithPassword(email, password, name) {
     if (!isSupabaseConfigured) throw new Error("Supabase is not configured.");
+    const redirectOrigin = import.meta.env.VITE_APP_URL?.replace(/\/$/, "") || window.location.origin;
+    const emailRedirectTo = `${redirectOrigin}/confirm-email`;
+    console.info("Signup confirmation redirect", { emailRedirectTo });
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { display_name: name.trim(), full_name: name.trim() } },
+      options: {
+        emailRedirectTo,
+        data: { display_name: name.trim(), full_name: name.trim() },
+      },
     });
     if (error) throw error;
     return data;

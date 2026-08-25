@@ -41,6 +41,7 @@ import PublicProfile from "./pages/PublicProfile";
 import ProductDetail from "./pages/ProductDetail";
 import SignIn from "./pages/SignIn";
 import ResetPassword from "./pages/ResetPassword";
+import ConfirmEmail from "./pages/ConfirmEmail";
 import Onboarding from "./pages/Onboarding";
 import AccountSettings from "./pages/AccountSettings";
 import Saved from "./pages/Saved";
@@ -117,6 +118,7 @@ export default function App() {
         <Route path="/signin" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SignIn /></PhoneFrame>} />
         <Route path="/signup" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SignIn /></PhoneFrame>} />
         <Route path="/reset-password" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ResetPassword /></PhoneFrame>} />
+        <Route path="/confirm-email" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ConfirmEmail /></PhoneFrame>} />
         <Route path="/account-suspended" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SuspendedAccount /></PhoneFrame>} />
         <Route path="/onboarding" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute><Onboarding /></ProtectedRoute></PhoneFrame>} />
         <Route path="/" element={<PhoneFrame key="home"><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />

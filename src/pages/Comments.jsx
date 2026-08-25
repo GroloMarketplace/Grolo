@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -6,6 +6,10 @@ import ThreadedComments from "../components/ThreadedComments";
 import { formatEventDate, formatEventTime } from "../context/EventContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useEngagement } from "../context/EngagementContext";
+import { useAuth } from "../context/AuthContext";
+import { isSupabaseConfigured } from "../lib/supabaseClient";
+import { createComment, getComments } from "../lib/api/comments";
+import { useResolvedSeller } from "../hooks/useEntityResolution";
 
 const CURRENT_USER = {
   username: "you",
@@ -16,18 +20,39 @@ export default function Comments() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const { settings } = useBuyerSettings();
+  const { user } = useAuth();
   const { updatePost } = useEngagement();
   const content = state?.content ?? fallbackContent;
-  const [comments, setComments] = useState(() => {
-    const sourceComments = state?.content?.post?.commentItems ?? [];
-    return state?.highlightedComment
-      ? [state.highlightedComment, ...sourceComments]
-      : sourceComments;
-  });
+  const contentId = content.type === "event" ? content.event?.id : content.post?.id;
+  const storageKey = `grolo-comments-${content.type}-${contentId ?? "unknown"}`;
+  const [comments, setComments] = useState(() => readLocalComments(storageKey, content, state?.highlightedComment));
   const replyInputRef = useRef(null);
 
-  const handleSubmit = ({ text, parentComment }) => {
-    const newReply = {
+  useEffect(() => {
+    let cancelled = false;
+    async function loadComments() {
+      if (!contentId) return;
+      if (!isSupabaseConfigured || !user?.id) {
+        console.info("comments source: local fallback", { operation: "loadComments", parent_type: content.type, parent_id: String(contentId) });
+        return;
+      }
+      try {
+        const remoteComments = await getComments(content.type, contentId);
+        if (!cancelled) {
+          const next = mergeHighlightedComment(commentsFromRows(remoteComments), state?.highlightedComment);
+          setComments(next);
+          persistLocalComments(storageKey, next);
+        }
+      } catch (error) {
+        console.warn("comments source: local fallback", { operation: "loadComments", parent_type: content.type, parent_id: String(contentId), error: error?.message ?? String(error) });
+      }
+    }
+    loadComments();
+    return () => { cancelled = true; };
+  }, [content.type, contentId, state?.highlightedComment, storageKey, user?.id]);
+
+  const handleSubmit = async ({ text, parentComment }) => {
+    const localComment = {
       id: `${parentComment ? "reply" : "comment"}-${Date.now()}`,
       ...CURRENT_USER,
       avatar: settings.avatar,
@@ -35,13 +60,30 @@ export default function Comments() {
       text,
       likes: 0,
     };
-    setComments((current) => {
-      const next = parentComment
-        ? addReplyToComment(current, parentComment.id, newReply)
-        : [newReply, ...current];
-      if (content.type === "post" && content.post?.id != null) updatePost(content.post.id, { comments: countComments(next) });
-      return next;
-    });
+    try {
+      let newComment = localComment;
+      if (isSupabaseConfigured && user?.id && contentId) {
+        newComment = await createComment({
+          contentType: content.type,
+          contentId,
+          parentCommentId: parentComment?.id,
+          body: text,
+          authorId: user.id,
+          actorUsername: settings.username || settings.displayName,
+          actorAvatarUrl: settings.avatar,
+        });
+      } else {
+        console.info("comments source: local fallback", { operation: "createComment", parent_type: content.type, parent_id: String(contentId ?? "") });
+      }
+      setComments((current) => {
+        const next = parentComment ? addReplyToComment(current, parentComment.id, newComment) : [newComment, ...current];
+        persistLocalComments(storageKey, next);
+        if (content.type === "post" && content.post?.id != null) updatePost(content.post.id, { comments: countComments(next) });
+        return next;
+      });
+    } catch (error) {
+      console.error("Unable to create comment", { parent_type: content.type, parent_id: String(contentId ?? ""), author_id: user?.id ?? null, error: error?.message ?? String(error) });
+    }
   };
 
   return (
@@ -68,7 +110,41 @@ export default function Comments() {
   );
 }
 
+function readLocalComments(storageKey, content, highlightedComment) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey));
+    if (Array.isArray(saved)) return saved;
+  } catch {
+  }
+  const sourceComments = content?.post?.commentItems ?? content?.event?.commentItems ?? [];
+  return highlightedComment ? [highlightedComment, ...sourceComments] : sourceComments;
+}
+
+function persistLocalComments(storageKey, comments) {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(comments));
+  } catch {
+  }
+}
+
+function mergeHighlightedComment(comments, highlightedComment) {
+  if (!highlightedComment || comments.some((comment) => String(comment.id) === String(highlightedComment.id))) return comments;
+  return [highlightedComment, ...comments];
+}
+
+function commentsFromRows(rows) {
+  const byId = new Map(rows.map((comment) => [String(comment.id), { ...comment, replies: [] }]));
+  const roots = [];
+  byId.forEach((comment) => {
+    const parent = comment.parentCommentId && byId.get(String(comment.parentCommentId));
+    if (parent) parent.replies.push(comment);
+    else roots.push(comment);
+  });
+  return roots;
+}
+
 function OriginalContent({ content, profile }) {
+  const liveSeller = useResolvedSeller(content.type === "post" ? content.post?.sellerId ?? content.post?.authorId : null);
   if (content.type === "event") {
     const { event, seller } = content;
     return (
@@ -92,10 +168,13 @@ function OriginalContent({ content, profile }) {
   }
 
   const { post } = content;
+  const postAvatar = post.sellerId === "current-user"
+    ? profile.avatar
+    : liveSeller?.avatar ?? post.avatar;
   return (
     <section className="rounded-lg border border-[#E6E6E6] p-3">
       <div className="flex items-center gap-2">
-        <img src={post.sellerId === "current-user" || !post.avatar ? profile.avatar : post.avatar} alt={post.name} className="h-8 w-8 rounded-full object-cover" />
+        <img src={postAvatar} alt={post.name} className="h-8 w-8 rounded-full object-cover" />
         <div>
           <div className="text-[14px] font-semibold text-[#498467]">{post.name}</div>
           <div className="text-[12px] text-[#828282]">{post.time}</div>

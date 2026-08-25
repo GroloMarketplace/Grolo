@@ -5,6 +5,7 @@ import { useCart } from "../context/CartContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { useOrders } from "../context/OrderContext";
 import { trackAnalyticsEvent } from "../lib/api/analytics";
+import { createId } from "../utils/createId";
 
 const CHECKOUT_ATTEMPT_KEY = "grolo-checkout-attempt";
 
@@ -25,7 +26,7 @@ function persistCheckoutAttempt(attempt) {
 }
 
 function createAttemptId() {
-  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `attempt-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return createId("attempt");
 }
 
 function createOrderId() {

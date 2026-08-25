@@ -79,6 +79,7 @@ function SellerAccountSettings() {
   }, [profile]);
   const [uploadError, setUploadError] = useState("");
   const [uploadWarning, setUploadWarning] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(null);
   const orders = sellerOrders(SELLER_ID);
   const reputationSnapshot = useReputationSnapshot(user?.id ?? SELLER_ID);
   const remoteMetrics = reputationSnapshot?.sellerStatus?.metrics ?? {};
@@ -112,6 +113,7 @@ function SellerAccountSettings() {
     const isBanner = kind === "banner";
     setUploadError("");
     setUploadWarning("");
+    setUploadProgress({ progress: 0, stage: "Preparing image" });
     try {
       const previewUrl = URL.createObjectURL(file);
       const image = new Image();
@@ -128,9 +130,11 @@ function SellerAccountSettings() {
       };
       image.onerror = () => URL.revokeObjectURL(previewUrl);
       image.src = previewUrl;
-      const { url } = await uploadImage(file, { userId: user.id, kind });
+      const { url } = await uploadImage(file, { userId: user.id, kind, onProgress: setUploadProgress });
       setValue(url);
+      setUploadProgress(null);
     } catch (error) {
+      setUploadProgress(null);
       setUploadError(error.message || "We couldn't upload that image. Please try again.");
     }
   };
@@ -180,7 +184,7 @@ function SellerAccountSettings() {
                 <img src={avatar} alt={name} className="h-20 w-20 rounded-full object-cover" />
                 <div className="flex flex-col gap-2">
                   <span className="text-[14px] font-medium">Profile Picture</span>
-                  <div className="text-[11px] leading-[140%] text-[#828282]">Recommended: 800 × 800 px<br />Maximum Size: 3 MB<br />JPG, PNG, WEBP</div><FileButton label="Change Profile Picture" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, setAvatar, "avatar")} />
+                  <div className="text-[11px] leading-[140%] text-[#828282]">Recommended: 800 × 800 px<br />Automatically optimized · Up to 10 MB source<br />JPG, PNG, WEBP</div><FileButton label="Change Profile Picture" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, setAvatar, "avatar")} />{uploadProgress && <UploadProgress {...uploadProgress} />}
                 </div>
               </div>
               <div className="mt-4 flex items-center gap-3">
@@ -279,6 +283,7 @@ function BuyerAccountSettings() {
   const [notifications, setNotifications] = useState(settings.notifications);
   const [showLocationPublicly, setShowLocationPublicly] = useState(settings.showLocationPublicly);
   const [locationStatus, setLocationStatus] = useState("");
+  const [profileUploadProgress, setProfileUploadProgress] = useState(null);
   const { status: saveStatus, errorMessage: saveError, lastSavedAt, runSave } = useSaveFeedback();
   const reputationSnapshot = useReputationSnapshot(user?.id ?? "current-user");
   const buyerReputationMetrics = reputationSnapshot?.buyerStatus?.metrics ?? {};
@@ -311,10 +316,13 @@ function BuyerAccountSettings() {
     event.target.value = "";
     if (!file) return;
     setLocationStatus("");
+    setProfileUploadProgress({ progress: 0, stage: "Preparing profile picture" });
     try {
-      const { url } = await uploadImage(file, { userId: user.id, kind: "avatar" });
+      const { url } = await uploadImage(file, { userId: user.id, kind: "avatar", onProgress: setProfileUploadProgress });
       setAvatar(url);
+      setProfileUploadProgress(null);
     } catch (error) {
+      setProfileUploadProgress(null);
       setLocationStatus(error.message || "We couldn't upload that image. Please try again.");
     }
   };
@@ -340,7 +348,7 @@ function BuyerAccountSettings() {
             <Section title="Profile">
               <div className="flex items-center gap-4">
                 <img src={avatar} alt={displayName} className="h-20 w-20 rounded-full object-cover" />
-                <div className="flex flex-col gap-2"><span className="text-[14px] font-medium">Profile Picture</span><FileButton label="Change Profile Picture" accept="image/*" onChange={handleFile} /></div>
+                <div className="flex flex-col gap-2"><span className="text-[14px] font-medium">Profile Picture</span><FileButton label="Change Profile Picture" accept="image/*" onChange={handleFile} />{profileUploadProgress && <UploadProgress {...profileUploadProgress} />}</div>
               </div>
             </Section>
 
@@ -423,4 +431,8 @@ function Checkbox({ label, checked, onChange }) {
 
 function FileButton({ label, accept, onChange }) {
   return <label className="inline-flex cursor-pointer rounded-lg border border-[#498467] px-3 py-2 text-center text-[12px] font-medium text-[#498467]"><input type="file" accept={accept} onChange={onChange} className="hidden" />{label}</label>;
+}
+
+function UploadProgress({ progress, stage }) {
+  return <div className="w-full max-w-[240px] text-center text-[11px] text-[#687368]"><div className="mb-1 h-1.5 overflow-hidden rounded-full bg-[#E6E6E6]"><div className="h-full rounded-full bg-[#498467] transition-all" style={{ width: `${progress}%` }} /></div>{stage}</div>;
 }

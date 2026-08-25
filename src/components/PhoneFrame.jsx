@@ -1,5 +1,4 @@
 import TabBar from "./TabBar";
-import StatusBar from "./StatusBar";
 import MobileScreenLayout from "./MobileScreenLayout";
 import { useRegrow } from "../context/RegrowContext";
 import { useSavedItems } from "../context/SavedContext";
@@ -12,13 +11,6 @@ export default function PhoneFrame({ children, hideTabBar, backgroundColor = "bg
   const { toast: savedToast } = useSavedItems();
   const { handleTouchStart, handleTouchEnd } = useSwipeBack();
   const activeToast = toast ? { message: toast.message, visible: toast.visible, style: "bg-[#498467]" } : savedToast ? { message: savedToast, visible: true, style: "bg-[#1E1E1E]" } : null;
-  const renderedChildComponent = children?.type?.displayName ?? children?.type?.name ?? "unknown";
-  console.info("PhoneFrame render", {
-    pathname,
-    activeRoute: pathname,
-    renderedChildComponent,
-  });
-
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[#efefef] py-6">
       <div
@@ -26,10 +18,6 @@ export default function PhoneFrame({ children, hideTabBar, backgroundColor = "bg
         onTouchEnd={handleTouchEnd}
         className={`relative w-full max-w-[375px] h-[812px] ${backgroundColor} overflow-hidden shadow-xl flex flex-col no-scroll-x`}
       >
-        <div className="pointer-events-none absolute left-1/2 top-0 z-[200] -translate-x-1/2 rounded-b bg-black px-2 py-1 text-[10px] font-semibold text-white">
-          {pathname}
-        </div>
-        <StatusBar backgroundColor={backgroundColor} />
         <div className={`flex-1 overflow-x-hidden relative ${hideTabBar ? "" : "pb-20"}`}>
           <MobileScreenLayout key={pathname}>
             {children}

@@ -167,6 +167,7 @@ export function SellerSettingsProvider({ children }) {
     }
 
     const current = getSellerProfile(sellerId);
+    const oldAvatarUrl = current.avatar ?? null;
     const sharedLocationFields = ["location", "neighborhood", "city", "province", "country", "postalCode", "latitude", "longitude"];
     const locationUpdates = Object.fromEntries(sharedLocationFields
       .filter((field) => updates[field] !== undefined)
@@ -186,6 +187,12 @@ export function SellerSettingsProvider({ children }) {
       .select("*")
       .single();
     if (error) throw error;
+    console.info("profile avatar database update", {
+      user_id: user.id,
+      old_avatar_url: oldAvatarUrl,
+      new_avatar_url: data?.avatar_url ?? null,
+      row_updated: data?.id === user.id,
+    });
     setProfiles((current) => ({ ...current, [user.id]: sellerProfileFromRow(data) }));
     await refreshProfile(user.id);
     return true;

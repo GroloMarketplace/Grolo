@@ -16,6 +16,9 @@ import DistanceLabel from "../components/DistanceLabel";
 import TradeBadge from "../components/TradeBadge";
 import { formatListingPrice } from "../utils/listingDisplay";
 import { toggleCommentLike as persistCommentLike } from "../lib/api/commentLikes";
+import { createComment, getComments } from "../lib/api/comments";
+import { isSupabaseConfigured } from "../lib/supabaseClient";
+import { useResolvedSeller } from "../hooks/useEntityResolution";
 
 function imageReferenceMatches(first, second) {
   if (!first || !second) return true;
@@ -37,14 +40,26 @@ export default function PostDetail() {
   const [showRegrowConfirm, setShowRegrowConfirm] = useState(false);
   const [comments, setComments] = useState(post?.commentItems ?? []);
   const replyInputRef = useRef(null);
-  const seller = post ? sellers[post.sellerId] ?? Object.values(sellers).find((item) => item.name === post.name) : null;
-  const postAvatar = post?.authorId === buyerProfile.displayName ? buyerProfile.avatar : post?.avatar ?? seller?.avatar;
+  const resolvedSeller = useResolvedSeller(post?.sellerId ?? post?.authorId);
+  const seller = post ? resolvedSeller ?? sellers[post.sellerId] ?? Object.values(sellers).find((item) => item.name === post.name) : null;
+  const postAvatar = post?.authorId === authUser?.id ? buyerProfile.avatar : seller?.avatar ?? post?.avatar;
   const engagement = getPostEngagement(post);
   const regrown = post ? isRegrown(`post:${post.id}`) : false;
   const attachedProduct = post?.productId
     ? products.find((item) => item.id === post.productId) ?? listings.find((item) => item.id === post.productId)
     : null;
   const postImages = post?.images?.length ? post.images : post?.image ? [post.image] : [];
+
+  useEffect(() => {
+    if (!post?.id || !isSupabaseConfigured) return undefined;
+    let cancelled = false;
+    getComments("post", post.id)
+      .then((rows) => {
+        if (!cancelled) setComments(buildCommentTree(rows));
+      })
+      .catch((error) => console.warn("comments source: local fallback", { operation: "loadComments", parent_type: "post", parent_id: String(post.id), error: error?.message ?? String(error) }));
+    return () => { cancelled = true; };
+  }, [post?.id]);
 
   useEffect(() => {
     if (!state?.notificationId) return;
@@ -59,13 +74,29 @@ export default function PostDetail() {
     }
   }, [state?.notificationId, state?.storedPostId, state?.notificationThumbnail, post?.id, post?.image]);
 
-  const handleSubmitReply = ({ text, parentComment }) => {
-    const reply = { id: `${parentComment ? "reply" : "comment"}-${Date.now()}`, username: buyerProfile.displayName, avatar: buyerProfile.avatar, timestamp: "now", likes: 0, text };
-    setComments((current) => {
-      const next = parentComment ? addReplyToComment(current, parentComment.id, reply) : [reply, ...current];
-      updatePost(post.id, { comments: countComments(next) });
-      return next;
-    });
+  const handleSubmitReply = async ({ text, parentComment }) => {
+    let reply = { id: `${parentComment ? "reply" : "comment"}-${Date.now()}`, username: buyerProfile.displayName, avatar: buyerProfile.avatar, timestamp: "now", likes: 0, text };
+    try {
+      if (isSupabaseConfigured && authUser?.id) {
+        reply = await createComment({
+          contentType: "post",
+          contentId: post.id,
+          parentCommentId: parentComment?.id,
+          body: text,
+          authorId: authUser.id,
+          actorUsername: buyerProfile.username || buyerProfile.displayName,
+          actorAvatarUrl: buyerProfile.avatar,
+          thumbnailUrl: post.image,
+        });
+      }
+      setComments((current) => {
+        const next = parentComment ? addReplyToComment(current, parentComment.id, reply) : [reply, ...current];
+        updatePost(post.id, { comments: countComments(next) });
+        return next;
+      });
+    } catch (error) {
+      console.error("Unable to create comment", { parent_type: "post", parent_id: String(post.id), author_id: authUser?.id ?? null, error: error?.message ?? String(error) });
+    }
   };
 
   const handlePostLike = () => togglePostLike(post.id);
@@ -154,6 +185,17 @@ export default function PostDetail() {
       {showRegrowConfirm && <div className="absolute inset-0 z-50 flex items-end bg-black/30"><div className="w-full rounded-t-2xl bg-white p-5"><h2 className="text-[18px] font-semibold">Confirm Regrow</h2><p className="mt-2 text-[14px] text-[#4F4F4F]">Share this post to the community feed?</p><div className="mt-5 flex gap-3"><button type="button" onClick={() => setShowRegrowConfirm(false)} className="flex-1 rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467]">Cancel</button><button type="button" onClick={handlePostRegrow} className="flex-1 rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">Regrow Post</button></div></div></div>}
     </MobileScreenLayout>
   );
+}
+
+function buildCommentTree(rows) {
+  const byId = new Map(rows.map((comment) => [String(comment.id), { ...comment, replies: [] }]));
+  const roots = [];
+  byId.forEach((comment) => {
+    const parent = comment.parentCommentId && byId.get(String(comment.parentCommentId));
+    if (parent) parent.replies.push(comment);
+    else roots.push(comment);
+  });
+  return roots;
 }
 
 function countComments(comments) {

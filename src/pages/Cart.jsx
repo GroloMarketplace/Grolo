@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { sellers } from "../data/mockData";
 import { useSavedForLater } from "../context/SavedForLaterContext";
@@ -84,6 +84,8 @@ export default function Cart() {
   const activeTotalQuantity = activeItems.reduce((sum, item) => sum + item.quantity, 0);
   const activeSubtotal = activeItems.reduce((sum, item) => sum + getItemPricing(item).discountedPrice * item.quantity, 0);
   const canCheckout = activeItems.length > 0;
+  const checkoutTarget = "/checkout";
+  const checkoutValidationErrors = canCheckout ? [] : ["Your cart has no eligible items."];
   const storeGroups = groupCartItemsByStore(activeItems, listings);
   const stores = storeGroups.map(([sellerId, storeItems]) => ({
     sellerId,
@@ -96,6 +98,19 @@ export default function Cart() {
     console.info("Cart store data returned", JSON.parse(storesKey));
   }, [storesKey]);
 
+  const handleCheckout = () => {
+    console.info("CHECKOUT BUTTON PRESSED");
+    console.info("Checkout navigation diagnostics", {
+      cartItemCount: items.length,
+      cartQuantity: items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
+      checkoutEligibility: canCheckout,
+      navigationTarget: checkoutTarget,
+      validationErrors: checkoutValidationErrors,
+    });
+    if (!canCheckout) return;
+    navigate(checkoutTarget);
+  };
+
   return (
     <MobileScreenLayout>
       <div className="shrink-0">
@@ -105,7 +120,7 @@ export default function Cart() {
           <Row label="Subtotal" value={`$${activeSubtotal.toFixed(2)}`} />
         </div>
         <div className="px-4 py-4">
-          {canCheckout ? <Link to="/checkout" className="block w-full rounded-lg bg-[#498467] py-3.5 text-center text-[16px] font-medium text-white">Proceed to Checkout</Link> : <button type="button" onClick={() => navigate("/")} className="w-full rounded-lg border border-[#498467] py-3.5 text-center text-[16px] font-medium text-[#498467]">Browse Local Listings</button>}
+          {canCheckout ? <button type="button" onClick={handleCheckout} className="block w-full rounded-lg bg-[#498467] py-3.5 text-center text-[16px] font-medium text-white">Proceed to Checkout</button> : <button type="button" onClick={() => navigate("/")} className="w-full rounded-lg border border-[#498467] py-3.5 text-center text-[16px] font-medium text-[#498467]">Browse Local Listings</button>}
         </div>
       </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">

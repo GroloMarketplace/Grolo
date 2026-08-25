@@ -200,6 +200,7 @@ export function BuyerSettingsProvider({ children }) {
 
     console.info("AuthContext profile before onboarding save", authenticatedProfile);
     const current = settings;
+    const oldAvatarUrl = current.avatar ?? null;
     const next = {
       ...current,
       ...updates,
@@ -209,6 +210,12 @@ export function BuyerSettingsProvider({ children }) {
       },
     };
     const data = await upsertProfileWithLocationFallback(user.id, { id: user.id, ...profileUpdates(next) });
+    console.info("profile avatar database update", {
+      user_id: user.id,
+      old_avatar_url: oldAvatarUrl,
+      new_avatar_url: data?.avatar_url ?? null,
+      row_updated: data?.id === user.id,
+    });
     setSettings(settingsFromProfile(data, user));
     setProfileFound(true);
     setProfileLoaded(true);

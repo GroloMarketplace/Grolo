@@ -30,8 +30,14 @@ export default function Checkout() {
   const storesKey = JSON.stringify(stores);
 
   useEffect(() => {
+    console.info("CHECKOUT PAGE RENDERED", {
+      cartItemCount: items.length,
+      eligibleItemCount: activeItems.length,
+      storeCount: groups.length,
+      navigationTarget: window.location.pathname,
+    });
     console.info("Checkout Hub store data returned", JSON.parse(storesKey));
-  }, [storesKey]);
+  }, [activeItems.length, groups.length, items.length, storesKey]);
 
   return (
     <MobileScreenLayout>

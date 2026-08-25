@@ -13,11 +13,12 @@ import { useListings } from "../context/ListingContext";
 import { getCartItemProductId, getCartItemSellerId } from "../utils/cartGrouping";
 import { trackAnalyticsEvent } from "../lib/api/analytics";
 import { validateFulfillment } from "../utils/validation";
+import { createId } from "../utils/createId";
 
 const CHECKOUT_ATTEMPT_KEY = "grolo-checkout-attempt";
 
 function createAttemptId() {
-  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `attempt-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return createId("attempt");
 }
 
 function createOrderId() {

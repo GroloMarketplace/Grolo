@@ -55,6 +55,7 @@ export default function OpenStore() {
   const [uploadError, setUploadError] = useState("");
   const [uploadWarning, setUploadWarning] = useState("");
   const [formError, setFormError] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(null);
 
   useEffect(() => {
     if (!storeActive) return;
@@ -81,6 +82,7 @@ export default function OpenStore() {
     const isBanner = key === "banner";
     setUploadError("");
     setUploadWarning("");
+    setUploadProgress({ progress: 0, stage: "Preparing image" });
     try {
       const previewUrl = URL.createObjectURL(file);
       const image = new Image();
@@ -98,9 +100,11 @@ export default function OpenStore() {
       };
       image.onerror = () => URL.revokeObjectURL(previewUrl);
       image.src = previewUrl;
-      const { url } = await uploadImage(file, { userId: user.id, kind: isBanner ? "banner" : "avatar" });
+      const { url } = await uploadImage(file, { userId: user.id, kind: isBanner ? "banner" : "avatar", onProgress: setUploadProgress });
       update(key, url);
+      setUploadProgress(null);
     } catch (error) {
+      setUploadProgress(null);
       setUploadError(error.message || "We couldn't upload that image. Please try again.");
     }
   };
@@ -138,7 +142,7 @@ export default function OpenStore() {
           <Progress step={step} />
           {step === 0 && <WelcomeStep onContinue={next} />}
           {step === 1 && <BasicsStep form={form} update={update} onContinue={next} error={formError} />}
-          {step === 2 && <BrandingStep form={form} handleFile={handleFile} onContinue={next} error={uploadError || formError} warning={uploadWarning} />}
+          {step === 2 && <BrandingStep form={form} handleFile={handleFile} uploadProgress={uploadProgress} onContinue={next} error={uploadError || formError} warning={uploadWarning} />}
           {step === 3 && <CategoryStep value={form.category} update={update} onContinue={next} error={formError} />}
           {step === 4 && <ContactStep form={form} update={update} onContinue={next} />}
           {step === 5 && <ReviewStep form={form} onEdit={(targetStep) => { setFormError(""); setStep(targetStep); }} onContinue={next} />}
@@ -161,8 +165,8 @@ function BasicsStep({ form, update, onContinue, error }) {
   return <Step title="Tell Us About Your Store"><Field label="Store Name" value={form.name} onChange={(value) => update("name", value)} placeholder="Your store name" required /><label className="flex flex-col gap-2 text-[14px] font-medium">Store Description<textarea value={form.description} onChange={(event) => update("description", event.target.value)} rows={5} placeholder="Tell your community what makes your store special." className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-3 text-[14px] font-normal outline-none focus:border-[#498467]" /></label><LocationAutocomplete label="Store Location" value={form.location} location={form.locationDetails} onChange={(value) => { update("locationDetails", value); update("location", friendlyLocation(value)); }} required /><PreviewCard title={form.name || "Your Store"} text={form.description || "Your store description will appear here."} /><ErrorMessage>{error}</ErrorMessage><NextButton onClick={onContinue}>Continue</NextButton></Step>;
 }
 
-function BrandingStep({ form, handleFile, onContinue, error, warning }) {
-  return <Step title="Make Your Store Stand Out"><p>Use a personal photo, store photo, farm photo, product photo, or logo.</p><div className="flex flex-col items-center gap-2"><img src={form.avatar} alt="Profile preview" className="h-28 w-28 rounded-full object-cover" /><div className="text-center text-[11px] text-[#828282]">Recommended: 800 × 800 px<br />Maximum Size: 3 MB<br />JPG, PNG, WEBP</div><FileButton label="Upload Profile Picture" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, "avatar")} /></div><div className="flex flex-col gap-2"><img src={form.banner} alt="Store banner preview" className="h-24 w-full rounded-lg object-cover" /><div className="text-[11px] leading-[140%] text-[#828282]">Recommended Banner Size<br /><span className="font-medium text-[#4F4F4F]">1500 × 500 px</span><br />Maximum Size: 5 MB<br />JPG, PNG, WEBP<br />Choose a wide image that represents your business.</div><FileButton label="Upload Store Banner" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, "banner")} /></div>{warning && <p className="text-[12px] text-amber-700">{warning}</p>}<ErrorMessage>{error}</ErrorMessage><NextButton onClick={onContinue}>Continue</NextButton></Step>;
+function BrandingStep({ form, handleFile, uploadProgress, onContinue, error, warning }) {
+  return <Step title="Make Your Store Stand Out"><p>Use a personal photo, store photo, farm photo, product photo, or logo.</p><div className="flex flex-col items-center gap-2"><img src={form.avatar} alt="Profile preview" className="h-28 w-28 rounded-full object-cover" /><div className="text-center text-[11px] text-[#828282]">Recommended: 800 × 800 px<br />Automatically optimized · Up to 10 MB source<br />JPG, PNG, WEBP</div><FileButton label="Upload Profile Picture" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, "avatar")} />{uploadProgress && <UploadProgress {...uploadProgress} />}</div><div className="flex flex-col gap-2"><img src={form.banner} alt="Store banner preview" className="h-24 w-full rounded-lg object-cover" /><div className="text-[11px] leading-[140%] text-[#828282]">Recommended Banner Size<br /><span className="font-medium text-[#4F4F4F]">1500 × 500 px</span><br />Maximum Size: 5 MB<br />JPG, PNG, WEBP<br />Choose a wide image that represents your business.</div><FileButton label="Upload Store Banner" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, "banner")} /></div>{warning && <p className="text-[12px] text-amber-700">{warning}</p>}<ErrorMessage>{error}</ErrorMessage><NextButton onClick={onContinue}>Continue</NextButton></Step>;
 }
 
 function CategoryStep({ value, update, onContinue, error }) {
@@ -186,6 +190,7 @@ function Field({ label, value, onChange, placeholder, required = false, type = "
 function FileButton({ label, accept, onChange }) { return <label className="cursor-pointer rounded-lg border border-[#498467] px-4 py-2 text-center text-[13px] font-medium text-[#498467]"><input type="file" accept={accept} onChange={onChange} className="hidden" />{label}</label>; }
 function NextButton({ onClick, children }) { return <button type="button" onClick={onClick} className="w-full rounded-lg bg-[#498467] py-3 text-[16px] font-medium text-white">{children}</button>; }
 function ErrorMessage({ children }) { return children ? <p role="alert" className="text-[12px] text-red-600">{children}</p> : null; }
+function UploadProgress({ progress, stage }) { return <div className="w-full max-w-[240px] text-center text-[11px] text-[#687368]"><div className="mb-1 h-1.5 overflow-hidden rounded-full bg-[#E6E6E6]"><div className="h-full rounded-full bg-[#498467] transition-all" style={{ width: `${progress}%` }} /></div>{stage}</div>; }
 function PreviewCard({ title, text }) { return <div className="rounded-lg bg-[#F5FFF6] p-3 text-[13px]"><div className="font-semibold text-[#355F45]">{title}</div><div className="mt-1 text-[#5D7459]">{text}</div></div>; }
 function BenefitList() { return <div className="rounded-lg bg-[#F5FFF6] p-4 text-[14px] text-[#355F45]"><div>✓ Create listings</div><div>✓ Sell products and services</div><div>✓ Receive orders</div><div>✓ Build followers</div><div>✓ Participate in community events</div><div>✓ Earn Grolo status and trust</div></div>; }
 function ReviewRow({ label, value, onEdit }) { return <div className="flex items-center justify-between rounded-lg border border-[#E0E0E0] px-3 py-2"><div><span className="font-medium">{label}</span><span className="ml-2 text-[#828282]">{value}</span></div><button type="button" onClick={onEdit} className="text-[12px] font-medium text-[#498467]">Edit</button></div>; }

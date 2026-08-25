@@ -40,6 +40,7 @@ export default function Onboarding() {
     interests: [],
   });
   const [error, setError] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(null);
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const toggleInterest = (interest) => update("interests", form.interests.includes(interest)
@@ -61,10 +62,13 @@ export default function Onboarding() {
     event.target.value = "";
     if (!file) return;
     setError("");
+    setUploadProgress({ progress: 0, stage: "Preparing profile picture" });
     try {
-      const { url } = await uploadImage(file, { userId: user?.id, kind: "avatar", folder: "profiles" });
+      const { url } = await uploadImage(file, { userId: user?.id, kind: "avatar", folder: "profiles", onProgress: setUploadProgress });
       update("avatar", url);
+      setUploadProgress(null);
     } catch (error) {
+      setUploadProgress(null);
       setError(error.message || "We couldn't upload that image. Please try again.");
     }
   };
@@ -119,7 +123,7 @@ export default function Onboarding() {
       <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar px-6 py-8">
         {step === 0 && <WelcomeStep onContinue={() => setStep(1)} />}
         {step === 1 && <ProfileStep form={form} update={update} error={error} onContinue={handleProfileContinue} />}
-        {step === 2 && <PhotoStep form={form} update={update} handleFile={handleFile} error={error} onContinue={() => { setError(""); setStep(3); }} onSkip={() => { setError(""); setStep(3); }} />}
+        {step === 2 && <PhotoStep form={form} update={update} handleFile={handleFile} error={error} uploadProgress={uploadProgress} onContinue={() => { setError(""); setStep(3); }} onSkip={() => { setError(""); setStep(3); }} />}
         {step === 3 && <InterestsStep interests={form.interests} toggleInterest={toggleInterest} onContinue={() => { setError(""); setStep(4); }} />}
         {step === 4 && <LocationPermissionStep onAllow={async () => { await refreshLocation(); setStep(5); }} onNotNow={async () => { try { await updateSettings({ locationPermission: "denied" }); setStep(5); } catch (error) { setError(error.message || "We couldn't save your location preference."); } }} />}
         {step === 5 && <ReadyStep form={form} onEnter={finish} />}
@@ -136,8 +140,8 @@ function ProfileStep({ form, update, error, onContinue }) {
   return <Step title="Let's Create Your Profile"><Field label="Display Name" value={form.displayName} onChange={(value) => update("displayName", value)} placeholder="How should the community know you?" required /><Field label="Username" value={form.username} onChange={(value) => update("username", value.replace(/\s+/g, "").toLowerCase())} placeholder="Choose a username" required /><Field label="Email Address" type="email" value={form.email} onChange={(value) => update("email", value)} placeholder="name@email.com" required /><label className="flex flex-col gap-2 text-[14px] font-medium">Bio<textarea value={form.bio} onChange={(event) => update("bio", event.target.value)} rows={4} placeholder="Discovering local makers, businesses, and community moments around Calgary." required className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-3 text-[14px] font-normal outline-none focus:border-[#498467]" /></label><div className="rounded-lg bg-[#F5FFF6] p-3 text-[12px] text-[#5D7459]"><div className="font-medium">Preview</div>{form.displayName || form.bio ? <><div className="mt-1 font-semibold">{form.displayName}</div>{form.bio && <p className="mt-1">{form.bio}</p>}</> : <p className="mt-1">Your profile preview will appear here.</p>}</div>{error && <ErrorMessage>{error}</ErrorMessage>}<NextButton onClick={onContinue}>Continue</NextButton></Step>;
 }
 
-function PhotoStep({ form, update, handleFile, error, onContinue, onSkip }) {
-  return <Step title="Help Your Community Recognize You"><div className="flex flex-col items-center gap-3"><ProfileAvatar profile={{ avatar: form.avatar, name: form.displayName }} size="h-28 w-28" /><label className="cursor-pointer rounded-lg border border-[#498467] px-4 py-2 text-center text-[13px] font-medium text-[#498467]"><input type="file" accept="image/*" onChange={handleFile} className="hidden" />Upload Profile Picture</label></div><LocationAutocomplete label="Location (optional)" value={form.location} location={form.locationDetails} onChange={(value) => { update("locationDetails", value); update("location", friendlyLocation(value)); }} placeholder="Search neighborhood, city, or postal code" />{error && <ErrorMessage>{error}</ErrorMessage>}<NextButton onClick={onContinue}>Continue</NextButton><button type="button" onClick={onSkip} className="text-[13px] font-medium text-[#498467]">Skip for Now</button></Step>;
+function PhotoStep({ form, update, handleFile, error, uploadProgress, onContinue, onSkip }) {
+  return <Step title="Help Your Community Recognize You"><div className="flex flex-col items-center gap-3"><ProfileAvatar profile={{ avatar: form.avatar, name: form.displayName }} size="h-28 w-28" /><label className="cursor-pointer rounded-lg border border-[#498467] px-4 py-2 text-center text-[13px] font-medium text-[#498467]"><input type="file" accept="image/*" onChange={handleFile} className="hidden" />Upload Profile Picture</label>{uploadProgress && <UploadProgress {...uploadProgress} />}</div><LocationAutocomplete label="Location (optional)" value={form.location} location={form.locationDetails} onChange={(value) => { update("locationDetails", value); update("location", friendlyLocation(value)); }} placeholder="Search neighborhood, city, or postal code" />{error && <ErrorMessage>{error}</ErrorMessage>}<NextButton onClick={onContinue}>Continue</NextButton><button type="button" onClick={onSkip} className="text-[13px] font-medium text-[#498467]">Skip for Now</button></Step>;
 }
 
 function InterestsStep({ interests, toggleInterest, onContinue }) {
@@ -156,3 +160,4 @@ function Step({ title, children }) { return <div className="mx-auto flex max-w-[
 function Field({ label, value, onChange, placeholder, required = false }) { return <label className="flex flex-col gap-2 text-[14px] font-medium">{label}<input required={required} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="rounded-lg border border-[#E0E0E0] px-3 py-3 text-[14px] font-normal outline-none focus:border-[#498467]" /></label>; }
 function NextButton({ onClick, children }) { return <button type="button" onClick={onClick} className="w-full rounded-lg bg-[#498467] py-3 text-[16px] font-medium text-white">{children}</button>; }
 function ErrorMessage({ children }) { return <p role="alert" className="text-[12px] text-red-600">{children}</p>; }
+function UploadProgress({ progress, stage }) { return <div className="w-full max-w-[240px] text-center text-[11px] text-[#687368]"><div className="mb-1 h-1.5 overflow-hidden rounded-full bg-[#E6E6E6]"><div className="h-full rounded-full bg-[#498467] transition-all" style={{ width: `${progress}%` }} /></div>{stage}</div>; }

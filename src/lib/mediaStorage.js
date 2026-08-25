@@ -1,4 +1,5 @@
 import { isSupabaseConfigured, supabase } from "./supabaseClient";
+import { createId } from "../utils/createId";
 
 export const MEDIA_BUCKET = "grolo-images";
 export const IMAGE_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -44,7 +45,7 @@ export function validateMedia(file) {
 export async function uploadMedia(file, { userId, folder = "posts" } = {}) {
   requireStorage(userId);
   const { kind } = validateMedia(file);
-  const path = `${userId}/${folder}/${kind}/${crypto.randomUUID()}.${extensionForType(file.type)}`;
+  const path = `${userId}/${folder}/${kind}/${createId("media")}.${extensionForType(file.type)}`;
   const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, file, {
     cacheControl: "31536000",
     contentType: file.type,

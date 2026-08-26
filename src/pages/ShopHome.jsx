@@ -81,6 +81,21 @@ export default function ShopHome() {
     () => storeOrders.filter((order) => ["Seller Notified", "Order Placed"].includes(order.status)),
     [storeOrders],
   );
+  const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name);
+
+  useEffect(() => {
+    console.info("ShopHome listing trade audit", {
+      source: "StorePage",
+      sellerId: seller.id,
+      listings: sellerProducts.map((listing) => ({
+        listingId: listing.id,
+        databaseId: listing.databaseId ?? null,
+        open_to_trade: listing.availableForTrade ?? null,
+        trade_enabled: listing.tradeEnabled ?? null,
+        barter_enabled: listing.barterEnabled ?? null,
+      })),
+    });
+  }, [seller.id, sellerProducts]);
 
   useEffect(() => {
     console.info("ShopHome order source", {
@@ -97,7 +112,6 @@ export default function ShopHome() {
     { label: "Preparing", count: storeOrders.filter((o) => ["In Progress", "Preparing"].includes(o.status)).length },
     { label: "Ready", count: storeOrders.filter((o) => o.status === "Ready for Pickup").length },
   ];
-  const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name);
   const isInventoryTracked = (product) => !Array.isArray(product.variants) || product.variants.length === 0;
   const activeSellerProducts = sellerProducts.filter((product) => !isInventoryTracked(product) ? product.availableForOrders !== false : Number(product.quantityAvailable) > 0);
   const outOfStockSellerProducts = sellerProducts.filter((product) => !isInventoryTracked(product) ? product.availableForOrders === false : Number(product.quantityAvailable) <= 0);

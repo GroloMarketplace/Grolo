@@ -509,6 +509,16 @@ function renderCommunityItem(item, onOpenDetail, onComment, onMenu, onShare) {
 
 function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
   const navigate = useNavigate();
+  useEffect(() => {
+    console.info("Feed listing trade audit", {
+      listingId: product.id,
+      databaseId: product.databaseId ?? null,
+      open_to_trade: product.availableForTrade ?? null,
+      trade_enabled: product.tradeEnabled ?? null,
+      barter_enabled: product.barterEnabled ?? null,
+      source: "FeedCard",
+    });
+  }, [product]);
   const { ads } = useAdvertising();
   const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
   const resolvedSeller = useResolvedSeller(product.sellerId);

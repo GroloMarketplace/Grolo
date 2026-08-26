@@ -301,3 +301,74 @@ test("critical Supabase contracts are present for regression coverage", async ()
   assert.match(openStore, /if \(!storeActive\) return/);
   assert.match(openStore, /navigate\("\/shop", \{ replace: true \}\)/);
 });
+
+test("trade acceptance uses the persisted proposal as the status source and preserves offered items", async () => {
+  const [context, proposals, messages, migration, backfill, chat] = await Promise.all([
+    readFile(new URL("../src/context/MessageContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/lib/api/tradeProposals.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/lib/api/messages.js", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260825_trade_acceptance_persistence.sql", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260825_trade_proposals_metadata_backfill.sql", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/Chat.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(context, /updateTradeProposalRecord\(\{ id: proposalId, status: normalizedAction/);
+  assert.match(context, /getTradeProposalByConversation/);
+  assert.match(context, /tradeProposalFromRow\(persistedProposal/);
+  assert.match(context, /message: proposalMessage/);
+  assert.match(context, /function proposalMessageText/);
+  assert.match(context, /proposal_message_type: typeof message/);
+  assert.doesNotMatch(context, /createTradeOrder/);
+  assert.doesNotMatch(context, /TRADE-\$\{Date\.now\(\)\}/);
+  assert.match(proposals, /\.update\(payload\)/);
+  assert.match(proposals, /persisted_status: data\?\.status/);
+  assert.match(proposals, /recent trade proposals canonical table audit/);
+  assert.match(proposals, /offered_listing_names/);
+  assert.match(proposals, /limit\(5\)/);
+  assert.doesNotMatch(messages, /tradeProposal: source\.tradeProposal/);
+  assert.doesNotMatch(messages, /tradeStatus: source\.tradeStatus/);
+  assert.match(migration, /add column if not exists accepted_at/);
+  assert.match(migration, /add column if not exists accepted_by/);
+  assert.match(migration, /for update to authenticated/);
+  assert.match(backfill, /insert into public\.trade_proposals/);
+  assert.match(backfill, /on conflict \(id\) do nothing/);
+  assert.match(chat, /trade proposal render audit/);
+  assert.match(chat, /proposal_message_type: typeof tradeProposal\?\.message/);
+  assert.match(chat, /tradeProposal\?\.status/);
+  assert.match(chat, /trade_proposal_source/);
+  assert.doesNotMatch(chat, /metadata\?\.tradeProposal/);
+  assert.doesNotMatch(chat, /messages\?\.find\(\(message\) => message\?\.tradeProposal/);
+  assert.match(chat, /tradeStatus === "pending"/);
+  assert.doesNotMatch(chat, /Counter Offer/);
+  assert.doesNotMatch(chat, /Trade Order/);
+  assert.doesNotMatch(chat, /sellerReceives/);
+});
+
+test("listing trade eligibility uses the database trade_enabled field across surfaces", async () => {
+  const [api, detail, feed, store] = await Promise.all([
+    readFile(new URL("../src/lib/api/listings.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/ProductDetail.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/Feed.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/ShopHome.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(api, /availableForTrade: Boolean\(row\.trade_enabled\)/);
+  assert.match(api, /tradeEnabled: Boolean\(row\.trade_enabled\)/);
+  assert.match(detail, /Product Detail listing trade audit/);
+  assert.match(detail, /product\.availableForTrade && seller/);
+  assert.match(detail, /onClick=\{handleProposeTrade\}/);
+  assert.match(feed, /Feed listing trade audit/);
+  assert.match(feed, /<TradeBadge listing=\{product\}/);
+  assert.match(store, /ShopHome listing trade audit/);
+});
+
+test("trade proposal lifecycle has a conversation reference and event history", async () => {
+  const [migration, api, context] = await Promise.all([
+    readFile(new URL("../supabase/migrations/20260825_trade_proposal_lifecycle.sql", import.meta.url), "utf8"),
+    readFile(new URL("../src/lib/api/tradeProposals.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/context/MessageContext.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(migration, /trade_proposal_id text references public\.trade_proposals/);
+  assert.match(migration, /create table if not exists public\.trade_proposal_events/);
+  assert.match(migration, /counter_offer jsonb/);
+  assert.match(api, /recordTradeProposalEvent/);
+  assert.match(context, /recordTradeProposalEvent\(\{ tradeProposalId: proposalId/);
+});

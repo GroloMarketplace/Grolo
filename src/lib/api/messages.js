@@ -58,7 +58,6 @@ export function databaseMessageToLegacyMessage(row, { currentUserId } = {}) {
   });
   return {
     ...row,
-    ...(row.metadata?.tradeProposal ? { tradeProposal: row.metadata.tradeProposal } : {}),
     id: row.legacy_id ?? row.legacyId ?? databaseId,
     databaseId,
     conversationId: row.conversation_id ?? row.conversationId,
@@ -131,10 +130,10 @@ export function legacyConversationToDatabasePayload(conversation, { buyerId, sel
     buyer_id: resolvedBuyerId,
     seller_id: resolvedSellerId,
     ...(resolvedListingId ? { listing_id: resolvedListingId } : {}),
+    ...(source.tradeProposalId ? { trade_proposal_id: source.tradeProposalId } : {}),
     metadata: {
       conversationType: source.conversationType ?? null,
       tradeThread: source.tradeThread ?? false,
-      tradeProposal: source.tradeProposal ?? source.metadata?.tradeProposal ?? null,
       tradePreferences: source.tradePreferences ?? source.metadata?.tradePreferences ?? null,
       productContext: source.productContext ?? null,
       category: source.category ?? null,
@@ -144,7 +143,7 @@ export function legacyConversationToDatabasePayload(conversation, { buyerId, sel
   };
 }
 
-const CONVERSATION_SELECT = "id, buyer_id, seller_id, listing_id, metadata, updated_at";
+const CONVERSATION_SELECT = "id, buyer_id, seller_id, listing_id, trade_proposal_id, metadata, updated_at";
 
 function databaseErrorDetails(error) {
   return {
@@ -208,6 +207,7 @@ export async function upsertConversationInDatabase(conversation, { buyerId, sell
         buyer_id: payload.buyer_id,
         seller_id: payload.seller_id,
         listing_id: payload.listing_id ?? null,
+        trade_proposal_id: payload.trade_proposal_id ?? null,
         metadata: payload.metadata,
       })
       .eq("id", payload.id)
@@ -357,6 +357,7 @@ export async function upsertConversationInDatabase(conversation, { buyerId, sell
           buyer_id: payload.buyer_id,
           seller_id: payload.seller_id,
           listing_id: payload.listing_id ?? null,
+          trade_proposal_id: payload.trade_proposal_id ?? null,
           metadata: payload.metadata,
         })
         .select(CONVERSATION_SELECT)
@@ -388,6 +389,33 @@ export async function upsertConversationInDatabase(conversation, { buyerId, sell
   });
   if (!row?.id) throw new Error("Conversation table did not return a conversation UUID.");
   return databaseConversationToLegacyConversation(row, { currentUserId: currentUserId ?? buyerId });
+}
+
+export async function updateConversationMetadata(conversationId, metadata) {
+  requireSupabase();
+  const { data: current, error: readError } = await supabase
+    .from("conversations")
+    .select("metadata")
+    .eq("id", conversationId)
+    .single();
+  if (readError) throw readError;
+  const nextMetadata = { ...(current?.metadata ?? {}), ...(metadata ?? {}) };
+  const { data, error, count } = await supabase
+    .from("conversations")
+    .update({ metadata: nextMetadata }, { count: "exact" })
+    .eq("id", conversationId)
+    .select(CONVERSATION_SELECT)
+    .maybeSingle();
+  console.info("trade conversation metadata persisted", {
+    conversation_id: conversationId,
+    metadata_before: current?.metadata ?? null,
+    metadata_after: data?.metadata ?? nextMetadata,
+    update_row_count: count ?? 0,
+    error: error?.message ?? null,
+  });
+  if (error) throw error;
+  if (!data || count !== 1) throw new Error("Trade conversation metadata update matched no conversation row.");
+  return data;
 }
 
 export function legacyMessageToDatabasePayload(message, { conversationId, senderId } = {}) {

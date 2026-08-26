@@ -19,6 +19,11 @@ export async function createTradeProposalRecord({ id, buyerId, sellerId, convers
   console.info("trade proposal persistence query", {
     trade_proposal_id: id,
     conversation_id: conversationId,
+    raw_proposal_message: message,
+    proposal_message_type: typeof message,
+    offered_listing_ids: (offeredListings ?? []).map((item) => item?.id ?? item?.listingId ?? null),
+    offered_listing_names: (offeredListings ?? []).map((item) => item?.name ?? null),
+    offered_quantities: (offeredListings ?? []).map((item) => item?.quantity ?? null),
     query_result_count: rows?.length ?? 0,
     error: error?.message ?? null,
   });
@@ -37,6 +42,87 @@ export async function createTradeProposalRecord({ id, buyerId, sellerId, convers
     seller_id: data.seller_id,
     conversation_id: data.conversation_id,
   });
+  const { error: conversationLinkError } = await supabase
+    .from("conversations")
+    .update({ trade_proposal_id: data.id })
+    .eq("id", data.conversation_id);
+  if (conversationLinkError) throw conversationLinkError;
+  try {
+    await recordTradeProposalEvent({ tradeProposalId: data.id, actorId: buyerId, status: data.status });
+  } catch (eventError) {
+    console.warn("trade proposal creation history failed", { trade_proposal_id: data.id, error: eventError?.message ?? String(eventError) });
+  }
+  try {
+    await auditRecentTradeProposals();
+  } catch (auditError) {
+    console.warn("recent trade proposals audit failed", { error: auditError?.message ?? String(auditError) });
+  }
+  return data;
+}
+
+export async function auditRecentTradeProposals() {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase
+    .from("trade_proposals")
+    .select("id, buyer_id, seller_id, conversation_id, requested_listing, offered_listings, status, created_at")
+    .order("created_at", { ascending: false })
+    .limit(5);
+  console.info("recent trade proposals canonical table audit", {
+    source: "trade_proposals",
+    row_count: data?.length ?? 0,
+    rows: data ?? [],
+    error: error?.message ?? null,
+  });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getTradeProposalByConversation(conversationId) {
+  if (!isSupabaseConfigured || !conversationId) return null;
+  const { data, error } = await supabase
+    .from("trade_proposals")
+    .select("*")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateTradeProposalRecord({ id, status, acceptedAt = null, acceptedBy = null, counterOffer = null }) {
+  if (!isSupabaseConfigured) return null;
+  const payload = {
+    status,
+    counter_offer: counterOffer,
+    ...(status === "accepted" ? { accepted_at: acceptedAt ?? new Date().toISOString(), accepted_by: acceptedBy } : {}),
+  };
+  const { data, error } = await supabase
+    .from("trade_proposals")
+    .update(payload)
+    .eq("id", id)
+    .select("*")
+    .single();
+  console.info("trade proposal status persistence", {
+    trade_proposal_id: id,
+    requested_status: status,
+    persisted_status: data?.status ?? null,
+    accepted_at: data?.accepted_at ?? null,
+    accepted_by: data?.accepted_by ?? null,
+    error: error?.message ?? null,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function recordTradeProposalEvent({ tradeProposalId, actorId, status, counterOffer = null }) {
+  if (!isSupabaseConfigured) return null;
+  const { data, error } = await supabase
+    .from("trade_proposal_events")
+    .insert({ trade_proposal_id: tradeProposalId, actor_id: actorId, status, counter_offer: counterOffer })
+    .select("*")
+    .single();
+  if (error) throw error;
   return data;
 }
 

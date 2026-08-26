@@ -178,9 +178,8 @@ export default function Chat() {
   const seller = liveSeller?.name || liveSeller?.avatar ? liveSeller : legacySeller ?? { id: sellerId, name: listing?.shop ?? conversation?.storeName ?? "Seller" };
   const conversationProfile = getConversationProfile({ ...conversation, sellerId, participantId: conversation?.participantId ?? (String(user?.id) === String(sellerId) ? conversation?.buyerId : sellerId), name: conversation?.name ?? seller.name }, getSellerProfile, buyerProfile, user?.id);
   const isOrderThread = location.state?.orderConversation === true || conversation?.conversationType === "order";
-  const tradeProposal = conversation?.tradeProposal
-    ?? conversation?.metadata?.tradeProposal
-    ?? conversation?.messages?.find((message) => message?.tradeProposal)?.tradeProposal;
+  const tradeProposal = conversation?.tradeProposal;
+  const tradeStatus = tradeProposal?.status ?? "pending";
   const isTradeThread = location.state?.tradeThread === true
     || conversation?.conversationType === "trading"
     || conversation?.conversationType === "trade_proposal"
@@ -191,11 +190,24 @@ export default function Chat() {
     || Boolean(tradeProposal);
   useEffect(() => {
     if (!isTradeThread || !conversation) return;
+    console.info("trade proposal render audit", {
+      trade_proposal_id: tradeProposal?.id ?? null,
+      requested_listing: tradeProposal?.requestedListing ?? null,
+      offered_items: tradeProposal?.offeredListings ?? [],
+      raw_proposal_message: tradeProposal?.message ?? null,
+      message: tradeProposal?.message ?? "",
+      proposal_message_type: typeof tradeProposal?.message,
+      offered_listing_ids: (tradeProposal?.offeredListings ?? []).map((item) => item?.id ?? item?.listingId ?? null),
+      offered_listing_names: (tradeProposal?.offeredListings ?? []).map((item) => item?.name ?? null),
+      source: conversation.tradeProposalSource ?? "unknown",
+    });
     console.info("trade conversation displayed identity audit", {
       displayed_conversation_id: conversation.databaseId ?? conversation.id ?? null,
       displayed_conversation_object: conversation,
       displayed_conversation_metadata: conversation.metadata ?? null,
       displayed_trade_proposal: tradeProposal ?? null,
+      trade_proposal_source: conversation.tradeProposalSource ?? "unknown",
+      final_rendered_status: tradeStatus,
     });
   }, [conversation, isTradeThread, tradeProposal]);
   const tradeOptions = listing?.desiredTradeItems
@@ -206,8 +218,7 @@ export default function Chat() {
     ?? (tradeProposal?.offeredListing ? [tradeProposal.offeredListing] : []);
   const isTradeSeller = isTradeThread && String(user?.id) === String(conversation?.sellerId);
   const handleTradeResponse = (action) => {
-    const counterMessage = action === "counter" ? window.prompt("Counter offer message", "I would like to make a counter offer.") : "";
-    if (action !== "counter" || counterMessage?.trim()) respondToTradeProposal({ conversationId: conversation.id, action, counterMessage: counterMessage?.trim() });
+    void respondToTradeProposal({ conversationId: conversation.id, action });
   };
 
   const updateTradeDraft = (tradeItem) => {
@@ -385,9 +396,9 @@ export default function Chat() {
                 ))}
               </div>
             )}
-            {conversation.tradeStatus && <p className="text-[13px] font-medium text-[#356B4A]">Trade offer {conversation.tradeStatus}.</p>}
-            {isTradeSeller && !conversation.tradeStatus && <div className="flex gap-2"><button type="button" onClick={() => handleTradeResponse("accept")} className="flex-1 rounded-lg bg-[#498467] py-2 text-[13px] font-medium text-white">Accept</button><button type="button" onClick={() => handleTradeResponse("counter")} className="flex-1 rounded-lg border border-[#498467] py-2 text-[13px] font-medium text-[#498467]">Counter Offer</button><button type="button" onClick={() => handleTradeResponse("decline")} className="flex-1 rounded-lg border border-red-400 py-2 text-[13px] font-medium text-red-500">Decline</button></div>}
-            {conversation.tradeOrder && <div className="rounded-lg border border-[#E7C66A] bg-[#FFF9E6] p-3 text-[13px]"><p className="font-semibold text-[#6F5B1A]">Trade Order {conversation.tradeOrder.id}</p><p className="mt-1"><span className="font-medium">Buyer receives:</span> {conversation.tradeOrder.buyerReceives.name}</p><p className="mt-1"><span className="font-medium">Seller receives:</span> {conversation.tradeOrder.sellerReceives.map((item) => item.name).join(", ") || "No item specified"}</p></div>}
+            {tradeStatus === "accepted" && <p className="text-[13px] font-medium text-[#356B4A]">Trade Accepted</p>}
+            {tradeStatus === "declined" && <p className="text-[13px] font-medium text-[#B42318]">Trade Declined</p>}
+            {isTradeSeller && tradeStatus === "pending" && <div className="flex gap-2"><button type="button" onClick={() => handleTradeResponse("accept")} className="flex-1 rounded-lg bg-[#498467] py-2 text-[13px] font-medium text-white">Accept</button><button type="button" onClick={() => handleTradeResponse("decline")} className="flex-1 rounded-lg border border-red-400 py-2 text-[13px] font-medium text-red-500">Decline</button></div>}
           </div>
         ) : listing ? (
           <button

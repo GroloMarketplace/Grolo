@@ -83,6 +83,7 @@ export function listingFromRow(row) {
   const metadata = row.metadata ?? {};
   return {
     ...row,
+    ...metadata,
     id: row.legacy_id ?? row.id,
     databaseId: row.id,
     legacyId: row.legacy_id,
@@ -112,7 +113,6 @@ export function listingFromRow(row) {
     isActive: (row.status ?? "Active") !== "Archived",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    ...metadata,
     variants: variantsFor(metadata),
   };
 }

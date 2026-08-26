@@ -92,6 +92,14 @@ export default function ProductDetail() {
 
   useEffect(() => {
     console.info("Route opened", window.location.pathname, "Component: ProductDetail");
+    console.info("Product Detail listing trade audit", {
+      listingId: product.id,
+      databaseId: product.databaseId ?? null,
+      open_to_trade: product.availableForTrade ?? null,
+      trade_enabled: product.tradeEnabled ?? null,
+      barter_enabled: product.barterEnabled ?? null,
+      source: "ProductDetail",
+    });
     console.info("Product Detail stock status", {
       listingId: product.id,
       hasVariants: variants.length > 0,
@@ -106,7 +114,7 @@ export default function ProductDetail() {
         listingId: product.databaseId,
       });
     }
-  }, [available, computedAvailability, displayedAvailability, id, inventoryTracked, product.databaseId, product.id, product.quantityAvailable, product.sellerId, product.variants, variants.length]);
+  }, [available, computedAvailability, displayedAvailability, id, inventoryTracked, product.availableForTrade, product.barterEnabled, product.databaseId, product.id, product.quantityAvailable, product.sellerId, product.tradeEnabled, product.variants, variants.length]);
 
   useEffect(() => {
     setQuantity((current) => Math.min(current, Math.max(1, available)));

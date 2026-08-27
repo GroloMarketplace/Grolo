@@ -5,11 +5,7 @@ export function getBuyerImpactMetrics({ orders, events, attendingEventIds, follo
   const supportedBusinesses = new Set(completedOrders.map((order) => (
     order.sellerId ?? products.find((product) => product.id === order.productId)?.sellerId
   )).filter(Boolean));
-  const attendedEvents = events.filter((event) => (
-    attendingEventIds.includes(event.id)
-    || event.attended === true
-    || event.attendanceStatus === "completed"
-  ));
+  const attendedEvents = events.filter((event) => attendingEventIds.includes(event.id));
 
   return {
     businessesSupported: supportedBusinesses.size,

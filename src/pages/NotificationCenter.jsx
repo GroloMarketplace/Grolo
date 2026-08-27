@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import { useNotifications } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
+import { useEvents } from "../context/EventContext";
 
 function formatRelativeTime(value) {
   const date = new Date(value);
@@ -86,6 +87,9 @@ export default function NotificationCenter() {
   const { profile } = useAuth();
   const storeAvatar = profile?.store_avatar_url || profile?.shop_avatar_url || profile?.avatar_url || profile?.avatar || "";
   const { notifications, loading, loadingMore, hasMore, loadMore, markRead } = useNotifications();
+  const { confirmAttendance } = useEvents();
+  const [attendanceResponses, setAttendanceResponses] = useState({});
+  const [attendanceErrors, setAttendanceErrors] = useState({});
   const chronologicalNotifications = useMemo(
     () => [...notifications].sort((first, second) => new Date(second.created_at).getTime() - new Date(first.created_at).getTime()),
     [notifications],
@@ -102,6 +106,17 @@ export default function NotificationCenter() {
     if (!notification.read) await markRead(notification.id);
     const path = notificationPath(notification);
     if (path) navigate(path);
+  };
+
+  const respondToAttendance = async (notification, attended) => {
+    setAttendanceErrors((current) => ({ ...current, [notification.id]: "" }));
+    try {
+      await confirmAttendance(notification.relatedId, attended);
+      setAttendanceResponses((current) => ({ ...current, [notification.id]: attended ? "confirmed_attended" : "no_show" }));
+      if (!notification.read) await markRead(notification.id);
+    } catch (error) {
+      setAttendanceErrors((current) => ({ ...current, [notification.id]: error?.message || "Unable to save your attendance response." }));
+    }
   };
 
   return (
@@ -124,6 +139,7 @@ export default function NotificationCenter() {
                   const avatar = notificationAvatar(notification, storeAvatar);
                   const subjectImage = notification.subjectImageUrl || notification.subject_image_url || "";
                   const actions = notificationActions(notification);
+                  const isAttendanceConfirmation = notification.type === "event_attendance_confirmation" && !attendanceResponses[notification.id];
                   return (
                     <article key={notification.id} className={`rounded-2xl border px-3 py-3 transition-all ${notification.read ? "border-[#ECECEC] bg-white" : "border-[#D5E7DB] bg-[#F7FCF8]"}`}>
                       <button type="button" onClick={() => openNotification(notification)} className="w-full text-left active:scale-[0.99]">
@@ -146,6 +162,13 @@ export default function NotificationCenter() {
                           )}
                         </div>
                       </button>
+                      {isAttendanceConfirmation && (
+                        <div className="ml-14 mt-2 flex flex-wrap gap-2">
+                          <button type="button" onClick={() => respondToAttendance(notification, true)} className="rounded-full border border-[#CFE1D5] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#397354] transition-colors hover:bg-[#EDF7F0]">✅ Yes, I attended</button>
+                          <button type="button" onClick={() => respondToAttendance(notification, false)} className="rounded-full border border-[#E7D5D5] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#A44] transition-colors hover:bg-[#FFF4F4]">❌ No, I didn&apos;t attend</button>
+                          {attendanceErrors[notification.id] && <p role="alert" className="w-full text-[12px] text-red-600">{attendanceErrors[notification.id]}</p>}
+                        </div>
+                      )}
                       {actions.length > 0 && (
                         <div className="ml-14 mt-2 flex flex-wrap gap-2">
                           {actions.map((action) => (

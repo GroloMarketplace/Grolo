@@ -1,8 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { sellers } from "../data/mockData";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
-import { createEvent as createEventApi, deleteEvent as deleteEventApi, getEvents as getEventsApi, updateEvent as updateEventApi, DEFAULT_EVENT_IMAGE } from "../lib/api/events";
+import { createEvent as createEventApi, createEventAttendanceConfirmationNotifications, deleteEvent as deleteEventApi, getEvents as getEventsApi, respondToEventAttendanceConfirmation, updateEvent as updateEventApi, DEFAULT_EVENT_IMAGE } from "../lib/api/events";
 import { refreshUserReputation } from "../lib/api/reputation";
 
 const EventContext = createContext(null);
@@ -81,6 +81,8 @@ function today() {
 }
 
 export function eventStatus(event) {
+  const eventEnd = new Date(`${event.date}T${event.endTime || event.startTime || "23:59:59"}`);
+  if (!Number.isNaN(eventEnd.getTime()) && eventEnd.getTime() < Date.now()) return "Past";
   if (event.date === today()) return "Today";
   return event.date > today() ? "Upcoming" : "Past";
 }
@@ -131,8 +133,22 @@ export function EventProvider({ children }) {
           : [];
         const resolvedEvents = [...migrated, ...remoteEvents];
         if (!cancelled) {
-          setEvents(resolvedEvents);
-          persistEvents(storageKey, resolvedEvents);
+          setEvents((current) => {
+            const remoteKeys = new Set(remoteEvents.flatMap((event) => [event.id, event.databaseId].filter(Boolean)));
+            const pendingEvents = current.filter((event) => !remoteKeys.has(event.id) && !remoteKeys.has(event.databaseId));
+            const merged = [...pendingEvents, ...resolvedEvents].filter((event, index, allEvents) => {
+              const key = event.databaseId ?? event.id;
+              return allEvents.findIndex((candidate) => (candidate.databaseId ?? candidate.id) === key) === index;
+            });
+            persistEvents(storageKey, merged);
+            console.info("event state refreshed", {
+              remoteEventCount: remoteEvents.length,
+              pendingEventCount: pendingEvents.length,
+              renderedEventCount: merged.length,
+              eventIds: merged.map((event) => event.databaseId ?? event.id),
+            });
+            return merged;
+          });
         }
       } catch (error) {
         console.warn("event source: local fallback", { operation: "loadEvents", error: error?.message ?? String(error) });
@@ -150,7 +166,7 @@ export function EventProvider({ children }) {
       if (!isSupabaseConfigured) return;
       const { data, error } = await supabase
         .from("event_attendees")
-        .select("event_id, user_id");
+        .select("event_id, user_id, attendance_status");
       if (!error && !cancelled) {
         const rows = data ?? [];
         console.info("event attendee count query", {
@@ -174,6 +190,11 @@ export function EventProvider({ children }) {
   }, [currentUserId, user?.id]);
 
   useEffect(() => {
+    if (!isSupabaseConfigured || !user?.id) return;
+    createEventAttendanceConfirmationNotifications().catch((error) => console.warn("Unable to create event attendance confirmations", { error: error?.message ?? String(error) }));
+  }, [user?.id]);
+
+  useEffect(() => {
     const next = groupAttendees(attendeeRows, events);
     setAttendees(next);
     persistAttendees(next);
@@ -181,8 +202,9 @@ export function EventProvider({ children }) {
 
   const isAttending = useCallback((eventId) => {
     const keys = eventAttendanceKeys(eventId, events);
-    return keys.some((key) => (attendees[key] ?? []).includes(currentUserId));
-  }, [attendees, currentUserId, events]);
+    return keys.some((key) => (attendees[key] ?? []).includes(currentUserId))
+      && !attendeeRows.some((row) => keys.includes(row.event_id) && row.user_id === currentUserId && row.attendance_status === "no_show");
+  }, [attendeeRows, attendees, currentUserId, events]);
 
   const getAttendeeCount = useCallback((eventId) => {
     const keys = eventAttendanceKeys(eventId, events);
@@ -245,11 +267,30 @@ export function EventProvider({ children }) {
     }
   }, [currentUserId, events, user?.id]);
 
+  const confirmAttendance = useCallback(async (eventId, attended) => {
+    const event = events.find((item) => item.id === eventId || item.databaseId === eventId);
+    const eventKeys = eventAttendanceKeys(eventId, events);
+    const persistedEventId = event?.databaseId ?? eventId;
+    const status = await respondToEventAttendanceConfirmation(persistedEventId, attended);
+    if (status) {
+      setAttendeeRows((current) => current.map((row) => (
+        eventKeys.includes(row.event_id) && row.user_id === currentUserId
+          ? { ...row, attendance_status: status }
+          : row
+      )));
+    }
+    return status;
+  }, [currentUserId, events]);
+
+  const confirmedEventIds = useMemo(() => [...new Set(attendeeRows
+    .filter((row) => row.user_id === currentUserId && row.attendance_status === "confirmed_attended")
+    .flatMap((row) => eventAttendanceKeys(row.event_id, events)))], [attendeeRows, currentUserId, events]);
+
   const upcomingEvents = useCallback(
     (sellerId) =>
       events
         .filter((e) => eventStatus(e) !== "Past")
-        .filter((e) => !sellerId || e.sellerId === sellerId)
+        .filter((e) => !sellerId || String(e.sellerId) === String(sellerId))
         .sort((a, b) => a.date.localeCompare(b.date)),
     [events],
   );
@@ -258,13 +299,13 @@ export function EventProvider({ children }) {
     (sellerId) =>
       events
         .filter((e) => eventStatus(e) === "Past")
-        .filter((e) => !sellerId || e.sellerId === sellerId)
+        .filter((e) => !sellerId || String(e.sellerId) === String(sellerId))
         .sort((a, b) => b.date.localeCompare(a.date)),
     [events],
   );
 
   const getEvent = useCallback(
-    (eventId) => events.find((e) => e.id === eventId),
+    (eventId) => events.find((e) => e.id === eventId || e.databaseId === eventId),
     [events],
   );
 
@@ -297,6 +338,11 @@ export function EventProvider({ children }) {
       setEvents((current) => {
         const next = current.map((item) => item.id === optimisticEvent.id ? created : item);
         persistEvents(storageKey, next);
+        console.info("event state updated after create", {
+          createdEventId: created.databaseId ?? created.id,
+          renderedEventCount: next.length,
+          createdEventPresent: next.some((item) => (item.databaseId ?? item.id) === (created.databaseId ?? created.id)),
+        });
         return next;
       });
       return created;
@@ -362,9 +408,10 @@ export function EventProvider({ children }) {
     eventSeller,
     isAttending,
     getAttendeeCount,
-    attendingEventIds: attendees[currentUserId] ?? [],
+    attendingEventIds: confirmedEventIds,
     toggleAttendance,
-    storeId: STORE_ID,
+    confirmAttendance,
+    storeId: currentUserId,
   };
 
   return <EventContext.Provider value={value}>{children}</EventContext.Provider>;

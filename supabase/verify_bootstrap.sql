@@ -169,6 +169,8 @@ from (values
   ('is_user_suspended', 'public.is_user_suspended(uuid)'),
   ('get_vendor_analytics', 'public.get_vendor_analytics(uuid,integer)'),
   ('get_follower_counts', 'public.get_follower_counts()'),
+  ('create_event_attendance_confirmation_notifications', 'public.create_event_attendance_confirmation_notifications()'),
+  ('respond_to_event_attendance_confirmation', 'public.respond_to_event_attendance_confirmation(text,boolean)'),
   ('create_activity_notification', 'public.create_activity_notification(uuid,text,text,text,text)'),
   ('notify_new_message', 'public.notify_new_message()'),
   ('create_review', 'public.create_review(text,smallint,uuid,uuid,uuid,uuid,text,text,jsonb,jsonb)'),

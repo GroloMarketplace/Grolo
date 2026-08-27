@@ -113,10 +113,9 @@ export function TrustMetricSummary({ metrics = {}, audience = "buyer", memberSin
     : [
       ["Transactions", metrics.completedTransactionCount ?? metrics.completed_transaction_count ?? 0],
       ["Recommended", metrics.sellerRecommendationCount ?? metrics.seller_recommendation_count ?? 0],
-      ["Again", metrics.wouldTransactAgainCount ?? metrics.would_transact_again_count ?? 0],
     ];
   return (
-    <div className={`grid ${values.length === 2 ? "grid-cols-2" : "grid-cols-3"} gap-2 ${compact ? "text-[10px]" : "text-[11px]"}`}>
+    <div className={`grid grid-cols-2 gap-2 ${compact ? "text-[10px]" : "text-[11px]"}`}>
       {values.map(([label, value]) => (
         <div key={label} className="rounded-md bg-[#F5FFF6] px-2 py-1.5 text-center text-[#828282]">
           <div className="text-[15px] font-semibold text-[#498467]">{value}</div>

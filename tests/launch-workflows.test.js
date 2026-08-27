@@ -132,6 +132,19 @@ test("Search temporarily exposes list views without Map Search", async () => {
   assert.doesNotMatch(search, /tab === "Map"/);
 });
 
+test("Community Spotlight disables trial activation while a trial is active", async () => {
+  const [advertising, context, createAdvertising] = await Promise.all([
+    readFile(new URL("../src/pages/Advertising.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/context/AdvertisingContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/CreateAdvertisingAd.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(advertising, /disabled=\{trialStatus\?\.isActive\}/);
+  assert.match(advertising, /Trial Active • \$\{trialStatus\.daysRemaining\} Days Remaining/);
+  assert.match(advertising, /if \(!trialStatus\?\.isActive\) navigate/);
+  assert.match(context, /if \(getActiveCampaign\(\)\) throw new Error\(ACTIVE_CAMPAIGN_ERROR\)/);
+  assert.match(createAdvertising, /const currentCampaign = getActiveCampaign\(\)/);
+});
+
 test("promotion management keeps edit, end, delete, and listing actions connected", async () => {
   const [context, page, api] = await Promise.all([
     readFile(new URL("../src/context/PromotionContext.jsx", import.meta.url), "utf8"),
@@ -388,6 +401,53 @@ test("trade proposal lifecycle has a conversation reference and event history", 
   assert.match(migration, /counter_offer jsonb/);
   assert.match(api, /recordTradeProposalEvent/);
   assert.match(context, /recordTradeProposalEvent\(\{ tradeProposalId: proposalId/);
+});
+
+test("buyer reputation cards show only transactions and recommendations", async () => {
+  const [summary, buyerProfile] = await Promise.all([
+    readFile(new URL("../src/components/ReputationSummary.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/BuyerProfile.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(summary, /\["Transactions"/);
+  assert.match(summary, /\["Recommended"/);
+  assert.match(summary, /grid-cols-2/);
+  assert.doesNotMatch(summary, /\["Again"/);
+  assert.doesNotMatch(buyerProfile, /Would Transact Again/);
+  assert.match(buyerProfile, /grid grid-cols-2 gap-2 text-\[11px\]/);
+});
+
+test("event attendance confirmation separates RSVP, attendance, and no-show metrics", async () => {
+  const [migration, context, impact, notifications] = await Promise.all([
+    readFile(new URL("../supabase/migrations/20260826_event_attendance_confirmation.sql", import.meta.url), "utf8"),
+    readFile(new URL("../src/context/EventContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/utils/buyerImpact.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/NotificationCenter.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(migration, /attendance_status text not null default 'rsvpd'/);
+  assert.match(migration, /confirmed_attended/);
+  assert.match(migration, /no_show/);
+  assert.match(migration, /create_event_attendance_confirmation_notifications/);
+  assert.match(migration, /Did you attend this event\?/);
+  assert.match(migration, /Your attendance helps keep community participation accurate/);
+  assert.match(migration, /respond_to_event_attendance_confirmation/);
+  assert.match(context, /attendance_status/);
+  assert.match(context, /attendingEventIds: confirmedEventIds/);
+  assert.match(impact, /attendingEventIds\.includes\(event\.id\)/);
+  assert.match(notifications, /Yes, I attended/);
+  assert.match(notifications, /No, I didn&apos;t attend/);
+});
+
+test("event creation preserves newly created rows across refresh and uses the real seller id", async () => {
+  const [context, createEvent, createPage] = await Promise.all([
+    readFile(new URL("../src/context/EventContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/lib/api/events.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/CreateEvent.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(context, /const pendingEvents = current\.filter/);
+  assert.match(context, /event state refreshed/);
+  assert.match(context, /storeId: currentUserId/);
+  assert.match(createEvent, /console\.log\("create event success", data\)/);
+  assert.match(createPage, /navigate\("\/", \{ state: \{ tab: "Your Community", communityFilter: "Events"/);
 });
 
 test("follower counts derive from the live user_follows aggregate", async () => {

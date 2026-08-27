@@ -508,7 +508,7 @@ export async function evaluateUserBadges(userId) {
     getReputationSnapshot(resolvedUserId),
     supabase.auth.getUser(),
     supabase.from("user_follows").select("follower_id", { count: "exact", head: true }).eq("seller_id", resolvedUserId),
-    supabase.from("event_attendees").select("event_id", { count: "exact", head: true }).eq("user_id", resolvedUserId),
+    supabase.from("event_attendees").select("event_id", { count: "exact", head: true }).eq("user_id", resolvedUserId).eq("attendance_status", "confirmed_attended"),
   ]);
   if (definitionsError) {
     if (isMissingReputationObjectError(definitionsError)) {
@@ -669,7 +669,7 @@ export async function evaluateUserStatus(userId) {
     getReputationSnapshot(resolvedUserId),
     supabase.auth.getUser(),
     supabase.from("user_follows").select("follower_id", { count: "exact", head: true }).eq("seller_id", resolvedUserId),
-    supabase.from("event_attendees").select("event_id", { count: "exact", head: true }).eq("user_id", resolvedUserId),
+    supabase.from("event_attendees").select("event_id", { count: "exact", head: true }).eq("user_id", resolvedUserId).eq("attendance_status", "confirmed_attended"),
   ]);
   if (rowsError) throw rowsError;
   if (authResult.error) throw authResult.error;

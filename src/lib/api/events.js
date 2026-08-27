@@ -113,12 +113,26 @@ export async function getEvent(eventId) {
 export async function createEvent(event) {
   if (!isSupabaseConfigured) return null;
   const ownerId = await currentUserId();
+  const payload = eventPayload(event, ownerId);
+  console.info("create event request", { table: "events", payload });
   const { data, error } = await supabase
     .from("events")
-    .insert(eventPayload(event, ownerId))
+    .insert(payload)
     .select("*, profiles(*)")
     .single();
-  if (error) throw error;
+  console.log("create event success", data);
+  console.error("create event insert failed", error);
+  if (error) {
+    console.error("create event insert failed", {
+      table: "events",
+      payload,
+      code: error.code ?? null,
+      message: error.message ?? null,
+      details: error.details ?? null,
+      hint: error.hint ?? null,
+    });
+    throw error;
+  }
   const created = eventFromRow(data);
   logEventSource("supabase", "createEvent", { eventId: created.id, sellerId: ownerId });
   return created;
@@ -136,6 +150,23 @@ export async function updateEvent(eventId, updates) {
   const updated = eventFromRow(data);
   logEventSource("supabase", "updateEvent", { eventId: updated.id, sellerId: ownerId });
   return updated;
+}
+
+export async function createEventAttendanceConfirmationNotifications() {
+  if (!isSupabaseConfigured) return null;
+  const { error } = await supabase.rpc("create_event_attendance_confirmation_notifications");
+  if (error) throw error;
+  return true;
+}
+
+export async function respondToEventAttendanceConfirmation(eventId, attended) {
+  if (!isSupabaseConfigured) return null;
+  const { data, error } = await supabase.rpc("respond_to_event_attendance_confirmation", {
+    p_event_id: eventId,
+    p_attended: attended,
+  });
+  if (error) throw error;
+  return data;
 }
 
 export async function deleteEvent(eventId) {

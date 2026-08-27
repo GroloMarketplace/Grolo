@@ -173,9 +173,17 @@ create policy "Sellers can manage their own promotions"
 create table if not exists event_attendees (
   event_id text not null,
   user_id uuid not null references auth.users(id) on delete cascade,
+  attendance_status text not null default 'rsvpd',
   created_at timestamptz not null default now(),
-  primary key (event_id, user_id)
+  primary key (event_id, user_id),
+  constraint event_attendees_attendance_status_check
+    check (attendance_status in ('rsvpd', 'confirmed_attended', 'no_show'))
 );
+
+alter table event_attendees add column if not exists attendance_status text not null default 'rsvpd';
+alter table event_attendees drop constraint if exists event_attendees_attendance_status_check;
+alter table event_attendees add constraint event_attendees_attendance_status_check
+  check (attendance_status in ('rsvpd', 'confirmed_attended', 'no_show'));
 
 alter table event_attendees enable row level security;
 

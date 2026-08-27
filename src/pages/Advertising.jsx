@@ -77,8 +77,13 @@ export default function Advertising() {
                 {COMMUNITY_SPOTLIGHT_PLAN.benefits.map((benefit) => <li key={benefit} className="flex gap-2"><span aria-hidden="true" className="font-semibold text-[#498467]">✓</span><span>{benefit}</span></li>)}
               </ul>
             </div>
-            <button type="button" onClick={() => navigate("/my-shop/advertising/create")} className="mt-5 w-full rounded-xl bg-[#498467] py-3 text-[14px] font-semibold text-white shadow-[0_4px_10px_rgba(73,132,103,0.2)] transition-colors hover:bg-[#376B50]">
-              Start Free Trial
+            <button
+              type="button"
+              disabled={trialStatus?.isActive}
+              onClick={() => { if (!trialStatus?.isActive) navigate("/my-shop/advertising/create"); }}
+              className={`mt-5 w-full rounded-xl py-3 text-[14px] font-semibold text-white shadow-[0_4px_10px_rgba(73,132,103,0.2)] transition-colors ${trialStatus?.isActive ? "cursor-not-allowed bg-[#79A68A] opacity-75" : "bg-[#498467] hover:bg-[#376B50]"}`}
+            >
+              {trialStatus?.isActive ? `Trial Active • ${trialStatus.daysRemaining} Days Remaining` : "Start Free Trial"}
             </button>
           </section>
 

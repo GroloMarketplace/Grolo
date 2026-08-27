@@ -14,7 +14,6 @@ import { useReviews } from "../context/ReviewContext";
 import { useOrders } from "../context/OrderContext";
 import { useAdvertising } from "../context/AdvertisingContext";
 import { isCampaignActive } from "../utils/campaignDuration";
-import MapView from "../components/MapView";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useListings } from "../context/ListingContext";
 import TradeBadge from "../components/TradeBadge";
@@ -28,7 +27,8 @@ import { useMarketplaceDiscovery } from "../hooks/useEntityResolution";
 import { useTrustSafety } from "../context/TrustSafetyContext";
 import { promotedContentImage } from "../utils/promotionMedia";
 
-const TABS = ["Local", "Map", "History", "My Orders"];
+// TODO: Reintroduce Map Search in a future update.
+const TABS = ["Local", "History", "My Orders"];
 
 const ORDER_SECTIONS = [
   { title: "Active Orders", statuses: ["Order Placed", "Preparing", "In Progress", "Seller Notified"] },
@@ -63,7 +63,8 @@ export default function Search() {
     : requestedTab
       ? { ...readNavigationState("search", { tab: "Local", query: "", scrollTop: 0 }), tab: requestedTab }
       : readNavigationState("search", { tab: "Local", query: "", scrollTop: 0 });
-  const [tab, setTab] = useState(savedSearchState.tab);
+  const initialTab = TABS.includes(savedSearchState.tab) ? savedSearchState.tab : "Local";
+  const [tab, setTab] = useState(initialTab);
   const [query, setQuery] = useState(savedSearchState.query);
   const tabRef = useRef(tab);
   const queryRef = useRef(query);
@@ -179,8 +180,6 @@ export default function Search() {
             <TradingSection products={discoveryProducts} navigate={navigate} onProduct={rememberProduct} />
           </>
         )}
-
-        {tab === "Map" && <MapView />}
 
         {tab === "History" && <History products={discoveryProducts} onProduct={rememberProduct} />}
 

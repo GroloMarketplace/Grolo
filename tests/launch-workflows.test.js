@@ -123,6 +123,15 @@ test("Search spotlight carousel renders active campaigns or placeholders", async
   assert.equal(isCampaignActive({ status: "Trial", startsAt: "2026-08-15", endsAt: "2026-08-15", trialEndsAt: "2026-09-13" }, Date.parse("2026-08-20T12:00:00Z")), true);
 });
 
+test("Search temporarily exposes list views without Map Search", async () => {
+  const search = await readFile(new URL("../src/pages/Search.jsx", import.meta.url), "utf8");
+  assert.match(search, /TODO: Reintroduce Map Search in a future update/);
+  assert.match(search, /const TABS = \["Local", "History", "My Orders"\]/);
+  assert.match(search, /const initialTab = TABS\.includes\(savedSearchState\.tab\) \? savedSearchState\.tab : "Local"/);
+  assert.doesNotMatch(search, /import MapView/);
+  assert.doesNotMatch(search, /tab === "Map"/);
+});
+
 test("promotion management keeps edit, end, delete, and listing actions connected", async () => {
   const [context, page, api] = await Promise.all([
     readFile(new URL("../src/context/PromotionContext.jsx", import.meta.url), "utf8"),

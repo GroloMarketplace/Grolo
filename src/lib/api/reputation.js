@@ -66,8 +66,8 @@ function averageRating(rows) {
 
 function statusPayload(row, fallbackStatus, fallbackProgress, fallbackMetrics, diagnostics) {
   const currentStatus = row?.status_code ?? fallbackStatus;
-  const progress = { ...fallbackProgress, ...asObject(row?.progress) };
-  const metrics = { ...fallbackMetrics, ...asObject(row?.metrics) };
+  const progress = { ...asObject(row?.progress), ...fallbackProgress };
+  const metrics = { ...asObject(row?.metrics), ...fallbackMetrics };
   return {
     currentStatus,
     current_status: currentStatus,

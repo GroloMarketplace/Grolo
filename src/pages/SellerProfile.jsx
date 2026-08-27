@@ -30,11 +30,16 @@ import { useReputationSnapshot } from "../hooks/useReputationRead";
 import ReputationSummary from "../components/ReputationSummary";
 import UnavailableAccount from "../components/UnavailableAccount";
 import { useBlockedAccount } from "../hooks/useBlockedAccount";
+import { useResolvedSeller } from "../hooks/useEntityResolution";
+
+function isCanonicalSellerId(value) {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
+}
 
 export default function SellerProfile() {
   const { sellerId } = useParams();
   const navigate = useNavigate();
-  const { isFollowing, toggleFollow, getFollowerCount } = useFollow();
+  const { isFollowing, toggleFollow, getFollowerCount, followedSellers } = useFollow();
   const { sellerRating } = useReviews();
   const { upcomingEvents } = useEvents();
   const { promotionsForSeller } = usePromotions();
@@ -43,8 +48,12 @@ export default function SellerProfile() {
   const { getSellerProfile } = useSellerSettings();
   const { listings } = useListings();
   const { storeOpenedAt } = useProfileMode();
-  const seller = sellers[sellerId] || { id: sellerId, name: "Seller" };
-  const sellerProfile = getSellerProfile(seller.id);
+  const resolvedSeller = useResolvedSeller(sellerId);
+  const seller = resolvedSeller ?? sellers[sellerId] ?? { id: sellerId, name: "Seller" };
+  const profileSellerId = isCanonicalSellerId(resolvedSeller?.id)
+    ? resolvedSeller.id
+    : isCanonicalSellerId(sellerId) ? sellerId : null;
+  const sellerProfile = getSellerProfile(profileSellerId ?? seller.id);
   const blocked = useBlockedAccount(seller.id);
   const reputationSnapshot = useReputationSnapshot(seller.id);
   const sellerPaymentMethods = getPaymentMethods(seller.id);
@@ -57,6 +66,20 @@ export default function SellerProfile() {
   const sellerRatingData = sellerRating(seller.id);
   const { average, count } = sellerRatingData;
   const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name || p.shop === seller.name);
+  useEffect(() => {
+    console.log({ profileSellerId, followedSellers, match: followedSellers.includes(profileSellerId) });
+    console.info("SellerProfile follower count render audit", {
+      source: "seller_profile_page",
+      profileSellerId,
+      profile_seller_id_type: typeof profileSellerId,
+      route_seller_id: sellerId,
+      seller_id_origin: resolvedSeller ? "profiles.id" : isCanonicalSellerId(sellerId) ? "auth.users.id / profiles.id" : "unresolved legacy route",
+      followedSellers,
+      match: followedSellers.includes(profileSellerId),
+      isFollowing: profileSellerId ? isFollowing(profileSellerId) : false,
+      displayed_follower_count: profileSellerId ? getFollowerCount(profileSellerId) : 0,
+    });
+  }, [followedSellers, getFollowerCount, isFollowing, profileSellerId, resolvedSeller, sellerId]);
   const sellerPosts = [...followingPosts, ...communityPosts, ...posts].filter(
     (post, index, allPosts) =>
       String(post.sellerId) === String(seller.id) && createdBySeller(post) && allPosts.findIndex((item) => item.id === post.id) === index,
@@ -169,20 +192,21 @@ export default function SellerProfile() {
               </div>
               <button type="button" onClick={() => navigate("/my-shop/reviews")} className="text-[14px] text-[#828282] hover:text-[#498467]">({count} reviews)</button>
               <span className="text-[14px] text-[#828282]">•</span>
-              <span className="flex items-center gap-1 text-[14px] text-[#828282]"><OutlineIcon name="users" size={14} />{getFollowerCount(seller.id)} followers</span>
+              <span className="flex items-center gap-1 text-[14px] text-[#828282]"><OutlineIcon name="users" size={14} />{getFollowerCount(profileSellerId)} followers</span>
             </div>
 
             {/* Action Buttons */}
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => toggleFollow(seller.id) }
+                onClick={() => { if (profileSellerId) toggleFollow(profileSellerId); }}
+                disabled={!profileSellerId}
                 className={`flex-1 py-2.5 rounded-lg text-[14px] font-medium ${
-                  isFollowing(seller.id)
+                  isFollowing(profileSellerId)
                     ? "bg-[#498467] text-white"
                     : "bg-[#498467] text-white"
                 }`}
               >
-                {isFollowing(seller.id) ? "Following" : "Follow Store"}
+                {isFollowing(profileSellerId) ? "Following" : "Follow Store"}
               </button>
               <button 
                 onClick={handleMessageClick}

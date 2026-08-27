@@ -110,6 +110,7 @@ export function databaseConversationToLegacyConversation(row, { currentUserId } 
     location: row.location ?? otherProfile.location,
     timestamp: row.updated_at ?? row.updatedAt,
     listingId: row.listing_id ?? row.listingId ?? null,
+    tradeProposalId: row.trade_proposal_id ?? row.tradeProposalId ?? null,
     messages: mappedMessages,
     unread: mappedMessages.some((message) => message.unread),
   };
@@ -476,7 +477,7 @@ async function attachParticipantProfiles(conversations) {
 export async function getConversations(userId) {
   requireSupabase();
   const authenticatedUserId = await getAuthenticatedUserId(userId);
-  const select = "id, buyer_id, seller_id, listing_id, metadata, updated_at";
+  const select = "id, buyer_id, seller_id, listing_id, trade_proposal_id, metadata, updated_at";
   const [buyerResult, sellerResult] = await Promise.all([
     supabase.from("conversations").select(select).eq("buyer_id", authenticatedUserId).order("updated_at", { ascending: false }),
     supabase.from("conversations").select(select).eq("seller_id", authenticatedUserId).order("updated_at", { ascending: false }),
@@ -516,6 +517,7 @@ export async function getConversations(userId) {
       buyerId: conversation.buyer_id,
       sellerId: conversation.seller_id,
       listingId: conversation.listing_id,
+      tradeProposalId: conversation.trade_proposal_id ?? null,
     })),
   });
 

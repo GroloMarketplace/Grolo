@@ -79,6 +79,7 @@ function normalizeConversation(input) {
     || conversation.metadata?.tradeThread === true
     || conversation.metadata?.conversationType === "trading"
     || conversation.metadata?.conversationType === "trade_proposal"
+    || Boolean(conversation.tradeProposalId)
     || conversation.category === "Trading";
   const isService = conversation.conversationType === "service"
     || Boolean(conversation.serviceContext?.listingId);
@@ -199,7 +200,7 @@ export function MessageProvider({ children }) {
           try {
             const threadMessages = await getMessages(databaseConversationId, user.id);
             let hydratedConversation = { ...conversation, messages: threadMessages };
-            if (conversation.tradeThread || conversation.conversationType === "trading" || conversation.conversationType === "trade_proposal") {
+            if (conversation.tradeThread || conversation.tradeProposalId || conversation.conversationType === "trading" || conversation.conversationType === "trade_proposal") {
               try {
                 const persistedProposal = await getTradeProposalByConversation(databaseConversationId);
                 if (persistedProposal) {
@@ -218,6 +219,9 @@ export function MessageProvider({ children }) {
                     raw_proposal_message: persistedProposal.message,
                     proposal_message_type: typeof persistedProposal.message,
                     normalized_proposal_message: tradeProposal.message,
+                    conversation_metadata_before_refresh: conversation.metadata ?? null,
+                    hydrated_conversation_payload: hydratedConversation,
+                    hydrated_proposal_payload: tradeProposal,
                   });
                 }
               } catch (error) {

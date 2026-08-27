@@ -67,7 +67,7 @@ export default function ShopHome() {
   const { posts } = usePosts();
   const { sellerRating } = useReviews();
   const { promotionsForSeller } = usePromotions();
-  const { getFollowerCount } = useFollow();
+  const { getFollowerCount, followedSellers, isFollowing } = useFollow();
   const reputationSnapshot = useReputationSnapshot(user?.id ?? "current-user");
   const createdBySeller = useCallback((item) => {
     const createdAt = typeof item.createdAt === "number" ? item.createdAt : Date.parse(item.createdAt);
@@ -96,6 +96,18 @@ export default function ShopHome() {
       })),
     });
   }, [seller.id, sellerProducts]);
+
+  useEffect(() => {
+    console.info("ShopHome follower count render audit", {
+      source: "seller_store_page",
+      seller_id: seller.id,
+      seller_id_type: typeof seller.id,
+      auth_user_id: user?.id ?? null,
+      followedSellers,
+      isFollowing: isFollowing(seller.id),
+      displayed_follower_count: getFollowerCount(seller.id),
+    });
+  }, [followedSellers, getFollowerCount, isFollowing, seller.id, user?.id]);
 
   useEffect(() => {
     console.info("ShopHome order source", {

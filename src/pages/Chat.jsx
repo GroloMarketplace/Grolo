@@ -287,18 +287,7 @@ export default function Chat() {
     }
   };
 
-  // Check if this is a new conversation (created from Seller Profile)
-  const isNewConversation = !conversation;
   const hasPersistedMessage = Boolean(conversation?.messages?.some((message) => message.databaseId));
-
-  // Pre-fill a draft for new or existing conversations.
-  useEffect(() => {
-    if (location.state?.draft) {
-      setText(location.state.draft);
-    } else if (isNewConversation) {
-      setText("Hi! I was looking at your store and had a question about your listings.");
-    }
-  }, [isNewConversation, location.state?.draft]);
 
   useEffect(() => {
     if (isTradeThread) {

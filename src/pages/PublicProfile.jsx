@@ -15,6 +15,7 @@ import TrustSafetyActions from "../components/TrustSafetyActions";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import UnavailableAccount from "../components/UnavailableAccount";
 import { useBlockedAccount } from "../hooks/useBlockedAccount";
+import { isCanonicalUuid } from "../lib/api/messages";
 
 const FALLBACK_AVATAR = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80";
 const PROFILE_BANNER = "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80";
@@ -40,7 +41,8 @@ export default function PublicProfile() {
   const { reviewsForBuyer } = useBuyerTrust();
   const reputationSnapshot = useReputationSnapshot(userId);
   const resolvedProfile = useResolvedPublicProfile(userId);
-  const blocked = useBlockedAccount(resolvedProfile?.id ?? userId);
+  const profileSellerId = resolvedProfile?.id ?? (isCanonicalUuid(userId) ? userId : null);
+  const blocked = useBlockedAccount(profileSellerId ?? userId);
   const profile = resolvedProfile
     ? {
       username: resolvedProfile.username ?? resolvedProfile.name ?? userId,
@@ -123,9 +125,9 @@ export default function PublicProfile() {
               <div className="flex-1"><h1 className="text-[20px] font-semibold">{profile.username}</h1><FoundingMemberBadge sellerId={userId} foundingMember={profile.founding_member ?? profile.foundingMember} /><p className="text-[14px] text-[#828282]">@{profile.username}</p><div className="mt-0.5 flex flex-col gap-0.5"><TrustStatusBadge status={reputationSnapshot?.buyerStatus} buyerId={profile.username} />{profile.location && <p className="flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{profile.location}</p>}</div></div>
             </div>
             <p className="mt-3 text-[14px] leading-[140%]">{profile.bio}</p>
-            <div className="mt-4 flex gap-3"><button type="button" onClick={() => toggleFollow(userId)} className="flex-1 rounded-lg bg-[#498467] py-2.5 text-[14px] font-medium text-white">{isFollowing(userId) ? "Following" : "Follow"}</button><button type="button" onClick={handleMessage} className="flex-1 rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">Message</button></div>
+            <div className="mt-4 flex gap-3"><button type="button" disabled={!profileSellerId} onClick={() => { if (profileSellerId) toggleFollow(profileSellerId); }} className="flex-1 rounded-lg bg-[#498467] py-2.5 text-[14px] font-medium text-white">{profileSellerId && isFollowing(profileSellerId) ? "Following" : "Follow"}</button><button type="button" onClick={handleMessage} className="flex-1 rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">Message</button></div>
             <TrustSafetyActions targetType="user" targetId={userId} blockUserId={userId} />
-            <div className="mt-4 grid grid-cols-2 gap-2"><PublicStat icon="users" label="Followers" value={getFollowerCount(userId)} /><PublicStat icon="user" label="Following" value={0} /></div>
+            <div className="mt-4 grid grid-cols-2 gap-2"><PublicStat icon="users" label="Followers" value={profileSellerId ? getFollowerCount(profileSellerId) : 0} /><PublicStat icon="user" label="Following" value={0} /></div>
           </div>
         </div>
         <div className="mt-4"><div className="sticky top-0 z-20 border-y border-[#E6E6E6] bg-white"><div className="flex">{["My Activity", "Community Impact", "Reviews"].map((tab, index) => <button key={tab} type="button" onClick={() => handleTabChange(index)} className={`relative flex-1 py-3 text-[14px] font-semibold ${activeTab === index ? "text-[#498467]" : "text-black/40"}`}>{tab}{activeTab === index && <span className="absolute bottom-0 left-8 right-8 h-0.5 bg-[#498467]" />}</button>)}</div></div><div className="w-full max-w-full overflow-hidden"><div ref={tabContentRef} className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"><div className="box-border w-full min-w-full max-w-full shrink-0 snap-start px-4 py-4"><div className="flex w-full min-w-0 flex-col gap-4">{activity.map((item) => <ActivityCard key={item.id} activity={item} navigate={navigate} profile={profile} />)}</div></div><CommunityImpactTab metrics={metrics} publicView profileId={profile.username} buyerStatus={reputationSnapshot?.buyerStatus} /><ReviewsTab reviews={profileReviews} navigate={navigate} /></div></div></div>

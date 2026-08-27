@@ -302,6 +302,14 @@ test("critical Supabase contracts are present for regression coverage", async ()
   assert.match(openStore, /navigate\("\/shop", \{ replace: true \}\)/);
 });
 
+test("chat composers start empty and use the Message placeholder", async () => {
+  const chat = await readFile(new URL("../src/pages/Chat.jsx", import.meta.url), "utf8");
+  assert.match(chat, /const \[text, setText\] = useState\(""\)/);
+  assert.match(chat, /placeholder="Message\.\.\."/);
+  assert.doesNotMatch(chat, /Hi! I was looking at your store/);
+  assert.doesNotMatch(chat, /setText\(location\.state\?\.draft\)/);
+});
+
 test("trade acceptance uses the persisted proposal as the status source and preserves offered items", async () => {
   const [context, proposals, messages, migration, backfill, chat] = await Promise.all([
     readFile(new URL("../src/context/MessageContext.jsx", import.meta.url), "utf8"),
@@ -371,4 +379,28 @@ test("trade proposal lifecycle has a conversation reference and event history", 
   assert.match(migration, /counter_offer jsonb/);
   assert.match(api, /recordTradeProposalEvent/);
   assert.match(context, /recordTradeProposalEvent\(\{ tradeProposalId: proposalId/);
+});
+
+test("follower counts derive from the live user_follows aggregate", async () => {
+  const [context, aggregateMigration, sellerProfile, storeHome] = await Promise.all([
+    readFile(new URL("../src/context/FollowContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260815_phase_9a9_scale_aggregates.sql", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/SellerProfile.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/ShopHome.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(context, /rpc\("get_follower_counts"\)/);
+  assert.match(context, /normalizeSellerKey/);
+  assert.match(context, /followerCountKeys/);
+  assert.match(aggregateMigration, /get_follower_counts/);
+  assert.match(aggregateMigration, /from public\.user_follows/);
+  assert.match(context, /follow row persistence audit/);
+  assert.match(context, /follow row lookup audit/);
+  assert.match(context, /unfollow row persistence audit/);
+  assert.match(context, /followOperationsRef/);
+  assert.match(context, /following rows source audit/);
+  assert.match(sellerProfile, /SellerProfile follower count render audit/);
+  assert.match(sellerProfile, /profileSellerId/);
+  assert.match(sellerProfile, /followedSellers\.includes\(profileSellerId\)/);
+  assert.match(sellerProfile, /profiles\.id/);
+  assert.match(storeHome, /ShopHome follower count render audit/);
 });

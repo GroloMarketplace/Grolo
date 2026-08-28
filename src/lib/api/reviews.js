@@ -139,7 +139,7 @@ export function databaseReviewToLegacyReview(row, { profilesById = new Map(), li
     updatedAt: row.updated_at,
     publishedAt: row.published_at,
     deletedAt: row.deleted_at,
-    avatar: reviewerProfile?.avatar_url,
+    avatar: reviewType === "buyer" ? revieweeProfile?.avatar_url : reviewerProfile?.avatar_url,
     ...flags,
   };
 }
@@ -166,7 +166,9 @@ export function legacyReviewToDatabasePayload(review, { reviewerId, reviewType, 
     ? canonicalOrNull(listingId ?? source.listingId ?? source.listing_id ?? source.productId ?? source.product_id)
     : null;
   const resolvedOrderId = canonicalOrNull(orderId ?? source.orderId ?? source.order_id);
-  const resolvedOrderItemId = canonicalOrNull(orderItemId ?? source.orderItemId ?? source.order_item_id);
+  const resolvedOrderItemId = resolvedType === "product"
+    ? canonicalOrNull(orderItemId ?? source.orderItemId ?? source.order_item_id)
+    : null;
   const status = source.status
     ?? (source.deleted ? "removed" : source.private ? "hidden" : source.draft ? "draft" : "published");
 
@@ -408,6 +410,8 @@ export async function createReviewInDatabase(review, { reviewerId, reviewType, r
     payload,
   });
   let row;
+  let insertData = null;
+  let insertError = null;
   try {
     const rpcArgs = {
       p_review_type: payload.review_type,
@@ -434,6 +438,8 @@ export async function createReviewInDatabase(review, { reviewerId, reviewType, r
     const result = await supabase.rpc("create_review", rpcArgs);
     console.log("reviews.js create_review RPC full result", result);
     const { data, error, status, statusText } = result;
+    insertData = data ?? null;
+    insertError = error ?? null;
     console.info("reviews.js create_review RPC response", {
       sellerId: authenticatedReviewerId,
       buyerId: payload.review_type === "buyer" ? payload.reviewee_id : null,
@@ -449,6 +455,18 @@ export async function createReviewInDatabase(review, { reviewerId, reviewType, r
     if (error) throw error;
     row = Array.isArray(data) ? data[0] : data;
   } catch (rpcError) {
+    insertError = rpcError;
+    if (!payload.listing_id) {
+      console.info("BUYER REVIEW CREATE RESULT", {
+        reviewType: payload.review_type,
+        reviewerId: authenticatedReviewerId,
+        revieweeId: payload.reviewee_id,
+        orderId: payload.order_id,
+        insertData,
+        insertError,
+      });
+      throw rpcError;
+    }
     console.error("reviews.js create_review RPC error", {
       sellerId: authenticatedReviewerId,
       buyerId: payload.review_type === "buyer" ? payload.reviewee_id : null,
@@ -491,6 +509,8 @@ export async function createReviewInDatabase(review, { reviewerId, reviewType, r
       .insert(insertPayload)
       .select(REVIEW_SELECT)
       .single();
+    insertData = data ?? null;
+    insertError = error ?? null;
     console.info("reviews.js reviews insert response", {
       sellerId: authenticatedReviewerId,
       buyerId: payload.review_type === "buyer" ? payload.reviewee_id : null,
@@ -503,6 +523,15 @@ export async function createReviewInDatabase(review, { reviewerId, reviewType, r
     if (error) throw error;
     row = data;
   }
+  console.info("BUYER REVIEW CREATE RESULT", {
+    reviewType: payload.review_type,
+    reviewerId: payload.reviewer_id,
+    revieweeId: payload.reviewee_id,
+    orderId: payload.order_id,
+    insertData: insertData ?? row ?? null,
+    insertError: insertError ?? null,
+  });
+  if (!row?.id) throw new Error("Review was not saved. Please try again.");
   console.info("reviews.js review row created", {
     created: Boolean(row?.id),
     reviewId: row?.id ?? null,

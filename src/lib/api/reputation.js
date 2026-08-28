@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, supabase } from "../supabaseClient";
-import { normalizeBuyerStatusCode } from "../../data/buyerTrust";
+import { getBuyerTrustLevel, normalizeBuyerStatusCode } from "../../data/buyerTrust";
 
 const REVIEW_SELECT = "reviewee_id, reviewer_id, review_type, rating, criteria, status, deleted_at, created_at";
 const COMPLETED_ORDER_STATUS = "Completed";
@@ -304,9 +304,15 @@ export async function getBuyerStatus(userId) {
   const resolvedUserId = await resolveReputationUserId(userId);
   if (!resolvedUserId) return statusPayload(null, "new_buyer", {}, {}, emptyDiagnostics());
   const [row, aggregate] = await Promise.all([getStatusRow(resolvedUserId, "buyer"), getBuyerAggregate(resolvedUserId)]);
-  const fallbackStatus = aggregate.metrics.completedTransactionCount > 0 ? "established_buyer" : "new_buyer";
-  const diagnostics = emptyDiagnostics({ statusSource: row ? "user_reputation_status" : "derived", aggregateSource: "reviews, orders" });
-  const payload = statusPayload(row, fallbackStatus, aggregate.progress, aggregate.metrics, diagnostics);
+  const calculatedStatus = getBuyerTrustLevel({
+    completedTransactions: aggregate.metrics.completedTransactionCount,
+    sellerRecommendations: aggregate.metrics.sellerRecommendationCount,
+    wouldTransactAgain: aggregate.metrics.wouldTransactAgainCount,
+    accountAgeDays: aggregate.metrics.accountAgeDays,
+    eventsAttended: aggregate.metrics.eventsAttended,
+  }).current.code;
+  const diagnostics = emptyDiagnostics({ statusSource: "calculated_from_buyer_requirements", aggregateSource: "reviews, orders" });
+  const payload = statusPayload(row ? { ...row, status_code: calculatedStatus } : null, calculatedStatus, aggregate.progress, aggregate.metrics, diagnostics);
   const currentStatus = normalizeBuyerStatusCode(payload.currentStatus);
   return { userId, user_id: userId, ...payload, currentStatus, current_status: currentStatus };
 }

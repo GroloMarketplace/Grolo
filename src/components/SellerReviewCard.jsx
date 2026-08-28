@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { products, sellers } from "../data/mockData";
 
 const REVIEW_CRITERIA = ["Would Transact Again", "Communicated Well", "Arrived for Pickup", "Polite and Respectful"];
@@ -12,10 +13,23 @@ export default function SellerReviewCard({ review }) {
   const sellerName = review.sellerName || review.storeName || seller?.name || "Verified Seller";
   const writtenFeedback = String(review.body || review.notes || review.text || "").trim();
   const criteria = REVIEW_CRITERIA.filter((criterion) => review.criteria?.includes(criterion));
+  const profileAvatarUrl = review.avatar ?? null;
+  const avatarUrlUsed = profileAvatarUrl ?? seller?.avatar ?? "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80";
+
+  useEffect(() => {
+    if (review.reviewType !== "buyer" && review.review_type !== "buyer") return;
+    console.info("BUYER REVIEW AVATAR LOAD", {
+      reviewId: review.id ?? review.databaseId ?? null,
+      reviewerId: review.reviewerId ?? review.reviewer_id ?? null,
+      revieweeId: review.revieweeId ?? review.reviewee_id ?? null,
+      avatarUrlUsed,
+      profileAvatarUrl,
+    });
+  }, [avatarUrlUsed, profileAvatarUrl, review]);
 
   return (
     <article className="flex w-full gap-3 rounded-lg border border-[#E6E6E6] p-3">
-      <img src={seller?.avatar ?? "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=80"} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
+      <img src={avatarUrlUsed} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
       <div className="min-w-0 flex-1">
         <div className="text-[15px] tracking-[1px] text-[#D7A84B]" aria-label={`${rating} out of 5 stars`}>{"★".repeat(rating)}{"☆".repeat(Math.max(5 - rating, 0))}</div>
         <h3 className="mt-1 text-[15px] font-semibold">{sellerName}</h3>

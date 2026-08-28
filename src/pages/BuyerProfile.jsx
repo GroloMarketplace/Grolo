@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -15,6 +15,7 @@ import { getBuyerTrustLevel, getBuyerStatusPresentation } from "../data/buyerTru
 import TrustLevelIcon from "../components/TrustLevelIcon";
 import { useSavedItems } from "../context/SavedContext";
 import { useBuyerTrust } from "../context/BuyerTrustContext";
+import { useAuth } from "../context/AuthContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useOrders } from "../context/OrderContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
@@ -36,13 +37,28 @@ export default function BuyerProfile() {
   const navigate = useNavigate();
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
   const { settings } = useBuyerSettings();
+  const { user } = useAuth();
   const { events: liveEvents, attendingEventIds } = useEvents();
   const { followedSellers } = useFollow();
   const { buyerOrders } = useOrders();
   const { reviewsForBuyer, getBuyerTrust, communityImpact } = useBuyerTrust();
   const reputationSnapshot = useReputationSnapshot("current-user");
   const buyerTrust = getBuyerTrust("you");
-  const sellerReviews = (reviewsForBuyer?.("you") ?? []).sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0));
+  const sellerReviews = useMemo(() => (reviewsForBuyer?.("you") ?? []).sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0)), [reviewsForBuyer]);
+
+  useEffect(() => {
+    console.info("BUYER PROFILE REVIEW LOAD", {
+      source: "BuyerTrustContext.reviewsForBuyer (reviews received by buyer)",
+      profileId: user?.id ?? null,
+      queryFilters: { review_type: "buyer", reviewee_id: user?.id ?? null },
+      reviewIds: sellerReviews.map((review) => review.id ?? review.databaseId ?? null),
+      reviewTypes: sellerReviews.map((review) => review.reviewType ?? review.review_type ?? null),
+      reviewerIds: sellerReviews.map((review) => review.reviewerId ?? review.reviewer_id ?? null),
+      revieweeIds: sellerReviews.map((review) => review.revieweeId ?? review.reviewee_id ?? null),
+      orderIds: sellerReviews.map((review) => review.orderId ?? review.order_id ?? null),
+      returnedReviewCount: sellerReviews.length,
+    });
+  }, [sellerReviews, user?.id]);
   const localImpactMetrics = getBuyerImpactMetrics({ orders: buyerOrders(), events: liveEvents, attendingEventIds, followedSellers, reviewsWritten: sellerReviews.length });
   const impactMetrics = {
     ...localImpactMetrics,

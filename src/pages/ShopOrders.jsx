@@ -10,6 +10,7 @@ import { readNavigationState, writeNavigationState } from "../hooks/navigationSt
 import { useBuyerTrust } from "../context/BuyerTrustContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useAuth } from "../context/AuthContext";
+import { useReviews } from "../context/ReviewContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 
 const SECTIONS = [
@@ -35,6 +36,7 @@ export default function ShopOrders() {
   const { sellerOrders, nextStatuses, updateOrderStatus, markSellerOrdersSeen } = useOrders();
   const { listings } = useListings();
   const { hasReviewedOrder, getBuyerTrust } = useBuyerTrust();
+  const { reviews } = useReviews();
   const { storeOpenedAt } = useProfileMode();
   const [reviewOrder, setReviewOrder] = useState(null);
   const [inProgressOrder, setInProgressOrder] = useState(null);
@@ -188,8 +190,13 @@ export default function ShopOrders() {
                     const buyerProfile = buyerProfiles[String(order.buyerId)] ?? null;
                     const buyerName = getBuyerDisplayName(order, buyerProfile);
                     const orderReviewKey = String(order.databaseId ?? order.orderId ?? order.id);
+                    const orderId = order.databaseId ?? order.orderId ?? order.id;
                     const buyerReviewSubmitted = reviewedOrderKeys.has(orderReviewKey)
-                      || hasReviewedOrder(order.databaseId ?? order.orderId ?? order.id, order.buyerId);
+                      || hasReviewedOrder(orderId, order.buyerId)
+                      || reviews.some((review) => (
+                        [review.orderId, review.order_id].filter(Boolean).some((value) => String(value) === String(orderId))
+                        && String(review.reviewerId ?? review.reviewer_id) === String(order.buyerId)
+                      ));
 
                     return (
                       <div

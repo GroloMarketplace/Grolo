@@ -5,6 +5,7 @@ import { isValidWebsite, normalizeWebsite, validateAddress, validateBuyerProfile
 import { ACTIVE_CAMPAIGN_ERROR, addCalendarDays, campaignDurationDays, calendarDaysUntil, isCampaignActive, validateCampaignDates } from "../src/utils/campaignDuration.js";
 import { seed } from "./fixtures/seed.js";
 import { LOCATION_OPTIONS, friendlyLocation, locationFromLegacyText } from "../src/data/locations.js";
+import { getBuyerTrustLevel } from "../src/data/buyerTrust.js";
 import { promotionCreatedTimestamp } from "../src/utils/promotionRecords.js";
 import { rankFeedItems, recencyScore } from "../src/utils/feedRanking.js";
 import { hasRepairableStoreProfile, sellerProfileUpdates, withoutSellerActivationFields } from "../src/utils/profileActivation.js";
@@ -588,10 +589,13 @@ test("seller new-order badges count unseen orders and clear when store surfaces 
 });
 
 test("store reviews filter by type and render unique review IDs", async () => {
-  const [reviewsApi, reviewContext, storeReviews] = await Promise.all([
+  const [reviewsApi, reviewContext, storeReviews, shopOrders, buyerProfile, sellerReviewCard] = await Promise.all([
     readFile(new URL("../src/lib/api/reviews.js", import.meta.url), "utf8"),
     readFile(new URL("../src/context/ReviewContext.jsx", import.meta.url), "utf8"),
     readFile(new URL("../src/pages/StoreReviews.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/ShopOrders.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/BuyerProfile.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/components/SellerReviewCard.jsx", import.meta.url), "utf8"),
   ]);
   assert.match(reviewsApi, /\.eq\("review_type", reviewType\)/);
   assert.match(reviewContext, /uniqueReviewsById/);
@@ -601,6 +605,38 @@ test("store reviews filter by type and render unique review IDs", async () => {
   assert.match(storeReviews, /uniqueReviewCount/);
   assert.match(storeReviews, /finalRenderedReviews/);
   assert.match(storeReviews, /new Map\(\)/);
+  assert.match(sellerReviewCard, /profileAvatarUrl/);
+  assert.match(sellerReviewCard, /avatarUrlUsed/);
+  assert.match(sellerReviewCard, /BUYER REVIEW AVATAR LOAD/);
+  assert.match(sellerReviewCard, /revieweeId/);
+  assert.match(shopOrders, /reviews\.some\(\(review\)/);
+  assert.match(shopOrders, /reviewType: "buyer"/);
+  assert.match(shopOrders, /buyerId: reviewInput\.buyerId/);
+  assert.match(reviewsApi, /BUYER REVIEW CREATE RESULT/);
+  assert.match(reviewsApi, /reviewerId: payload\.reviewer_id/);
+  assert.match(reviewsApi, /revieweeId: payload\.reviewee_id/);
+  assert.match(reviewsApi, /insertData/);
+  assert.match(reviewsApi, /insertError/);
+  assert.match(reviewsApi, /resolvedType === "product"/);
+  assert.match(buyerProfile, /reviewsForBuyer/);
+  assert.match(buyerProfile, /BUYER PROFILE REVIEW LOAD/);
+  assert.match(buyerProfile, /profileId/);
+  assert.match(buyerProfile, /review_type: "buyer"/);
+  assert.match(buyerProfile, /reviewee_id/);
+  assert.match(buyerProfile, /reviewTypes/);
+  assert.match(buyerProfile, /revieweeIds/);
+  assert.match(buyerProfile, /orderIds/);
+});
+
+test("buyer trust level only advances when every tier requirement is met", async () => {
+  const partialTrusted = getBuyerTrustLevel({ completedTransactions: 4, sellerRecommendations: 1, wouldTransactAgain: 1 });
+  assert.equal(partialTrusted.current.code, "new_buyer");
+  assert.equal(partialTrusted.next.code, "trusted_buyer");
+  assert.equal(partialTrusted.nextRequirements.length, 3);
+
+  const trusted = getBuyerTrustLevel({ completedTransactions: 5, sellerRecommendations: 2, wouldTransactAgain: 3 });
+  assert.equal(trusted.current.code, "trusted_buyer");
+  assert.equal(trusted.next.code, "established_buyer");
 });
 
 test("seller dashboard maps every new order status into the New bucket", async () => {

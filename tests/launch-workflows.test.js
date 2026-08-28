@@ -587,6 +587,22 @@ test("seller new-order badges count unseen orders and clear when store surfaces 
   assert.match(shopOrders, /markSellerOrdersSeen\(sellerId\)/);
 });
 
+test("store reviews filter by type and render unique review IDs", async () => {
+  const [reviewsApi, reviewContext, storeReviews] = await Promise.all([
+    readFile(new URL("../src/lib/api/reviews.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/context/ReviewContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/StoreReviews.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(reviewsApi, /\.eq\("review_type", reviewType\)/);
+  assert.match(reviewContext, /uniqueReviewsById/);
+  assert.match(storeReviews, /STORE REVIEW LOAD/);
+  assert.match(storeReviews, /reviewIds/);
+  assert.match(storeReviews, /returnedReviewCount/);
+  assert.match(storeReviews, /uniqueReviewCount/);
+  assert.match(storeReviews, /finalRenderedReviews/);
+  assert.match(storeReviews, /new Map\(\)/);
+});
+
 test("seller dashboard maps every new order status into the New bucket", async () => {
   const [shopHome, shopOrders] = await Promise.all([
     readFile(new URL("../src/pages/ShopHome.jsx", import.meta.url), "utf8"),

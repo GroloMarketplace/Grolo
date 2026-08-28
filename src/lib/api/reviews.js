@@ -535,6 +535,7 @@ async function getReviewsByType(reviewType, filterColumn, filterValue) {
   let query = supabase
     .from("reviews")
     .select(REVIEW_SELECT)
+    .eq("review_type", reviewType)
     .order("created_at", { ascending: false });
   if (filterValue != null && filterColumn) query = query.eq(filterColumn, filterValue);
   const { data, error } = await query;

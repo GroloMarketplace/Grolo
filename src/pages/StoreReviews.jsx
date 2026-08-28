@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -40,20 +40,39 @@ export default function StoreReviews() {
   const reputationSnapshot = useReputationSnapshot(resolvedStoreId);
   const hasReputation = Boolean(reputationSnapshot?.sellerStatus || reputationSnapshot?.activeBadges?.length);
 
-  const storeReviews = reviewsForSeller(resolvedStoreId);
+  const returnedReviews = useMemo(() => reviewsForSeller(resolvedStoreId), [resolvedStoreId, reviewsForSeller]);
+  const storeReviews = useMemo(() => {
+    const unique = new Map();
+    returnedReviews.forEach((review) => {
+      const reviewId = review.id ?? review.databaseId;
+      const key = reviewId ? String(reviewId) : `review-without-id-${unique.size}`;
+      if (!unique.has(key)) unique.set(key, review);
+    });
+    return [...unique.values()];
+  }, [returnedReviews]);
+
   const ratingBreakdown = [5, 4, 3, 2, 1].map((stars) => ({
     stars,
     count: storeReviews.filter((review) => review.rating === stars).length,
   }));
 
-  const filteredReviews = storeReviews
+  const filteredReviews = useMemo(() => storeReviews
     .filter((review) => filter === "All" || review.rating === parseInt(filter, 10))
     .sort((a, b) => {
       if (sortBy === "Most Recent") return b.createdAt.localeCompare(a.createdAt);
       if (sortBy === "Oldest") return a.createdAt.localeCompare(b.createdAt);
       if (sortBy === "Highest Rating") return b.rating - a.rating;
       return a.rating - b.rating;
+    }), [filter, sortBy, storeReviews]);
+
+  useEffect(() => {
+    console.info("STORE REVIEW LOAD", {
+      reviewIds: returnedReviews.map((review) => review.id ?? review.databaseId ?? null),
+      returnedReviewCount: returnedReviews.length,
+      uniqueReviewCount: storeReviews.length,
+      finalRenderedReviews: filteredReviews.map((review) => ({ reviewId: review.id ?? review.databaseId ?? null, rating: review.rating ?? null, body: review.body ?? review.text ?? "" })),
     });
+  }, [filteredReviews, returnedReviews, storeReviews]);
 
   const renderStars = (rating) => {
     return Array(5)

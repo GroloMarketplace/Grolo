@@ -44,6 +44,18 @@ function normalizeReview(review, identity = getIdentity()) {
   };
 }
 
+function uniqueReviewsById(reviews) {
+  const seen = new Set();
+  return reviews.filter((review) => {
+    const id = review.databaseId ?? review.id ?? review.review_id;
+    if (!id) return true;
+    const key = String(id);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function buyerAliases(reviewer, reviewerId) {
   return new Set([reviewer, reviewerId].filter(Boolean).map((value) => String(value).trim().toLowerCase()));
 }
@@ -107,7 +119,7 @@ export function ReviewProvider({ children }) {
     Promise.all([getProductReviews(), getSellerReviews()])
       .then(([productRows, sellerRows]) => {
         if (cancelled) return;
-        const remoteReviews = [...productRows, ...sellerRows].map((review) => normalizeReview(review, identity));
+        const remoteReviews = uniqueReviewsById([...productRows, ...sellerRows].map((review) => normalizeReview(review, identity)));
         setSubmittedReviews(remoteReviews);
         Promise.all([getProductRatingAggregates(), getSellerRatingAggregates()])
           .then(([productRowsAggregate, sellerRowsAggregate]) => {

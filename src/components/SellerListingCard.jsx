@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useReviews } from "../context/ReviewContext";
 import PromotionBadge from "./PromotionBadge";
 import { usePromotions } from "../context/PromotionContext";
 import ReviewSummary from "./ReviewSummary";
@@ -12,7 +13,12 @@ import TradeBadge from "./TradeBadge";
 export default function SellerListingCard({ product, onDelete, archived = false, hasOrderHistory = false }) {
   const navigate = useNavigate();
   const { getListingPricing } = usePromotions();
+  const { productRating } = useReviews();
   const pricing = getListingPricing(product);
+  const { count: reviewCount } = productRating(product.id);
+  const viewCount = Number(product.views ?? product.metadata?.views) || 0;
+  const likeCount = Number(product.favorites ?? product.metadata?.favorites) || 0;
+  const regrowCount = Number(product.regrows ?? product.metadata?.regrows) || 0;
   const promotion = pricing.promotion;
   const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
   const inventoryTracked = !hasVariants;
@@ -22,6 +28,22 @@ export default function SellerListingCard({ product, onDelete, archived = false,
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [status] = useState(product.status || "Active");
   const displayStatus = archived ? "Archived" : !computedAvailability ? "Sold" : hasVariants ? "Active" : status;
+
+  useEffect(() => {
+    console.info("LISTING METRICS LOAD", {
+      listingId: product.databaseId ?? product.id ?? null,
+      viewCount,
+      likeCount,
+      reviewCount,
+      regrowCount,
+      metricSources: {
+        views: "listings.metadata.views (listing_view events are recorded in vendor_analytics_events)",
+        likes: "listings.metadata.favorites (favorites rows are persisted in favorites)",
+        reviews: "ReviewContext.productRating (reviews table)",
+        regrows: "listings.metadata.regrows (no listing regrow database query currently exists)",
+      },
+    });
+  }, [likeCount, product.databaseId, product.id, regrowCount, reviewCount, viewCount]);
 
   useEffect(() => {
     if (!hasVariants) return;
@@ -113,7 +135,7 @@ export default function SellerListingCard({ product, onDelete, archived = false,
                 fill="currentColor"
               />
             </svg>
-            <span>{product.views || 0}</span>
+            <span>{viewCount}</span>
           </div>
           <div className="flex items-center gap-1">
             <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
@@ -125,17 +147,18 @@ export default function SellerListingCard({ product, onDelete, archived = false,
                 strokeLinejoin="round"
               />
             </svg>
-            <span>{product.favorites || 0}</span>
+            <span>{likeCount}</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1" aria-label={`${reviewCount} reviews`}>
             <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
               <path
-                d="M17.5 12.5a1.67 1.67 0 0 1-1.67 1.67H5.83L2.5 17.5V4.17A1.67 1.67 0 0 1 4.17 2.5h11.66A1.67 1.67 0 0 1 17.5 4.17v8.33Z"
-                stroke="currentColor"
-                strokeWidth="1.5"
+                d="M10 1.67 12.58 6.88l5.75.84-4.16 4.06.98 5.73L10 14.81l-5.15 2.71.98-5.73L1.67 7.73l5.75-.84L10 1.67Z"
+                fill="#FFC107"
+                stroke="#FFC107"
+                strokeWidth="1"
               />
             </svg>
-            <span>{product.messages || 0}</span>
+            <span>{reviewCount}</span>
           </div>
           <div className="flex items-center gap-1">
             <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
@@ -147,19 +170,9 @@ export default function SellerListingCard({ product, onDelete, archived = false,
                 strokeLinejoin="round"
               />
             </svg>
-            <span>{product.regrows || 0}</span>
+            <span>{regrowCount}</span>
           </div>
-          <div className="flex items-center gap-1">
-            <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
-              <path
-                d="M10 1.67 12.58 6.88l5.75.84-4.16 4.06.98 5.73L10 14.81l-5.15 2.71.98-5.73L1.67 7.73l5.75-.84L10 1.67Z"
-                fill="#FFC107"
-                stroke="#FFC107"
-                strokeWidth="1"
-              />
-            </svg>
-            <span>{product.rating || 0}</span>
-          </div>
+
         </div>
 
         {!archived && <div className="flex gap-2 mt-1">

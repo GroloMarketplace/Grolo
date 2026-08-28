@@ -647,3 +647,20 @@ test("seller dashboard maps every new order status into the New bucket", async (
   assert.match(shopHome, /\["New", "Seller Notified", "Order Placed"\]/);
   assert.match(shopOrders, /statuses: \["New", "Seller Notified", "Order Placed"\]/);
 });
+
+test("seller listing cards show live views, likes, reviews, and regrows without comments", async () => {
+  const card = await readFile(new URL("../src/components/SellerListingCard.jsx", import.meta.url), "utf8");
+  assert.match(card, /useReviews/);
+  assert.match(card, /productRating\(product\.id\)/);
+  assert.match(card, /LISTING METRICS LOAD/);
+  assert.match(card, /metricSources/);
+  assert.match(card, /reviewCount/);
+  assert.match(card, /viewCount/);
+  assert.match(card, /likeCount/);
+  assert.match(card, /regrowCount/);
+  assert.match(card, /product\.views/);
+  assert.match(card, /product\.favorites/);
+  assert.match(card, /product\.regrows/);
+  assert.doesNotMatch(card, /product\.messages/);
+  assert.doesNotMatch(card, /chat|comment/i);
+});

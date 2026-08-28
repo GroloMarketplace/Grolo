@@ -115,9 +115,15 @@ export function FollowProvider({ children }) {
         userId: user.id,
         data,
         error,
+        cachedFollowedSellerIdsBeforeReplacement: followedSellersRef.current,
       });
       if (error || cancelled) {
-        if (error) console.error("Unable to load following rows", error);
+        if (error) {
+          console.error("Unable to load following rows", error);
+          followedSellersRef.current = [];
+          setFollowedSellers([]);
+          persistFollowing(userKey, []);
+        }
         if (!cancelled) setFollowsLoaded(true);
         return;
       }
@@ -190,12 +196,17 @@ export function FollowProvider({ children }) {
       isSupabaseConfigured,
     });
     if (isSuspended) throw new Error("Your account is suspended and cannot follow sellers.");
-    if (!sellerKey) throw new Error("A valid seller profile id is required to follow a store.");
+    if (!sellerKey) {
+      console.log("FOLLOW BEFORE INVALID SELLER RETURN", { currentUserId: user?.id ?? null, sellerId, normalizedSellerId: sellerKey });
+      throw new Error("A valid seller profile id is required to follow a store.");
+    }
     if (followedSellersRef.current.some((id) => normalizeSellerKey(id) === sellerKey)) {
+      console.log("FOLLOW BEFORE ALREADY FOLLOWING RETURN", { currentUserId: user?.id ?? null, sellerId: sellerKey });
       console.info("follow store mutation skipped", { reason: "already-following", currentUserId: user?.id ?? null, normalizedSellerId: sellerKey });
       return true;
     }
     if (await checkBlocked(sellerId)) {
+      console.log("FOLLOW BEFORE BLOCKED RETURN", { currentUserId: user?.id ?? null, sellerId: sellerKey });
       console.warn("Follow blocked by trust and safety", { sellerId });
       return false;
     }
@@ -205,34 +216,55 @@ export function FollowProvider({ children }) {
     setFollowerCounts((current) => ({ ...current, [sellerKey]: (current[sellerKey] ?? 0) + 1 }));
     persistFollowing(userKey, next);
 
-    if (!isSupabaseConfigured || !user?.id) return true;
+    console.log("FOLLOW BEFORE LOOKUP", {
+      currentUserId: user?.id ?? null,
+      sellerId: sellerKey,
+      isSupabaseConfigured,
+    });
+    if (!isSupabaseConfigured || !user?.id) {
+      console.log("FOLLOW BEFORE LOCAL/UNAUTHENTICATED RETURN", { currentUserId: user?.id ?? null, sellerId: sellerKey });
+      return true;
+    }
     const { data: existingRows, error: lookupError } = await supabase
       .from("user_follows")
-      .select("id, follower_id, seller_id, created_at")
+      .select("follower_id, seller_id, created_at")
       .eq("follower_id", user.id)
       .eq("seller_id", sellerKey);
+    const existingRow = existingRows?.[0] ?? null;
+    console.log("FOLLOW EXISTING ROW CHECK", existingRow);
     console.info("follow row lookup audit", {
       follower_id: user.id,
       store_id: sellerKey,
       user_id: user.id,
-      existing_row: existingRows?.[0] ?? null,
+      existing_row: existingRow,
       lookup_error: lookupError?.message ?? null,
     });
     if (lookupError) throw lookupError;
     if (!existingRows?.length) {
-      const insertResult = await supabase
+      console.log("FOLLOW BEFORE INSERT", {
+        currentUserId: user.id,
+        sellerId: sellerKey,
+      });
+      const { data: insertData, error: insertError } = await supabase
         .from("user_follows")
         .insert({ follower_id: user.id, seller_id: sellerKey })
-        .select("id, follower_id, seller_id, created_at");
+        .select("follower_id, seller_id, created_at");
+      console.log("FOLLOW INSERT RESULT", {
+        insertData,
+        insertError,
+        currentUserId: user.id,
+        sellerId: sellerKey,
+      });
       console.info("follow store Supabase insert response", {
         currentUserId: user.id,
         sellerProfileId: sellerId,
         normalizedSellerId: sellerKey,
         insertedSellerId: sellerKey,
-        supabaseData: insertResult.data ?? null,
-        supabaseError: insertResult.error ?? null,
+        supabaseData: insertData ?? null,
+        supabaseError: insertError ?? null,
+        insertedRowCount: insertData?.length ?? 0,
       });
-      if (insertResult.error && insertResult.error.code !== "23505") throw insertResult.error;
+      if (insertError && insertError.code !== "23505") throw insertError;
     } else {
       console.info("follow store Supabase insert response", {
         currentUserId: user.id,
@@ -260,7 +292,7 @@ export function FollowProvider({ children }) {
     if (isSupabaseConfigured && user?.id) {
       const { data: existingRows, error: lookupError } = await supabase
         .from("user_follows")
-        .select("id, follower_id, seller_id, created_at")
+        .select("follower_id, seller_id, created_at")
         .eq("follower_id", user.id)
         .eq("seller_id", sellerId);
       console.info("unfollow row lookup audit", {
@@ -273,7 +305,7 @@ export function FollowProvider({ children }) {
       });
       if (lookupError) throw lookupError;
       const { error } = await supabase.from("user_follows").delete().eq("follower_id", user.id).eq("seller_id", sellerId);
-      const { data: remainingRows } = await supabase.from("user_follows").select("id").eq("follower_id", user.id).eq("seller_id", sellerId);
+      const { data: remainingRows } = await supabase.from("user_follows").select("follower_id, seller_id").eq("follower_id", user.id).eq("seller_id", sellerId);
       console.info("unfollow row persistence audit", {
         follower_id: user.id,
         store_id: sellerId,
@@ -289,7 +321,17 @@ export function FollowProvider({ children }) {
 
   const toggleFollow = (sellerId) => {
     const sellerKey = normalizeSellerKey(sellerId);
-    if (followedSellersRef.current.some((id) => normalizeSellerKey(id) === sellerKey)) return unfollowSeller(sellerId);
+    const alreadyFollowing = followedSellersRef.current.some((id) => normalizeSellerKey(id) === sellerKey);
+    console.log("FOLLOW CLICK START", {
+      currentUserId: user?.id ?? null,
+      sellerId,
+      normalizedSellerId: sellerKey,
+      alreadyFollowing,
+    });
+    if (alreadyFollowing) {
+      console.log("FOLLOW BEFORE UNFOLLOW RETURN", { currentUserId: user?.id ?? null, sellerId: sellerKey });
+      return unfollowSeller(sellerId);
+    }
     return followSeller(sellerId);
   };
 

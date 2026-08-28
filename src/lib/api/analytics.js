@@ -47,8 +47,7 @@ export async function trackAnalyticsEvent(eventType, options = {}) {
     if (error) throw error;
     if (VIEW_EVENT_TYPES.has(eventType) || options.persistInSession) markRecordedInSession(key);
     return true;
-  } catch (error) {
-    console.warn("Analytics event was not recorded", { eventType, error: error?.message ?? error });
+  } catch {
     return false;
   }
 }

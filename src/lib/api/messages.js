@@ -47,15 +47,6 @@ export function databaseMessageToLegacyMessage(row, { currentUserId } = {}) {
   const conversationId = row.conversation_id ?? row.conversationId ?? null;
   const isIncoming = Boolean(senderId && currentUserId && senderId !== currentUserId);
   const unread = Boolean(isIncoming && !readAt);
-  console.info("message unread normalization", {
-    messageId: databaseId,
-    conversationId,
-    senderId,
-    currentUserId: currentUserId ?? null,
-    isIncoming,
-    readAt,
-    computedUnread: unread,
-  });
   return {
     ...row,
     id: row.legacy_id ?? row.legacyId ?? databaseId,
@@ -198,7 +189,6 @@ export async function upsertConversationInDatabase(conversation, { buyerId, sell
     conversationId: payload.id ?? null,
     operation: payload.id ? "update" : "insert",
   };
-  console.info("Conversation table creation attempt", requestDetails);
   let row;
   let error;
   if (payload.id) {
@@ -224,26 +214,8 @@ export async function upsertConversationInDatabase(conversation, { buyerId, sell
     existingQuery = payload.listing_id
       ? existingQuery.eq("listing_id", payload.listing_id)
       : existingQuery.is("listing_id", null);
-    console.info("Trade conversation metadata lookup request", {
-      conversation_id: payload.id ?? null,
-      buyer_id: payload.buyer_id,
-      seller_id: payload.seller_id,
-      listing_id: payload.listing_id ?? null,
-      filter: "buyer_id + seller_id + listing_id",
-    });
     const existingResult = await existingQuery.limit(1).maybeSingle();
-    console.info("Trade conversation metadata lookup result", {
-      conversation_id: existingResult.data?.id ?? null,
-      conversation_object: existingResult.data ?? null,
-      conversation_row_count: existingResult.data ? 1 : 0,
-      error: existingResult.error?.message ?? null,
-    });
     if (existingResult.error) {
-      console.warn("Conversation table lookup failed", {
-        ...requestDetails,
-        error: databaseErrorDetails(existingResult.error),
-        supabaseError: existingResult.error,
-      });
       throw attachConversationDebug(existingResult.error, {
         ...requestDetails,
         error: databaseErrorDetails(existingResult.error),
@@ -263,46 +235,13 @@ export async function upsertConversationInDatabase(conversation, { buyerId, sell
         existingTradeProposalId === incomingTradeProposalId
         || existingProposalFingerprint === incomingProposalFingerprint
       ));
-      console.info("Trade proposal comparison decision", {
-        conversation_id: row.id,
-        existing_proposal_id: existingTradeProposalId,
-        incoming_proposal_id: incomingTradeProposalId,
-        existing_proposal_fingerprint: existingProposalFingerprint,
-        incoming_proposal_fingerprint: incomingProposalFingerprint,
-        existing_proposal_present: Boolean(existingTradeProposal),
-        incoming_proposal_present: Boolean(incomingTradeProposal),
-        metadata_update_skipped: sameTradeProposal,
-        difference_reason: !existingTradeProposal ? "no existing proposal" : sameTradeProposal ? "matching id or content" : "proposal id/content differs",
-      });
       if (sameTradeProposal) {
-        console.info("Trade conversation metadata update skipped", {
-          ...requestDetails,
-          conversation_id: row.id,
-          reason: "metadata already contains this trade proposal",
-          existing_trade_proposal_id: existingTradeProposalId,
-          incoming_trade_proposal_id: incomingTradeProposalId,
-        });
       } else if (payload.metadata?.tradeProposal) {
         const conversationIdBeforeMetadataUpdate = row?.id ?? null;
-        console.info("Trade conversation metadata update request", {
-          ...requestDetails,
-          conversation_id: conversationIdBeforeMetadataUpdate,
-          conversation_object: row ?? null,
-          update_filter: { id: conversationIdBeforeMetadataUpdate },
-          metadata_keys: Object.keys(payload.metadata ?? {}),
-        });
         const metadataUpdateResult = await supabase
           .from("conversations")
           .update({ metadata: payload.metadata, listing_id: payload.listing_id ?? null }, { count: "exact" })
           .eq("id", conversationIdBeforeMetadataUpdate);
-        console.info("Trade conversation metadata update result", {
-          ...requestDetails,
-          conversation_id: conversationIdBeforeMetadataUpdate,
-          update_where: { id: conversationIdBeforeMetadataUpdate },
-          update_result_row_count: metadataUpdateResult.count ?? 0,
-          metadata_update_result: metadataUpdateResult.data ?? null,
-          error: metadataUpdateResult.error?.message ?? null,
-        });
         if (metadataUpdateResult.error) throw metadataUpdateResult.error;
         if (metadataUpdateResult.count !== 1) {
           const lookupAfterUpdate = await supabase
@@ -315,14 +254,6 @@ export async function upsertConversationInDatabase(conversation, { buyerId, sell
             rowAfterUpdate.metadata.tradeProposal.id === incomingTradeProposalId
             || tradeProposalFingerprint(rowAfterUpdate.metadata.tradeProposal) === incomingProposalFingerprint
           ));
-          console.info("Trade conversation lookup after metadata update", {
-            conversation_id: conversationIdBeforeMetadataUpdate,
-            conversation_row_count: lookupAfterUpdate.data?.length ?? 0,
-            conversation_object: rowAfterUpdate,
-            metadata_update_skipped: sameProposalAfterUpdate,
-            reason: sameProposalAfterUpdate ? "existing metadata already matches incoming proposal" : "update matched no row",
-            error: lookupAfterUpdate.error?.message ?? null,
-          });
           if (sameProposalAfterUpdate) {
             row = rowAfterUpdate;
           } else {
@@ -335,22 +266,10 @@ export async function upsertConversationInDatabase(conversation, { buyerId, sell
           .eq("id", conversationIdBeforeMetadataUpdate)
           .limit(1)
           .maybeSingle();
-        console.info("Trade conversation metadata readback", {
-          conversation_id: conversationIdBeforeMetadataUpdate,
-          readback_result_row_count: updatedExistingResult.data ? 1 : 0,
-          metadata_update_result: updatedExistingResult.data ?? null,
-          trade_proposal_attached: Boolean(updatedExistingResult.data?.metadata?.tradeProposal),
-          error: updatedExistingResult.error?.message ?? null,
-        });
         if (updatedExistingResult.error) throw updatedExistingResult.error;
         if (!updatedExistingResult.data) throw new Error("Trade conversation metadata update readback returned no conversation row.");
         row = updatedExistingResult.data;
       }
-      console.info("Conversation table existing row recovered", {
-        ...requestDetails,
-        conversationUuid: row.id,
-        committed: true,
-      });
     } else {
       ({ data: row, error } = await supabase
         .from("conversations")
@@ -371,11 +290,6 @@ export async function upsertConversationInDatabase(conversation, { buyerId, sell
     error = new Error("Conversation query returned no row.");
   }
   if (error) {
-    console.warn("Conversation table insert/update failed", {
-      ...requestDetails,
-      error: databaseErrorDetails(error),
-      supabaseError: error,
-    });
     throw attachConversationDebug(error, {
       ...requestDetails,
       error: databaseErrorDetails(error),
@@ -383,11 +297,6 @@ export async function upsertConversationInDatabase(conversation, { buyerId, sell
       supabaseError: error,
     });
   }
-  console.info("Conversation table insert response", {
-    ...requestDetails,
-    conversationUuid: row?.id ?? null,
-    committed: Boolean(row?.id),
-  });
   if (!row?.id) throw new Error("Conversation table did not return a conversation UUID.");
   return databaseConversationToLegacyConversation(row, { currentUserId: currentUserId ?? buyerId });
 }
@@ -407,13 +316,6 @@ export async function updateConversationMetadata(conversationId, metadata) {
     .eq("id", conversationId)
     .select(CONVERSATION_SELECT)
     .maybeSingle();
-  console.info("trade conversation metadata persisted", {
-    conversation_id: conversationId,
-    metadata_before: current?.metadata ?? null,
-    metadata_after: data?.metadata ?? nextMetadata,
-    update_row_count: count ?? 0,
-    error: error?.message ?? null,
-  });
   if (error) throw error;
   if (!data || count !== 1) throw new Error("Trade conversation metadata update matched no conversation row.");
   return data;
@@ -459,10 +361,6 @@ async function attachParticipantProfiles(conversations) {
     .select("id, display_name, username, shop_name, avatar_url, location")
     .in("id", participantIds);
   if (error) {
-    console.warn("Participant profile hydration failed; preserving conversations", {
-      participantIds,
-      error: databaseErrorDetails(error),
-    });
     return conversations;
   }
 
@@ -484,42 +382,10 @@ export async function getConversations(userId) {
   ]);
   const queryErrors = [buyerResult.error, sellerResult.error].filter(Boolean);
   if (queryErrors.length === 2) {
-    console.warn("Seller/buyer conversation retrieval failed for both participant queries", {
-      authenticatedUserId,
-      buyerQueryError: databaseErrorDetails(buyerResult.error),
-      sellerQueryError: databaseErrorDetails(sellerResult.error),
-    });
     throw queryErrors[0];
   }
   const rowsById = new Map([...(buyerResult.data ?? []), ...(sellerResult.data ?? [])].map((conversation) => [conversation.id, conversation]));
   const data = [...rowsById.values()].sort((left, right) => new Date(right.updated_at ?? 0).getTime() - new Date(left.updated_at ?? 0).getTime());
-  console.info("seller inbox conversation audit", {
-    authenticatedUserId,
-    sellerConversationCount: sellerResult.data?.length ?? 0,
-    sellerConversationIds: (sellerResult.data ?? []).map((conversation) => conversation.id),
-    sellerConversationParticipantIds: (sellerResult.data ?? []).map((conversation) => ({
-      conversationId: conversation.id,
-      buyerId: conversation.buyer_id,
-      sellerId: conversation.seller_id,
-      category: conversation.metadata?.category ?? null,
-      conversationType: conversation.metadata?.conversationType ?? null,
-    })),
-  });
-  console.info("Conversation retrieval diagnostics", {
-    authenticatedUserId,
-    buyerQueryCount: buyerResult.data?.length ?? 0,
-    sellerQueryCount: sellerResult.data?.length ?? 0,
-    mergedConversationCount: data.length,
-    buyerQueryError: buyerResult.error ? databaseErrorDetails(buyerResult.error) : null,
-    sellerQueryError: sellerResult.error ? databaseErrorDetails(sellerResult.error) : null,
-    conversationIdentities: data.map((conversation) => ({
-      conversationId: conversation.id,
-      buyerId: conversation.buyer_id,
-      sellerId: conversation.seller_id,
-      listingId: conversation.listing_id,
-      tradeProposalId: conversation.trade_proposal_id ?? null,
-    })),
-  });
 
   const conversations = await attachParticipantProfiles((data ?? []).map((conversation) => ({
     ...conversation,
@@ -529,11 +395,6 @@ export async function getConversations(userId) {
     .map((conversation) => databaseConversationToLegacyConversation(conversation, { currentUserId: authenticatedUserId }))
     .filter(Boolean);
 
-  console.info("Supabase conversation read", {
-    authenticatedUserId,
-    conversationReadCount: conversations.length,
-    mappedConversationCount: mappedConversations.length,
-  });
   return mappedConversations;
 }
 
@@ -558,24 +419,9 @@ export async function getMessages(conversationId, userId) {
     }
   }
 
-  console.info("Message hydration diagnostics", {
-    conversationId,
-    currentUserId: authenticatedUserId,
-    directReturnedMessageCount: directResult.data?.length ?? 0,
-    directRetrievalError: directResult.error ? databaseErrorDetails(directResult.error) : null,
-    fallbackReturnedMessageCount: source === "participant-validated-rpc" ? data.length : null,
-    fallbackRetrievalError: fallbackError ? databaseErrorDetails(fallbackError) : null,
-    source,
-    rlsResult: directResult.error ? "direct-select-error" : directResult.data?.length ? "direct-select-visible" : "direct-select-empty",
-  });
 
   if (directResult.error && fallbackError) throw directResult.error;
   if (fallbackError && !directResult.error) {
-    console.warn("Message hydration fallback unavailable; preserving direct result", {
-      conversationId,
-      currentUserId: authenticatedUserId,
-      error: databaseErrorDetails(fallbackError),
-    });
     data = directResult.data ?? [];
   }
 
@@ -592,9 +438,7 @@ export async function getMessages(conversationId, userId) {
     computedUnread: message.unread === true,
   }));
   const unreadMessageIds = hydrationRows.filter((message) => message.computedUnread).map((message) => message.messageId);
-  console.info("HYDRATED MESSAGE READ STATE");
   console.table(hydrationRows);
-  console.info("UNREAD MESSAGE IDS FOR CONVERSATION");
   console.table([{
     conversationId,
     unreadMessageCount: unreadMessageIds.length,
@@ -619,10 +463,6 @@ export async function markConversationMessagesRead(conversationId, contextUser =
       .select("id, sender_id, read_at")
       .eq("conversation_id", resolvedConversationId);
     if (error) {
-      console.warn("Unable to inspect message read state", {
-        conversationId: resolvedConversationId,
-        error: error.message,
-      });
       return { rows: [], error };
     }
     return { rows: data ?? [], error: null };
@@ -631,40 +471,9 @@ export async function markConversationMessagesRead(conversationId, contextUser =
   const beforeReadStateError = before.error?.message ?? null;
   const incomingUnreadBefore = before.rows.filter((row) => row.sender_id !== currentUserId && !row.read_at);
   const unreadBefore = incomingUnreadBefore.length;
-  console.info("mark conversation read requested", {
-    conversationId: resolvedConversationId,
-    currentUserId,
-    incomingUnreadBeforeCount: unreadBefore,
-    incomingUnreadBeforeIds: incomingUnreadBefore.map((row) => row.id),
-    messages: before.rows.map((row) => ({ messageId: row.id, readAtBefore: row.read_at ?? null, senderId: row.sender_id })),
-  });
-  console.info("READ AUTH AUDIT", {
-    user: contextUser ? { id: contextUser.id ?? null, email: contextUser.email ?? null } : null,
-    userId: contextUser?.id ?? null,
-    authCurrentUser: authCurrentUser ? { id: authCurrentUser.id ?? null, email: authCurrentUser.email ?? null } : null,
-    authCurrentUserId: authCurrentUser?.id ?? null,
-    currentUserId,
-    session: session ? {
-      userId: session.user?.id ?? null,
-      hasAccessToken: Boolean(session.access_token),
-      expiresAt: session.expires_at ?? null,
-    } : null,
-    authUserError: authUserResult.error?.message ?? null,
-    sessionError: sessionResult.error?.message ?? null,
-  });
-  console.info("mark conversation read RPC start", {
-    conversationId: resolvedConversationId,
-    currentUserId,
-    incomingUnreadBeforeIds: incomingUnreadBefore.map((row) => row.id),
-  });
   let rpcTimeoutId;
   const timeout = new Promise((_, reject) => {
     rpcTimeoutId = globalThis.setTimeout(() => {
-      console.warn("mark conversation read RPC timeout", {
-        conversationId: resolvedConversationId,
-        currentUserId,
-        timeoutMs: 10000,
-      });
       reject(new Error("mark_conversation_messages_read timed out."));
     }, 10000);
   });
@@ -675,27 +484,13 @@ export async function markConversationMessagesRead(conversationId, contextUser =
       timeout,
     ]);
   } catch (error) {
-    console.warn("mark conversation read RPC error", {
-      conversationId: resolvedConversationId,
-      currentUserId,
-      error: error?.message ?? String(error),
-    });
     throw error;
   } finally {
     globalThis.clearTimeout(rpcTimeoutId);
   }
   if (rpcResponse.error) {
-    console.warn("mark conversation read RPC error", {
-      conversationId: resolvedConversationId,
-      currentUserId,
-      error: rpcResponse.error?.message ?? String(rpcResponse.error),
-    });
     throw rpcResponse.error;
   }
-  console.info("mark conversation read RPC success", {
-    conversationId: resolvedConversationId,
-    currentUserId,
-  });
   const after = await readState();
   const afterReadStateError = after.error?.message ?? null;
   const incomingUnreadAfter = after.rows.filter((row) => row.sender_id !== currentUserId && !row.read_at);
@@ -704,13 +499,6 @@ export async function markConversationMessagesRead(conversationId, contextUser =
     .filter((row) => row.sender_id !== currentUserId && !row.read_at)
     .filter((beforeRow) => after.rows.some((afterRow) => afterRow.id === beforeRow.id && afterRow.read_at))
     .map((row) => row.id);
-  console.info("mark conversation read returned rows updated", {
-    conversationId: resolvedConversationId,
-    currentUserId,
-    updatedReadAtCount: markedReadIds.length,
-    idsMarkedRead: markedReadIds,
-    idsRemainingUnread: incomingUnreadAfter.map((row) => row.id),
-  });
   const result = {
     conversationId: resolvedConversationId,
     currentUserId,
@@ -725,7 +513,6 @@ export async function markConversationMessagesRead(conversationId, contextUser =
     afterReadStateError,
     messages: after.rows.map((row) => ({ messageId: row.id, readAtAfter: row.read_at ?? null, senderId: row.sender_id })),
   };
-  console.info("mark conversation read completed", result);
   return result;
 }
 
@@ -757,7 +544,6 @@ export async function sendMessage({ conversationId, senderId, recipientId, conte
     messageContent: content,
     messageInsertPayload: insertPayload,
   };
-  console.info("Message database insert attempt", debug);
   const { data, error } = await supabase
     .from("messages")
     .insert(insertPayload)
@@ -766,7 +552,6 @@ export async function sendMessage({ conversationId, senderId, recipientId, conte
   if (error) {
     const errorDetails = databaseErrorDetails(error);
     const failedDebug = { ...debug, messageInsertResponse: null, messageInsertError: errorDetails, fullSupabaseError: error, messagesRowCreated: false };
-    console.warn("Message database insert failed", failedDebug);
     throw attachMessageDebug(error, failedDebug);
   }
   if (!data) {
@@ -778,7 +563,6 @@ export async function sendMessage({ conversationId, senderId, recipientId, conte
       fullSupabaseError: null,
       messagesRowCreated: false,
     };
-    console.warn("Message database insert returned no row", failedDebug);
     throw attachMessageDebug(noRowError, failedDebug);
   }
   const message = databaseMessageToLegacyMessage(data, { currentUserId: authenticatedUserId });
@@ -789,7 +573,6 @@ export async function sendMessage({ conversationId, senderId, recipientId, conte
     fullSupabaseError: null,
     messagesRowCreated: true,
   };
-  console.info("Message database insert response", successDebug);
   return { ...message, messageDebug: successDebug };
 }
 
@@ -807,12 +590,6 @@ export function subscribeToMessages(conversationId, onInsert, onStatus, onUpdate
         filter: `conversation_id=eq.${conversationId}`,
       },
       (payload) => {
-        console.info("realtime INSERT event received", {
-          channel: channelName,
-          conversationId,
-          messageId: payload.new?.id ?? null,
-          senderId: payload.new?.sender_id ?? null,
-        });
         onInsert(payload.new);
       },
     )
@@ -825,22 +602,10 @@ export function subscribeToMessages(conversationId, onInsert, onStatus, onUpdate
         filter: `conversation_id=eq.${conversationId}`,
       },
       (payload) => {
-        console.info("realtime UPDATE event received", {
-          channel: channelName,
-          conversationId,
-          messageId: payload.new?.id ?? null,
-          readAt: payload.new?.read_at ?? null,
-        });
         onUpdate?.(payload.new);
       },
     );
   channel.subscribe((status, error) => {
-    console.info("realtime channel status", {
-      channel: channelName,
-      conversationId,
-      status,
-      error: error?.message ?? error ?? null,
-    });
     onStatus?.(status, error);
   });
   return channel;

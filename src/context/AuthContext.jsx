@@ -230,10 +230,6 @@ export function AuthProvider({ children }) {
     setOnboardingComplete(nextOnboardingComplete);
     setProfileStatus("loaded");
     setProfileError(null);
-    console.info("AuthContext profile refreshed", {
-      profileId: data?.id ?? null,
-      onboardingComplete: nextOnboardingComplete,
-    });
     return data;
   }
 
@@ -249,7 +245,6 @@ export function AuthProvider({ children }) {
     const configuredOrigin = import.meta.env.VITE_APP_URL?.trim().replace(/\/$/, "");
     const redirectOrigin = configuredOrigin && !/^https?:\/\/localhost(?::\d+)?$/i.test(configuredOrigin) ? configuredOrigin : "https://grolomarketplace.ca";
     const emailRedirectTo = `${redirectOrigin}/confirm-email`;
-    console.info("Signup confirmation redirect", { emailRedirectTo });
     const { data, error } = await supabase.auth.signUp({
       email,
       password,

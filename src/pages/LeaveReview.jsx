@@ -30,13 +30,6 @@ export default function LeaveReview() {
   const alreadyReviewed = hasReviewedProduct(productId);
 
   useEffect(() => {
-    console.info("review page order loaded", {
-      orderId: completedOrder?.databaseId ?? completedOrder?.orderId ?? completedOrder?.id ?? null,
-      orderStatus: completedOrder?.status ?? null,
-      fulfillmentType: completedOrder?.fulfillmentMethod ?? completedOrder?.fulfillment_method ?? null,
-      productId,
-      reviewEligible: purchased && !alreadyReviewed,
-    });
   }, [alreadyReviewed, completedOrder, productId, purchased]);
 
   const handlePhotos = (event) => {

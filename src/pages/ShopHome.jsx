@@ -102,61 +102,7 @@ export default function ShopHome() {
   );
   const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name);
 
-  useEffect(() => {
-    console.info("ShopHome listing trade audit", {
-      source: "StorePage",
-      sellerId: seller.id,
-      listings: sellerProducts.map((listing) => ({
-        listingId: listing.id,
-        databaseId: listing.databaseId ?? null,
-        open_to_trade: listing.availableForTrade ?? null,
-        trade_enabled: listing.tradeEnabled ?? null,
-        barter_enabled: listing.barterEnabled ?? null,
-      })),
-    });
-  }, [seller.id, sellerProducts]);
-
-  useEffect(() => {
-    const followerCount = getFollowerCount(profileSellerId);
-    console.log("SHOPHOME FOLLOWER AUDIT", {
-      userId: user?.id ?? null,
-      sellerProfileId: seller.id,
-      profileSellerId,
-      followerCount,
-    });
-    console.info("ShopHome follower count render audit", {
-      source: "seller_store_page",
-      seller_id: profileSellerId,
-      seller_id_type: typeof profileSellerId,
-      auth_user_id: user?.id ?? null,
-      follower_count_source: "FollowContext.get_follower_counts(user_follows)",
-      followedSellers,
-      isFollowing: isFollowing(profileSellerId),
-      displayed_follower_count: followerCount,
-    });
-  }, [followedSellers, getFollowerCount, isFollowing, profileSellerId, seller.id, user?.id]);
-
-  useEffect(() => {
-    console.info("ShopHome order source", {
-      countedOrders: newOrders.map((order) => ({ id: order.id, sellerId: order.sellerId, status: order.status })),
-      sellerIdOnOrders: storeOrders.map((order) => ({ id: order.id, sellerId: order.sellerId })),
-      currentAuthenticatedSellerUuid: user?.id ?? null,
-      sellerOrdersFilterInput: seller.id,
-      visibleOrderCount: storeOrders.length,
-    });
-    console.info("SHOPHOME ORDER LOAD", {
-      currentUserId: user?.id ?? null,
-      sellerProfileId: profileSellerId,
-      sellerIdUsedInQuery: seller.id,
-      returnedOrderCount: sellerOrderRows.length,
-      returnedOrderStatuses: sellerOrderRows.map((order) => order.status ?? null),
-      buyerId: [...new Set(sellerOrderRows.map((order) => order.buyerId).filter(Boolean))],
-      queryFilters: { seller_id: seller.id },
-      rowsAfterDashboardFilters: storeOrders.map((order) => ({ orderId: order.databaseId ?? order.id ?? null, buyerId: order.buyerId ?? null, sellerId: order.sellerId ?? null, status: order.status ?? null })),
-      storeOpenedAt: storeOpenedAt ?? null,
-      orderFilterAudit,
-    });
-  }, [newOrders, orderFilterAudit, profileSellerId, seller.id, sellerOrderRows, storeOpenedAt, storeOrders, user?.id]);
+  const followerCount = getFollowerCount(profileSellerId);
 
   const orderCounts = [
     { label: "New", count: storeOrders.filter((o) => ["New", "Seller Notified", "Order Placed"].includes(o.status)).length },
@@ -183,17 +129,6 @@ export default function ShopHome() {
   }, [routeLocation.state?.activeTab, routeLocation.state?.eventUpdated]);
   const tabs = ["Listings", "Posts", "Events"];
   const localSellerRating = sellerRating(seller.id);
-
-  useEffect(() => {
-    console.info("store review summary audit", {
-      store_id: seller.id,
-      reviewCountFromReviewsTable: localSellerRating.count,
-      averageRatingFromReviewsTable: localSellerRating.average,
-      profileDisplayedReviewCount: localSellerRating.count,
-      profileDisplayedRating: localSellerRating.average,
-      source: "ReviewContext sellerRating aggregate",
-    });
-  }, [localSellerRating.average, localSellerRating.count, seller.id]);
 
   const showToast = (message) => {
     setToastMessage(message);

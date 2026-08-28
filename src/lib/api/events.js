@@ -75,7 +75,7 @@ async function currentUserId() {
 
 function logEventSource(source, operation, extra = {}) {
   const message = source === "supabase" ? "event source: supabase" : "event source: local fallback";
-  console.info(message, { operation, ...extra });
+
 }
 
 export async function getEvents() {
@@ -114,14 +114,11 @@ export async function createEvent(event) {
   if (!isSupabaseConfigured) return null;
   const ownerId = await currentUserId();
   const payload = eventPayload(event, ownerId);
-  console.info("create event request", { table: "events", payload });
   const { data, error } = await supabase
     .from("events")
     .insert(payload)
     .select("*, profiles(*)")
     .single();
-  console.log("create event success", data);
-  console.error("create event insert failed", error);
   if (error) {
     console.error("create event insert failed", {
       table: "events",

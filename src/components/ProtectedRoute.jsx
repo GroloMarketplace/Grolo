@@ -18,13 +18,6 @@ export default function ProtectedRoute({ children, sellerOnly = false, profileRe
   }
   if (profile?.suspended_at) return <Navigate to="/account-suspended" replace />;
   if (profileRequired && !profile) {
-    console.info("ProtectedRoute redirect decision", {
-      pathname: location.pathname,
-      destination: "/onboarding",
-      profileRequired,
-      profileStatus,
-      hasProfile: false,
-    });
     return <Navigate to="/onboarding" replace />;
   }
   if (sellerOnly && !canSeller) return <Navigate to="/profile" replace />;

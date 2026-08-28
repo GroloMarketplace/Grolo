@@ -65,35 +65,10 @@ export default function SellerProfile() {
   const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name || p.shop === seller.name);
   useEffect(() => {
     if (!followsLoaded) return;
-    console.log("FOLLOW STATE REHYDRATION", {
-      currentUserId: user?.id ?? null,
-      sellerId: profileSellerId ?? sellerId,
-      resolvedProfileId: profileSellerId,
-      followedSellerIdsFromUserFollows: followedSellers,
-      followsLoaded,
-      isFollowing: profileSellerId ? isFollowing(profileSellerId) : false,
-      followerCount: profileSellerId ? getFollowerCount(profileSellerId) : 0,
-    });
   }, [followedSellers, followsLoaded, getFollowerCount, isFollowing, profileSellerId, sellerId, user?.id]);
 
   useEffect(() => {
     const followerCount = profileSellerId ? getFollowerCount(profileSellerId) : 0;
-    console.log({ profileSellerId, followedSellers, match: followedSellers.includes(profileSellerId) });
-    console.info("SellerProfile follower count render audit", {
-      source: "seller_profile_page",
-      userId: user?.id ?? null,
-      sellerProfileId: seller.id,
-      profileSellerId,
-      profile_seller_id_type: typeof profileSellerId,
-      route_seller_id: sellerId,
-      seller_id_origin: resolvedSeller ? "profiles.id" : isCanonicalSellerId(sellerId) ? "auth.users.id / profiles.id" : "unresolved legacy route",
-      follower_count_source: "FollowContext.get_follower_counts(user_follows)",
-      followedSellers,
-      match: followedSellers.includes(profileSellerId),
-      isFollowing: profileSellerId ? isFollowing(profileSellerId) : false,
-      followerCount,
-      displayed_follower_count: followerCount,
-    });
   }, [followedSellers, getFollowerCount, isFollowing, profileSellerId, resolvedSeller, seller.id, sellerId, user?.id]);
   const sellerPosts = [...followingPosts, ...communityPosts, ...posts].filter(
     (post, index, allPosts) =>
@@ -214,7 +189,6 @@ export default function SellerProfile() {
             <div className="flex gap-2 mt-4">
               <button
                 onClick={() => {
-                  console.log("FOLLOW BUTTON CLICKED");
                   if (profileSellerId) toggleFollow(profileSellerId);
                 }}
                 disabled={!profileSellerId}

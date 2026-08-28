@@ -79,26 +79,6 @@ export default function Messages() {
       : sortedMessages.filter((m) => !isTradeConversation(m) && m.category === tab);
 
   useEffect(() => {
-    console.info("Messages list ordering diagnostics", {
-      totalConversationsLoaded: safeMessages.length,
-      conversationsAfterSorting: sortedMessages.length,
-      conversationsAfterTabFiltering: filteredMessages.length,
-      filteredOutConversations: sortedMessages.length - filteredMessages.length,
-      conversationsMissingLatestActivityAt: sortedMessages.filter((conversation) => !conversation.latestActivityAt).length,
-      conversationsMissingMessageArray: sortedMessages.filter((conversation) => !Array.isArray(conversation.messages)).length,
-      uiUnreadMessageCount: sortedMessages.reduce((count, conversation) => count + unreadMessageCount(conversation), 0),
-      conversationUnreadDiagnostics: filteredMessages.map((conversation) => {
-        const computedUnreadCount = unreadMessageCount(conversation);
-        return {
-          conversationId: conversation.databaseId ?? conversation.id,
-          messageCount: conversation.messages?.length ?? 0,
-          unreadAfter: computedUnreadCount,
-          renderedUnreadBadgeValue: computedUnreadCount > 0 ? computedUnreadCount : 0,
-          staleConversationUnreadFlag: conversation.unread === true,
-        };
-      }),
-      activeTab: tab,
-    });
   }, [filteredMessages, safeMessages, sortedMessages, tab]);
   const unreadCountFor = (tabName) => {
     const tabMessages = tabName === "All"
@@ -179,21 +159,6 @@ function MessageRow({ message, orders, navigate, getSellerProfile, buyerProfile,
   const conversationUnreadCount = unreadMessageCount(message);
   const showUnread = conversationUnreadCount > 0;
 
-  console.info("Messages conversation visibility audit", {
-    conversationId: message.databaseId ?? message.id,
-    updatedAt: message.updated_at ?? message.updatedAt ?? null,
-    latestMessageId: latestMessage?.databaseId ?? latestMessage?.id ?? null,
-    latestMessageText: latestMessage?.text ?? null,
-    preview: latestMessage?.text ?? message.preview ?? null,
-    conversationCategory: message.category ?? null,
-    conversationType: message.conversationType ?? null,
-  });
-  console.info("Messages conversation badge render", {
-    conversationId: message.databaseId ?? message.id,
-    unreadAfter: conversationUnreadCount,
-    renderedUnreadBadgeValue: showUnread ? conversationUnreadCount : 0,
-    staleConversationUnreadFlag: message.unread === true,
-  });
 
   return (
     <div className={`flex gap-3 border-b border-black/5 px-4 py-3 ${showUnread ? "bg-[#F7FCF8]" : "bg-white"}`}>

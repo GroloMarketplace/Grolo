@@ -35,10 +35,6 @@ export function BuyerTrustProvider({ children }) {
     setCommunityImpact(null);
 
     if (!user?.id || !isSupabaseConfigured) {
-      console.info("reputation source: local fallback", { userId: user?.id ?? null });
-      console.warn("review source: supabase read failed", {
-        error: "Supabase authentication or configuration is unavailable.",
-      });
       return () => {
         cancelled = true;
       };
@@ -54,9 +50,6 @@ export function BuyerTrustProvider({ children }) {
             if (!cancelled) setTrustAggregate(aggregate);
           })
           .catch((aggregateError) => {
-            console.warn("buyer trust aggregate source: supabase failed", {
-              error: aggregateError?.message ?? String(aggregateError),
-            });
           });
         getReputationSnapshot(user.id)
           .then((snapshot) => {
@@ -64,24 +57,12 @@ export function BuyerTrustProvider({ children }) {
             const reputationMetrics = snapshot?.buyerStatus?.metrics ?? {};
             setTrustAggregate((current) => ({ ...current, ...reputationMetrics, reputationStatus: snapshot?.buyerStatus?.currentStatus ?? null }));
             setCommunityImpact(snapshot?.communityImpact ?? null);
-            console.info("reputation source: supabase", { userId: user.id, diagnostics: snapshot?.diagnostics });
           })
           .catch((reputationError) => {
-            console.info("reputation source: local fallback", { userId: user.id, error: reputationError?.message ?? String(reputationError) });
           });
-        console.info("review source: supabase", {
-          reviewCount: remoteReviews.length,
-          productReviewCount: 0,
-          sellerReviewCount: 0,
-          buyerReviewCount: receivedReviews.length,
-          buyerReviewsWrittenCount: writtenReviews.length,
-        });
       })
       .catch((error) => {
         if (cancelled) return;
-        console.warn("review source: supabase read failed", {
-          error: error?.message ?? String(error),
-        });
       });
 
     return () => {
@@ -90,15 +71,6 @@ export function BuyerTrustProvider({ children }) {
   }, [user?.id]);
 
   const addReview = ({ buyer, buyerId, orderId, sellerId, criteria = [], notes = "", rating = 0, productId }) => {
-    console.info("BuyerTrustContext.addReview called", {
-      reviewType: "buyer",
-      rating,
-      criteria,
-      sellerId: sellerId ?? null,
-      buyerId: buyerId ?? null,
-      orderId: orderId ?? null,
-      listingId: productId ?? null,
-    });
     const order = orders.find((candidate) => (
       candidate.id === orderId
       || candidate.orderId === orderId
@@ -134,14 +106,11 @@ export function BuyerTrustProvider({ children }) {
       rating: resolvedRating,
       reviewerId,
     };
-    console.info("buyer review requested", logContext);
     if (hasReviewedOrder(databaseOrderId, resolvedBuyerId)) {
-      console.info("buyer review duplicate prevented", logContext);
       return Promise.resolve(null);
     }
 
     if (!user?.id || !isSupabaseConfigured) {
-      console.warn("buyer review failed", { ...logContext, error: "Supabase is not configured or user is unauthenticated." });
       return Promise.resolve(null);
     }
 
@@ -153,33 +122,17 @@ export function BuyerTrustProvider({ children }) {
       listingId: resolvedListingId,
       orderItemId: resolvedOrderItemId,
     }).then((createdReview) => {
-      console.info("buyer review succeeded", {
-        reviewId: createdReview?.databaseId ?? createdReview?.id,
-        revieweeId: createdReview?.revieweeId ?? resolvedBuyerId,
-        orderId: createdReview?.orderId ?? databaseOrderId,
-        reviewerId: createdReview?.reviewerId ?? user.id,
-        rating: createdReview?.rating ?? resolvedRating,
-        createdAt: createdReview?.createdAt ?? null,
-        reviewType: createdReview?.reviewType ?? "buyer",
-      });
       setReviews((current) => [...current, createdReview]);
       if (resolvedBuyerId) {
         void getBuyerTrustAggregate(resolvedBuyerId)
           .then((aggregate) => setTrustAggregate(aggregate))
-          .catch((aggregateError) => console.warn("buyer trust aggregate refresh failed after review", {
-            buyerId: resolvedBuyerId,
-            error: aggregateError?.message ?? String(aggregateError),
-          }));
+          .catch((aggregateError) => {});
       }
       const reviewId = createdReview?.databaseId ?? createdReview?.id ?? localReview.id;
       void refreshUserReputation(reviewerId, { eventKey: `published-buyer-review:${reviewId}:reviewer` });
       void refreshUserReputation(createdReview?.revieweeId ?? resolvedBuyerId, { eventKey: `published-buyer-review:${reviewId}:reviewee` });
       return createdReview;
     }).catch((error) => {
-      console.warn("buyer review failed", {
-        ...logContext,
-        error: error?.message ?? String(error),
-      });
       return null;
     });
   };

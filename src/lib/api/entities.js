@@ -20,15 +20,10 @@ function entityDiagnostics(source, extra = {}) {
 
 function logEntity(source, entityType, diagnostics) {
   const message = source === "supabase" ? "entity source: supabase" : "entity source: legacy fallback";
-  console.info(message, { entityType, ...diagnostics });
+
 }
 
 function warnMissing(entityType, requestedId, diagnostics = {}) {
-  console.warn("missing entity warning", {
-    entityType,
-    requestedId: requestedId ?? null,
-    ...diagnostics,
-  });
 }
 
 function isFoundingYearStore(value) {
@@ -117,7 +112,6 @@ export async function getSellerProfileById(sellerId) {
       return seller;
     }
   } catch (error) {
-    console.warn("seller entity lookup failed", { requestedId: sellerId, error: error?.message ?? String(error) });
   }
 
   if (fallback) {
@@ -187,12 +181,10 @@ export async function resolveLegacyProductId(listingId) {
   try {
     const listing = await getListingById(requestedId);
     const resolvedId = listing?.databaseId ?? listing?.id ?? requestedId ?? null;
-    console.info("entity source: supabase", { entityType: "listing id", requestedListingId: requestedId, resolvedListingId: resolvedId });
     return resolvedId;
   } catch {
     const fallback = typeof listingId === "object" ? listingId : legacyListing(requestedId);
     const resolvedId = fallback?.databaseId ?? fallback?.id ?? requestedId ?? null;
-    console.info("entity source: legacy fallback", { entityType: "listing id", requestedListingId: requestedId, resolvedListingId: resolvedId });
     return resolvedId;
   }
 }
@@ -203,11 +195,6 @@ export async function resolveLegacySellerId(sellerId) {
   const seller = await getSellerProfileById(requestedId);
   const candidateId = seller?.databaseId ?? seller?.id;
   const resolvedId = isUuid(candidateId) ? candidateId : null;
-  console.info(`entity source: ${seller ? "supabase" : "legacy fallback"}`, {
-    entityType: "seller id",
-    requestedSellerId: requestedId,
-    resolvedSellerId: resolvedId,
-  });
   return resolvedId;
 }
 
@@ -234,21 +221,18 @@ export async function getMarketplaceEntities({ includeEvents = true, includeMapL
       listings = await getListings();
       diagnostics.listings = entityDiagnostics("supabase", { count: listings.length });
     } catch (error) {
-      console.warn("listing entity lookup failed", { error: error?.message ?? String(error) });
     }
     try {
       const profiles = await getProfiles();
       sellers = profiles.map(sellerProfileFromRow).filter((seller) => seller?.id);
       diagnostics.sellers = entityDiagnostics("supabase", { count: sellers.length });
     } catch (error) {
-      console.warn("seller entity lookup failed", { error: error?.message ?? String(error) });
     }
     if (includeEvents) {
       try {
         events = await getEventsFromBackend();
         diagnostics.events = entityDiagnostics("supabase", { count: events.length });
       } catch (error) {
-        console.warn("event entity lookup failed", { error: error?.message ?? String(error) });
       }
     }
     if (includeMapLocations) {
@@ -256,7 +240,6 @@ export async function getMarketplaceEntities({ includeEvents = true, includeMapL
         mapLocations = await getMapLocationsFromBackend();
         diagnostics.mapLocations = entityDiagnostics("supabase", { count: mapLocations.length });
       } catch (error) {
-        console.warn("map location entity lookup failed", { error: error?.message ?? String(error) });
       }
     }
   }

@@ -17,13 +17,6 @@ function normalizeNotification(row) {
     isRead: Boolean(row.read),
     createdAt: row.created_at,
   };
-  console.info("notification actor audit", {
-    notificationId: normalized.id ?? null,
-    notificationType: normalized.type ?? null,
-    actorId: normalized.actorId ?? null,
-    actorName: normalized.actorName ?? null,
-    actorAvatar: normalized.actorAvatarUrl ?? null,
-  });
   return normalized;
 }
 
@@ -87,21 +80,9 @@ export function subscribeToNotifications(userId, onInsert, onStatus) {
       table: "notifications",
       filter: `user_id=eq.${userId}`,
     }, (payload) => {
-      console.info("realtime notification INSERT event received", {
-        channel: channelName,
-        userId,
-        notificationId: payload.new?.id ?? null,
-        type: payload.new?.type ?? null,
-      });
       onInsert(normalizeNotification(payload.new));
     });
   channel.subscribe((status, error) => {
-    console.info("realtime notification channel status", {
-      channel: channelName,
-      userId,
-      status,
-      error: error?.message ?? error ?? null,
-    });
     onStatus?.(status, error);
   });
   return channel;

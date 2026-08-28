@@ -13,7 +13,7 @@ export function useBlockedAccount(userId) {
     if (!user?.id || !userId || String(user.id) === String(userId)) return undefined;
     checkBlocked(userId)
       .then((result) => { if (!cancelled) setBlocked(Boolean(result)); })
-      .catch((error) => console.warn("Unable to check account visibility", { userId, error: error?.message ?? String(error) }));
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [checkBlocked, isBlocked, user?.id, userId]);
 

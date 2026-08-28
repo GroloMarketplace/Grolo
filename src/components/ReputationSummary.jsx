@@ -90,12 +90,6 @@ export function CompactReputationHeader({ snapshot, audience = "seller", include
     : `${metrics.completedTransactionCount ?? metrics.completed_transaction_count ?? 0} transactions • ${metrics.sellerRecommendationCount ?? metrics.seller_recommendation_count ?? 0} recommended`;
 
   useEffect(() => {
-    console.info("reputation summary source", {
-      source: snapshot?.diagnostics ? "supabase" : "local fallback",
-      badgeCount: snapshot?.diagnostics?.badgeCount ?? activeBadges.length,
-      statusCode: status?.currentStatus ?? null,
-      ratingSource: audience === "seller" && (metrics.averageRating != null || metrics.average_rating != null) ? "reputation snapshot" : "local fallback",
-    });
   }, [activeBadges.length, audience, metrics.averageRating, metrics.average_rating, snapshot, status?.currentStatus]);
   if (!snapshot || (!status && !activeBadges.length)) return null;
 
@@ -137,13 +131,6 @@ export default function ReputationSummary({ snapshot, audience = "buyer", member
   const activeBadges = snapshot?.activeBadges ?? [];
 
   useEffect(() => {
-    console.info("reputation summary source", {
-      source: snapshot?.diagnostics ? "supabase" : "local fallback",
-      badgeCount: snapshot?.diagnostics?.badgeCount ?? activeBadges.length,
-      activeBadgeCount: activeBadges.length,
-      statusCode: status?.currentStatus ?? null,
-      ratingSource: metrics.averageRating != null || metrics.average_rating != null ? "reputation snapshot" : "local fallback",
-    });
   }, [activeBadges.length, metrics.averageRating, metrics.average_rating, snapshot, status?.currentStatus]);
   if (!snapshot || (!status && !activeBadges.length)) return null;
 

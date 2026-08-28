@@ -170,10 +170,6 @@ export async function createListing(listing, sellerId) {
   if (!listing.category) throw new Error("Choose a listing category.");
   if ((listing.images ?? []).length > 5) throw new Error("You can upload up to 5 listing images.");
   const payload = rowForListing(listing, sellerId);
-  console.info("Supabase createListing payload", {
-    ...payload,
-    seller_id: sellerId,
-  });
   const { data, error } = await supabase
     .from("listings")
     .insert(payload)
@@ -190,7 +186,6 @@ export async function createListing(listing, sellerId) {
     });
     throw error;
   }
-  console.info("Supabase createListing response", data);
   return listingFromRow(data);
 }
 
@@ -206,11 +201,6 @@ export async function updateListing(listingId, updates, sellerId) {
     ...rowForListing(merged, sellerId ?? existing.seller_id),
     updated_at: new Date().toISOString(),
   };
-  console.info("Supabase updateListing payload", {
-    listingId,
-    databaseId: existing.databaseId,
-    inventory_quantity: payload.inventory_quantity,
-  });
   const { data, error } = await supabase
     .from("listings")
     .update(payload)
@@ -218,11 +208,6 @@ export async function updateListing(listingId, updates, sellerId) {
     .select(LISTING_SELECT)
     .single();
   if (error) throw error;
-  console.info("Supabase updateListing response", {
-    listingId,
-    databaseId: data.id,
-    inventory_quantity: data.inventory_quantity,
-  });
   return listingFromRow(data);
 }
 

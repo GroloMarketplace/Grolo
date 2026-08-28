@@ -30,31 +30,10 @@ export default function SellerListingCard({ product, onDelete, archived = false,
   const displayStatus = archived ? "Archived" : !computedAvailability ? "Sold" : hasVariants ? "Active" : status;
 
   useEffect(() => {
-    console.info("LISTING METRICS LOAD", {
-      listingId: product.databaseId ?? product.id ?? null,
-      viewCount,
-      likeCount,
-      reviewCount,
-      regrowCount,
-      metricSources: {
-        views: "listings.metadata.views (listing_view events are recorded in vendor_analytics_events)",
-        likes: "listings.metadata.favorites (favorites rows are persisted in favorites)",
-        reviews: "ReviewContext.productRating (reviews table)",
-        regrows: "listings.metadata.regrows (no listing regrow database query currently exists)",
-      },
-    });
   }, [likeCount, product.databaseId, product.id, regrowCount, reviewCount, viewCount]);
 
   useEffect(() => {
     if (!hasVariants) return;
-    console.info("Variant listing stock status", {
-      listingId: product.id,
-      hasVariants,
-      quantityAvailable: product.quantityAvailable,
-      inventoryTracked,
-      computedAvailability,
-      displayedAvailability,
-    });
   }, [computedAvailability, displayedAvailability, hasVariants, inventoryTracked, product.id, product.quantityAvailable]);
 
   const handleEdit = () => {

@@ -21,10 +21,6 @@ function isMissingReputationObjectError(error) {
 }
 
 function missingReputationDiagnostics(objectName, error) {
-  console.warn("Optional reputation object unavailable; continuing without it", {
-    objectName,
-    error: { message: error?.message, code: error?.code, details: error?.details, hint: error?.hint },
-  });
   return emptyDiagnostics({ statusSource: "unavailable", aggregateSource: "reviews, orders" });
 }
 
@@ -136,7 +132,6 @@ export async function getUserBadges(userId) {
     statusSource: "user_badges",
     aggregateSource: "user_badges",
   });
-  console.info("reputation badges source: supabase", diagnostics);
   return {
     userId,
     user_id: userId,
@@ -208,7 +203,6 @@ export async function awardBadge(userIdOrOptions, badgeCode, metadata = {}) {
     return existingBadge ? { ...existingBadge, alreadyOwned: true } : null;
   }
   if (error) throw error;
-  console.info("badge award source: supabase", { userId: resolvedUserId, badgeCode: requestedBadgeCode });
   return mapBadge(data);
 }
 
@@ -217,11 +211,6 @@ export async function getFoundingMember(userId) {
   const badges = await getUserBadges(userId);
   const foundingBadge = badges.badges.find((badge) => badge.code === "founding_member");
   const member = foundingMemberFromBadge(foundingBadge);
-  console.info("founding member badge lookup", {
-    userId: userId ?? null,
-    foundingMemberBadgeRowPresent: Boolean(foundingBadge),
-    foundingMemberMetadataValid: Boolean(member),
-  });
   return member;
 }
 
@@ -373,7 +362,6 @@ export async function getCommunityImpact(userId) {
   };
   const progress = { reviewsGiven: reviewsGiven.length, reviewsReceived: reviewsReceived.length, completedOrders: (ordersAsBuyer ?? []).length + (ordersAsSeller ?? []).length, activeListings: activeListings.length };
   const diagnostics = emptyDiagnostics({ statusSource: "none", aggregateSource: "reviews, orders, listings" });
-  console.info("community impact aggregate source: supabase", diagnostics);
   return { userId, user_id: userId, metrics, progress, diagnostics };
 }
 
@@ -418,11 +406,9 @@ export async function refreshUserReputation(userId, { eventKey = "manual" } = {}
 
   const refresh = (async () => {
     const requestedAt = new Date().toISOString();
-    console.info("reputation refresh requested", { userId: userId ?? null, eventKey, requestedAt });
     try {
       if (!isSupabaseConfigured) {
         const diagnostics = { requested: true, refreshed: false, failed: true, reason: "supabase_unconfigured" };
-        console.info("reputation refresh failed", { userId: userId ?? null, eventKey, diagnostics });
         return { userId: userId ?? null, snapshot: null, diagnostics };
       }
 
@@ -438,7 +424,6 @@ export async function refreshUserReputation(userId, { eventKey = "manual" } = {}
         statusDiagnostics: status?.diagnostics ?? null,
         snapshotDiagnostics: snapshot?.diagnostics ?? null,
       };
-      console.info("reputation refreshed", { userId: userId ?? null, eventKey, diagnostics });
       return { userId: userId ?? null, snapshot, badges, status, diagnostics };
     } catch (error) {
       const diagnostics = {
@@ -448,7 +433,6 @@ export async function refreshUserReputation(userId, { eventKey = "manual" } = {}
         eventKey,
         error: error?.message ?? String(error),
       };
-      console.info("reputation refresh failed", { userId: userId ?? null, eventKey, diagnostics });
       return { userId: userId ?? null, snapshot: null, diagnostics };
     }
   })();
@@ -550,11 +534,9 @@ export async function evaluateUserBadges(userId) {
   for (const definition of definitions ?? []) {
     const eligibility = getBadgeEligibility(definition.code, metrics, definition.criteria);
     checked.push(eligibility);
-    console.info("badge eligibility checked", { userId: resolvedUserId, ...eligibility });
     if (!eligibility.eligible) continue;
     if (existingCodes.has(definition.code)) {
       alreadyOwned.push(definition.code);
-      console.info("badge already owned", { userId: resolvedUserId, badgeCode: definition.code });
       continue;
     }
     const badge = await awardBadge({
@@ -566,10 +548,8 @@ export async function evaluateUserBadges(userId) {
     existingCodes.add(definition.code);
     if (badge?.alreadyOwned) {
       alreadyOwned.push(definition.code);
-      console.info("badge already owned", { userId: resolvedUserId, badgeCode: definition.code });
     } else {
       awarded.push(badge ?? definition.code);
-      console.info("badge awarded", { userId: resolvedUserId, badgeCode: definition.code });
     }
   }
 
@@ -704,11 +684,9 @@ export async function evaluateUserStatus(userId) {
       definition_version: "1",
     };
     const current = currentRows.get(audience);
-    console.info("status evaluated", { userId: resolvedUserId, audience, statusCode: calculated.statusCode, progress: calculated.progress });
     if (sameStatusSnapshot(current, { ...calculated, metrics: metrics[audience] })) {
       unchanged += 1;
       results[audience] = { ...payload, calculated_at: current.calculated_at, unchanged: true };
-      console.info("status unchanged", { userId: resolvedUserId, audience, statusCode: calculated.statusCode });
       continue;
     }
     const { data, error } = await supabase
@@ -719,7 +697,6 @@ export async function evaluateUserStatus(userId) {
     if (error) throw error;
     updated += 1;
     results[audience] = data;
-    console.info("status updated", { userId: resolvedUserId, audience, statusCode: calculated.statusCode });
   }
 
   return {

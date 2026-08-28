@@ -61,7 +61,6 @@ export function FoundingMemberProvider({ children }) {
     if (!sellerId || supabaseRequests.current.has(sellerId)) return;
     if (!isSupabaseConfigured) {
       supabaseRequests.current.add(sellerId);
-      console.info("founding member source: localStorage fallback", { sellerId });
       return;
     }
     supabaseRequests.current.add(sellerId);
@@ -75,11 +74,9 @@ export function FoundingMemberProvider({ children }) {
             return next;
           });
         } else {
-          console.info("founding member source: localStorage fallback", { sellerId });
         }
       })
       .catch((error) => {
-        console.info("founding member source: localStorage fallback", { sellerId, error: error.message });
       });
   }, []);
 
@@ -137,7 +134,7 @@ export function FoundingMemberProvider({ children }) {
             return updated;
           });
         })
-        .catch((error) => console.info("founding member source: localStorage fallback", { sellerId, error: error.message }));
+        .catch((error) => {});
     }
     return nextMember;
   }, [members]);

@@ -65,15 +65,6 @@ export default function ShopOrders() {
     const buyerIds = [...new Set(storeOrders.map((order) => order.buyerId).filter(Boolean))];
     Promise.all(buyerIds.map(async (buyerId) => {
       const { data: profile, error } = await supabase.from("profiles").select("id, display_name, username, avatar_url").eq("id", buyerId).maybeSingle();
-      console.info("ShopOrders direct buyer profile lookup", {
-        buyer_id: buyerId,
-        profile_id: profile?.id ?? null,
-        display_name: profile?.display_name ?? null,
-        username: profile?.username ?? null,
-        avatar_url: profile?.avatar_url ?? null,
-        profile_found: Boolean(profile),
-        error: error?.message ?? null,
-      });
       return [String(buyerId), profile];
     })).then((entries) => {
       if (!cancelled) setBuyerProfiles(Object.fromEntries(entries.filter(([, profile]) => profile)));
@@ -82,32 +73,6 @@ export default function ShopOrders() {
   }, [storeOrders]);
 
   useEffect(() => {
-    console.info("ShopOrders order source", {
-      sellerIdOnOrders: storeOrders.map((order) => ({
-        orderId: order.id,
-        sellerId: order.sellerId,
-        buyerId: order.buyerId,
-        listingId: order.listingId ?? order.productId,
-        listingPrice: order.listingPrice ?? null,
-        variantName: order.variantName ?? null,
-        variantPrice: order.variantPrice ?? null,
-        unitPrice: order.unitPrice ?? null,
-        lineTotal: order.lineTotal ?? null,
-        orderStatus: order.status,
-        createdAt: order.createdAt,
-      })),
-      currentAuthenticatedSellerUuid: user?.id ?? null,
-      sellerOrdersFilterInput: sellerId,
-      storeOpenedAt,
-      visibleOrderCount: storeOrders.length,
-    });
-    console.info("MANAGE ORDERS LOAD", {
-      currentUserId: user?.id ?? null,
-      sellerProfileId: sellerId,
-      buyerId: [...new Set(storeOrders.map((order) => order.buyerId).filter(Boolean))],
-      queryFilters: { seller_id: sellerId, storeOpenedAt: storeOpenedAt ?? null },
-      rowsReturned: storeOrders.map((order) => ({ orderId: order.databaseId ?? order.id ?? null, buyerId: order.buyerId ?? null, sellerId: order.sellerId ?? null, status: order.status ?? null })),
-    });
   }, [sellerId, storeOpenedAt, storeOrders, user?.id]);
 
   const requestStatusChange = (order, status) => {
@@ -299,16 +264,8 @@ function BuyerReviewForm({ order, onClose, onSubmitted }) {
     const rating = criteria.includes("Would Transact Again") ? 5 : 4;
     const buyerName = getBuyerDisplayName(order);
     const reviewInput = { buyer: buyerName, buyerId: order.buyerId, orderId: order.databaseId ?? order.orderId ?? order.id, sellerId: order.sellerId ?? product?.sellerId ?? STORE_ID, productId: order.productId, reviewType: "buyer", rating, criteria, notes };
-    console.info("buyer review modal submit fired", {
-      reviewType: reviewInput.reviewType,
-      rating: reviewInput.rating,
-      criteria: reviewInput.criteria,
-      buyerId: reviewInput.buyerId ?? null,
-      orderId: reviewInput.orderId ?? null,
-    });
     try {
       const createdReview = await addReview(reviewInput);
-      console.info("buyer review modal submit dispatched", { orderId: reviewInput.orderId ?? null, reviewCreated: Boolean(createdReview) });
       if (createdReview) onSubmitted?.(createdReview);
       else onClose();
     } catch (error) {

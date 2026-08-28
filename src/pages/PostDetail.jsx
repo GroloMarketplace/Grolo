@@ -64,20 +64,13 @@ export default function PostDetail() {
           updatePost(post.id, { comments: countComments(commentItems) });
         }
       })
-      .catch((error) => console.warn("comments source: local fallback", { operation: "loadComments", parent_type: "post", parent_id: String(post.id), error: error?.message ?? String(error) }));
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [post?.id, updatePost]);
 
   useEffect(() => {
     if (!state?.notificationId) return;
     if (String(state.storedPostId) !== String(post?.id) || !imageReferenceMatches(state.notificationThumbnail, post?.image)) {
-      console.error("Notification post identity mismatch", {
-        notificationId: state.notificationId,
-        storedPostId: state.storedPostId,
-        loadedPostId: post?.id,
-        thumbnailReference: state.notificationThumbnail,
-        loadedPostImage: post?.image,
-      });
     }
   }, [state?.notificationId, state?.storedPostId, state?.notificationThumbnail, post?.id, post?.image]);
 
@@ -101,8 +94,7 @@ export default function PostDetail() {
         updatePost(post.id, { comments: countComments(next) });
         return next;
       });
-    } catch (error) {
-      console.error("Unable to create comment", { parent_type: "post", parent_id: String(post.id), author_id: authUser?.id ?? null, error: error?.message ?? String(error) });
+    } catch {
     }
   };
 

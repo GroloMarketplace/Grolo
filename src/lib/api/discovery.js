@@ -8,7 +8,7 @@ function sourceDiagnostics(source, extra = {}) {
 }
 
 function logSource(message, diagnostics) {
-  console.info(message, diagnostics);
+
 }
 
 function coordinatesFor(entity) {
@@ -57,7 +57,6 @@ async function getCategories() {
       logSource("discovery source: supabase", { entityType: "categories", count: categories.length });
       return { values: categories, diagnostics: sourceDiagnostics("supabase", { count: categories.length }) };
     } catch (error) {
-      console.warn("category discovery failed", { error: error?.message ?? String(error) });
     }
   }
   const values = Array.isArray(legacyCategories) ? legacyCategories : Object.values(legacyCategories);
@@ -74,7 +73,6 @@ async function getPosts() {
       logSource("discovery source: supabase", { entityType: "community posts", count: posts.length });
       return { values: posts, diagnostics: sourceDiagnostics("supabase", { count: posts.length }) };
     } catch (error) {
-      console.warn("community post discovery failed", { error: error?.message ?? String(error) });
     }
   }
   const values = [...followingPosts, ...communityPosts];

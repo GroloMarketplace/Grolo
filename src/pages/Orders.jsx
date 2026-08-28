@@ -39,13 +39,6 @@ export default function Orders() {
   const orders = buyerOrders();
 
   useEffect(() => {
-    console.info("BUYER ORDERS LOAD", {
-      currentUserId: user?.id ?? null,
-      sellerProfileId: [...new Set(orders.map((order) => order.sellerId).filter(Boolean))],
-      buyerId: user?.id ?? null,
-      queryFilters: { buyer_id: user?.id ?? null },
-      rowsReturned: orders.map((order) => ({ orderId: order.databaseId ?? order.id ?? null, buyerId: order.buyerId ?? user?.id ?? null, sellerId: order.sellerId ?? null, status: order.status ?? null })),
-    });
   }, [orders, user?.id]);
 
   useEffect(() => {
@@ -104,8 +97,6 @@ function OrderRow({ order, product, reviewed, navigate }) {
   const reputationSnapshot = useReputationSnapshot(order.sellerId ?? product.sellerId);
   const openOrderDetails = () => {
     const route = `/orders/${order.id.replace(/^ORD-/, "")}`;
-    console.info("Order card clicked", order.id);
-    console.info("Order status", order.status);
     navigate(route);
   };
 

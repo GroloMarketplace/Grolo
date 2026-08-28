@@ -80,20 +80,12 @@ export default function ProposeTrade() {
     try {
       sellerUserId = await resolveLegacySellerId(seller);
     } catch (error) {
-      console.warn("trade proposal seller resolution failed", { seller_id: seller.id ?? null, error: error?.message ?? String(error) });
       setRecipientError("This seller account could not be resolved. Please reopen the listing and try again.");
       return;
     }
     const listingId = listing.databaseId ?? listing.id;
     const storeId = listing.storeId ?? listing.store_id ?? seller.storeId ?? seller.store_id ?? seller.shopSlug ?? null;
     const sellerProfileId = seller.databaseId ?? seller.profileId ?? seller.profile_id ?? seller.id ?? null;
-    console.info("trade proposal recipient audit", {
-      listing_id: listingId,
-      store_id: storeId,
-      seller_profile_id: sellerProfileId,
-      seller_user_id: sellerUserId,
-      recipient_id: sellerUserId,
-    });
     if (!sellerUserId) {
       setRecipientError("This seller account could not be resolved. Please reopen the listing and try again.");
       return;

@@ -37,18 +37,6 @@ export function EngagementProvider({ children }) {
       shares: Math.max(Number(item?.shares) || 0, Number(stored.shares) || 0),
       regrows: Math.max(Number(item?.reposts ?? item?.regrows) || 0, Number(stored.regrows) || 0),
     };
-    console.info("post engagement metrics audit", {
-      post_id: type === "post" ? item?.id ?? null : null,
-      like_count: displayed.likes,
-      comment_count: displayed.comments,
-      repost_count: displayed.regrows,
-      share_count: displayed.shares,
-      persisted_like_count: item?.likes ?? 0,
-      persisted_comment_count: item?.comments ?? 0,
-      persisted_repost_count: item?.reposts ?? item?.regrows ?? 0,
-      persisted_share_count: item?.shares ?? 0,
-      actual_comments_returned: item?.commentItems?.length ?? item?.comments ?? 0,
-    });
     return displayed;
   }, [engagement]);
 

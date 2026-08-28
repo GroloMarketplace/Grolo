@@ -33,7 +33,6 @@ export default function Comments() {
     async function loadComments() {
       if (!contentId) return;
       if (!isSupabaseConfigured || !user?.id) {
-        console.info("comments source: local fallback", { operation: "loadComments", parent_type: content.type, parent_id: String(contentId) });
         return;
       }
       try {
@@ -45,7 +44,6 @@ export default function Comments() {
           if (content.type === "post" && content.post?.id != null) updatePost(content.post.id, { comments: countComments(next) });
         }
       } catch (error) {
-        console.warn("comments source: local fallback", { operation: "loadComments", parent_type: content.type, parent_id: String(contentId), error: error?.message ?? String(error) });
       }
     }
     loadComments();
@@ -74,7 +72,6 @@ export default function Comments() {
           actorAvatarUrl: settings.avatar,
         });
       } else {
-        console.info("comments source: local fallback", { operation: "createComment", parent_type: content.type, parent_id: String(contentId ?? "") });
       }
       setComments((current) => {
         const next = parentComment ? addReplyToComment(current, parentComment.id, newComment) : [newComment, ...current];

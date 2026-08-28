@@ -49,20 +49,6 @@ export function orderFromRow(row) {
   const items = Array.isArray(row.order_items)
     ? row.order_items.map((item) => ({ ...orderItemFromRow(item), ...(variantForItem(row, item) ?? {}) }))
     : [];
-  console.info("order hydration audit", {
-    orderId: row.id ?? null,
-    sellerId: row.seller_id ?? null,
-    buyerId: row.buyer_id ?? null,
-    orderStatus: row.status ?? null,
-    items: items.map((item) => ({
-      listingId: item.listingId ?? null,
-      listingPrice: item.listingPrice ?? null,
-      variantName: item.variantName ?? null,
-      variantPrice: item.variantPrice ?? null,
-      unitPrice: item.unitPrice ?? null,
-      lineTotal: item.lineTotal ?? null,
-    })),
-  });
   return {
     ...row,
     id: row.id,
@@ -201,10 +187,6 @@ function rowForOrderItem(item, orderId) {
 export async function createOrder(order, buyerId) {
   requireSupabase();
   const payload = rowForOrder(order, buyerId);
-  console.info("Supabase createOrder payload", {
-    ...payload,
-    buyer_id: buyerId ?? order.buyerId,
-  });
   const { data, error } = await supabase
     .from("orders")
     .insert(payload)
@@ -217,7 +199,6 @@ export async function createOrder(order, buyerId) {
     });
     throw error;
   }
-  console.info("Supabase createOrder response", data);
   return orderFromRow(data);
 }
 
@@ -225,7 +206,6 @@ export async function createOrderItems(orderId, items) {
   requireSupabase();
   const payload = (Array.isArray(items) ? items : []).map((item) => rowForOrderItem(item, orderId));
   if (!payload.length) return [];
-  console.info("Supabase createOrderItems payload", { orderId, count: payload.length });
   const { data, error } = await supabase
     .from("order_items")
     .insert(payload)
@@ -234,7 +214,6 @@ export async function createOrderItems(orderId, items) {
     logApiError("createOrderItems", error, { orderId, count: payload.length });
     throw error;
   }
-  console.info("Supabase createOrderItems response", { orderId, count: data?.length ?? 0 });
   return (data ?? []).map(orderItemFromRow);
 }
 
@@ -261,17 +240,6 @@ export async function createOrderWithItems(sellerId, items, { fulfillmentMethod 
       variantPrice: Number(item.variantPrice) || Number(item.price) || null,
     })),
   };
-  console.info("order creation audit", {
-    orderId: orderId ?? null,
-    sellerId,
-    buyerId,
-    orderStatus: "Seller Notified",
-    items: (Array.isArray(items) ? items : []).map((item) => ({
-      listingId: item.databaseId ?? item.listingId ?? item.productId ?? item.id,
-      variantName: item.variantName ?? null,
-      variantPrice: item.variantPrice ?? null,
-    })),
-  });
   const { data, error } = await supabase.rpc("create_order_with_items", {
     p_seller_id: sellerId,
     p_fulfillment_method: fulfillmentMethod,
@@ -279,31 +247,10 @@ export async function createOrderWithItems(sellerId, items, { fulfillmentMethod 
     p_metadata: payloadMetadata,
     p_items: payloadItems,
   });
-  console.info("ORDER CREATE RESULT", {
-    insertData: data ?? null,
-    insertError: error?.message ?? null,
-    orderId: data?.order?.id ?? null,
-    buyerId: data?.order?.buyer_id ?? buyerId,
-    sellerId: data?.order?.seller_id ?? sellerId,
-    orderStatus: data?.order?.status ?? null,
-  });
   if (error) {
     logApiError("createOrderWithItems", error, { sellerId, itemCount: payloadItems.length });
     throw error;
   }
-  console.info("Supabase create_order_with_items response", data);
-  console.info("Supabase order created", {
-    databaseOrderId: data?.order?.id ?? null,
-    sellerId: data?.order?.seller_id ?? sellerId,
-    buyerId: data?.order?.buyer_id ?? buyerId,
-    orderStatus: data?.order?.status ?? null,
-    createdItemCount: data?.items?.length ?? 0,
-    items: (data?.items ?? []).map((item) => ({
-      listingId: item.listing_id ?? null,
-      variantName: payloadMetadata.variant_items?.find((variant) => String(variant.listingId) === String(item.listing_id))?.variantName ?? null,
-      variantPrice: payloadMetadata.variant_items?.find((variant) => String(variant.listingId) === String(item.listing_id))?.variantPrice ?? null,
-    })),
-  });
   return data;
 }
 
@@ -317,17 +264,9 @@ export async function getBuyerOrders(buyerId) {
     .order("created_at", { ascending: false });
   if (error?.code === "PGRST200") {
     const fallback = await supabase.schema("public").from("orders").select("*").eq("buyer_id", buyerId).order("created_at", { ascending: false });
-    console.warn("ORDER RELATIONSHIP FALLBACK (BUYER)", { relationshipError: error, fallbackData: fallback.data ?? null, fallbackError: fallback.error ?? null, count: fallback.data?.length ?? 0 });
     data = fallback.data;
     error = fallback.error;
   }
-  console.info("ORDER LOAD RESULT (BUYER)", {
-    buyerId,
-    orderCount: data?.length ?? 0,
-    orderIds: (data ?? []).map((row) => row.id ?? null),
-    orders: (data ?? []).map((row) => ({ orderId: row.id ?? null, buyerId: row.buyer_id ?? null, sellerId: row.seller_id ?? null, orderStatus: row.status ?? null })),
-    error: error?.message ?? null,
-  });
   if (error) {
     logApiError("getBuyerOrders", error, { buyer_id: buyerId });
     throw error;
@@ -348,30 +287,9 @@ export async function getSellerOrders(sellerId) {
   const relationshipError = error;
   if (error?.code === "PGRST200") {
     const fallback = await supabase.schema("public").from("orders").select("*").eq("seller_id", sellerId).order("created_at", { ascending: false });
-    console.warn("ORDER RELATIONSHIP FALLBACK (SELLER)", { relationshipError: error, fallbackData: fallback.data ?? null, fallbackError: fallback.error ?? null, count: fallback.data?.length ?? 0 });
     data = fallback.data;
     error = fallback.error;
   }
-  console.info("SHOPHOME RAW ORDER QUERY", {
-    schema: "public",
-    table: "orders",
-    authUserId: authenticatedUserId,
-    authError: authError?.message ?? null,
-    sellerIdUsedInQuery: sellerId,
-    sellerIdMatchesAuthUser: authenticatedUserId === sellerId,
-    queryFilters: { seller_id: sellerId },
-    data: data ?? null,
-    error: error ?? null,
-    rawError: relationshipError ?? null,
-    count: data?.length ?? 0,
-  });
-  console.info("ORDER LOAD RESULT (SELLER)", {
-    sellerId,
-    orderCount: data?.length ?? 0,
-    orderIds: (data ?? []).map((row) => row.id ?? null),
-    orders: (data ?? []).map((row) => ({ orderId: row.id ?? null, buyerId: row.buyer_id ?? null, sellerId: row.seller_id ?? null, orderStatus: row.status ?? null })),
-    error: error?.message ?? null,
-  });
   if (error) {
     logApiError("getSellerOrders", error, { seller_id: sellerId });
     throw error;
@@ -383,16 +301,6 @@ export async function getSellerOrders(sellerId) {
       .select("id, username, display_name, avatar_url")
       .eq("id", buyerId)
       .maybeSingle();
-    console.info("seller order buyer profile lookup", {
-      order_ids: (data ?? []).filter((row) => String(row.buyer_id) === String(buyerId)).map((row) => row.id),
-      buyer_id: buyerId,
-      profile_id: profile?.id ?? null,
-      display_name: profile?.display_name ?? null,
-      username: profile?.username ?? null,
-      avatar_url: profile?.avatar_url ?? null,
-      profile_found: Boolean(profile),
-      error: profileError?.message ?? null,
-    });
     return [String(buyerId), profile];
   }));
   const profilesById = new Map(buyerProfileResults);
@@ -405,18 +313,6 @@ export async function getSellerOrders(sellerId) {
       buyerDisplayName: profile.display_name ?? null,
       buyerAvatar: profile.avatar_url ?? null,
     } : row;
-  });
-  console.info("seller orders database result", {
-    sellerId,
-    orderCount: hydratedRows.length,
-    orders: hydratedRows.map((row) => ({
-      orderId: row.id ?? null,
-      sellerId: row.seller_id ?? null,
-      buyerId: row.buyer_id ?? null,
-      orderStatus: row.status ?? null,
-      listingIds: (row.order_items ?? []).map((item) => item.listing_id).filter(Boolean),
-      variantItems: row.metadata?.variant_items ?? [],
-    })),
   });
   return hydratedRows.map(orderFromRow);
 }
@@ -451,12 +347,6 @@ export function subscribeToOrders(userId, onChange, onStatus) {
       filter: `buyer_id=eq.${userId}`,
     }, (payload) => onChange(payload));
   channel.subscribe((status, error) => {
-    console.info("realtime order channel status", {
-      channel: channelName,
-      userId,
-      status,
-      error: error?.message ?? error ?? null,
-    });
     onStatus?.(status, error);
   });
   return channel;
@@ -484,7 +374,6 @@ export async function getOrderById(orderId) {
     error = null;
   }
   if (!data) {
-    console.warn("Supabase getOrderById returned no row", { orderId });
     return null;
   }
 
@@ -496,35 +385,17 @@ export async function getOrderById(orderId) {
       .eq("order_id", orderId)
       .order("created_at", { ascending: true });
     if (itemsResult.error) {
-      console.warn("Supabase getOrderById order item hydration failed", {
-        orderId,
-        error: itemsResult.error?.message ?? String(itemsResult.error),
-      });
     } else {
       items = itemsResult.data ?? [];
       data = { ...data, order_items: items };
     }
   }
 
-  console.info("Supabase getOrderById response", {
-    orderId,
-    found: true,
-    sellerId: data.seller_id ?? null,
-    buyerId: data.buyer_id ?? null,
-    listingIds: items.map((item) => item.listing_id).filter(Boolean),
-    itemCount: items.length,
-  });
   return orderFromRow(data);
 }
 
 export async function updateOrderStatus(orderId, status, previousStatus, sellerId) {
   requireSupabase();
-  console.info("status update requested", {
-    databaseOrderId: orderId,
-    previousStatus: previousStatus ?? null,
-    newStatus: status,
-    sellerId: sellerId ?? null,
-  });
 
   const { data, error } = await supabase.rpc("update_order_status", {
     p_order_id: orderId,
@@ -543,21 +414,11 @@ export async function updateOrderStatus(orderId, status, previousStatus, sellerI
   const updatedRow = data?.order
     ? { ...data.order, items: data.items ?? [] }
     : data;
-  console.info("status update succeeded", {
-    databaseOrderId: updatedRow?.id ?? orderId,
-    previousStatus: previousStatus ?? null,
-    newStatus: updatedRow?.status ?? status,
-  });
   return updatedRow;
 }
 
 export async function cancelOrderWithInventory(orderId, previousStatus) {
   requireSupabase();
-  console.info("cancellation requested", {
-    databaseOrderId: orderId,
-    previousStatus: previousStatus ?? null,
-    newStatus: "Cancelled",
-  });
 
   const { data, error } = await supabase.rpc("cancel_order_with_inventory", {
     p_order_id: orderId,
@@ -573,23 +434,8 @@ export async function cancelOrderWithInventory(orderId, previousStatus) {
   }
 
   if (data?.inventory_already_restored) {
-    console.info("inventory already restored", {
-      databaseOrderId: orderId,
-      previousStatus: previousStatus ?? null,
-      newStatus: "Cancelled",
-    });
   } else {
-    console.info("inventory restored", {
-      databaseOrderId: orderId,
-      previousStatus: previousStatus ?? null,
-      newStatus: "Cancelled",
-    });
   }
-  console.info("cancellation succeeded", {
-    databaseOrderId: data?.order?.id ?? orderId,
-    previousStatus: previousStatus ?? null,
-    newStatus: data?.order?.status ?? "Cancelled",
-  });
   return data;
 }
 

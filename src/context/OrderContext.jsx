@@ -74,84 +74,30 @@ export function OrderProvider({ children }) {
 
     const mergeRealtimeOrder = async (payload) => {
       const orderId = payload.new?.id ?? null;
-      console.info("realtime order event received", {
-        event: payload.eventType,
-        orderId,
-        sellerId: payload.new?.seller_id ?? null,
-        buyerId: payload.new?.buyer_id ?? null,
-        listingIds: payload.new?.listing_id ? [payload.new.listing_id] : [],
-      });
       if (!orderId) return;
       try {
         const order = await getOrderById(orderId);
-        console.info("realtime order hydrate result", {
-          receivedOrderId: orderId,
-          currentUserId: user.id,
-          hydrated: Boolean(order),
-          hydratedOrderId: order?.databaseId ?? null,
-          hydratedSellerId: order?.sellerId ?? null,
-          hydratedBuyerId: order?.buyerId ?? null,
-          hydratedListingIds: order?.items?.map((item) => item.listingId).filter(Boolean) ?? [],
-        });
         if (!active) {
-          console.info("realtime order merge skipped", {
-            receivedOrderId: orderId,
-            reason: "order provider is no longer active",
-          });
           return;
         }
         if (!order) {
-          console.warn("realtime order merge skipped", {
-            receivedOrderId: orderId,
-            currentUserId: user.id,
-            reason: "order hydration returned no row",
-          });
           return;
         }
         const ownershipMatches = String(order.sellerId) === String(user.id) || String(order.buyerId) === String(user.id);
         const mappedOrders = legacyOrdersFromRows([order]);
-        console.info("realtime order merge decision", {
-          receivedOrderId: orderId,
-          currentUserId: user.id,
-          ownershipMatches,
-          mappedOrderCount: mappedOrders.length,
-          mappedOrderIds: mappedOrders.map((item) => item.databaseId),
-        });
         if (!ownershipMatches || !mappedOrders.length) {
-          console.warn("realtime order merge skipped", {
-            receivedOrderId: orderId,
-            currentUserId: user.id,
-            reason: !ownershipMatches ? "authenticated user is not an order participant" : "order has no order items after hydration",
-          });
           return;
         }
         setOrders((current) => [
           ...current.filter((item) => item.databaseId !== order.databaseId),
           ...mappedOrders,
         ]);
-        console.info("realtime order merged", {
-          orderId: order.databaseId,
-          sellerId: order.sellerId,
-          buyerId: order.buyerId,
-          listingIds: order.items?.map((item) => item.listingId) ?? [],
-        });
       } catch (error) {
-        console.warn("Unable to hydrate realtime order", {
-          receivedOrderId: orderId,
-          currentUserId: user.id,
-          hydrateResult: "error",
-          error: error?.message ?? String(error),
-        });
       }
     };
 
     const orderChannel = isSupabaseConfigured
       ? subscribeToOrders(user.id, mergeRealtimeOrder, (status, error) => {
-        console.info("realtime order subscription status", {
-          userId: user.id,
-          status,
-          error: error?.message ?? error ?? null,
-        });
       })
       : null;
 
@@ -171,19 +117,12 @@ export function OrderProvider({ children }) {
         if (!active) return;
         setOrders(legacyOrdersFromRows([...rowsById.values()]));
         setPayments(paymentRows);
-        console.info("order source: supabase", {
-          buyerOrderCount: buyerRows.length,
-          sellerOrderCount: sellerRows.length,
-          mergedOrderCount: rowsById.size,
-        });
-        console.info("payment source: supabase", { count: paymentRows.length });
         if (paymentResult.status === "rejected") console.error("Unable to load payments from Supabase", paymentResult.reason);
       });
 
     return () => {
       active = false;
       orderChannel?.unsubscribe();
-      console.info("realtime order subscription cleaned up", { userId: user.id });
     };
   }, [user?.id]);
 
@@ -199,19 +138,6 @@ export function OrderProvider({ children }) {
   const sellerOrders = useCallback(
     (sellerId) => {
       const matchedOrders = orders.filter((o) => orderBelongsToSeller(o, sellerId));
-      console.info("seller orders query result", {
-        sellerId: sellerId ?? null,
-        orderCount: matchedOrders.length,
-        orders: matchedOrders.map((order) => ({
-          orderId: order.id ?? null,
-          sellerId: order.sellerId ?? null,
-          buyerId: order.buyerId ?? null,
-          listingId: order.listingId ?? order.productId ?? null,
-          variantName: order.variantName ?? null,
-          variantPrice: order.variantPrice ?? null,
-          orderStatus: order.status ?? null,
-        })),
-      });
       return matchedOrders;
     },
     [orders],
@@ -312,7 +238,6 @@ export function OrderProvider({ children }) {
       }),
       ...previous,
     ]);
-    console.info("Seller orders created", nextOrders.map((order) => ({ orderId: order.id, status: order.status, sellerId: order.sellerId })));
     return nextOrders;
   }, [isSuspended, user?.id, user?.user_metadata?.username]);
 
@@ -321,11 +246,6 @@ export function OrderProvider({ children }) {
     const databaseOrderId = order?.databaseId ?? order?.orderId ?? orderId;
     const previousStatus = order?.status ?? null;
 
-    console.info("status update requested", {
-      databaseOrderId,
-      previousStatus,
-      newStatus: status,
-    });
 
     if (!order) {
       console.error("status update failed", {
@@ -403,11 +323,6 @@ export function OrderProvider({ children }) {
         void refreshUserReputation(completedBuyerId, { eventKey: `${eventKey}:buyer` });
         void refreshUserReputation(completedSellerId, { eventKey: `${eventKey}:seller` });
       }
-      console.info("status update succeeded", {
-        databaseOrderId,
-        previousStatus,
-        newStatus: status,
-      });
       return true;
     } catch (error) {
       console.error("status update failed", {
@@ -434,11 +349,6 @@ export function OrderProvider({ children }) {
     const previousStatus = order?.status ?? null;
     const requestedStatus = status === "Cancelled" ? status : "Cancelled";
 
-    console.info("cancellation requested", {
-      databaseOrderId,
-      previousStatus,
-      newStatus: requestedStatus,
-    });
 
     if (!order) {
       console.error("cancellation failed", {
@@ -467,17 +377,7 @@ export function OrderProvider({ children }) {
 
       const alreadyRestored = Boolean(response?.inventory_already_restored);
       if (alreadyRestored) {
-        console.info("inventory already restored", {
-          databaseOrderId,
-          previousStatus,
-          newStatus: requestedStatus,
-        });
       } else {
-        console.info("inventory restored", {
-          databaseOrderId,
-          previousStatus,
-          newStatus: requestedStatus,
-        });
       }
 
       if (!alreadyRestored) {
@@ -511,11 +411,6 @@ export function OrderProvider({ children }) {
         ]);
       }
 
-      console.info("cancellation succeeded", {
-        databaseOrderId,
-        previousStatus,
-        newStatus: requestedStatus,
-      });
       return true;
     } catch (error) {
       console.error("cancellation failed", {

@@ -74,20 +74,12 @@ export default function Chat() {
   useEffect(() => {
     let active = true;
     if (!user?.id) {
-      console.info("Chat conversation initialization deferred until authentication is ready", {
-        routeConversationId: id,
-        currentUserId: null,
-      });
       return () => {
         active = false;
       };
     }
     const routeChanged = conversationRouteRef.current !== id;
     if (routeChanged && conversationUUIDRef.current) {
-      console.info("Conversation UUID cleared", {
-        conversationId: conversationUUIDRef.current,
-        reason: "conversation route changed",
-      });
       conversationUUIDRef.current = null;
       conversationReadyRef.current = false;
     }
@@ -98,9 +90,6 @@ export default function Chat() {
       conversationReadyRef.current = false;
       setSendError("");
     } else {
-      console.info("Conversation initialization already established; preserving active UUID", {
-        conversationId: conversationUUIDRef.current,
-      });
     }
     ensureConversation({
       conversationId: id,
@@ -110,62 +99,18 @@ export default function Chat() {
       conversationType: pendingConversation?.conversationType ?? (serviceContext ? "service" : "standard"),
     }).then(async (resolvedConversationId) => {
       if (!active) return;
-      console.info("Conversation initialized", {
-        conversationId: resolvedConversationId,
-        routeConversationId: id,
-      });
       conversationUUIDRef.current = resolvedConversationId;
       conversationReadyRef.current = true;
-      console.info("Conversation UUID assigned", {
-        conversationId: resolvedConversationId,
-      });
       setConversationUUID(resolvedConversationId);
       setConversationReady(true);
       const activeConversation = messages.find((item) => item.databaseId === resolvedConversationId || item.id === resolvedConversationId || item.id === id) ?? conversation;
-      console.info("Chat read audit before mark", {
-        conversationId: resolvedConversationId,
-        currentUserId: user?.id ?? null,
-        messageCount: activeConversation?.messages?.length ?? 0,
-        unreadMessageCount: activeConversation?.messages?.filter((message) => message.unread).length ?? 0,
-        messages: activeConversation?.messages?.map((message) => ({
-          messageId: message.databaseId ?? message.id,
-          senderId: message.senderId,
-          readAt: message.readAt ?? null,
-          unread: message.unread === true,
-        })) ?? [],
-      });
       const incomingUnreadBefore = activeConversation?.messages?.filter((message) => message.unread === true) ?? [];
-      console.info("markConversationRead invocation", {
-        conversationId: resolvedConversationId,
-        incomingUnreadBeforeCount: incomingUnreadBefore.length,
-        incomingUnreadBeforeIds: incomingUnreadBefore.map((message) => message.databaseId ?? message.id),
-      });
       const readAudit = await markConversationRead(resolvedConversationId);
-      console.info("markConversationRead invocation completed", {
-        conversationId: resolvedConversationId,
-        persistedReadError: readAudit?.persistedReadError ?? null,
-        beforeReadStateError: readAudit?.persistedReadResult?.beforeReadStateError ?? null,
-        afterReadStateError: readAudit?.persistedReadResult?.afterReadStateError ?? null,
-        idsMarkedRead: readAudit?.persistedReadResult?.idsMarkedRead ?? readAudit?.idsMarkedRead ?? [],
-        idsRemainingUnread: readAudit?.persistedReadResult?.idsRemainingUnread ?? [],
-        updatedReadAtCount: readAudit?.persistedReadResult?.updatedReadAtCount ?? 0,
-      });
       if (id !== resolvedConversationId) await markConversationRead(id);
-      console.info("Chat conversation UUID ready", {
-        conversationId: resolvedConversationId,
-        senderId: user?.id ?? null,
-        recipientId: pendingConversation?.participantId ?? pendingConversation?.sellerId ?? routeParticipantId,
-      });
     }).catch((error) => {
       if (!active) return;
       setConversationReady(false);
       setSendError(error?.message || "Unable to initialize this conversation. Please try again.");
-      console.warn("Chat conversation initialization failed", {
-        routeConversationId: id,
-        senderId: user?.id ?? null,
-        recipientId: pendingConversation?.participantId ?? pendingConversation?.sellerId ?? routeParticipantId,
-        error: error?.message ?? String(error),
-      });
     });
     return () => {
       active = false;
@@ -190,25 +135,6 @@ export default function Chat() {
     || Boolean(tradeProposal);
   useEffect(() => {
     if (!isTradeThread || !conversation) return;
-    console.info("trade proposal render audit", {
-      trade_proposal_id: tradeProposal?.id ?? null,
-      requested_listing: tradeProposal?.requestedListing ?? null,
-      offered_items: tradeProposal?.offeredListings ?? [],
-      raw_proposal_message: tradeProposal?.message ?? null,
-      message: tradeProposal?.message ?? "",
-      proposal_message_type: typeof tradeProposal?.message,
-      offered_listing_ids: (tradeProposal?.offeredListings ?? []).map((item) => item?.id ?? item?.listingId ?? null),
-      offered_listing_names: (tradeProposal?.offeredListings ?? []).map((item) => item?.name ?? null),
-      source: conversation.tradeProposalSource ?? "unknown",
-    });
-    console.info("trade conversation displayed identity audit", {
-      displayed_conversation_id: conversation.databaseId ?? conversation.id ?? null,
-      displayed_conversation_object: conversation,
-      displayed_conversation_metadata: conversation.metadata ?? null,
-      displayed_trade_proposal: tradeProposal ?? null,
-      trade_proposal_source: conversation.tradeProposalSource ?? "unknown",
-      final_rendered_status: tradeStatus,
-    });
   }, [conversation, isTradeThread, tradeProposal]);
   const tradeOptions = listing?.desiredTradeItems
     ?.split(",")
@@ -263,24 +189,14 @@ export default function Chat() {
         });
         conversationUUIDRef.current = resolvedConversationId;
         conversationReadyRef.current = true;
-        console.info("Conversation UUID assigned", {
-          conversationId: resolvedConversationId,
-          source: "send-retry",
-        });
         setConversationUUID(resolvedConversationId);
         setConversationReady(true);
       }
       if (!resolvedConversationId) throw new Error("A conversation could not be initialized. Please try again.");
       await appendMessage(resolvedConversationId, message, conversation);
-      console.info("Chat message confirmed", { conversationId: resolvedConversationId, messageId: message.id, senderId: user.id });
       setText("");
       setSelectedTradeItem(null);
     } catch (error) {
-      console.warn("Chat message could not be sent; preserving input", {
-        conversationId: id,
-        messageId: message.id,
-        error: error?.message ?? String(error),
-      });
       setSendError(error?.message || "Unable to send message. Please try again.");
     } finally {
       setSending(false);
@@ -291,11 +207,6 @@ export default function Chat() {
 
   useEffect(() => {
     if (isTradeThread) {
-      console.info("Messages loaded when thread opens", {
-        conversationId: id,
-        messageIds: conversation?.messages?.map((message) => message.id) ?? [],
-        messageCount: conversation?.messages?.length ?? 0,
-      });
     }
   }, [conversation?.messages, id, isTradeThread]);
 

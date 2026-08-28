@@ -71,23 +71,15 @@ export default function OrderTracking() {
   const needsChangeSection = !isCancelled && !canCancel && !isReadyForPickup;
 
   useEffect(() => {
-    console.info("Route opened", window.location.pathname, "Component: OrderTracking");
   }, [id]);
 
   useEffect(() => {
-    console.info("Order Details status rendered", {
-      orderId: order?.id ?? id,
-      status: currentStatus,
-    });
   }, [currentStatus, id, order?.id]);
 
   const confirmCancellation = async () => {
     const currentOrderId = order?.id ?? id;
     const previousStatus = currentStatus;
-    console.info("Order ID", currentOrderId);
-    console.info("Previous Status", previousStatus);
     const cancelled = await cancelOrder(currentOrderId, order);
-    console.info("New Status", cancelled ? "Cancelled" : previousStatus);
     if (cancelled) setCancellationSuccess(true);
     setShowCancelModal(false);
   };

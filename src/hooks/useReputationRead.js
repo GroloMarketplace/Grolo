@@ -9,7 +9,6 @@ export function useReputationSnapshot(userId) {
     let cancelled = false;
     setSnapshot(null);
     if (!userId || !isSupabaseConfigured) {
-      console.info("reputation source: local fallback", { userId: userId ?? null });
       return () => {
         cancelled = true;
       };
@@ -19,13 +18,8 @@ export function useReputationSnapshot(userId) {
       .then((nextSnapshot) => {
         if (cancelled) return;
         setSnapshot(nextSnapshot);
-        console.info("reputation source: supabase", {
-          userId,
-          diagnostics: nextSnapshot?.diagnostics,
-        });
       })
       .catch((error) => {
-        if (!cancelled) console.info("reputation source: local fallback", { userId, error: error?.message ?? String(error) });
       });
 
     return () => {

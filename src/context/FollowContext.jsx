@@ -53,25 +53,8 @@ export function FollowProvider({ children }) {
   const refreshFollowerCounts = useCallback(async () => {
     if (!isSupabaseConfigured) return;
     const { data, error } = await supabase.rpc("get_follower_counts");
-    console.log("FOLLOWER COUNT RPC RESULT", {
-      data,
-      error,
-      errorDetails: error ? {
-        name: error.name ?? null,
-        message: error.message ?? null,
-        code: error.code ?? null,
-        details: error.details ?? null,
-        hint: error.hint ?? null,
-      } : null,
-    });
-    console.log("FOLLOWER COUNT RPC RAW", data);
     const targetSellerId = "33000873-0178-46fc-be96-038cfc464f8e";
     const targetCountRow = (data ?? []).find((row) => normalizeSellerKey(row.seller_id) === targetSellerId);
-    console.log("FOLLOWER COUNT RPC TARGET RECORD", {
-      sellerId: targetSellerId,
-      record: targetCountRow ?? null,
-      found: Boolean(targetCountRow),
-    });
     if (error) {
       console.error("Unable to load follower counts", error);
       return;
@@ -81,15 +64,6 @@ export function FollowProvider({ children }) {
       if (sellerId) result[sellerId] = Number(row.follower_count) || 0;
       return result;
     }, {});
-    console.log("FOLLOWER COUNT MAP", counts);
-    console.info("follower counts source audit", {
-      source: "get_follower_counts",
-      rpc_rows: data ?? [],
-      follower_counts: counts,
-      follower_count_keys: Object.keys(counts),
-      target_seller_id: targetSellerId,
-      target_count: counts[targetSellerId] ?? null,
-    });
     setFollowerCounts(counts);
   }, []);
 
@@ -111,12 +85,6 @@ export function FollowProvider({ children }) {
         .from("user_follows")
         .select("*")
         .eq("follower_id", user.id);
-      console.log("RAW USER_FOLLOWS REHYDRATION QUERY", {
-        userId: user.id,
-        data,
-        error,
-        cachedFollowedSellerIdsBeforeReplacement: followedSellersRef.current,
-      });
       if (error || cancelled) {
         if (error) {
           console.error("Unable to load following rows", error);
@@ -141,19 +109,6 @@ export function FollowProvider({ children }) {
         if (profilesError) console.error("Unable to resolve followed seller profiles", profilesError);
         const followedProfileIds = new Set((profiles ?? []).map((profile) => normalizeSellerKey(profile.id)));
         const uniqueFollowed = uuidSellerIds;
-        console.info("following rows source audit", {
-          source: "user_follows",
-          profile_source: "profiles.id",
-          follower_id: user.id,
-          following_row_count: uniqueFollowed.length,
-          followed_store_ids: uniqueFollowed,
-          relationship_seller_ids: relationshipSellerIds,
-          resolved_profile_ids: [...followedProfileIds],
-          relationship_profile_matches: uuidSellerIds.map((sellerId) => ({
-            seller_id: sellerId,
-            profile_id_match: followedProfileIds.has(sellerId),
-          })),
-        });
         setFollowedSellers(uniqueFollowed);
         persistFollowing(userKey, uniqueFollowed);
       }
@@ -188,26 +143,14 @@ export function FollowProvider({ children }) {
       expectedSellerId,
       matchesExpectedSellerId: sellerKey === expectedSellerId,
     };
-    console.info("follow store mutation audit", {
-      currentUserId: user?.id ?? null,
-      sellerProfileId: sellerId && typeof sellerId === "object" ? sellerId.id ?? null : sellerId,
-      normalizedSellerId: sellerKey,
-      validationResult,
-      isSupabaseConfigured,
-    });
     if (isSuspended) throw new Error("Your account is suspended and cannot follow sellers.");
     if (!sellerKey) {
-      console.log("FOLLOW BEFORE INVALID SELLER RETURN", { currentUserId: user?.id ?? null, sellerId, normalizedSellerId: sellerKey });
       throw new Error("A valid seller profile id is required to follow a store.");
     }
     if (followedSellersRef.current.some((id) => normalizeSellerKey(id) === sellerKey)) {
-      console.log("FOLLOW BEFORE ALREADY FOLLOWING RETURN", { currentUserId: user?.id ?? null, sellerId: sellerKey });
-      console.info("follow store mutation skipped", { reason: "already-following", currentUserId: user?.id ?? null, normalizedSellerId: sellerKey });
       return true;
     }
     if (await checkBlocked(sellerId)) {
-      console.log("FOLLOW BEFORE BLOCKED RETURN", { currentUserId: user?.id ?? null, sellerId: sellerKey });
-      console.warn("Follow blocked by trust and safety", { sellerId });
       return false;
     }
     const previous = followedSellersRef.current;
@@ -216,13 +159,7 @@ export function FollowProvider({ children }) {
     setFollowerCounts((current) => ({ ...current, [sellerKey]: (current[sellerKey] ?? 0) + 1 }));
     persistFollowing(userKey, next);
 
-    console.log("FOLLOW BEFORE LOOKUP", {
-      currentUserId: user?.id ?? null,
-      sellerId: sellerKey,
-      isSupabaseConfigured,
-    });
     if (!isSupabaseConfigured || !user?.id) {
-      console.log("FOLLOW BEFORE LOCAL/UNAUTHENTICATED RETURN", { currentUserId: user?.id ?? null, sellerId: sellerKey });
       return true;
     }
     const { data: existingRows, error: lookupError } = await supabase
@@ -231,50 +168,14 @@ export function FollowProvider({ children }) {
       .eq("follower_id", user.id)
       .eq("seller_id", sellerKey);
     const existingRow = existingRows?.[0] ?? null;
-    console.log("FOLLOW EXISTING ROW CHECK", existingRow);
-    console.info("follow row lookup audit", {
-      follower_id: user.id,
-      store_id: sellerKey,
-      user_id: user.id,
-      existing_row: existingRow,
-      lookup_error: lookupError?.message ?? null,
-    });
     if (lookupError) throw lookupError;
     if (!existingRows?.length) {
-      console.log("FOLLOW BEFORE INSERT", {
-        currentUserId: user.id,
-        sellerId: sellerKey,
-      });
       const { data: insertData, error: insertError } = await supabase
         .from("user_follows")
         .insert({ follower_id: user.id, seller_id: sellerKey })
         .select("follower_id, seller_id, created_at");
-      console.log("FOLLOW INSERT RESULT", {
-        insertData,
-        insertError,
-        currentUserId: user.id,
-        sellerId: sellerKey,
-      });
-      console.info("follow store Supabase insert response", {
-        currentUserId: user.id,
-        sellerProfileId: sellerId,
-        normalizedSellerId: sellerKey,
-        insertedSellerId: sellerKey,
-        supabaseData: insertData ?? null,
-        supabaseError: insertError ?? null,
-        insertedRowCount: insertData?.length ?? 0,
-      });
       if (insertError && insertError.code !== "23505") throw insertError;
     } else {
-      console.info("follow store Supabase insert response", {
-        currentUserId: user.id,
-        sellerProfileId: sellerId,
-        normalizedSellerId: sellerKey,
-        insertedSellerId: null,
-        supabaseData: null,
-        supabaseError: null,
-        skipped: "existing user_follows row",
-      });
     }
     await refreshFollowerCounts();
     return true;
@@ -295,24 +196,9 @@ export function FollowProvider({ children }) {
         .select("follower_id, seller_id, created_at")
         .eq("follower_id", user.id)
         .eq("seller_id", sellerId);
-      console.info("unfollow row lookup audit", {
-        follower_id: user.id,
-        store_id: sellerId,
-        user_id: user.id,
-        follower_row_exists_before: Boolean(existingRows?.length),
-        existing_row: existingRows?.[0] ?? null,
-        lookup_error: lookupError?.message ?? null,
-      });
       if (lookupError) throw lookupError;
       const { error } = await supabase.from("user_follows").delete().eq("follower_id", user.id).eq("seller_id", sellerId);
       const { data: remainingRows } = await supabase.from("user_follows").select("follower_id, seller_id").eq("follower_id", user.id).eq("seller_id", sellerId);
-      console.info("unfollow row persistence audit", {
-        follower_id: user.id,
-        store_id: sellerId,
-        row_deleted: !remainingRows?.length,
-        remaining_row_count: remainingRows?.length ?? 0,
-        error: error?.message ?? null,
-      });
       if (error) throw error;
       await refreshFollowerCounts();
     }
@@ -322,14 +208,7 @@ export function FollowProvider({ children }) {
   const toggleFollow = (sellerId) => {
     const sellerKey = normalizeSellerKey(sellerId);
     const alreadyFollowing = followedSellersRef.current.some((id) => normalizeSellerKey(id) === sellerKey);
-    console.log("FOLLOW CLICK START", {
-      currentUserId: user?.id ?? null,
-      sellerId,
-      normalizedSellerId: sellerKey,
-      alreadyFollowing,
-    });
     if (alreadyFollowing) {
-      console.log("FOLLOW BEFORE UNFOLLOW RETURN", { currentUserId: user?.id ?? null, sellerId: sellerKey });
       return unfollowSeller(sellerId);
     }
     return followSeller(sellerId);
@@ -340,34 +219,11 @@ export function FollowProvider({ children }) {
     const normalizedSellerId = sellerId == null ? null : String(sellerId).trim();
     const normalizedFollowedSellers = followedSellers.map((value) => String(value).trim());
     const normalizedMatch = normalizedSellerId != null && normalizedFollowedSellers.includes(normalizedSellerId);
-    console.info("isFollowing identity audit", {
-      sellerId,
-      sellerIdType: typeof sellerId,
-      normalizedSellerId,
-      followedSellers,
-      followedSellerTypes: followedSellers.map((value) => typeof value),
-      exactMatch,
-      normalizedMatch,
-      source: "FollowContext",
-    });
     return normalizedMatch;
   };
   const getFollowerCount = (sellerId) => {
     const sellerKey = normalizeSellerKey(sellerId);
     const count = followerCounts[sellerKey] ?? 0;
-    console.log("FOLLOWER COUNT LOOKUP", {
-      requestedSellerId: sellerId,
-      normalizedSellerId: sellerKey,
-      followerCounts,
-      valueReadFromMap: count,
-    });
-    console.info("follower count render lookup", {
-      requestedSellerId: sellerId,
-      requestedSellerIdType: typeof sellerId,
-      normalizedSellerKey: sellerKey,
-      followerCount: count,
-      followerCountKeys: Object.keys(followerCounts),
-    });
     return count;
   };
 

@@ -69,11 +69,6 @@ export default function EditListing() {
       return;
     }
     setSaveError("");
-    console.info("EditListing inventory set", {
-      listingId: product.id,
-      quantityBefore: product.quantityAvailable,
-      quantityEntered: normalizedQuantity,
-    });
     try {
       await updateListing(product.id, {
         title,

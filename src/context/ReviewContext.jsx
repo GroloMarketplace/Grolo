@@ -108,9 +108,6 @@ export function ReviewProvider({ children }) {
     setSellerAggregates(new Map());
 
     if (!user?.id || !isSupabaseConfigured) {
-      console.warn("review source: supabase read failed", {
-        error: "Supabase authentication or configuration is unavailable.",
-      });
       return () => {
         cancelled = true;
       };
@@ -142,22 +139,10 @@ export function ReviewProvider({ children }) {
             setSellerAggregates(sellerMap);
           })
           .catch((aggregateError) => {
-            console.warn("review aggregate source: supabase failed", {
-              error: aggregateError?.message ?? String(aggregateError),
-            });
           });
-        console.info("review source: supabase", {
-          reviewCount: remoteReviews.length,
-          productReviewCount: productRows.length,
-          sellerReviewCount: sellerRows.length,
-          buyerReviewCount: 0,
-        });
       })
       .catch((error) => {
         if (cancelled) return;
-        console.warn("review source: supabase read failed", {
-          error: error?.message ?? String(error),
-        });
       });
 
     return () => {
@@ -226,14 +211,6 @@ export function ReviewProvider({ children }) {
           .some((value) => buyerAliases.has(String(value).trim().toLowerCase()));
         return orderMatchesProduct(candidate, productId) && isCompletedOrderStatus(candidate.status) && buyerMatches;
       });
-      console.info("review eligibility calculation", {
-        productId,
-        orderId: order?.databaseId ?? order?.orderId ?? order?.id ?? null,
-        orderStatus: order?.status ?? null,
-        fulfillmentType: order?.fulfillmentMethod ?? order?.fulfillment_method ?? null,
-        buyerId: order?.buyerId ?? order?.buyer_id ?? null,
-        eligible: Boolean(order),
-      });
       return order;
     },
     [identity, orders],
@@ -285,10 +262,8 @@ export function ReviewProvider({ children }) {
       orderItemId: orderItemId ?? null,
       reviewerId: identity.id,
     };
-    console.info("review create requested", logContext);
 
     if (!user?.id || !isSupabaseConfigured) {
-      console.warn("review create failed", { ...logContext, error: "Supabase is not configured or user is unauthenticated." });
       return Promise.resolve(null);
     }
 
@@ -298,13 +273,6 @@ export function ReviewProvider({ children }) {
       orderId,
       orderItemId,
     }).then((createdReview) => {
-      console.info("review create succeeded", {
-        reviewId: createdReview?.databaseId ?? createdReview?.id,
-        listingId: createdReview?.listingId ?? listingDatabaseId,
-        orderId: createdReview?.orderId ?? orderId,
-        orderItemId: createdReview?.orderItemId ?? orderItemId,
-        reviewerId: createdReview?.reviewerId ?? user.id,
-      });
       setSubmittedReviews((prev) => [createdReview, ...prev]);
       const reviewId = createdReview?.databaseId ?? createdReview?.id ?? localReview.id;
       const revieweeId = createdReview?.revieweeId ?? createdReview?.sellerId ?? sellerId;
@@ -312,10 +280,6 @@ export function ReviewProvider({ children }) {
       void refreshUserReputation(revieweeId, { eventKey: `published-review:${reviewId}:reviewee` });
       return createdReview;
     }).catch((error) => {
-      console.warn("review create failed", {
-        ...logContext,
-        error: error?.message ?? String(error),
-      });
       return null;
     });
   }, [completedOrderForProduct, identity, user?.id]);

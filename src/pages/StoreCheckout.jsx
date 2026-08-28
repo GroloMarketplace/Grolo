@@ -70,21 +70,9 @@ export default function StoreCheckout() {
   const checkoutButtonState = vacationMode ? "Orders Paused" : inventoryAvailable ? "Checkout" : "Sold Out";
 
   useEffect(() => {
-    console.info("Store Checkout inventory diagnostics", {
-      sellerId,
-      stockStatus,
-      inventoryAvailable,
-      soldOut: !inventoryAvailable,
-      checkoutButtonState,
-    });
   }, [checkoutButtonState, inventoryAvailable, sellerId, stockStatus]);
 
   useEffect(() => {
-    console.info("Store Checkout pickup data returned", {
-      storeId: sellerId,
-      storeName,
-      pickupAddress,
-    });
   }, [pickupAddress, sellerId, storeName]);
   const [fulfillmentMethod, setFulfillmentMethod] = useStoreFulfillment(settings.fulfillmentMethods);
   const [showMapSheet, setShowMapSheet] = useState(false);

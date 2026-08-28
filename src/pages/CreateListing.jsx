@@ -176,8 +176,6 @@ export default function CreateListing() {
       reviewCount: 0,
     };
     const createdListing = await addListing(listing);
-    console.log("Listing Created:", createdListing.name);
-    console.log("Listings Count:", listings.length + 1);
     clearLocalDraft(draftKey);
     navigate(`/product/${createdListing.id}`, { state: { listingCreated: createdListing.id } });
     } catch (error) {

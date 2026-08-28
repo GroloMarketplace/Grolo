@@ -28,14 +28,6 @@ export default function StoreReviews() {
 
   const { average: averageRating, count: totalReviews } = sellerRating(resolvedStoreId);
   useEffect(() => {
-    console.info("store review page audit", {
-      store_id: resolvedStoreId,
-      reviewCountFromReviewsTable: totalReviews,
-      averageRatingFromReviewsTable: averageRating,
-      reviewsPageDisplayedReviewCount: totalReviews,
-      reviewsPageDisplayedRating: averageRating,
-      source: "ReviewContext sellerRating aggregate",
-    });
   }, [averageRating, resolvedStoreId, totalReviews]);
   const reputationSnapshot = useReputationSnapshot(resolvedStoreId);
   const hasReputation = Boolean(reputationSnapshot?.sellerStatus || reputationSnapshot?.activeBadges?.length);
@@ -66,12 +58,6 @@ export default function StoreReviews() {
     }), [filter, sortBy, storeReviews]);
 
   useEffect(() => {
-    console.info("STORE REVIEW LOAD", {
-      reviewIds: returnedReviews.map((review) => review.id ?? review.databaseId ?? null),
-      returnedReviewCount: returnedReviews.length,
-      uniqueReviewCount: storeReviews.length,
-      finalRenderedReviews: filteredReviews.map((review) => ({ reviewId: review.id ?? review.databaseId ?? null, rating: review.rating ?? null, body: review.body ?? review.text ?? "" })),
-    });
   }, [filteredReviews, returnedReviews, storeReviews]);
 
   const renderStars = (rating) => {

@@ -47,17 +47,6 @@ export default function BuyerProfile() {
   const sellerReviews = useMemo(() => (reviewsForBuyer?.("you") ?? []).sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0)), [reviewsForBuyer]);
 
   useEffect(() => {
-    console.info("BUYER PROFILE REVIEW LOAD", {
-      source: "BuyerTrustContext.reviewsForBuyer (reviews received by buyer)",
-      profileId: user?.id ?? null,
-      queryFilters: { review_type: "buyer", reviewee_id: user?.id ?? null },
-      reviewIds: sellerReviews.map((review) => review.id ?? review.databaseId ?? null),
-      reviewTypes: sellerReviews.map((review) => review.reviewType ?? review.review_type ?? null),
-      reviewerIds: sellerReviews.map((review) => review.reviewerId ?? review.reviewer_id ?? null),
-      revieweeIds: sellerReviews.map((review) => review.revieweeId ?? review.reviewee_id ?? null),
-      orderIds: sellerReviews.map((review) => review.orderId ?? review.order_id ?? null),
-      returnedReviewCount: sellerReviews.length,
-    });
   }, [sellerReviews, user?.id]);
   const localImpactMetrics = getBuyerImpactMetrics({ orders: buyerOrders(), events: liveEvents, attendingEventIds, followedSellers, reviewsWritten: sellerReviews.length });
   const impactMetrics = {

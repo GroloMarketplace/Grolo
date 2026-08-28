@@ -51,9 +51,7 @@ export function PostProvider({ children }) {
         setPosts([...remotePosts, ...cachedOnly]);
         persistPosts(storageKey, [...remotePosts, ...cachedOnly]);
       })
-      .catch((error) => {
-        console.warn("post source: local fallback", { operation: "loadPosts", error: error?.message ?? String(error) });
-      });
+      .catch(() => {});
 
     return () => { cancelled = true; };
   }, [storageKey, user?.id]);

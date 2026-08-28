@@ -53,11 +53,6 @@ export async function getPromotions() {
   requireSupabase();
   const { data, error } = await supabase.from("promotions").select("*").order("created_at", { ascending: false });
   if (error) throw error;
-  console.info("homepage promotion query result", {
-    source: "promotions",
-    rowCount: data?.length ?? 0,
-    rows: (data ?? []).map((row) => ({ id: row.id, title: row.title, status: row.status, sellerId: row.seller_id, startDate: row.start_date, endDate: row.end_date })),
-  });
   return (data ?? []).map(promotionFromRow);
 }
 

@@ -218,7 +218,6 @@ export default function CreatePost() {
         shares: 0,
         sends: 0,
       });
-      console.log("Post Created:", post.id);
       clearLocalDraft(draftKey);
       navigate("/", { state: { tab: "Your Community", communityFilter: "Posts" } });
     } catch (error) {

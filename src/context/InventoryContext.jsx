@@ -85,13 +85,6 @@ export function InventoryProvider({ children }) {
       const quantityBefore = normalizedQuantity(data.inventory_quantity);
       const quantityRequested = Number(item.quantity) || 0;
       const quantityAfter = Math.max(0, quantityBefore - quantityRequested);
-      console.warn("Inventory reduction", {
-        operationId: operationId ?? null,
-        listingId: data.legacy_id ?? data.id,
-        quantityBefore,
-        quantityRequested,
-        quantityAfter,
-      });
       await updateListingQuantity(data.legacy_id ?? data.id, quantityAfter);
     }
   }, [updateListingQuantity]);

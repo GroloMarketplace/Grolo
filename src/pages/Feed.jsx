@@ -78,20 +78,7 @@ function promotionLocationContent(promotion, listings) {
 }
 
 function eventMatchesDiscoveryRadius(event, location, radius) {
-  const distance = distanceInKmBetween(event, location);
-  const included = isWithinDiscoveryRadius(event, location, radius);
-  console.info("event feed visibility audit", {
-    event_id: event.databaseId ?? event.id ?? null,
-    event_status: event.status ?? eventStatus(event),
-    visibility: event.visibility ?? null,
-    creator_id: event.sellerId ?? null,
-    event_date: event.date ?? null,
-    distance_km: distance,
-    distance_filter_km: radius,
-    included,
-    approval_state: event.approval_status ?? event.approvalState ?? event.moderation_status ?? event.moderationState ?? null,
-  });
-  return included;
+  return isWithinDiscoveryRadius(event, location, radius);
 }
 
 export default function Feed() {
@@ -125,18 +112,6 @@ export default function Feed() {
   const { buyerOrders } = useOrders();
   const { blockedUserIds } = useTrustSafety();
   const totalUnreadNotifications = unreadNotificationCount;
-
-  useEffect(() => {
-    console.info("Notification badge audit", {
-      unreadNotificationCount,
-      totalUnreadNotifications,
-    });
-  }, [unreadNotificationCount, totalUnreadNotifications]);
-
-  useEffect(() => {
-    console.info("Feed mounted");
-    return () => console.info("Feed unmounted");
-  }, []);
 
   useEffect(() => {
     if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = savedFeedState.scrollTop;
@@ -509,24 +484,13 @@ function renderCommunityItem(item, onOpenDetail, onComment, onMenu, onShare) {
 
 function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
   const navigate = useNavigate();
-  useEffect(() => {
-    console.info("Feed listing trade audit", {
-      listingId: product.id,
-      databaseId: product.databaseId ?? null,
-      open_to_trade: product.availableForTrade ?? null,
-      trade_enabled: product.tradeEnabled ?? null,
-      barter_enabled: product.barterEnabled ?? null,
-      source: "FeedCard",
-    });
-  }, [product]);
   const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
   const resolvedSeller = useResolvedSeller(product.sellerId);
   const seller = resolvedSeller ?? sellers[product.sellerId];
   const savedItem = { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName: product.shop, image: product.image, description: product.name };
   const menuContent = { id: `listing:${product.id}`, type: "listing", title: product.name, name: product.name, sellerId: product.sellerId, productId: product.id, sharePath: `/product/${product.id}`, savedItem };
   const openProduct = () => {
-    console.info("Home Feed listing clicked", { listingId: product.id, storeId: product.sellerId });
-    openDetail(`/product/${product.id}`, { sellerId: product.sellerId });
+      openDetail(`/product/${product.id}`, { sellerId: product.sellerId });
   };
   const openReviews = () => openDetail(`/product/${product.id}/reviews`, { sellerId: product.sellerId });
   const openStore = (event) => {
@@ -1170,7 +1134,6 @@ export function Notifications() {
         ...current,
         [notificationId]: Math.max(0, (current[notificationId] ?? notification.commentLikes ?? 0) + (wasLiked ? 1 : -1)),
       }));
-      console.error("Unable to update comment like", error);
     }
   };
 
@@ -1197,26 +1160,12 @@ export function Notifications() {
       ? products.find((product) => product.id === notification.productId)?.image
       : undefined;
     const thumbnailReference = notification.thumbnailUrl ?? notification.thumb ?? productThumbnail;
-    console.log("Notification clicked:", notification.id);
-    console.log("Notification type:", notification.notificationType);
-    console.log("Stored post ID:", notification.postId);
-    console.log("Stored comment ID:", notification.commentId);
-    console.log("Thumbnail image reference:", thumbnailReference);
-    console.log("Loaded post ID:", loadedPost?.id);
-    console.log("Loaded post image reference:", loadedPost?.image);
 
     if (notification.postId != null) {
       if (!loadedPost) {
-        console.error("Notification post not found:", notification.postId);
         return;
       }
       if (thumbnailReference && !imageReferenceMatches(loadedPost.image, thumbnailReference)) {
-        console.error("Notification thumbnail does not match opened post image", {
-          notificationId: notification.id,
-          postId: notification.postId,
-          thumbnailReference,
-          loadedPostImage: loadedPost.image,
-        });
         return;
       }
       navigate(`/post/${notification.postId}`, {

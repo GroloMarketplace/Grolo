@@ -179,8 +179,7 @@ export default function OrderConfirmation() {
   }, [phase, orderItems, removeItems]);
 
   useEffect(() => {
-    console.info("OrderConfirmation mounted");
-    return () => console.info("OrderConfirmation unmounted");
+    return () => {};
   }, []);
 
   const orderId = receipt?.databaseOrderId;

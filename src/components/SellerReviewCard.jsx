@@ -18,13 +18,6 @@ export default function SellerReviewCard({ review }) {
 
   useEffect(() => {
     if (review.reviewType !== "buyer" && review.review_type !== "buyer") return;
-    console.info("BUYER REVIEW AVATAR LOAD", {
-      reviewId: review.id ?? review.databaseId ?? null,
-      reviewerId: review.reviewerId ?? review.reviewer_id ?? null,
-      revieweeId: review.revieweeId ?? review.reviewee_id ?? null,
-      avatarUrlUsed,
-      profileAvatarUrl,
-    });
   }, [avatarUrlUsed, profileAvatarUrl, review]);
 
   return (

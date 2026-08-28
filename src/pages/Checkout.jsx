@@ -30,13 +30,6 @@ export default function Checkout() {
   const storesKey = JSON.stringify(stores);
 
   useEffect(() => {
-    console.info("CHECKOUT PAGE RENDERED", {
-      cartItemCount: items.length,
-      eligibleItemCount: activeItems.length,
-      storeCount: groups.length,
-      navigationTarget: window.location.pathname,
-    });
-    console.info("Checkout Hub store data returned", JSON.parse(storesKey));
   }, [activeItems.length, groups.length, items.length, storesKey]);
 
   return (
@@ -49,9 +42,6 @@ export default function Checkout() {
           const vacationMode = getSellerProfile(sellerId)?.vacationMode;
           const handleStoreClick = () => {
             if (vacationMode) return;
-            console.info("Store card clicked");
-            console.info("Store ID", sellerId);
-            console.info("Navigating to Store Checkout");
             navigate(`/checkout/${sellerId}`);
           };
           return (

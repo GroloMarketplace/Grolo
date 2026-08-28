@@ -95,18 +95,9 @@ export default function Cart() {
   const storesKey = JSON.stringify(stores);
 
   useEffect(() => {
-    console.info("Cart store data returned", JSON.parse(storesKey));
   }, [storesKey]);
 
   const handleCheckout = () => {
-    console.info("CHECKOUT BUTTON PRESSED");
-    console.info("Checkout navigation diagnostics", {
-      cartItemCount: items.length,
-      cartQuantity: items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
-      checkoutEligibility: canCheckout,
-      navigationTarget: checkoutTarget,
-      validationErrors: checkoutValidationErrors,
-    });
     if (!canCheckout) return;
     navigate(checkoutTarget);
   };

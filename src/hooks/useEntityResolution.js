@@ -23,7 +23,6 @@ function useResolved(load, key) {
         if (!cancelled) setValue(nextValue);
       })
       .catch((error) => {
-        if (!cancelled) console.info("entity resolution fallback", { key, error: error?.message ?? String(error) });
       });
 
     return () => {
@@ -65,7 +64,6 @@ export function useResolvedMarketplaceEntities(options = {}) {
         if (!cancelled) setEntities(nextEntities);
       })
       .catch((error) => {
-        if (!cancelled) console.info("entity resolution fallback", { key, error: error?.message ?? String(error) });
       });
     return () => {
       cancelled = true;
@@ -84,7 +82,6 @@ export function useMarketplaceDiscovery() {
         if (!cancelled) setDiscovery(nextDiscovery);
       })
       .catch((error) => {
-        if (!cancelled) console.info("discovery resolution fallback", { error: error?.message ?? String(error) });
       });
     return () => {
       cancelled = true;
@@ -102,7 +99,6 @@ export function useMapLocations() {
         if (!cancelled) setMap(nextMap);
       })
       .catch((error) => {
-        if (!cancelled) console.info("map resolution fallback", { error: error?.message ?? String(error) });
       });
     return () => {
       cancelled = true;

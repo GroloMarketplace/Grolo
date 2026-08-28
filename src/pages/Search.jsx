@@ -64,8 +64,7 @@ export default function Search() {
   const tabRef = useRef(tab);
   const queryRef = useRef(query);
   useEffect(() => {
-    console.info("Search mounted");
-    return () => console.info("Search unmounted");
+    return () => {};
   }, []);
   const rememberProduct = (productId, destination = `/product/${productId}`) => {
     writeNavigationState("search", {
@@ -556,9 +555,6 @@ function MyOrders() {
                   const orderRouteId = order.id.replace(/^ORD-/, "");
                   const openOrderDetails = () => {
                     const route = `/orders/${orderRouteId}`;
-                    console.info("Order card clicked", order.id);
-                    console.info("Order ID", order.id);
-                    console.info("Navigating to", route);
                     navigate(route);
                   };
 

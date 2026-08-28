@@ -117,7 +117,6 @@ export function EventProvider({ children }) {
 
     async function loadEvents() {
       if (!isSupabaseConfigured) {
-        console.info("event source: local fallback", { operation: "loadEvents", reason: "Supabase is not configured" });
         return;
       }
       try {
@@ -127,7 +126,6 @@ export function EventProvider({ children }) {
         const cachedOnly = cachedEvents.filter((event) => !remoteIds.has(event.id));
         const migrated = user?.id && cachedOnly.length
           ? (await Promise.all(cachedOnly.map((event) => createEventApi(event).catch((error) => {
-            console.warn("event source: local fallback", { operation: "migrateEvent", eventId: event.id, error: error?.message ?? String(error) });
             return null;
           })))).filter(Boolean)
           : [];
@@ -141,17 +139,10 @@ export function EventProvider({ children }) {
               return allEvents.findIndex((candidate) => (candidate.databaseId ?? candidate.id) === key) === index;
             });
             persistEvents(storageKey, merged);
-            console.info("event state refreshed", {
-              remoteEventCount: remoteEvents.length,
-              pendingEventCount: pendingEvents.length,
-              renderedEventCount: merged.length,
-              eventIds: merged.map((event) => event.databaseId ?? event.id),
-            });
             return merged;
           });
         }
       } catch (error) {
-        console.warn("event source: local fallback", { operation: "loadEvents", error: error?.message ?? String(error) });
       }
     }
 
@@ -169,11 +160,6 @@ export function EventProvider({ children }) {
         .select("event_id, user_id, attendance_status");
       if (!error && !cancelled) {
         const rows = data ?? [];
-        console.info("event attendee count query", {
-          eventIds: [...new Set(rows.map((row) => row.event_id).filter(Boolean))],
-          totalAttendeeRows: rows.length,
-          currentUserId,
-        });
         setAttendeeRows(rows);
       } else if (error) {
         console.error("Unable to load event attendance", {
@@ -191,7 +177,7 @@ export function EventProvider({ children }) {
 
   useEffect(() => {
     if (!isSupabaseConfigured || !user?.id) return;
-    createEventAttendanceConfirmationNotifications().catch((error) => console.warn("Unable to create event attendance confirmations", { error: error?.message ?? String(error) }));
+    createEventAttendanceConfirmationNotifications().catch((error) => {});
   }, [user?.id]);
 
   useEffect(() => {
@@ -209,13 +195,6 @@ export function EventProvider({ children }) {
   const getAttendeeCount = useCallback((eventId) => {
     const keys = eventAttendanceKeys(eventId, events);
     const attendeeIds = new Set(keys.flatMap((key) => attendees[key] ?? []));
-    console.info("event attendee count displayed", {
-      eventId,
-      eventKeys: keys,
-      totalAttendeeRows: attendeeIds.size,
-      displayedAttendeeCount: attendeeIds.size,
-      currentUserId,
-    });
     return attendeeIds.size;
   }, [attendees, currentUserId, events]);
 
@@ -236,7 +215,6 @@ export function EventProvider({ children }) {
     });
 
     if (!isSupabaseConfigured || !user?.id) {
-      console.info("event attendance source: local fallback", { eventId, reason: "Supabase or authenticated user unavailable" });
       return;
     }
 
@@ -328,7 +306,6 @@ export function EventProvider({ children }) {
       return next;
     });
     if (!isSupabaseConfigured || !user?.id) {
-      console.info("event source: local fallback", { operation: "createEvent", reason: "Supabase or authenticated owner unavailable" });
       return optimisticEvent;
     }
 
@@ -338,11 +315,6 @@ export function EventProvider({ children }) {
       setEvents((current) => {
         const next = current.map((item) => item.id === optimisticEvent.id ? created : item);
         persistEvents(storageKey, next);
-        console.info("event state updated after create", {
-          createdEventId: created.databaseId ?? created.id,
-          renderedEventCount: next.length,
-          createdEventPresent: next.some((item) => (item.databaseId ?? item.id) === (created.databaseId ?? created.id)),
-        });
         return next;
       });
       return created;
@@ -376,9 +348,8 @@ export function EventProvider({ children }) {
           persistEvents(storageKey, next);
           return next;
         });
-      }).catch((error) => console.warn("event source: local fallback", { operation: "updateEvent", error: error?.message ?? String(error) }));
+      }).catch((error) => {});
     } else {
-      console.info("event source: local fallback", { operation: "updateEvent", reason: "Supabase or authenticated owner unavailable" });
     }
   }, [storageKey, user?.id]);
 
@@ -389,9 +360,8 @@ export function EventProvider({ children }) {
       return next;
     });
     if (isSupabaseConfigured && user?.id) {
-      deleteEventApi(eventId).catch((error) => console.warn("event source: local fallback", { operation: "deleteEvent", error: error?.message ?? String(error) }));
+      deleteEventApi(eventId).catch((error) => {});
     } else {
-      console.info("event source: local fallback", { operation: "deleteEvent", reason: "Supabase or authenticated owner unavailable" });
     }
   }, [storageKey, user?.id]);
 

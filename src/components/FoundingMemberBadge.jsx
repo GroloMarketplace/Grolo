@@ -18,14 +18,6 @@ export default function FoundingMemberBadge({ sellerId, ownerId = sellerId, foun
 
   useEffect(() => {
     if (!runtimeDiagnostic) return;
-    console.info("founding member runtime verification", {
-      store_id: sellerId ?? null,
-      owner_id: ownerId ?? null,
-      foundingMemberQualified,
-      foundingMemberVisible: foundingMemberQualified,
-      qualificationSource: foundingMemberQualified ? "profiles.founding_member" : "none",
-      renderingGuard: foundingMemberQualified ? "passed" : "failed-qualification",
-    });
   }, [foundingMember, foundingMemberQualified, ownerId, runtimeDiagnostic, sellerId]);
 
   if (!foundingMemberQualified) return null;

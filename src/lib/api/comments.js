@@ -19,14 +19,6 @@ function normalizeComment(comment) {
 }
 
 function logComment(operation, comment, extra = {}) {
-  console.info(`comments ${operation}`, {
-    comment_id: comment?.id ?? null,
-    parent_type: comment?.content_type ?? null,
-    parent_id: comment?.content_id ?? null,
-    author_id: comment?.author_id ?? null,
-    created_at: comment?.created_at ?? null,
-    ...extra,
-  });
 }
 
 export async function getComments(contentType, contentId) {
@@ -39,12 +31,6 @@ export async function getComments(contentType, contentId) {
     .order("created_at", { ascending: true });
   if (error) throw error;
   const comments = (data ?? []).map(normalizeComment);
-  console.info("comments reload query", {
-    parent_type: contentType,
-    parent_id: String(contentId),
-    comment_count: comments.length,
-    comment_ids: comments.map((comment) => comment.id),
-  });
   return comments;
 }
 

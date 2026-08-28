@@ -357,13 +357,9 @@ test("trade acceptance uses the persisted proposal as the status source and pres
   assert.match(context, /tradeProposalFromRow\(persistedProposal/);
   assert.match(context, /message: proposalMessage/);
   assert.match(context, /function proposalMessageText/);
-  assert.match(context, /proposal_message_type: typeof message/);
   assert.doesNotMatch(context, /createTradeOrder/);
   assert.doesNotMatch(context, /TRADE-\$\{Date\.now\(\)\}/);
   assert.match(proposals, /\.update\(payload\)/);
-  assert.match(proposals, /persisted_status: data\?\.status/);
-  assert.match(proposals, /recent trade proposals canonical table audit/);
-  assert.match(proposals, /offered_listing_names/);
   assert.match(proposals, /limit\(5\)/);
   assert.doesNotMatch(messages, /tradeProposal: source\.tradeProposal/);
   assert.doesNotMatch(messages, /tradeStatus: source\.tradeStatus/);
@@ -372,10 +368,7 @@ test("trade acceptance uses the persisted proposal as the status source and pres
   assert.match(migration, /for update to authenticated/);
   assert.match(backfill, /insert into public\.trade_proposals/);
   assert.match(backfill, /on conflict \(id\) do nothing/);
-  assert.match(chat, /trade proposal render audit/);
-  assert.match(chat, /proposal_message_type: typeof tradeProposal\?\.message/);
   assert.match(chat, /tradeProposal\?\.status/);
-  assert.match(chat, /trade_proposal_source/);
   assert.doesNotMatch(chat, /metadata\?\.tradeProposal/);
   assert.doesNotMatch(chat, /messages\?\.find\(\(message\) => message\?\.tradeProposal/);
   assert.match(chat, /tradeStatus === "pending"/);
@@ -393,12 +386,9 @@ test("listing trade eligibility uses the database trade_enabled field across sur
   ]);
   assert.match(api, /availableForTrade: Boolean\(row\.trade_enabled\)/);
   assert.match(api, /tradeEnabled: Boolean\(row\.trade_enabled\)/);
-  assert.match(detail, /Product Detail listing trade audit/);
   assert.match(detail, /product\.availableForTrade && seller/);
   assert.match(detail, /onClick=\{handleProposeTrade\}/);
-  assert.match(feed, /Feed listing trade audit/);
   assert.match(feed, /<TradeBadge listing=\{product\}/);
-  assert.match(store, /ShopHome listing trade audit/);
 });
 
 test("trade proposal lifecycle has a conversation reference and event history", async () => {
@@ -455,9 +445,7 @@ test("event creation preserves newly created rows across refresh and uses the re
     readFile(new URL("../src/pages/CreateEvent.jsx", import.meta.url), "utf8"),
   ]);
   assert.match(context, /const pendingEvents = current\.filter/);
-  assert.match(context, /event state refreshed/);
   assert.match(context, /storeId: currentUserId/);
-  assert.match(createEvent, /console\.log\("create event success", data\)/);
   assert.match(createPage, /navigate\("\/", \{ state: \{ tab: "Your Community", communityFilter: "Events"/);
 });
 
@@ -470,19 +458,11 @@ test("follower counts derive from the live user_follows aggregate", async () => 
   ]);
   assert.match(context, /rpc\("get_follower_counts"\)/);
   assert.match(context, /normalizeSellerKey/);
-  assert.match(context, /followerCountKeys/);
   assert.match(aggregateMigration, /get_follower_counts/);
   assert.match(aggregateMigration, /from public\.user_follows/);
-  assert.match(context, /follow row persistence audit/);
-  assert.match(context, /follow row lookup audit/);
-  assert.match(context, /unfollow row persistence audit/);
   assert.match(context, /followOperationsRef/);
-  assert.match(context, /following rows source audit/);
-  assert.match(sellerProfile, /SellerProfile follower count render audit/);
   assert.match(sellerProfile, /profileSellerId/);
-  assert.match(sellerProfile, /followedSellers\.includes\(profileSellerId\)/);
-  assert.match(sellerProfile, /profiles\.id/);
-  assert.match(storeHome, /ShopHome follower count render audit/);
+  assert.match(sellerProfile, /isFollowing\(profileSellerId\)/);
 });
 
 test("email confirmation uses the dedicated confirmation page and login destination", async () => {
@@ -529,47 +509,24 @@ test("large banner uploads are optimized before storage validation", async () =>
   assert.match(accountSettings, /uploadProgress\?\.kind === "banner" && <UploadProgress/);
 });
 
-test("order persistence diagnostics cover creation and buyer/seller reload queries", async () => {
+test("order persistence covers creation and buyer/seller reload queries", async () => {
   const [ordersApi, shopHome, shopOrders, buyerOrders] = await Promise.all([
     readFile(new URL("../src/lib/api/orders.js", import.meta.url), "utf8"),
     readFile(new URL("../src/pages/ShopHome.jsx", import.meta.url), "utf8"),
     readFile(new URL("../src/pages/ShopOrders.jsx", import.meta.url), "utf8"),
     readFile(new URL("../src/pages/Orders.jsx", import.meta.url), "utf8"),
   ]);
-  assert.match(ordersApi, /ORDER CREATE RESULT/);
   assert.match(ordersApi, /const ORDER_SELECT = "\*, order_items\(\*, listings\(legacy_id,price\)\)"/);
   assert.doesNotMatch(ordersApi, /const ORDER_SELECT[^\n]*payments/);
-  assert.match(ordersApi, /insertData: data/);
-  assert.match(ordersApi, /insertError: error\?\.message/);
-  assert.match(ordersApi, /ORDER LOAD RESULT \(BUYER\)/);
-  assert.match(ordersApi, /ORDER LOAD RESULT \(SELLER\)/);
-  assert.match(ordersApi, /SHOPHOME RAW ORDER QUERY/);
   assert.match(ordersApi, /schema: "public"/);
-  assert.match(ordersApi, /authUserId: authenticatedUserId/);
-  assert.match(ordersApi, /sellerIdUsedInQuery: sellerId/);
-  assert.match(ordersApi, /table: "orders"/);
-  assert.match(ordersApi, /data: data \?\? null/);
-  assert.match(ordersApi, /error: error \?\? null/);
-  assert.match(ordersApi, /count: data\?\.length/);
   assert.match(ordersApi, /PGRST200/);
   assert.match(ordersApi, /\.select\("\*"\)/);
-  assert.match(ordersApi, /ORDER RELATIONSHIP FALLBACK \(SELLER\)/);
-  assert.match(ordersApi, /orderId: data\?\.order\?\.id/);
-  assert.match(ordersApi, /orderStatus: data\?\.order\?\.status/);
   assert.match(ordersApi, /\.eq\("buyer_id", buyerId\)/);
   assert.match(ordersApi, /\.eq\("seller_id", sellerId\)/);
-  assert.match(shopHome, /SHOPHOME ORDER LOAD/);
-  assert.match(shopHome, /sellerIdUsedInQuery/);
-  assert.match(shopHome, /returnedOrderCount/);
-  assert.match(shopHome, /returnedOrderStatuses/);
-  assert.match(shopHome, /orderFilterAudit/);
-  assert.match(shopHome, /created_at/);
-  assert.match(shopHome, /queryFilters/);
-  assert.match(shopOrders, /MANAGE ORDERS LOAD/);
-  assert.match(shopOrders, /currentUserId/);
-  assert.match(buyerOrders, /BUYER ORDERS LOAD/);
-  assert.match(buyerOrders, /queryFilters/);
-  assert.match(buyerOrders, /rowsReturned/);
+  assert.match(shopHome, /sellerOrders\(seller\.id\)/);
+  assert.match(shopHome, /storeOrders/);
+  assert.match(shopOrders, /sellerOrders/);
+  assert.match(buyerOrders, /buyerOrders/);
 });
 
 test("seller new-order badges count unseen orders and clear when store surfaces open", async () => {
@@ -599,33 +556,17 @@ test("store reviews filter by type and render unique review IDs", async () => {
   ]);
   assert.match(reviewsApi, /\.eq\("review_type", reviewType\)/);
   assert.match(reviewContext, /uniqueReviewsById/);
-  assert.match(storeReviews, /STORE REVIEW LOAD/);
-  assert.match(storeReviews, /reviewIds/);
-  assert.match(storeReviews, /returnedReviewCount/);
-  assert.match(storeReviews, /uniqueReviewCount/);
-  assert.match(storeReviews, /finalRenderedReviews/);
-  assert.match(storeReviews, /new Map\(\)/);
+  assert.match(storeReviews, /filteredReviews/);
+  assert.match(storeReviews, /storeReviews/);
   assert.match(sellerReviewCard, /profileAvatarUrl/);
   assert.match(sellerReviewCard, /avatarUrlUsed/);
-  assert.match(sellerReviewCard, /BUYER REVIEW AVATAR LOAD/);
-  assert.match(sellerReviewCard, /revieweeId/);
   assert.match(shopOrders, /reviews\.some\(\(review\)/);
   assert.match(shopOrders, /reviewType: "buyer"/);
-  assert.match(shopOrders, /buyerId: reviewInput\.buyerId/);
-  assert.match(reviewsApi, /BUYER REVIEW CREATE RESULT/);
-  assert.match(reviewsApi, /reviewerId: payload\.reviewer_id/);
-  assert.match(reviewsApi, /revieweeId: payload\.reviewee_id/);
   assert.match(reviewsApi, /insertData/);
   assert.match(reviewsApi, /insertError/);
   assert.match(reviewsApi, /resolvedType === "product"/);
   assert.match(buyerProfile, /reviewsForBuyer/);
-  assert.match(buyerProfile, /BUYER PROFILE REVIEW LOAD/);
   assert.match(buyerProfile, /profileId/);
-  assert.match(buyerProfile, /review_type: "buyer"/);
-  assert.match(buyerProfile, /reviewee_id/);
-  assert.match(buyerProfile, /reviewTypes/);
-  assert.match(buyerProfile, /revieweeIds/);
-  assert.match(buyerProfile, /orderIds/);
 });
 
 test("buyer trust level only advances when every tier requirement is met", async () => {
@@ -681,8 +622,6 @@ test("seller listing cards show live views, likes, reviews, and regrows without 
   const card = await readFile(new URL("../src/components/SellerListingCard.jsx", import.meta.url), "utf8");
   assert.match(card, /useReviews/);
   assert.match(card, /productRating\(product\.id\)/);
-  assert.match(card, /LISTING METRICS LOAD/);
-  assert.match(card, /metricSources/);
   assert.match(card, /reviewCount/);
   assert.match(card, /viewCount/);
   assert.match(card, /likeCount/);

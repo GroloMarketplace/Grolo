@@ -247,12 +247,6 @@ export function reviewVisibilitySummary(reviews) {
 }
 
 function visibilityDiagnostics(rows, includedRows, source = "database status") {
-  console.info("review visibility", {
-    ...reviewVisibilitySummary(rows),
-    visibilitySource: source,
-    includedReviewCount: includedRows.length,
-    excludedReviewCount: (rows ?? []).length - includedRows.length,
-  });
 }
 
 function ratingAggregate(rows, key) {
@@ -284,12 +278,6 @@ export async function getProductRatingAggregates() {
   const includedRows = (data ?? []).filter(isPublishedReview);
   visibilityDiagnostics(data ?? [], includedRows);
   const aggregates = ratingAggregate(includedRows, "listing_id");
-  console.info("product aggregate source: supabase", {
-    aggregateReviewCount: includedRows.length,
-    aggregateAverageRating: aggregates.length
-      ? Number((includedRows.reduce((sum, row) => sum + (Number(row.rating) || 0), 0) / includedRows.length).toFixed(1))
-      : 0,
-  });
   return aggregates;
 }
 
@@ -324,16 +312,6 @@ export async function getSellerRatingAggregates() {
     ...aggregate,
     completedOrderCount: (orders ?? []).filter((order) => order.seller_id === aggregate.reviewee_id).length,
   }));
-  console.info("seller aggregate source: supabase", {
-    sourceReviewCount: reviews?.length ?? 0,
-    includedReviewCount: includedRows.length,
-    productReviewsIncluded: includedRows.filter((review) => review.review_type === "product").length,
-    sellerReviewsIncluded: includedRows.filter((review) => review.review_type === "seller").length,
-    aggregateReviewCount: aggregates.reduce((sum, aggregate) => sum + aggregate.count, 0),
-    aggregateAverageRating: aggregates.length
-      ? Number((includedRows.reduce((sum, row) => sum + (Number(row.rating) || 0), 0) / includedRows.length).toFixed(1))
-      : 0,
-  });
   return aggregates;
 }
 
@@ -362,10 +340,6 @@ export async function getBuyerTrustAggregate(buyerId) {
     wouldTransactAgainCount: buyerReviews.filter((review) => Boolean(review.criteria?.["Would Transact Again"])).length,
     completedTransactionCount: (orders ?? []).length,
   };
-  console.info("buyer trust aggregate source: supabase", {
-    aggregateReviewCount: aggregate.buyerReviewCount,
-    aggregateAverageRating: 0,
-  });
   return aggregate;
 }
 
@@ -381,16 +355,6 @@ async function getAuthenticatedUserId(requestedReviewerId) {
 }
 
 export async function createReviewInDatabase(review, { reviewerId, reviewType, revieweeId, listingId, orderId, orderItemId } = {}) {
-  console.info("reviews.js createReviewInDatabase called", {
-    supabaseProjectUrl,
-    supabaseProjectReference,
-    supabaseEnvironmentDiagnostics,
-    sellerId: reviewerId ?? null,
-    buyerId: reviewType === "buyer" ? revieweeId ?? review?.buyerId ?? null : null,
-    orderId: orderId ?? review?.orderId ?? null,
-    listingId: listingId ?? review?.listingId ?? review?.productId ?? null,
-    reviewType: reviewType ?? review?.reviewType ?? null,
-  });
   requireSupabase();
   const authenticatedReviewerId = await getAuthenticatedUserId(reviewerId);
   const payload = legacyReviewToDatabasePayload(review, {
@@ -400,14 +364,6 @@ export async function createReviewInDatabase(review, { reviewerId, reviewType, r
     listingId,
     orderId,
     orderItemId,
-  });
-  console.info("review insert payload", {
-    sellerId: authenticatedReviewerId,
-    buyerId: payload.review_type === "buyer" ? payload.reviewee_id : null,
-    orderId: payload.order_id,
-    listingId: payload.listing_id,
-    reviewType: payload.review_type,
-    payload,
   });
   let row;
   let insertData = null;
@@ -425,63 +381,18 @@ export async function createReviewInDatabase(review, { reviewerId, reviewType, r
       p_criteria: payload.criteria,
       p_photos: payload.photos,
     };
-    console.info("reviews.js create_review RPC called", {
-      supabaseProjectUrl,
-      supabaseProjectReference,
-      sellerId: authenticatedReviewerId,
-      buyerId: payload.review_type === "buyer" ? payload.reviewee_id : null,
-      orderId: payload.order_id,
-      listingId: payload.listing_id,
-      reviewType: payload.review_type,
-      rpcArgs,
-    });
     const result = await supabase.rpc("create_review", rpcArgs);
-    console.log("reviews.js create_review RPC full result", result);
     const { data, error, status, statusText } = result;
     insertData = data ?? null;
     insertError = error ?? null;
-    console.info("reviews.js create_review RPC response", {
-      sellerId: authenticatedReviewerId,
-      buyerId: payload.review_type === "buyer" ? payload.reviewee_id : null,
-      orderId: payload.order_id,
-      listingId: payload.listing_id,
-      reviewType: payload.review_type,
-      data,
-      error,
-      errorCategory: classifyReviewRpcError(error),
-      status,
-      statusText,
-    });
     if (error) throw error;
     row = Array.isArray(data) ? data[0] : data;
   } catch (rpcError) {
     insertError = rpcError;
     if (!payload.listing_id) {
-      console.info("BUYER REVIEW CREATE RESULT", {
-        reviewType: payload.review_type,
-        reviewerId: authenticatedReviewerId,
-        revieweeId: payload.reviewee_id,
-        orderId: payload.order_id,
-        insertData,
-        insertError,
-      });
       throw rpcError;
     }
-    console.error("reviews.js create_review RPC error", {
-      sellerId: authenticatedReviewerId,
-      buyerId: payload.review_type === "buyer" ? payload.reviewee_id : null,
-      orderId: payload.order_id,
-      listingId: payload.listing_id,
-      reviewType: payload.review_type,
-      errorCategory: classifyReviewRpcError(rpcError),
-      error: { message: rpcError?.message, code: rpcError?.code, details: rpcError?.details, hint: rpcError?.hint },
-    });
     if (!payload.listing_id) throw rpcError;
-    console.warn("create_review RPC unavailable; using canonical reviews insert", {
-      error: rpcError?.message ?? String(rpcError),
-      listingId: payload.listing_id,
-      reviewerId: authenticatedReviewerId,
-    });
     const insertPayload = {
       review_type: payload.review_type,
       reviewer_id: authenticatedReviewerId,
@@ -496,14 +407,6 @@ export async function createReviewInDatabase(review, { reviewerId, reviewType, r
       photos: payload.photos,
       status: payload.status,
     };
-    console.info("reviews.js reviews insert called", {
-      sellerId: authenticatedReviewerId,
-      buyerId: payload.review_type === "buyer" ? payload.reviewee_id : null,
-      orderId: payload.order_id,
-      listingId: payload.listing_id,
-      reviewType: payload.review_type,
-      payload: insertPayload,
-    });
     const { data, error } = await supabase
       .from("reviews")
       .insert(insertPayload)
@@ -511,38 +414,10 @@ export async function createReviewInDatabase(review, { reviewerId, reviewType, r
       .single();
     insertData = data ?? null;
     insertError = error ?? null;
-    console.info("reviews.js reviews insert response", {
-      sellerId: authenticatedReviewerId,
-      buyerId: payload.review_type === "buyer" ? payload.reviewee_id : null,
-      orderId: payload.order_id,
-      listingId: payload.listing_id,
-      reviewType: payload.review_type,
-      row: data ?? null,
-      error: error ? { message: error.message, code: error.code, details: error.details, hint: error.hint } : null,
-    });
     if (error) throw error;
     row = data;
   }
-  console.info("BUYER REVIEW CREATE RESULT", {
-    reviewType: payload.review_type,
-    reviewerId: payload.reviewer_id,
-    revieweeId: payload.reviewee_id,
-    orderId: payload.order_id,
-    insertData: insertData ?? row ?? null,
-    insertError: insertError ?? null,
-  });
   if (!row?.id) throw new Error("Review was not saved. Please try again.");
-  console.info("reviews.js review row created", {
-    created: Boolean(row?.id),
-    reviewId: row?.id ?? null,
-    reviewType: row?.review_type ?? payload.review_type,
-    reviewerId: row?.reviewer_id ?? authenticatedReviewerId,
-    revieweeId: row?.reviewee_id ?? payload.reviewee_id ?? null,
-    rating: row?.rating ?? payload.rating ?? null,
-    createdAt: row?.created_at ?? null,
-    orderId: row?.order_id ?? payload.order_id ?? null,
-    listingId: row?.listing_id ?? payload.listing_id ?? null,
-  });
   const mapped = databaseReviewToLegacyReview(row);
   return {
     ...mapped,
@@ -577,23 +452,6 @@ async function getReviewsByType(reviewType, filterColumn, filterValue) {
   const mapped = reviewType === "seller" && filterValue != null
     ? mappedRows.filter((review) => String(review.sellerId) === String(filterValue))
     : mappedRows;
-  console.info("Supabase review read", {
-    reviewReadCount: rows.length,
-    mappedReviewCount: mapped.length,
-    reviewQuery: { reviewType, filterColumn, filterValue: filterValue ?? null },
-    reviews: mapped.map((review) => ({
-      review_id: review.databaseId ?? review.id ?? null,
-      reviewer_id: review.reviewerId ?? null,
-      reviewee_id: review.revieweeId ?? null,
-      rating: review.rating ?? null,
-      created_at: review.createdAt ?? null,
-      review_type: review.reviewType ?? null,
-    })),
-
-    productReviewCount: reviewType === "product" ? mapped.length : 0,
-    sellerReviewCount: reviewType === "seller" ? mapped.length : 0,
-    buyerReviewCount: reviewType === "buyer" ? mapped.length : 0,
-  });
   return mapped;
 }
 

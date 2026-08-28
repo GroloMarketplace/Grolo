@@ -86,7 +86,6 @@ async function upsertProfileWithLocationFallback(userId, payload) {
     const missingColumn = missingProfileColumn(error);
     if (!missingColumn || !OPTIONAL_LOCATION_COLUMNS.has(missingColumn) || !(missingColumn in remaining)) throw error;
     delete remaining[missingColumn];
-    console.warn(`Profile schema is missing optional location column '${missingColumn}'. Save continued without it; apply the normalized location migration.`, error);
   }
 }
 
@@ -198,7 +197,6 @@ export function BuyerSettingsProvider({ children }) {
       throw new Error("Supabase is not configured or the user is not signed in.");
     }
 
-    console.info("AuthContext profile before onboarding save", authenticatedProfile);
     const current = settings;
     const oldAvatarUrl = current.avatar ?? null;
     const next = {
@@ -210,19 +208,12 @@ export function BuyerSettingsProvider({ children }) {
       },
     };
     const data = await upsertProfileWithLocationFallback(user.id, { id: user.id, ...profileUpdates(next) });
-    console.info("profile avatar database update", {
-      user_id: user.id,
-      old_avatar_url: oldAvatarUrl,
-      new_avatar_url: data?.avatar_url ?? null,
-      row_updated: data?.id === user.id,
-    });
     setSettings(settingsFromProfile(data, user));
     setProfileFound(true);
     setProfileLoaded(true);
     setProfileLoading(false);
     setProfileError(null);
     const refreshedProfile = await refreshProfile(user.id);
-    console.info("AuthContext profile after onboarding save", refreshedProfile);
     return true;
   };
 

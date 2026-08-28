@@ -119,10 +119,6 @@ export default function TabBar() {
           : "/search";
   const handleProfileClick = () => {
     if (profileType === "seller") markSellerOrdersSeen(user?.id);
-    console.info("Profile icon clicked", {
-      navigatingTo: profilePath,
-      profileType,
-    });
   };
   const handleSearchClick = (event) => {
     if (isSearchRoute) {

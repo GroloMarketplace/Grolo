@@ -122,14 +122,8 @@ export function MessageProvider({ children }) {
   const subscribeToConversationRef = useRef(null);
 
   const cleanupRealtimeSubscriptions = (reason = "unspecified") => {
-    console.info("realtime subscription cleanup triggered", {
-      reason,
-      currentUserId: user?.id ?? null,
-      activeConversationIds: [...realtimeSubscriptions.current.keys()],
-    });
     realtimeSubscriptions.current.forEach((channel, conversationId) => {
       channel.unsubscribe();
-      console.info("realtime subscription removed", { conversationId, reason });
     });
     realtimeSubscriptions.current.clear();
   };
@@ -137,39 +131,19 @@ export function MessageProvider({ children }) {
   const reconcileRealtimeSubscriptions = (conversationIds) => {
     const activeConversationIds = new Set(conversationIds.filter(isCanonicalUuid));
     activeConversationIds.forEach((conversationId) => subscribeToConversationRef.current?.(conversationId));
-    console.info("realtime subscriptions kept active", {
-      activeConversationIds: [...realtimeSubscriptions.current.keys()],
-    });
   };
 
   const subscribeToConversation = (conversationId) => {
     if (!isCanonicalUuid(conversationId) || realtimeSubscriptions.current.has(conversationId)) return;
     const channel = subscribeToMessages(conversationId, (payload) => {
       const incomingMessage = databaseMessageToLegacyMessage(payload, { currentUserId: user?.id });
-      console.info("realtime message received", {
-        conversationId,
-        messageId: incomingMessage?.databaseId ?? incomingMessage?.id,
-        senderId: incomingMessage?.senderId,
-        realtime_payload_status: incomingMessage?.tradeProposal?.status ?? null,
-      });
       mergeRealtimeMessage(conversationId, incomingMessage);
     }, (status, error) => {
-      console.info("realtime message subscription status", {
-        conversationId,
-        currentUserId: user?.id ?? null,
-        status,
-        error: error?.message ?? error ?? null,
-      });
     }, (payload) => {
       const updatedMessage = databaseMessageToLegacyMessage(payload, { currentUserId: user?.id });
       mergeRealtimeMessage(conversationId, updatedMessage);
     });
     realtimeSubscriptions.current.set(conversationId, channel);
-    console.info("realtime subscription created", {
-      conversationId,
-      currentUserId: user?.id ?? null,
-      channel: `messages:${conversationId}`,
-    });
   };
   subscribeToConversationRef.current = subscribeToConversation;
 
@@ -177,11 +151,6 @@ export function MessageProvider({ children }) {
     let cancelled = false;
     setMessages([]);
 
-    console.info("realtime subscription dependency change", {
-      dependency: "user.id",
-      currentUserId: user?.id ?? null,
-      supabaseConfigured: isSupabaseConfigured,
-    });
 
     if (!user?.id || !isSupabaseConfigured) {
       cleanupRealtimeSubscriptions("auth-user-missing-or-supabase-unconfigured");
@@ -212,34 +181,12 @@ export function MessageProvider({ children }) {
                     tradeStatus: persistedProposal.status,
                     metadata: { ...(conversation.metadata ?? {}), tradeProposal, tradeStatus: persistedProposal.status },
                   };
-                  console.info("hydrated trade proposal status", {
-                    trade_proposal_id: persistedProposal.id,
-                    conversation_id: databaseConversationId,
-                    hydrated_status: persistedProposal.status,
-                    raw_proposal_message: persistedProposal.message,
-                    proposal_message_type: typeof persistedProposal.message,
-                    normalized_proposal_message: tradeProposal.message,
-                    conversation_metadata_before_refresh: conversation.metadata ?? null,
-                    hydrated_conversation_payload: hydratedConversation,
-                    hydrated_proposal_payload: tradeProposal,
-                  });
                 }
               } catch (error) {
-                console.warn("Unable to hydrate persisted trade proposal", {
-                  conversationId: databaseConversationId,
-                  error: error?.message ?? String(error),
-                });
               }
             }
             return hydratedConversation;
           } catch (error) {
-            console.warn("Unable to retrieve conversation messages", {
-              conversationId: databaseConversationId,
-              buyerId: conversation.buyerId ?? null,
-              sellerId: conversation.sellerId ?? null,
-              currentUserId: user.id,
-              error: error?.message ?? String(error),
-            });
             return conversation;
           }
         }));
@@ -249,14 +196,6 @@ export function MessageProvider({ children }) {
         const mappedMessages = normalizedConversations.filter((conversation) => conversation.id);
         const sortedMessages = sortConversations(mappedMessages);
         const messageCount = mappedMessages.reduce((count, conversation) => count + conversation.messages.length, 0);
-        console.info("Message source: supabase", {
-          totalConversationsLoaded: conversations.length,
-          conversationsAfterNormalization: normalizedConversations.length,
-          conversationsAfterIdFiltering: mappedMessages.length,
-          conversationsAfterSorting: sortedMessages.length,
-          conversationsMissingLatestActivityAt: sortedMessages.filter((conversation) => !conversation.latestActivityAt).length,
-          messageCount,
-        });
         const hydrationRows = sortedMessages.flatMap((conversation) => conversation.messages.map((message) => ({
           conversationId: conversation.databaseId ?? conversation.id,
           messageId: message.databaseId ?? message.id,
@@ -266,7 +205,6 @@ export function MessageProvider({ children }) {
           readAt: message.readAt ?? null,
           computedUnread: message.unread === true,
         })));
-        console.info("HYDRATED MESSAGE READ STATE");
         console.table(hydrationRows);
         const unreadSummaryRows = sortedMessages.map((conversation) => {
           const unreadMessageIds = conversation.messages.filter((message) => message.unread === true).map((message) => message.databaseId ?? message.id);
@@ -276,21 +214,13 @@ export function MessageProvider({ children }) {
             unreadMessageIds: unreadMessageIds.join(", "),
           };
         });
-        console.info("UNREAD MESSAGE IDS FOR CONVERSATION");
         console.table(unreadSummaryRows);
         setMessages(sortedMessages);
         const activeConversationIds = hydratedConversations.map((conversation) => conversation.databaseId ?? conversation.id);
-        console.info("realtime subscription reconciliation", {
-          currentUserId: user.id,
-          activeConversationIds,
-        });
         reconcileRealtimeSubscriptions(activeConversationIds);
       } catch (error) {
         if (cancelled) return;
         setMessages([]);
-        console.warn("Message source: supabase read failed", {
-          error: error?.message ?? String(error),
-        });
       }
     };
 
@@ -329,12 +259,6 @@ export function MessageProvider({ children }) {
           messages: updatedMessages,
         });
         const nextMessages = sortConversations(current.map((item, index) => index === conversationIndex ? nextConversation : item));
-        console.info("realtime message state merged", {
-          conversationId,
-          messageId: incomingDatabaseMessageId,
-          readAt: incomingMessage.readAt ?? null,
-          unreadMessageCount: nextConversation.messages.filter((message) => message.unread).length,
-        });
         return nextMessages;
       }
       const nextConversation = normalizeConversation({
@@ -345,11 +269,6 @@ export function MessageProvider({ children }) {
         timestamp: incomingMessage.timestamp,
       });
       const nextMessages = sortConversations(current.map((item, index) => index === conversationIndex ? nextConversation : item));
-      console.info("realtime message merged", {
-        conversationId,
-        messageId: incomingDatabaseMessageId,
-        senderId: incomingMessage.senderId,
-      });
       return nextMessages;
     });
   };
@@ -376,11 +295,6 @@ export function MessageProvider({ children }) {
           ? normalizedConversation.messages
           : databaseConversation.messages,
       });
-      console.info(existing ? "Conversation found existing" : "Conversation created", {
-        databaseConversationId: databaseConversation.databaseId,
-        conversationType: mergedConversation.conversationType,
-        conversationId: mergedConversation.id,
-      });
       subscribeToConversation(databaseConversation.databaseId);
       setMessages((current) => {
         const existing = current.find((item) => item.id === normalizedConversation.id)
@@ -392,14 +306,6 @@ export function MessageProvider({ children }) {
       });
       return databaseConversation;
     }).catch((error) => {
-      console.warn("Conversation persistence failed", {
-        conversationId: normalizedConversation.id,
-        conversationType: normalizedConversation.conversationType,
-        buyerId: normalizedConversation.buyerId ?? user?.id ?? null,
-        sellerId: normalizedConversation.sellerId ?? normalizedConversation.participantId ?? null,
-        listingId: normalizedConversation.listingId ?? null,
-        error: error?.message ?? String(error),
-      });
       if (throwOnError) throw error;
       return null;
     });
@@ -442,10 +348,6 @@ export function MessageProvider({ children }) {
         ...(latestMessage ? { preview: latestMessage.text, timestamp: latestMessage.timestamp } : {}),
       });
     })));
-    console.info("Message list refreshed after insert", {
-      conversationId,
-      messageCount: refreshedMessages.length,
-    });
     return refreshedMessages;
   };
 
@@ -464,11 +366,6 @@ export function MessageProvider({ children }) {
     if (pendingMessageSends.current.has(sendKey)) return;
     pendingMessageSends.current.add(sendKey);
 
-    console.info("Message send requested", {
-      conversationId: initialDatabaseConversationId ?? conversationId,
-      messageId: message.id,
-      senderId: user?.id ?? null,
-    });
 
     const updateState = (savedMessage) => {
       setMessages((current) => {
@@ -481,11 +378,6 @@ export function MessageProvider({ children }) {
           currentMessage.databaseId === savedDatabaseMessageId || currentMessage.id === savedDatabaseMessageId
         ));
         if (duplicate) {
-          console.info("realtime duplicate skipped", {
-            conversationId: initialDatabaseConversationId ?? conversationId,
-            messageId: savedDatabaseMessageId,
-            senderId: savedMessage.senderId ?? user?.id,
-          });
           return current;
         }
         const threadMessages = [...(currentConversation.messages ?? []), savedMessage];
@@ -521,11 +413,6 @@ export function MessageProvider({ children }) {
         if (!recipientId || !isCanonicalUuid(recipientId)) {
           throw new Error("A canonical recipient UUID is required.");
         }
-        console.info("Message recipient resolved", {
-          conversationId: databaseConversationId,
-          senderId: user.id,
-          recipientId,
-        });
         if (await isUserBlocked(user.id, recipientId)) {
           throw new Error("Messaging is unavailable because one of these users is blocked.");
         }
@@ -537,20 +424,8 @@ export function MessageProvider({ children }) {
           content: requestedContent,
         });
         const { messageDebug, ...savedMessage } = persistedMessage;
-        console.info("Message send succeeded", {
-          conversationId: databaseConversationId,
-          messageId: savedMessage?.databaseId ?? savedMessage?.id,
-          senderId: user.id,
-          recipientId,
-        });
         updateState(savedMessage);
         await refreshConversationMessages(databaseConversationId, savedMessage.databaseId ?? savedMessage.id).catch((refreshError) => {
-          console.warn("Message list refresh after insert failed", {
-            conversationId: databaseConversationId,
-            senderId: user.id,
-            recipientId,
-            error: refreshError?.message ?? String(refreshError),
-          });
           const reloadError = refreshError instanceof Error ? refreshError : new Error(String(refreshError));
           reloadError.messageDebug = {
             ...messageDebug,
@@ -567,13 +442,6 @@ export function MessageProvider({ children }) {
         });
         return { message: savedMessage, messageDebug };
       } catch (error) {
-        console.warn("Message send failed", {
-          conversationId: initialDatabaseConversationId ?? conversationId,
-          messageId: message.id,
-          senderId: user?.id ?? null,
-          recipientId,
-          error: error?.message ?? String(error),
-        });
         throw error;
       } finally {
         pendingMessageSends.current.delete(sendKey);
@@ -599,23 +467,11 @@ export function MessageProvider({ children }) {
     const pendingWriteKey = localConversation?.id ?? pendingConversation?.id;
     const pendingWrite = pendingWriteKey ? pendingConversationWrites.current.get(pendingWriteKey) : null;
     if (pendingWrite) {
-      console.info("Trade conversation persistence pending", {
-        pendingConversationId: pendingWriteKey,
-        currentUserId: user.id,
-        recipientId: routeParticipantId,
-      });
       const databaseConversation = await pendingWrite;
       if (databaseConversation?.databaseId) return databaseConversation.databaseId;
       throw new Error("Trade conversation persistence did not return a conversation UUID.");
     }
 
-    console.info("Conversation participant validation", {
-      routeConversationId: conversationId,
-      currentUserId: user.id,
-      recipientId: routeParticipantId,
-      recipientIdIsUuid: isCanonicalUuid(routeParticipantId),
-      conversationType,
-    });
     if (!isCanonicalUuid(routeParticipantId)) {
       throw new Error("The other participant must have a valid account UUID.");
     }
@@ -630,11 +486,6 @@ export function MessageProvider({ children }) {
         return sameParticipants && sameListing;
       }) ?? null;
     } catch (error) {
-      console.warn("Conversation lookup before creation failed", {
-        participantId: routeParticipantId,
-        currentUserId: user.id,
-        error: error?.message ?? String(error),
-      });
     }
 
     if (existingConversation?.databaseId) {
@@ -653,29 +504,12 @@ export function MessageProvider({ children }) {
               tradeProposalSource: "trade_proposals",
               tradeStatus: persistedProposal.status,
             });
-            console.info("trade proposal hydrated during conversation recovery", {
-              trade_proposal_id: persistedProposal.id,
-              conversation_id: existingConversation.databaseId,
-              hydrated_status: persistedProposal.status,
-              raw_proposal_message: persistedProposal.message,
-              proposal_message_type: typeof persistedProposal.message,
-              normalized_proposal_message: tradeProposal.message,
-            });
           }
         } catch (error) {
-          console.warn("Unable to hydrate trade proposal during conversation recovery", {
-            conversationId: existingConversation.databaseId,
-            error: error?.message ?? String(error),
-          });
         }
       }
       setMessages((current) => sortConversations([hydratedConversation, ...current.filter((item) => item.databaseId !== existingConversation.databaseId && item.id !== hydratedConversation.id)]));
       subscribeToConversation(existingConversation.databaseId);
-      console.info("Conversation recovered before chat send", {
-        conversationId: existingConversation.databaseId,
-        senderId: user.id,
-        recipientId: routeParticipantId,
-      });
       return existingConversation.databaseId;
     }
 
@@ -694,11 +528,6 @@ export function MessageProvider({ children }) {
     });
     const databaseConversation = await persistConversation(seed, { throwOnError: true });
     if (!databaseConversation?.databaseId) throw new Error("Unable to create a conversation record. Please try again.");
-    console.info("Conversation initialized before chat send", {
-      conversationId: databaseConversation.databaseId,
-      senderId: user.id,
-      recipientId: routeParticipantId,
-    });
     return databaseConversation.databaseId;
   }, [isSuspended, user?.id]);
 
@@ -769,14 +598,6 @@ export function MessageProvider({ children }) {
       && (conversation.conversationType ?? "standard") === conversationType
     ));
 
-    console.info("Listing conversation lookup", {
-      buyerId,
-      sellerId: seller.id,
-      listingId,
-      conversationType,
-      matchedConversationId: existing?.id ?? null,
-      messageCount: existing?.messages?.length ?? 0,
-    });
 
     if (existing) {
       const updatedConversation = { ...existing, buyerId, listingId, conversationType, ...(serviceContext ? { serviceContext } : {}) };
@@ -852,13 +673,6 @@ export function MessageProvider({ children }) {
     const listingId = listing?.databaseId ?? listing?.id ?? null;
     const storeId = listing?.storeId ?? listing?.store_id ?? seller?.storeId ?? seller?.store_id ?? seller?.shopSlug ?? null;
     const sellerProfileId = seller?.databaseId ?? seller?.profileId ?? seller?.profile_id ?? seller?.id ?? null;
-    console.info("trade proposal recipient audit", {
-      listing_id: listingId,
-      store_id: storeId,
-      seller_profile_id: sellerProfileId,
-      seller_user_id: sellerUserId ?? null,
-      recipient_id: sellerUserId ?? null,
-    });
     if (!isCanonicalUuid(sellerUserId)) throw new Error("The seller account could not be resolved to a valid user UUID.");
     const id = `trade-${listing.id}-${Date.now()}`;
     const buyerId = user?.id ?? CURRENT_BUYER_ID;
@@ -884,12 +698,6 @@ export function MessageProvider({ children }) {
       message: proposalText,
       photos: photos ?? [],
     };
-    console.info("trade proposal creation message audit", {
-      source: "new_proposal_creation",
-      raw_proposal_message: message,
-      proposal_message_type: typeof message,
-      normalized_proposal_message: proposalText,
-    });
     const firstMessage = {
       id: `${id}-1`,
       from: "me",
@@ -927,40 +735,11 @@ export function MessageProvider({ children }) {
     const conversationWrite = persistConversation(conversation, { throwOnError: true });
     conversationWrite.then((databaseConversation) => {
       const conversationId = databaseConversation?.databaseId ?? databaseConversation?.id ?? null;
-      console.info("trade proposal null dereference audit", {
-        trade_proposal_id: tradeProposal?.id ?? id,
-        trade_proposal_object: tradeProposal ?? null,
-        conversation_id: conversationId,
-        conversation_object: databaseConversation ?? null,
-        message_id: firstMessage?.id ?? null,
-        message_object: firstMessage ?? null,
-      });
-      console.info("trade proposal delivery audit", {
-        trade_proposal_id: id,
-        source_conversation_id: conversation.id,
-        persisted_conversation_id: conversationId,
-        conversation_lookup_id: databaseConversation?.databaseId ?? databaseConversation?.id ?? null,
-        buyer_id: buyerId,
-        seller_id: sellerUserId,
-        conversation_id: conversationId,
-        message_id: firstMessage.id,
-        conversation_created: Boolean(conversationId),
-        conversation_category: conversation.category,
-        conversation_type: conversation.conversationType,
-      });
       if (!conversationId) return;
       return appendMessage(conversationId, { ...firstMessage, tradeProposal, metadata: { tradeProposal } }, { ...conversation, databaseId: conversationId, id: conversationId, messages: [] })
         .then(async (messageResult) => {
           const message = messageResult?.message ?? null;
           const proposalMessage = message?.text ?? message?.content ?? tradeProposal.message ?? "";
-          console.info("trade proposal post-message null dereference audit", {
-            trade_proposal_id: tradeProposal?.id ?? id,
-            trade_proposal_object: tradeProposal ?? null,
-            conversation_id: conversationId,
-            conversation_object: conversation ?? null,
-            message_id: message?.databaseId ?? message?.id ?? null,
-            message_object: message,
-          });
           if (!message) throw new Error("Trade proposal message creation returned no message object.");
           const messageId = message.databaseId ?? message.id ?? firstMessage.id;
           const [proposal, notification] = await Promise.all([
@@ -976,21 +755,9 @@ export function MessageProvider({ children }) {
                 : item
             )));
           }
-          console.info("trade proposal delivery notification", {
-            ...verification,
-            notification_id: notification?.id ?? null,
-            proposal_row_created: Boolean(proposal),
-          });
           return { message: messageResult, proposal, notification, verification };
         });
-    }).catch((error) => console.warn("trade proposal delivery failed", {
-      trade_proposal_id: id,
-      buyer_id: buyerId,
-      seller_id: sellerUserId,
-      recipient_id: sellerUserId,
-      listing_id: listingId,
-      error: error?.message ?? String(error),
-    }));
+    }).catch((error) => {});
     setMessages((current) => {
       return sortConversations([normalizeConversation(conversation), ...current]);
     });
@@ -1008,12 +775,6 @@ export function MessageProvider({ children }) {
     const proposalId = existing.tradeProposal.id;
     const databaseConversationId = existing.databaseId ?? (isCanonicalUuid(conversationId) ? conversationId : null);
     const storeName = existing.name ?? existing.participantName ?? "The store";
-    console.info("trade response requested", {
-      trade_proposal_id: proposalId,
-      conversation_id: databaseConversationId ?? conversationId,
-      status_before: currentStatus,
-      requested_status: normalizedAction,
-    });
 
     try {
       const persistedProposal = await updateTradeProposalRecord({ id: proposalId, status: normalizedAction, acceptedBy: normalizedAction === "accepted" ? user?.id ?? null : null });
@@ -1038,15 +799,8 @@ export function MessageProvider({ children }) {
         messages: [...(existing.messages ?? []), { id: `${existing.id}-${normalizedAction}-${Date.now()}`, from: "me", text: responseMessage, timestamp: "Just now", tradeAction: normalizedAction }],
       });
       setMessages((current) => current.map((item) => item.id === existing.id || item.databaseId === existing.databaseId ? updatedConversation : item));
-      console.info("trade response persisted and buyer notified", {
-        trade_proposal_id: persistedProposal?.id ?? proposalId,
-        conversation_id: resolvedConversationId ?? conversationId,
-        status_after: persistedProposal?.status ?? normalizedAction,
-        buyer_id: existing.buyerId ?? null,
-      });
       return updatedConversation;
     } catch (error) {
-      console.warn("Trade proposal response persistence failed", { conversationId, proposalId, error: error?.message ?? String(error) });
       throw error;
     }
   };
@@ -1057,23 +811,10 @@ export function MessageProvider({ children }) {
       : { data: { user: null }, error: null };
     const authCurrentUser = authResult.data?.user ?? null;
     const currentUserId = authCurrentUser?.id ?? user?.id ?? null;
-    console.info("markConversationRead entered", {
-      conversationId: conversationId ?? null,
-      user: user ? { id: user.id, email: user.email ?? null } : null,
-      userId: user?.id ?? null,
-      authCurrentUser: authCurrentUser ? { id: authCurrentUser.id, email: authCurrentUser.email ?? null } : null,
-      currentUserId,
-      authError: authResult.error?.message ?? null,
-    });
     if (!currentUserId) {
-      console.warn("markConversationRead deferred until authenticated user is available", {
-        conversationId: conversationId ?? null,
-        currentUserId: null,
-      });
       return { conversationId: conversationId ?? null, skipped: true, reason: "authenticated user unavailable" };
     }
     if (!conversationId) {
-      console.warn("markConversationRead exited without conversation ID");
       return;
     }
     const readAt = new Date().toISOString();
@@ -1097,14 +838,6 @@ export function MessageProvider({ children }) {
         idsRemainingUnread = unreadAfterMessages.map((message) => message.databaseId ?? message.id);
         return nextConversation;
       });
-      console.info("conversation unread state recalculated", {
-        conversationId,
-        unreadBefore,
-        unreadAfter,
-        idsMarkedRead,
-        idsRemainingUnread,
-        readAt,
-      });
       return sortConversations(nextMessages);
     });
     let persistedReadResult = null;
@@ -1125,22 +858,13 @@ export function MessageProvider({ children }) {
             }),
           });
           const conversationUnreadCount = nextConversation.messages.filter((message) => message.unread).length;
-          console.info("conversation unread count after persisted read", {
-            conversationId,
-            conversationUnreadCount,
-            unreadBefore: readResult.unreadBefore,
-            unreadAfter: readResult.unreadAfter,
-          });
           return nextConversation;
         })));
-        console.info("conversation read_at updates persisted", { conversationId, ...readResult });
       } catch (error) {
         persistedReadError = error?.message ?? String(error);
-        console.warn("Unable to mark conversation messages read", { conversationId, error: persistedReadError });
       }
     }
     const auditResult = { conversationId, unreadBefore, unreadAfter, persistedReadResult, persistedReadError };
-    console.info("markConversationRead audit completed", auditResult);
     return auditResult;
   }, [user?.id]);
 

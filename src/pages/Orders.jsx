@@ -6,6 +6,7 @@ import OutlineIcon from "../components/OutlineIcon";
 import { useListings } from "../context/ListingContext";
 import { useReviews } from "../context/ReviewContext";
 import { useOrders } from "../context/OrderContext";
+import { useAuth } from "../context/AuthContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { CompactReputationHeader } from "../components/ReputationSummary";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
@@ -32,9 +33,20 @@ export default function Orders() {
   const scrollRef = useRef(null);
   const savedOrdersState = readNavigationState("orders", { scrollTop: 0 });
   const { hasReviewedProduct } = useReviews();
+  const { user } = useAuth();
   const { buyerOrders } = useOrders();
   const { listings } = useListings();
   const orders = buyerOrders();
+
+  useEffect(() => {
+    console.info("BUYER ORDERS LOAD", {
+      currentUserId: user?.id ?? null,
+      sellerProfileId: [...new Set(orders.map((order) => order.sellerId).filter(Boolean))],
+      buyerId: user?.id ?? null,
+      queryFilters: { buyer_id: user?.id ?? null },
+      rowsReturned: orders.map((order) => ({ orderId: order.databaseId ?? order.id ?? null, buyerId: order.buyerId ?? user?.id ?? null, sellerId: order.sellerId ?? null, status: order.status ?? null })),
+    });
+  }, [orders, user?.id]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = savedOrdersState.scrollTop;

@@ -12,10 +12,14 @@ export default function ConfirmEmail() {
         <div className="my-auto py-10">
           <div className="rounded-2xl border border-[#C9DCCB] bg-white p-6 text-center shadow-sm">
             <CheckCircle2 className="mx-auto mb-3 text-[#498467]" size={34} />
-            <h1 className="text-2xl font-semibold text-[#202A21]">Email Confirmed!</h1>
-            <p className="mt-2 text-[15px] leading-6 text-[#687368]">Your account has been activated.</p>
+            <h1 className="text-2xl font-semibold text-[#202A21]">Email Confirmed</h1>
+            <p className="mt-2 text-[15px] leading-6 text-[#687368]">Your email has been successfully verified.</p>
+            <p className="mt-1 text-[15px] leading-6 text-[#687368]">You can now log in and start exploring Grolo.</p>
             <button type="button" onClick={() => navigate("/signin", { replace: true })} className="mt-6 h-12 w-full rounded-xl bg-[#498467] text-[15px] font-semibold text-white shadow-sm">
-              Proceed to Login
+              Log In
+            </button>
+            <button type="button" onClick={() => navigate("/", { replace: true })} className="mt-3 w-full py-2 text-[14px] font-medium text-[#498467]">
+              Return to Home
             </button>
           </div>
         </div>

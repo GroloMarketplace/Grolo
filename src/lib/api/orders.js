@@ -6,7 +6,7 @@ function requireSupabase() {
   }
 }
 
-const ORDER_SELECT = "*, order_items(*, listings(legacy_id,price)), payments(*)";
+const ORDER_SELECT = "*, order_items(*, listings(legacy_id,price))";
 
 function logApiError(operation, error, context = {}) {
   console.error(`Supabase ${operation} error`, {
@@ -135,6 +135,7 @@ export function legacyOrderFromRow(row, itemRow, itemIndex = 0) {
     status: row.status,
     fulfillmentMethod: row.fulfillment_method ?? row.fulfillmentMethod,
     createdAt,
+    created_at: row.created_at ?? row.createdAt,
     date: legacyDate(row.created_at ?? row.createdAt),
     inventoryRestored: Boolean(row.inventory_restored ?? row.inventoryRestored),
     payment: row.payments?.[0] ?? row.payment ?? null,
@@ -278,6 +279,14 @@ export async function createOrderWithItems(sellerId, items, { fulfillmentMethod 
     p_metadata: payloadMetadata,
     p_items: payloadItems,
   });
+  console.info("ORDER CREATE RESULT", {
+    insertData: data ?? null,
+    insertError: error?.message ?? null,
+    orderId: data?.order?.id ?? null,
+    buyerId: data?.order?.buyer_id ?? buyerId,
+    sellerId: data?.order?.seller_id ?? sellerId,
+    orderStatus: data?.order?.status ?? null,
+  });
   if (error) {
     logApiError("createOrderWithItems", error, { sellerId, itemCount: payloadItems.length });
     throw error;
@@ -300,11 +309,25 @@ export async function createOrderWithItems(sellerId, items, { fulfillmentMethod 
 
 export async function getBuyerOrders(buyerId) {
   requireSupabase();
-  const { data, error } = await supabase
+  let { data, error } = await supabase
+    .schema("public")
     .from("orders")
     .select(ORDER_SELECT)
     .eq("buyer_id", buyerId)
     .order("created_at", { ascending: false });
+  if (error?.code === "PGRST200") {
+    const fallback = await supabase.schema("public").from("orders").select("*").eq("buyer_id", buyerId).order("created_at", { ascending: false });
+    console.warn("ORDER RELATIONSHIP FALLBACK (BUYER)", { relationshipError: error, fallbackData: fallback.data ?? null, fallbackError: fallback.error ?? null, count: fallback.data?.length ?? 0 });
+    data = fallback.data;
+    error = fallback.error;
+  }
+  console.info("ORDER LOAD RESULT (BUYER)", {
+    buyerId,
+    orderCount: data?.length ?? 0,
+    orderIds: (data ?? []).map((row) => row.id ?? null),
+    orders: (data ?? []).map((row) => ({ orderId: row.id ?? null, buyerId: row.buyer_id ?? null, sellerId: row.seller_id ?? null, orderStatus: row.status ?? null })),
+    error: error?.message ?? null,
+  });
   if (error) {
     logApiError("getBuyerOrders", error, { buyer_id: buyerId });
     throw error;
@@ -314,11 +337,41 @@ export async function getBuyerOrders(buyerId) {
 
 export async function getSellerOrders(sellerId) {
   requireSupabase();
-  const { data, error } = await supabase
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  const authenticatedUserId = authData.user?.id ?? null;
+  let { data, error } = await supabase
+    .schema("public")
     .from("orders")
     .select(ORDER_SELECT)
     .eq("seller_id", sellerId)
     .order("created_at", { ascending: false });
+  const relationshipError = error;
+  if (error?.code === "PGRST200") {
+    const fallback = await supabase.schema("public").from("orders").select("*").eq("seller_id", sellerId).order("created_at", { ascending: false });
+    console.warn("ORDER RELATIONSHIP FALLBACK (SELLER)", { relationshipError: error, fallbackData: fallback.data ?? null, fallbackError: fallback.error ?? null, count: fallback.data?.length ?? 0 });
+    data = fallback.data;
+    error = fallback.error;
+  }
+  console.info("SHOPHOME RAW ORDER QUERY", {
+    schema: "public",
+    table: "orders",
+    authUserId: authenticatedUserId,
+    authError: authError?.message ?? null,
+    sellerIdUsedInQuery: sellerId,
+    sellerIdMatchesAuthUser: authenticatedUserId === sellerId,
+    queryFilters: { seller_id: sellerId },
+    data: data ?? null,
+    error: error ?? null,
+    rawError: relationshipError ?? null,
+    count: data?.length ?? 0,
+  });
+  console.info("ORDER LOAD RESULT (SELLER)", {
+    sellerId,
+    orderCount: data?.length ?? 0,
+    orderIds: (data ?? []).map((row) => row.id ?? null),
+    orders: (data ?? []).map((row) => ({ orderId: row.id ?? null, buyerId: row.buyer_id ?? null, sellerId: row.seller_id ?? null, orderStatus: row.status ?? null })),
+    error: error?.message ?? null,
+  });
   if (error) {
     logApiError("getSellerOrders", error, { seller_id: sellerId });
     throw error;

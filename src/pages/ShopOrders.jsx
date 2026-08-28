@@ -13,11 +13,11 @@ import { useAuth } from "../context/AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 
 const SECTIONS = [
-  { title: "Pickup Orders · New", statuses: ["Seller Notified", "Order Placed"], fulfillmentMethod: "pickup" },
+  { title: "Pickup Orders · New", statuses: ["New", "Seller Notified", "Order Placed"], fulfillmentMethod: "pickup" },
   { title: "Pickup Orders · Preparing", statuses: ["In Progress", "Preparing"], fulfillmentMethod: "pickup" },
   { title: "Pickup Orders · Ready for Pickup", statuses: ["Ready for Pickup"], fulfillmentMethod: "pickup" },
   { title: "Pickup Orders · Completed", statuses: ["Completed"], fulfillmentMethod: "pickup" },
-  { title: "Delivery Orders · New", statuses: ["Seller Notified", "Order Placed"], fulfillmentMethod: "delivery" },
+  { title: "Delivery Orders · New", statuses: ["New", "Seller Notified", "Order Placed"], fulfillmentMethod: "delivery" },
   { title: "Delivery Orders · Preparing", statuses: ["In Progress", "Preparing"], fulfillmentMethod: "delivery" },
   { title: "Delivery Orders · Out for Delivery", statuses: ["Out for Delivery"], fulfillmentMethod: "delivery" },
   { title: "Delivery Orders · Delivered", statuses: ["Delivered"], fulfillmentMethod: "delivery" },
@@ -32,7 +32,7 @@ function BuyerOrderStatus({ buyerId }) {
 export default function ShopOrders() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { sellerOrders, nextStatuses, updateOrderStatus } = useOrders();
+  const { sellerOrders, nextStatuses, updateOrderStatus, markSellerOrdersSeen } = useOrders();
   const { listings } = useListings();
   const { hasReviewedOrder, getBuyerTrust } = useBuyerTrust();
   const { storeOpenedAt } = useProfileMode();
@@ -44,6 +44,11 @@ export default function ShopOrders() {
   const scrollRef = useRef(null);
   const savedOrderState = readNavigationState("store-orders", { scrollTop: 0 });
   const sellerId = user?.id ?? "current-user";
+
+  useEffect(() => {
+    markSellerOrdersSeen(sellerId);
+  }, [markSellerOrdersSeen, sellerId]);
+
   const storeOrders = useMemo(
     () => sellerOrders(sellerId).filter((order) => {
       const createdAt = typeof order.createdAt === "number" ? order.createdAt : Date.parse(order.createdAt);
@@ -93,6 +98,13 @@ export default function ShopOrders() {
       sellerOrdersFilterInput: sellerId,
       storeOpenedAt,
       visibleOrderCount: storeOrders.length,
+    });
+    console.info("MANAGE ORDERS LOAD", {
+      currentUserId: user?.id ?? null,
+      sellerProfileId: sellerId,
+      buyerId: [...new Set(storeOrders.map((order) => order.buyerId).filter(Boolean))],
+      queryFilters: { seller_id: sellerId, storeOpenedAt: storeOpenedAt ?? null },
+      rowsReturned: storeOrders.map((order) => ({ orderId: order.databaseId ?? order.id ?? null, buyerId: order.buyerId ?? null, sellerId: order.sellerId ?? null, status: order.status ?? null })),
     });
   }, [sellerId, storeOpenedAt, storeOrders, user?.id]);
 

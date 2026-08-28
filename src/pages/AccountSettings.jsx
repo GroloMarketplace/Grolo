@@ -97,7 +97,7 @@ function SellerAccountSettings() {
     const isBanner = kind === "banner";
     setUploadError("");
     setUploadWarning("");
-    setUploadProgress({ progress: 0, stage: "Preparing image" });
+    setUploadProgress({ progress: 0, stage: "Preparing image", kind });
     try {
       const previewUrl = URL.createObjectURL(file);
       const image = new Image();
@@ -168,12 +168,12 @@ function SellerAccountSettings() {
                 <img src={avatar} alt={name} className="h-20 w-20 rounded-full object-cover" />
                 <div className="flex flex-col gap-2">
                   <span className="text-[14px] font-medium">Profile Picture</span>
-                  <div className="text-[11px] leading-[140%] text-[#828282]">Recommended: 800 × 800 px<br />Automatically optimized · Up to 10 MB source<br />JPG, PNG, WEBP</div><FileButton label="Change Profile Picture" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, setAvatar, "avatar")} />{uploadProgress && <UploadProgress {...uploadProgress} />}
+                  <div className="text-[11px] leading-[140%] text-[#828282]">Recommended: 800 × 800 px<br />Automatically optimized · Up to 10 MB source<br />JPG, PNG, WEBP</div><FileButton label="Change Profile Picture" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, setAvatar, "avatar")} />{uploadProgress?.kind === "avatar" && <UploadProgress {...uploadProgress} />}
                 </div>
               </div>
               <div className="mt-4 flex items-center gap-3">
                 <img src={banner} alt="Store banner" className="h-20 flex-1 rounded-lg object-cover" />
-                <div className="flex flex-col items-start gap-2"><div className="text-[11px] leading-[140%] text-[#828282]">Recommended Banner Size<br /><span className="font-medium text-[#4F4F4F]">1500 × 500 px</span><br />Maximum Size: 5 MB<br />JPG, PNG, WEBP<br />Choose a wide image that represents your business.</div><FileButton label="Upload / Change Store Banner" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, setBanner, "banner")} /></div>
+                <div className="flex flex-col items-start gap-2"><div className="text-[11px] leading-[140%] text-[#828282]">Recommended Banner Size<br /><span className="font-medium text-[#4F4F4F]">1500 × 500 px</span><br />Maximum Size: 5 MB<br />JPG, PNG, WEBP<br />Choose a wide image that represents your business.</div><FileButton label="Upload / Change Store Banner" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, setBanner, "banner")} />{uploadProgress?.kind === "banner" && <UploadProgress {...uploadProgress} />}</div>
               </div>
               {uploadWarning && <p className="mt-3 text-[12px] text-amber-700">{uploadWarning}</p>}
               {uploadError && <p role="alert" className="mt-3 text-[12px] text-red-600">{uploadError}</p>}

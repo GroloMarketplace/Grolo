@@ -5,6 +5,8 @@ import { useCart } from "../context/CartContext";
 import { useListings } from "../context/ListingContext";
 import { getActiveCartTotalQuantity } from "../utils/cartGrouping";
 import { useMessages } from "../context/MessageContext";
+import { useOrders } from "../context/OrderContext";
+import { useAuth } from "../context/AuthContext";
 
 const tabs = [
   {
@@ -95,12 +97,15 @@ export default function TabBar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { profileMode } = useProfileMode();
+  const { user } = useAuth();
+  const { getNewSellerOrderCount, markSellerOrdersSeen } = useOrders();
   const { items } = useCart();
   const { listings } = useListings();
   const { unreadCount: unreadMessageCount } = useMessages();
   const totalQuantity = getActiveCartTotalQuantity(items, listings);
   const profileType = profileMode === "seller" ? "seller" : "buyer";
   const profilePath = profileType === "seller" ? "/shop" : "/profile";
+  const newSellerOrderCount = profileType === "seller" ? getNewSellerOrderCount(user?.id) : 0;
   const isSearchRoute = location.pathname === "/search";
   const savedSearchState = readNavigationState("search", {});
   const searchPath = isSearchRoute
@@ -113,6 +118,7 @@ export default function TabBar() {
           ? { pathname: "/featured", state: { fromSearch: true } }
           : "/search";
   const handleProfileClick = () => {
+    if (profileType === "seller") markSellerOrdersSeen(user?.id);
     console.info("Profile icon clicked", {
       navigatingTo: profilePath,
       profileType,
@@ -152,6 +158,11 @@ export default function TabBar() {
                 {tab.to === "/messages" && unreadMessageCount > 0 && (
                   <span aria-label={`${unreadMessageCount} unread messages`} className="absolute -right-2 -top-2 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[#C85A3F] px-1 text-[10px] font-semibold leading-4 text-white">
                     {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+                  </span>
+                )}
+                {tab.to === "/shop" && newSellerOrderCount > 0 && (
+                  <span aria-label={`${newSellerOrderCount} new orders`} className="absolute -right-2 -top-2 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[#C85A3F] px-1 text-[10px] font-semibold leading-4 text-white">
+                    {newSellerOrderCount > 99 ? "99+" : newSellerOrderCount}
                   </span>
                 )}
               </span>

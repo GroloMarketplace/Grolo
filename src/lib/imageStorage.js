@@ -86,13 +86,54 @@ async function optimizeAvatar(file, onProgress) {
   return new File([optimized], "profile-picture.webp", { type: optimized.type || "image/webp" });
 }
 
+async function optimizeBanner(file, onProgress) {
+  reportProgress(onProgress, 10, "Optimizing image...");
+  const image = await decodeImage(file);
+  const targetBytes = 4.5 * 1024 * 1024;
+  const maxDimension = 2400;
+  let scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+  try {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Unable to create an image canvas.");
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      for (const quality of [0.88, 0.82, 0.76, 0.7, 0.64, 0.58, 0.52]) {
+        let candidate = await canvasBlob(canvas, "image/webp", quality);
+        if (candidate.type !== "image/webp") candidate = await canvasBlob(canvas, "image/jpeg", quality);
+        if (candidate.size <= targetBytes) {
+          reportProgress(onProgress, 65, "Image optimized");
+          return new File([candidate], `store-banner.${extensionForType(candidate.type)}`, { type: candidate.type });
+        }
+      }
+      scale *= 0.8;
+    }
+  } finally {
+    image.close?.();
+  }
+
+  throw new Error("Unable to optimize this image.");
+}
+
 export async function uploadImage(file, { userId, kind = "listing", folder = kind, onProgress } = {}) {
   requireStorage(userId);
-  validateImage(file, kind);
-  const uploadFile = kind === "avatar" ? await optimizeAvatar(file, onProgress) : file;
-  const extension = uploadFile.type === "image/webp" ? "webp" : extensionForType(uploadFile.type);
-  const path = `${userId}/${folder}/${createId("image")}.${extension}`;
-  reportProgress(onProgress, 80, kind === "avatar" ? "Uploading profile picture" : "Uploading image");
+  let uploadFile = file;
+  if (kind === "avatar") {
+    validateImage(file, kind);
+    uploadFile = await optimizeAvatar(file, onProgress);
+  } else if (kind === "banner" && file.size > 5 * 1024 * 1024) {
+    try {
+      uploadFile = await optimizeBanner(file, onProgress);
+    } catch {
+      throw new Error("We couldn't optimize this image. Please choose a different banner image.");
+    }
+  }
+  validateImage(uploadFile, kind);
+  const path = `${userId}/${folder}/${createId("image")}.${extensionForType(uploadFile.type)}`;
+  reportProgress(onProgress, 80, kind === "avatar" ? "Uploading profile picture" : kind === "banner" ? "Uploading banner..." : "Uploading image");
   const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, uploadFile, {
     cacheControl: "31536000",
     contentType: uploadFile.type,

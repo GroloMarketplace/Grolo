@@ -7,7 +7,7 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage, removeImage } from "../lib/imageStorage";
-import { validateSellerProfile } from "../utils/validation";
+import { normalizeWebsite, validateSellerProfile } from "../utils/validation";
 import LocationAutocomplete from "../components/LocationAutocomplete";
 import { friendlyLocation } from "../data/locations";
 
@@ -80,7 +80,7 @@ export default function OpenStore() {
     const isBanner = key === "banner";
     setUploadError("");
     setUploadWarning("");
-    setUploadProgress({ progress: 0, stage: "Preparing image" });
+    setUploadProgress({ progress: 0, stage: "Preparing image", kind: key });
     try {
       const previewUrl = URL.createObjectURL(file);
       const image = new Image();
@@ -108,19 +108,20 @@ export default function OpenStore() {
   };
 
   const launch = async () => {
-    const validationError = validateSellerProfile(form);
-    if (validationError || !form.category) {
+    const normalizedForm = { ...form, website: normalizeWebsite(form.website) };
+    const validationError = validateSellerProfile(normalizedForm);
+    if (validationError || !normalizedForm.category) {
       setFormError(validationError ?? "Choose a store category before launching.");
-      setStep(!form.name.trim() || !form.description.trim() || !form.location.trim() ? 1 : !form.category ? 3 : 4);
+      setStep(!normalizedForm.name.trim() || !normalizedForm.description.trim() || !normalizedForm.location.trim() ? 1 : !normalizedForm.category ? 3 : 4);
       return;
     }
     if (uploadError) return;
-    const socialLinks = [form.instagram, form.facebook, form.x, form.website].filter(Boolean).join(" | ");
+    const socialLinks = [normalizedForm.instagram, normalizedForm.facebook, normalizedForm.x, normalizedForm.website].filter(Boolean).join(" | ");
     const previousAvatar = profile.avatar;
     const previousBanner = profile.banner;
     const location = form.locationDetails ?? {};
     try {
-      await updateSellerProfile(SELLER_ID, { ...form, location: location.neighborhood || location.city || form.location, neighborhood: location.neighborhood, city: location.city, province: location.province, country: location.country, postalCode: location.postalCode, latitude: location.latitude, longitude: location.longitude, socialLinks });
+      await updateSellerProfile(SELLER_ID, { ...normalizedForm, location: location.neighborhood || location.city || normalizedForm.location, neighborhood: location.neighborhood, city: location.city, province: location.province, country: location.country, postalCode: location.postalCode, latitude: location.latitude, longitude: location.longitude, socialLinks });
       if (previousAvatar && previousAvatar !== form.avatar) await removeImage(previousAvatar, user.id).catch((error) => console.error("Unable to remove previous avatar", error));
       if (previousBanner && previousBanner !== form.banner) await removeImage(previousBanner, user.id).catch((error) => console.error("Unable to remove previous banner", error));
       await activateStore();
@@ -141,7 +142,7 @@ export default function OpenStore() {
           {step === 1 && <BasicsStep form={form} update={update} onContinue={next} error={formError} />}
           {step === 2 && <BrandingStep form={form} handleFile={handleFile} uploadProgress={uploadProgress} onContinue={next} error={uploadError || formError} warning={uploadWarning} />}
           {step === 3 && <CategoryStep value={form.category} update={update} onContinue={next} error={formError} />}
-          {step === 4 && <ContactStep form={form} update={update} onContinue={next} />}
+          {step === 4 && <ContactStep form={form} update={update} onContinue={next} error={formError} />}
           {step === 5 && <ReviewStep form={form} onEdit={(targetStep) => { setFormError(""); setStep(targetStep); }} onContinue={next} />}
           {step === 6 && <LaunchStep form={form} onLaunch={launch} error={formError} />}
         </div>
@@ -163,15 +164,15 @@ function BasicsStep({ form, update, onContinue, error }) {
 }
 
 function BrandingStep({ form, handleFile, uploadProgress, onContinue, error, warning }) {
-  return <Step title="Make Your Store Stand Out"><p>Use a personal photo, store photo, farm photo, product photo, or logo.</p><div className="flex flex-col items-center gap-2"><img src={form.avatar} alt="Profile preview" className="h-28 w-28 rounded-full object-cover" /><div className="text-center text-[11px] text-[#828282]">Recommended: 800 × 800 px<br />Automatically optimized · Up to 10 MB source<br />JPG, PNG, WEBP</div><FileButton label="Upload Profile Picture" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, "avatar")} />{uploadProgress && <UploadProgress {...uploadProgress} />}</div><div className="flex flex-col gap-2"><img src={form.banner} alt="Store banner preview" className="h-24 w-full rounded-lg object-cover" /><div className="text-[11px] leading-[140%] text-[#828282]">Recommended Banner Size<br /><span className="font-medium text-[#4F4F4F]">1500 × 500 px</span><br />Maximum Size: 5 MB<br />JPG, PNG, WEBP<br />Choose a wide image that represents your business.</div><FileButton label="Upload Store Banner" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, "banner")} /></div>{warning && <p className="text-[12px] text-amber-700">{warning}</p>}<ErrorMessage>{error}</ErrorMessage><NextButton onClick={onContinue}>Continue</NextButton></Step>;
+  return <Step title="Make Your Store Stand Out"><p>Use a personal photo, store photo, farm photo, product photo, or logo.</p><div className="flex flex-col items-center gap-2"><img src={form.avatar} alt="Profile preview" className="h-28 w-28 rounded-full object-cover" /><div className="text-center text-[11px] text-[#828282]">Recommended: 800 × 800 px<br />Automatically optimized · Up to 10 MB source<br />JPG, PNG, WEBP</div><FileButton label="Upload Profile Picture" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, "avatar")} />{uploadProgress?.kind === "avatar" && <UploadProgress {...uploadProgress} />}</div><div className="flex flex-col gap-2"><img src={form.banner} alt="Store banner preview" className="h-24 w-full rounded-lg object-cover" /><div className="text-[11px] leading-[140%] text-[#828282]">Recommended Banner Size<br /><span className="font-medium text-[#4F4F4F]">1500 × 500 px</span><br />Maximum Size: 5 MB<br />JPG, PNG, WEBP<br />Choose a wide image that represents your business.</div><FileButton label="Upload Store Banner" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFile(event, "banner")} />{uploadProgress?.kind === "banner" && <UploadProgress {...uploadProgress} />}</div>{warning && <p className="text-[12px] text-amber-700">{warning}</p>}<ErrorMessage>{error}</ErrorMessage><NextButton onClick={onContinue}>Continue</NextButton></Step>;
 }
 
 function CategoryStep({ value, update, onContinue, error }) {
   return <Step title="What Best Describes Your Store?"><p>Choose the category that best represents your business.</p><label className="flex flex-col gap-2 text-[14px] font-medium">Primary Store Category<select required value={value} onChange={(event) => update("category", event.target.value)} className="rounded-lg border border-[#E0E0E0] bg-white px-3 py-3 outline-none focus:border-[#498467]"><option value="">Select primary store category</option>{STORE_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></label><NextButton onClick={onContinue}>Continue</NextButton>{error && <ErrorMessage>{error}</ErrorMessage>}</Step>;
 }
 
-function ContactStep({ form, update, onContinue }) {
-  return <Step title="Help Customers Find You"><p>These details are optional and can always be added or updated later.</p><Field label="Instagram" value={form.instagram} onChange={(value) => update("instagram", value)} placeholder="@yourbusiness" /><Field label="Facebook" value={form.facebook} onChange={(value) => update("facebook", value)} placeholder="Facebook page" /><Field label="X" value={form.x} onChange={(value) => update("x", value)} placeholder="@yourbusiness" /><Field label="Website" value={form.website} onChange={(value) => update("website", value)} placeholder="https://" /><Field label="Phone Number" value={form.phone} onChange={(value) => update("phone", value)} placeholder="Optional" /><Field label="Business Email" value={form.email} onChange={(value) => update("email", value)} placeholder="Optional" type="email" /><NextButton onClick={onContinue}>Review Store</NextButton></Step>;
+function ContactStep({ form, update, onContinue, error }) {
+  return <Step title="Help Customers Find You"><p>These details are optional and can always be added or updated later.</p><Field label="Instagram" value={form.instagram} onChange={(value) => update("instagram", value)} placeholder="@yourbusiness" /><Field label="Facebook" value={form.facebook} onChange={(value) => update("facebook", value)} placeholder="Facebook page" /><Field label="X" value={form.x} onChange={(value) => update("x", value)} placeholder="@yourbusiness" /><Field label="Website" value={form.website} onChange={(value) => update("website", value)} placeholder="https://" /><Field label="Phone Number" value={form.phone} onChange={(value) => update("phone", value)} placeholder="Optional" /><Field label="Business Email" value={form.email} onChange={(value) => update("email", value)} placeholder="Optional" type="email" />{error && <ErrorMessage>{error}</ErrorMessage>}<NextButton onClick={onContinue}>Review Store</NextButton></Step>;
 }
 
 function ReviewStep({ form, onEdit, onContinue }) {

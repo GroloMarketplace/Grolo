@@ -31,10 +31,35 @@ const DELIVERY_NEXT_STATUS = {
   Delivered: ["Completed"],
 };
 
+const NEW_SELLER_ORDER_STATUSES = new Set(["New", "Order Placed", "Seller Notified"]);
+
+function orderBelongsToSeller(order, sellerId) {
+  const product = products.find((item) => item.id === order.productId);
+  return String(order.sellerId ?? product?.sellerId ?? "") === String(sellerId ?? "");
+}
+
+function orderKey(order) {
+  return String(order.databaseId ?? order.id ?? order.orderId ?? "");
+}
+
 export function OrderProvider({ children }) {
   const { user, isSuspended } = useAuth();
   const [orders, setOrders] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [seenSellerOrderIds, setSeenSellerOrderIds] = useState(() => new Set());
+
+  useEffect(() => {
+    if (!user?.id) {
+      setSeenSellerOrderIds(new Set());
+      return;
+    }
+    try {
+      const stored = JSON.parse(localStorage.getItem(`grolo-seen-seller-orders-${user.id}`) ?? "[]");
+      setSeenSellerOrderIds(new Set(Array.isArray(stored) ? stored.map(String) : []));
+    } catch {
+      setSeenSellerOrderIds(new Set());
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     let active = true;
@@ -173,10 +198,7 @@ export function OrderProvider({ children }) {
 
   const sellerOrders = useCallback(
     (sellerId) => {
-      const matchedOrders = orders.filter((o) => {
-        const product = products.find((p) => p.id === o.productId);
-        return String(o.sellerId ?? product?.sellerId ?? "") === String(sellerId ?? "");
-      });
+      const matchedOrders = orders.filter((o) => orderBelongsToSeller(o, sellerId));
       console.info("seller orders query result", {
         sellerId: sellerId ?? null,
         orderCount: matchedOrders.length,
@@ -194,6 +216,27 @@ export function OrderProvider({ children }) {
     },
     [orders],
   );
+
+  const getNewSellerOrderCount = useCallback((sellerId = user?.id) => orders.filter((order) => (
+    orderBelongsToSeller(order, sellerId)
+    && NEW_SELLER_ORDER_STATUSES.has(order.status)
+    && !seenSellerOrderIds.has(orderKey(order))
+  )).length, [orders, seenSellerOrderIds, user?.id]);
+
+  const markSellerOrdersSeen = useCallback((sellerId = user?.id) => {
+    const ids = orders
+      .filter((order) => orderBelongsToSeller(order, sellerId) && NEW_SELLER_ORDER_STATUSES.has(order.status))
+      .map(orderKey)
+      .filter(Boolean);
+    if (!ids.length) return;
+    setSeenSellerOrderIds((current) => {
+      const next = new Set([...current, ...ids]);
+      if (user?.id) {
+        try { localStorage.setItem(`grolo-seen-seller-orders-${user.id}`, JSON.stringify([...next])); } catch { /* Ignore storage failures. */ }
+      }
+      return next;
+    });
+  }, [orders, user?.id]);
 
   const nextStatuses = useCallback(
     (status, fulfillmentMethod = "pickup") => {
@@ -490,6 +533,8 @@ export function OrderProvider({ children }) {
     payments,
     buyerOrders,
     sellerOrders,
+    getNewSellerOrderCount,
+    markSellerOrdersSeen,
     createOrders,
     lastCreatedOrder,
     nextStatuses,

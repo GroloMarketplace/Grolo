@@ -61,8 +61,12 @@ export default function ShopHome() {
   const [deliveryRadius, setDeliveryRadius] = useState(() => getPaymentMethods(seller.id).deliveryRadius);
   const [pickupLocation, setPickupLocation] = useState(() => getPaymentMethods(seller.id).pickupLocation);
   const [pickupNotes, setPickupNotes] = useState(() => getPaymentMethods(seller.id).pickupNotes);
-  const { sellerOrders } = useOrders();
+  const { sellerOrders, markSellerOrdersSeen } = useOrders();
   const { upcomingEvents, removeEvent } = useEvents();
+
+  useEffect(() => {
+    markSellerOrdersSeen(seller.id);
+  }, [markSellerOrdersSeen, seller.id]);
   const { posts } = usePosts();
   const { sellerRating } = useReviews();
   const { getFollowerCount, followedSellers, isFollowing } = useFollow();
@@ -71,12 +75,29 @@ export default function ShopHome() {
     const createdAt = typeof item.createdAt === "number" ? item.createdAt : Date.parse(item.createdAt);
     return !Number.isNaN(createdAt) && createdAt >= storeOpenedAt;
   }, [storeOpenedAt]);
-  const storeOrders = useMemo(
-    () => sellerOrders(seller.id).filter(createdBySeller),
-    [createdBySeller, seller.id, sellerOrders],
+  const sellerOrderRows = useMemo(
+    () => sellerOrders(seller.id),
+    [seller.id, sellerOrders],
   );
+  const storeOrders = useMemo(
+    () => sellerOrderRows.filter(createdBySeller),
+    [createdBySeller, sellerOrderRows],
+  );
+  const orderFilterAudit = useMemo(() => sellerOrderRows.map((order) => {
+    const createdAtValue = order.created_at ?? order.createdAt;
+    const createdAt = typeof createdAtValue === "number" ? createdAtValue : Date.parse(createdAtValue);
+    const included = !storeOpenedAt || (Number.isFinite(createdAt) && createdAt >= storeOpenedAt);
+    return {
+      orderId: order.databaseId ?? order.id ?? null,
+      created_at: order.created_at ?? null,
+      orderCreatedAt: order.createdAt ?? null,
+      storeOpenedAt: storeOpenedAt ?? null,
+      included,
+      exclusionReason: included ? null : !Number.isFinite(createdAt) ? "invalid order.created_at" : "order.created_at is before storeOpenedAt",
+    };
+  }), [sellerOrderRows, storeOpenedAt]);
   const newOrders = useMemo(
-    () => storeOrders.filter((order) => ["Seller Notified", "Order Placed"].includes(order.status)),
+    () => storeOrders.filter((order) => ["New", "Seller Notified", "Order Placed"].includes(order.status)),
     [storeOrders],
   );
   const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name);
@@ -123,10 +144,22 @@ export default function ShopHome() {
       sellerOrdersFilterInput: seller.id,
       visibleOrderCount: storeOrders.length,
     });
-  }, [newOrders, seller.id, storeOrders, user?.id]);
+    console.info("SHOPHOME ORDER LOAD", {
+      currentUserId: user?.id ?? null,
+      sellerProfileId: profileSellerId,
+      sellerIdUsedInQuery: seller.id,
+      returnedOrderCount: sellerOrderRows.length,
+      returnedOrderStatuses: sellerOrderRows.map((order) => order.status ?? null),
+      buyerId: [...new Set(sellerOrderRows.map((order) => order.buyerId).filter(Boolean))],
+      queryFilters: { seller_id: seller.id },
+      rowsAfterDashboardFilters: storeOrders.map((order) => ({ orderId: order.databaseId ?? order.id ?? null, buyerId: order.buyerId ?? null, sellerId: order.sellerId ?? null, status: order.status ?? null })),
+      storeOpenedAt: storeOpenedAt ?? null,
+      orderFilterAudit,
+    });
+  }, [newOrders, orderFilterAudit, profileSellerId, seller.id, sellerOrderRows, storeOpenedAt, storeOrders, user?.id]);
 
   const orderCounts = [
-    { label: "New", count: storeOrders.filter((o) => ["Seller Notified", "Order Placed"].includes(o.status)).length },
+    { label: "New", count: storeOrders.filter((o) => ["New", "Seller Notified", "Order Placed"].includes(o.status)).length },
     { label: "Preparing", count: storeOrders.filter((o) => ["In Progress", "Preparing"].includes(o.status)).length },
     { label: "Ready", count: storeOrders.filter((o) => o.status === "Ready for Pickup").length },
   ];

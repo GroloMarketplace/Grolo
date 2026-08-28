@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { validateAddress, validateBuyerProfile, validateFulfillment, validateListing, validateSellerProfile } from "../src/utils/validation.js";
+import { isValidWebsite, normalizeWebsite, validateAddress, validateBuyerProfile, validateFulfillment, validateListing, validateSellerProfile } from "../src/utils/validation.js";
 import { ACTIVE_CAMPAIGN_ERROR, addCalendarDays, campaignDurationDays, calendarDaysUntil, isCampaignActive, validateCampaignDates } from "../src/utils/campaignDuration.js";
 import { seed } from "./fixtures/seed.js";
 import { LOCATION_OPTIONS, friendlyLocation, locationFromLegacyText } from "../src/data/locations.js";
@@ -84,7 +84,7 @@ test("seller store and listing workflows validate before persistence", () => {
   const requiredSellerInfo = { ...seed.seller, email: "", website: "", phone: "", instagram: "", facebook: "", x: "" };
   assert.equal(validateSellerProfile(requiredSellerInfo), null);
   assert.equal(validateSellerProfile(seed.seller), null);
-  assert.match(validateSellerProfile({ ...seed.seller, website: "not-a-url" }), /Website/);
+  assert.match(validateSellerProfile({ ...seed.seller, website: "not-a-url" }), /valid website URL/);
   assert.equal(validateListing(seed.listing), null);
   assert.match(validateListing({ ...seed.listing, price: "0" }), /Price/);
   assert.match(validateListing({ ...seed.listing, quantityAvailable: 1.5 }), /Quantity/);
@@ -482,4 +482,116 @@ test("follower counts derive from the live user_follows aggregate", async () => 
   assert.match(sellerProfile, /followedSellers\.includes\(profileSellerId\)/);
   assert.match(sellerProfile, /profiles\.id/);
   assert.match(storeHome, /ShopHome follower count render audit/);
+});
+
+test("email confirmation uses the dedicated confirmation page and login destination", async () => {
+  const [authContext, app, confirmEmail] = await Promise.all([
+    readFile(new URL("../src/context/AuthContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/App.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/ConfirmEmail.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(authContext, /const configuredOrigin = import\.meta\.env\.VITE_APP_URL\?\.trim\(\)/);
+  assert.match(authContext, /localhost\(\?::\\d\+\)\?\$\/i/);
+  assert.match(authContext, /https:\/\/grolomarketplace\.ca/);
+  assert.match(authContext, /const emailRedirectTo = `\$\{redirectOrigin\}\/confirm-email`/);
+  assert.match(authContext, /emailRedirectTo,/);
+  assert.match(app, /path="\/confirm-email"/);
+  assert.match(confirmEmail, /Email Confirmed/);
+  assert.match(confirmEmail, /Your email has been successfully verified\./);
+  assert.match(confirmEmail, /You can now log in and start exploring Grolo\./);
+  assert.match(confirmEmail, /Log In/);
+  assert.match(confirmEmail, /Return to Home/);
+});
+
+test("website validation accepts and normalizes common domains", () => {
+  for (const website of ["www.fritasflowers.com", "https://www.fritasflowers.com", "https://fritasflowers.com", "fritasflowers.com"]) {
+    assert.equal(isValidWebsite(website), true);
+    assert.match(normalizeWebsite(website), /^https:\/\//);
+  }
+  assert.equal(validateSellerProfile({ name: "Flowers", description: "Local flowers", location: "Calgary", website: "www.fritasflowers.com" }), null);
+  assert.match(validateSellerProfile({ name: "Flowers", description: "Local flowers", location: "Calgary", website: "not a website" }), /valid website URL/);
+});
+
+test("large banner uploads are optimized before storage validation", async () => {
+  const [imageStorage, openStore, accountSettings] = await Promise.all([
+    readFile(new URL("../src/lib/imageStorage.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/OpenStore.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/AccountSettings.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(imageStorage, /kind === "banner" && file\.size > 5 \* 1024 \* 1024/);
+  assert.match(imageStorage, /targetBytes = 4\.5 \* 1024 \* 1024/);
+  assert.match(imageStorage, /store-banner/);
+  assert.match(imageStorage, /We couldn't optimize this image\. Please choose a different banner image\./);
+  assert.match(imageStorage, /Optimizing image\.\.\./);
+  assert.match(imageStorage, /Uploading banner\.\.\./);
+  assert.match(openStore, /uploadProgress\?\.kind === "banner" && <UploadProgress/);
+  assert.match(accountSettings, /uploadProgress\?\.kind === "banner" && <UploadProgress/);
+});
+
+test("order persistence diagnostics cover creation and buyer/seller reload queries", async () => {
+  const [ordersApi, shopHome, shopOrders, buyerOrders] = await Promise.all([
+    readFile(new URL("../src/lib/api/orders.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/ShopHome.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/ShopOrders.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/Orders.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(ordersApi, /ORDER CREATE RESULT/);
+  assert.match(ordersApi, /const ORDER_SELECT = "\*, order_items\(\*, listings\(legacy_id,price\)\)"/);
+  assert.doesNotMatch(ordersApi, /const ORDER_SELECT[^\n]*payments/);
+  assert.match(ordersApi, /insertData: data/);
+  assert.match(ordersApi, /insertError: error\?\.message/);
+  assert.match(ordersApi, /ORDER LOAD RESULT \(BUYER\)/);
+  assert.match(ordersApi, /ORDER LOAD RESULT \(SELLER\)/);
+  assert.match(ordersApi, /SHOPHOME RAW ORDER QUERY/);
+  assert.match(ordersApi, /schema: "public"/);
+  assert.match(ordersApi, /authUserId: authenticatedUserId/);
+  assert.match(ordersApi, /sellerIdUsedInQuery: sellerId/);
+  assert.match(ordersApi, /table: "orders"/);
+  assert.match(ordersApi, /data: data \?\? null/);
+  assert.match(ordersApi, /error: error \?\? null/);
+  assert.match(ordersApi, /count: data\?\.length/);
+  assert.match(ordersApi, /PGRST200/);
+  assert.match(ordersApi, /\.select\("\*"\)/);
+  assert.match(ordersApi, /ORDER RELATIONSHIP FALLBACK \(SELLER\)/);
+  assert.match(ordersApi, /orderId: data\?\.order\?\.id/);
+  assert.match(ordersApi, /orderStatus: data\?\.order\?\.status/);
+  assert.match(ordersApi, /\.eq\("buyer_id", buyerId\)/);
+  assert.match(ordersApi, /\.eq\("seller_id", sellerId\)/);
+  assert.match(shopHome, /SHOPHOME ORDER LOAD/);
+  assert.match(shopHome, /sellerIdUsedInQuery/);
+  assert.match(shopHome, /returnedOrderCount/);
+  assert.match(shopHome, /returnedOrderStatuses/);
+  assert.match(shopHome, /orderFilterAudit/);
+  assert.match(shopHome, /created_at/);
+  assert.match(shopHome, /queryFilters/);
+  assert.match(shopOrders, /MANAGE ORDERS LOAD/);
+  assert.match(shopOrders, /currentUserId/);
+  assert.match(buyerOrders, /BUYER ORDERS LOAD/);
+  assert.match(buyerOrders, /queryFilters/);
+  assert.match(buyerOrders, /rowsReturned/);
+});
+
+test("seller new-order badges count unseen orders and clear when store surfaces open", async () => {
+  const [orders, tabBar, shopHome, shopOrders] = await Promise.all([
+    readFile(new URL("../src/context/OrderContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/components/TabBar.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/ShopHome.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/ShopOrders.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(orders, /NEW_SELLER_ORDER_STATUSES = new Set\(\["New", "Order Placed", "Seller Notified"\]\)/);
+  assert.match(orders, /getNewSellerOrderCount/);
+  assert.match(orders, /markSellerOrdersSeen/);
+  assert.match(tabBar, /newSellerOrderCount/);
+  assert.match(tabBar, /new orders/);
+  assert.match(shopHome, /markSellerOrdersSeen\(seller\.id\)/);
+  assert.match(shopOrders, /markSellerOrdersSeen\(sellerId\)/);
+});
+
+test("seller dashboard maps every new order status into the New bucket", async () => {
+  const [shopHome, shopOrders] = await Promise.all([
+    readFile(new URL("../src/pages/ShopHome.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/ShopOrders.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(shopHome, /\["New", "Seller Notified", "Order Placed"\]/);
+  assert.match(shopOrders, /statuses: \["New", "Seller Notified", "Order Placed"\]/);
 });

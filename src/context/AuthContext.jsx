@@ -246,7 +246,8 @@ export function AuthProvider({ children }) {
 
   async function signUpWithPassword(email, password, name) {
     if (!isSupabaseConfigured) throw new Error("Supabase is not configured.");
-    const redirectOrigin = import.meta.env.VITE_APP_URL?.replace(/\/$/, "") || window.location.origin;
+    const configuredOrigin = import.meta.env.VITE_APP_URL?.trim().replace(/\/$/, "");
+    const redirectOrigin = configuredOrigin && !/^https?:\/\/localhost(?::\d+)?$/i.test(configuredOrigin) ? configuredOrigin : "https://grolomarketplace.ca";
     const emailRedirectTo = `${redirectOrigin}/confirm-email`;
     console.info("Signup confirmation redirect", { emailRedirectTo });
     const { data, error } = await supabase.auth.signUp({

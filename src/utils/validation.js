@@ -25,11 +25,23 @@ export function isValidEmail(value) {
   return EMAIL_PATTERN.test(String(value ?? "").trim());
 }
 
+export function normalizeWebsite(value) {
+  const website = String(value ?? "").trim();
+  if (!website) return "";
+  const candidate = /^https?:\/\//i.test(website) ? website : `https://${website}`;
+  try {
+    const url = new URL(candidate);
+    return ["http:", "https:"].includes(url.protocol) && url.hostname ? url.toString() : website;
+  } catch {
+    return website;
+  }
+}
+
 export function isValidWebsite(value) {
   if (!String(value ?? "").trim()) return true;
   try {
-    const url = new URL(String(value).trim());
-    return ["http:", "https:"].includes(url.protocol) && Boolean(url.hostname);
+    const url = new URL(normalizeWebsite(value));
+    return ["http:", "https:"].includes(url.protocol) && Boolean(url.hostname) && url.hostname.includes(".");
   } catch {
     return false;
   }
@@ -57,7 +69,7 @@ export function validateSellerProfile(form) {
   if (form.description.trim().length > VALIDATION_LIMITS.storeDescription) return `Store description must be ${VALIDATION_LIMITS.storeDescription} characters or fewer.`;
   if (!form.location?.trim() || form.location.trim().length > VALIDATION_LIMITS.location) return "Enter a valid store location.";
   if (form.email?.trim() && !isValidEmail(form.email)) return "Enter a valid business email address or leave it blank.";
-  if (!isValidWebsite(form.website)) return "Website must start with http:// or https://.";
+  if (!isValidWebsite(form.website)) return "Enter a valid website URL, such as www.example.com.";
   if (!isValidPhone(form.phone)) return "Enter a valid phone number or leave it blank.";
   if ([form.instagram, form.facebook, form.x].some((value) => String(value ?? "").trim().length > VALIDATION_LIMITS.socialHandle)) return `Social handles must be ${VALIDATION_LIMITS.socialHandle} characters or fewer.`;
   return null;

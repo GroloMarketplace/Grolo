@@ -4,11 +4,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import Header from "../components/Header";
 import CommunityImpactCard from "../components/CommunityImpactCard";
-import PromotionBadge from "../components/PromotionBadge";
 import ContentActionSheet from "../components/ContentActionSheet";
 import ShareSheet from "../components/ShareSheet";
-import { promotionUrgencyLabel, usePromotions } from "../context/PromotionContext";
-import { useAdvertising } from "../context/AdvertisingContext";
 import { useSavedItems } from "../context/SavedContext";
 import { useRegrow } from "../context/RegrowContext";
 import { useEngagement } from "../context/EngagementContext";
@@ -42,6 +39,7 @@ import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useListings } from "../context/ListingContext";
 import { usePosts } from "../context/PostContext";
 import TradeBadge from "../components/TradeBadge";
+import PromotionBadge from "../components/PromotionBadge";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useNotifications } from "../context/NotificationContext";
 import { useTrustSafety } from "../context/TrustSafetyContext";
@@ -50,9 +48,10 @@ import DistanceLabel from "../components/DistanceLabel";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
 import { contentTimestamp, rankFeedItems } from "../utils/feedRanking";
 import { promotionMatchesListing, promotedContentImage } from "../utils/promotionMedia";
+import { promotionUrgencyLabel, usePromotions } from "../context/PromotionContext";
 
 const TABS = ["Following", "Your Community"];
-const COMMUNITY_FILTERS = ["For You", "Posts", "Events", "Listings", "Promotions"];
+const COMMUNITY_FILTERS = ["For You", "Posts", "Events", "Listings"];
 
 function imageReferenceMatches(first, second) {
   if (!first || !second) return true;
@@ -364,16 +363,11 @@ function FollowingFeed({ followedSellers, location, radius, hiddenContentIds, bl
   const { upcomingEvents } = useEvents();
   const { listings } = useListings();
   const { posts } = usePosts();
-  const { activePromotions } = usePromotions();
   const visibleAccount = (accountId) => !blockedUserIds.has(String(accountId));
   const events = upcomingEvents().filter((event) => visibleAccount(event.sellerId) && sellerIdMatches(followedSellers, event.sellerId) && eventMatchesDiscoveryRadius(event, location, radius));
   const followedPosts = [...followingPosts, ...posts].filter((post) => visibleAccount(post.sellerId) && sellerIdMatches(followedSellers, post.sellerId) && isWithinDiscoveryRadius(post, location, radius));
   const followedListings = listings.filter((product) => visibleAccount(product.sellerId) && sellerIdMatches(followedSellers, product.sellerId) && isWithinDiscoveryRadius(product, location, radius));
-  const listingsForPromotions = listings;
-  const postsForItems = followedPosts;
-  const listingsForItems = followedListings;
-  const promotions = activePromotions().filter((promotion) => visibleAccount(promotion.sellerId) && sellerIdMatches(followedSellers, promotion.sellerId) && isWithinDiscoveryRadius(promotionLocationContent(promotion, listings), location, radius));
-  const items = getFollowedItems({ posts: postsForItems, events, listings: listingsForItems, promotions, allListings: listingsForPromotions, hiddenContentIds, location });
+  const items = getFollowedItems({ posts: followedPosts, events, listings: followedListings, hiddenContentIds, location });
 
   return (
     <div className="flex flex-col gap-8 px-4 py-6">
@@ -386,12 +380,11 @@ function FollowingFeed({ followedSellers, location, radius, hiddenContentIds, bl
   );
 }
 
-function getFollowedItems({ posts, events, listings, promotions, allListings, hiddenContentIds, location }) {
+function getFollowedItems({ posts, events, listings, hiddenContentIds, location }) {
   const items = [
     ...posts.map((post) => ({ type: "post", id: `post:${post.id}`, post })),
     ...events.map((event) => ({ type: "event", id: `event:${event.id}`, event })),
     ...listings.map((product) => ({ type: "listing", id: `listing:${product.id}`, product })),
-    ...promotions.map((promotion) => ({ type: "promotion", id: `promotion:${promotion.id}`, promotion, product: allListings.find((product) => promotionMatchesListing(promotion, product)) })),
   ];
   const visible = items.filter((item) => !hiddenContentIds.has(item.id));
   // Closer content first; ties (or unknown distance) fall back to newest first.
@@ -406,8 +399,8 @@ function CommunityFeed({ filter, followedSellers, followedSellerIds, interactedS
   const { upcomingEvents } = useEvents();
   const { listings } = useListings();
   const { posts } = usePosts();
-  const { activePromotions } = usePromotions();
   const { getEngagement } = useEngagement();
+  const { activePromotions } = usePromotions();
   const [touchStart, setTouchStart] = useState(null);
   const visibleAccount = (accountId) => !blockedUserIds.has(String(accountId));
   const events = upcomingEvents().filter((event) => visibleAccount(event.sellerId) && eventMatchesDiscoveryRadius(event, location, radius));
@@ -526,15 +519,9 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
       source: "FeedCard",
     });
   }, [product]);
-  const { ads } = useAdvertising();
   const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
   const resolvedSeller = useResolvedSeller(product.sellerId);
   const seller = resolvedSeller ?? sellers[product.sellerId];
-  const paidAd = ads.find((ad) =>
-    (ad.status === "Active" || ad.paid === true)
-      && ad.destinationId === product.id
-      && (ad.type === "Product" || ad.type === "Promotion"),
-  );
   const savedItem = { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName: product.shop, image: product.image, description: product.name };
   const menuContent = { id: `listing:${product.id}`, type: "listing", title: product.name, name: product.name, sellerId: product.sellerId, productId: product.id, sharePath: `/product/${product.id}`, savedItem };
   const openProduct = () => {
@@ -574,7 +561,6 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
       <button type="button" onClick={openProduct} className="relative mt-3 block w-full text-left">
         <img src={product.image} alt={product.name} className="aspect-square w-full rounded object-cover" />
         {product.promotion && <PromotionBadge promotion={product.promotion} className="absolute left-2 top-2" />}
-        {paidAd && <PromotionBadge variant="featured" label={paidAd.badgeLabel ?? paidAd.label ?? paidAd.placementLabel ?? "Featured"} className="absolute right-2 top-2" />}
       </button>
       <button type="button" onClick={openProduct} className="mt-2 block text-left">
         <h3 className="text-[16px] font-semibold">{product.name}</h3>

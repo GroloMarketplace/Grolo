@@ -4,9 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 import CarouselRow from "../components/CarouselRow";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import PromotionBadge from "../components/PromotionBadge";
 import { formatListingPrice } from "../utils/listingDisplay";
-import { usePromotions } from "../context/PromotionContext";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import { useFavorites } from "../hooks/useFavorites";
 import { useSavedItems } from "../context/SavedContext";
@@ -23,7 +21,6 @@ import { CompactReputationHeader } from "../components/ReputationSummary";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useMarketplaceDiscovery } from "../hooks/useEntityResolution";
 import { useTrustSafety } from "../context/TrustSafetyContext";
-import { promotedContentImage } from "../utils/promotionMedia";
 
 // TODO: Reintroduce Map Search in a future update.
 const TABS = ["Local", "History", "My Orders"];
@@ -166,8 +163,7 @@ export default function Search() {
 
         {tab === "Local" && query.trim() ? <SearchResults products={searchResults ?? discoveryProducts} sellers={resolvedSellers} events={resolvedEvents} posts={resolvedPosts} blockedUserIds={blockedUserIds} query={query} navigate={navigate} onProduct={rememberProduct} onBack={returnToSearchHome} buyerSettings={buyerSettings} onLoadMore={loadMoreSearch} hasMore={searchHasMore} loadingMore={searchLoadingMore} /> : tab === "Local" && (
           <>
-            <PromotionalCarousel onNavigate={navigate} />
-            <CommunitySpotlightCarousel sellers={resolvedSellers} listings={discoveryProducts} events={resolvedEvents} />
+            <CommunityTipsCarousel />
             <CategoryRow categories={resolvedCategories} onCategory={(path) => { writeNavigationState("search", { tab, query, scrollTop: scrollRef.current?.scrollTop ?? 0, currentRoutePath: path }); navigate(path, { state: { fromSearch: true } }); }} />
             <CarouselRow
               title="Featured"
@@ -216,17 +212,15 @@ function SearchResults({ products, sellers, events, posts, blockedUserIds, query
 function ProductSearchRow({ product, onProduct }) {
   const openReviews = () => onProduct(product.id, `/product/${product.id}/reviews`);
   const reputationSnapshot = useReputationSnapshot(product.sellerId);
-  const { getListingPricing } = usePromotions();
-  const pricing = getListingPricing(product);
   return (
     <div className="flex w-full items-center justify-between rounded-lg border border-[#E6E6E6] p-3 text-left">
       <button type="button" onClick={() => onProduct(product.id)} className="min-w-0 flex-1 text-left">
         <ServiceCategoryLabel listing={product} className="block" />
-        <div className="flex items-center gap-2"><div className="truncate text-[14px] font-medium">{product.name}</div>{pricing.promotion && <PromotionBadge promotion={pricing.promotion} />}</div>
+        <div className="truncate text-[14px] font-medium">{product.name}</div>
         <div className="mt-1 text-[12px] text-[#828282]">{product.shop}</div>
         <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-1 max-w-full" />
         <DistanceLabel content={product} className="mt-1 block" />
-        {pricing.discountedPrice < pricing.originalPrice ? <div className="mt-1 text-[14px] font-semibold text-[#498467]">${pricing.discountedPrice.toFixed(2)} <span className="text-[11px] font-normal text-[#828282] line-through">${pricing.originalPrice.toFixed(2)}</span></div> : <div className="mt-1 text-[14px] font-semibold text-[#498467]">{formatListingPrice(product)}</div>}
+        <div className="mt-1 text-[14px] font-semibold text-[#498467]">{formatListingPrice(product)}</div>
         <TradeBadge listing={product} compact className="mt-1" />
       </button>
       <ReviewSummary product={product} onClick={openReviews} />
@@ -260,8 +254,7 @@ function History({ products, onProduct }) {
   const savedListings = products.filter((product) => favoriteIds.includes(product.id));
   const savedPosts = savedItems.filter((item) => item.type === "post");
   const savedEvents = savedItems.filter((item) => item.type === "event");
-  const savedPromotions = savedItems.filter((item) => item.type === "promotion");
-  const hasSavedItems = savedPosts.length || savedEvents.length || savedPromotions.length || savedListings.length;
+  const hasSavedItems = savedPosts.length || savedEvents.length || savedListings.length;
 
   return (
     <div className="flex flex-col gap-5 px-4 py-3">
@@ -288,9 +281,6 @@ function History({ products, onProduct }) {
             {savedListings.map((product) => (
               <SavedHistoryCard key={product.id} item={{ ...product, storeName: product.shop, name: product.name }} onClick={() => onProduct(product.id)} listing />
             ))}
-            {savedPromotions.map((item) => (
-              <SavedHistoryCard key={item.id} item={item} onClick={() => item.productId && navigate(`/product/${item.productId}`)} promotion />
-            ))}
           </div>
         )}
       </HistoryGroup>
@@ -307,12 +297,11 @@ function HistoryGroup({ title, children }) {
   );
 }
 
-function SavedHistoryCard({ item, onClick, listing, promotion }) {
+function SavedHistoryCard({ item, onClick, listing }) {
   return (
     <button type="button" onClick={onClick} className="flex w-full gap-3 rounded-lg border border-[#E6E6E6] p-3 text-left transition-colors hover:bg-[#F5FFF6]">
       <div className="relative shrink-0">
-        {item.image ? <img src={item.image} alt="" className="h-16 w-16 rounded-lg object-cover" /> : <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-[#F5FFF6] text-[11px] font-medium text-[#498467]">Promotion</div>}
-        {promotion && <PromotionBadge promotion={item.promotion} className="absolute left-1 top-1" />}
+        {item.image ? <img src={item.image} alt="" className="h-16 w-16 rounded-lg object-cover" /> : <div className="h-16 w-16 rounded-lg bg-[#F5FFF6]" />}
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
         {listing && <ServiceCategoryLabel listing={item} />}
@@ -325,70 +314,67 @@ function SavedHistoryCard({ item, onClick, listing, promotion }) {
   );
 }
 
-function CommunitySpotlightCarousel({ sellers, listings, events }) {
+const COMMUNITY_TIPS = [
+  {
+    id: "complete-profile",
+    title: "Complete Your Profile",
+    description: "Add a profile photo, banner, and description to help buyers trust your shop.",
+    cta: "Edit Profile",
+    route: "/profile",
+    image: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=800&q=80",
+  },
+  {
+    id: "first-product",
+    title: "List Your First Product",
+    description: "The more listings you create, the easier it is for buyers to discover your shop.",
+    cta: "Add Listing",
+    route: "/create-listing",
+    image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=80",
+  },
+  {
+    id: "local-event",
+    title: "Create a Local Event",
+    description: "Hosting a market, workshop, or pop-up? Create an event and invite your community.",
+    cta: "Create Event",
+    route: "/create-event",
+    image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&q=80",
+  },
+  {
+    id: "first-review",
+    title: "Get Your First Review",
+    description: "Positive reviews help build trust and improve visibility within Grolo.",
+    cta: "Learn More",
+    route: "/community-impact",
+    image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80",
+  },
+  {
+    id: "follow-shops",
+    title: "Follow Local Shops",
+    description: "Stay connected with local makers, creators, and small businesses near you.",
+    cta: "Explore Shops",
+    route: "/featured",
+    image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80",
+  },
+];
+
+function CommunityTipsCarousel() {
   const navigate = useNavigate();
-  const { activePromotions } = usePromotions();
   const touchStartX = useRef(null);
   const didSwipeRef = useRef(false);
   const pausedRef = useRef(false);
   const [current, setCurrent] = useState(1);
-  const paidSpotlights = activePromotions().map((promotion) => {
-    const destinationId = promotion.productIds?.[0] ?? promotion.listingId;
-    const listing = listings.find((item) => [item.id, item.databaseId, item.legacyId].filter(Boolean).map(String).includes(String(destinationId)));
-    const seller = sellers.find((item) => String(item.id) === String(promotion.sellerId));
-    return {
-      id: promotion.id,
-      type: "product",
-      adType: "Promotion",
-      destinationType: destinationId ? "Product listing" : "Store profile",
-      badge: "Sponsored",
-      title: promotion.title,
-      description: promotion.description,
-      sellerId: promotion.sellerId,
-      productId: destinationId,
-      destinationId: destinationId ?? promotion.sellerId,
-      destinationRoute: destinationId ? `/product/${destinationId}` : `/seller/${promotion.sellerId}`,
-      image: promotion.image || listing?.image || seller?.avatar,
-    };
-  });
-  const organicSpotlights = [];
-  const placeholderSpotlights = [
-    { id: "spotlight-placeholder-1", badge: "Community Spotlight", title: "Put your store in the spotlight", description: "Reach more local shoppers on Grolo.", image: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80", placeholder: true },
-    { id: "spotlight-placeholder-2", badge: "Community Spotlight", title: "Help your community discover you", description: "Feature your store, products, or events.", image: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80", placeholder: true },
-  ];
-  const spotlights = ([...paidSpotlights, ...organicSpotlights].length > 0 ? [...paidSpotlights, ...organicSpotlights] : placeholderSpotlights).slice(0, 10);
-  const slides = spotlights.length > 0
-    ? [spotlights[spotlights.length - 1], ...spotlights, spotlights[0]]
-    : [];
+  const slides = [COMMUNITY_TIPS[COMMUNITY_TIPS.length - 1], ...COMMUNITY_TIPS, COMMUNITY_TIPS[0]];
 
   useEffect(() => {
     const interval = window.setInterval(() => {
       if (!pausedRef.current) setCurrent((index) => index + 1);
     }, 5000);
-
     return () => window.clearInterval(interval);
   }, []);
 
-  const openSpotlight = (spotlight) => {
-    if (spotlight.placeholder) {
-      navigate("/my-shop/advertising");
-    } else if (spotlight.destinationRoute) {
-      navigate(spotlight.destinationRoute);
-    } else if (spotlight.type === "event") {
-      navigate(`/event/${spotlight.eventId}`);
-    } else if (spotlight.type === "product") {
-      navigate(`/listing/${spotlight.productId}`);
-    } else {
-      navigate(`/seller/${spotlight.sellerId}`);
-    }
-  };
-
   const handleTransitionEnd = () => {
-    if (current === slides.length - 1) {
-      setCurrent(1);
-    } else if (current === 0) {
-      setCurrent(slides.length - 2);
-    }
+    if (current === slides.length - 1) setCurrent(1);
+    else if (current === 0) setCurrent(slides.length - 2);
   };
 
   const handlePointerDown = (event) => {
@@ -409,101 +395,46 @@ function CommunitySpotlightCarousel({ sellers, listings, events }) {
     pausedRef.current = false;
   };
 
-  const handleSpotlightClick = (event, spotlight) => {
+  const openTip = (event, tip) => {
     if (didSwipeRef.current) {
       event.preventDefault();
       didSwipeRef.current = false;
       return;
     }
-    openSpotlight(spotlight);
+    navigate(tip.route);
   };
 
-  if (spotlights.length === 0) return null;
-
   return (
-    <section aria-label="Featured Community Spotlight" className="px-4 pt-3">
-      <h2 className="mb-2 text-[16px] font-semibold tracking-[-0.32px]">Community Spotlight</h2>
-      <div
-        className="overflow-hidden rounded-lg touch-pan-y"
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={() => {
-          touchStartX.current = null;
-          pausedRef.current = false;
-        }}
-      >
-        <div
-          className="flex transition-transform duration-500 ease-out"
-          style={{ transform: `translateX(-${current * 100}%)` }}
-          onTransitionEnd={handleTransitionEnd}
-        >
-          {slides.map((spotlight, index) => {
-            if (!spotlight) return null;
-            const seller = sellers.find((item) => item.id === spotlight.sellerId || item.legacyId === spotlight.sellerId) ?? { name: "", avatar: "" };
-            const promotedListing = listings.find((item) => [item.id, item.databaseId, item.legacyId].filter(Boolean).map(String).includes(String(spotlight.productId)));
-            const promotedEvent = events.find((item) => [item.id, item.databaseId, item.legacyId].filter(Boolean).map(String).includes(String(spotlight.eventId)));
-            const spotlightImage = promotedContentImage({ listing: promotedListing, event: promotedEvent, promotion: spotlight, placeholder: spotlight.image });
-            return (
-              <button
-                key={`${spotlight.id}-${index}`}
-                type="button"
-                onClick={(event) => handleSpotlightClick(event, spotlight)}
-                className="relative h-[136px] w-full shrink-0 overflow-hidden text-left transition-transform duration-150 active:scale-[0.98] active:brightness-90"
-                aria-label={`${spotlight.title} by ${seller.name}`}
-              >
-                <img src={spotlightImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
-                <span aria-hidden="true" className="absolute bottom-2 right-3 text-[20px] font-light leading-none text-white/75">›</span>
-                <div className="absolute inset-x-3 bottom-2.5 pr-6 text-white">
-                  <div className="mb-1 flex items-center gap-2">
-                    <img src={seller.avatar} alt="" className="h-6 w-6 rounded-full border border-white/80 object-cover" />
-                    <span className="text-[11px] font-medium text-white/90">{seller.name}</span>
-                    <span className="rounded-full bg-[#498467] px-2 py-0.5 text-[10px] font-semibold">{spotlight.badge}</span>
-                  </div>
-                  <p className="text-[16px] font-semibold leading-tight">{spotlight.title}</p>
-                  <p className="mt-0.5 line-clamp-1 text-[11px] text-white/85">{spotlight.description}</p>
-                </div>
-              </button>
-            );
-          })}
+    <section aria-label="Community Tips" className="px-4 py-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#498467]">Grolo Tips</p>
+          <h2 className="mt-0.5 text-[16px] font-semibold tracking-[-0.32px] text-[#1F2D27]">Get the most out of your local community</h2>
         </div>
-      </div>
-      <div className="flex justify-center gap-1.5 py-2" aria-label="Spotlight slides">
-        {spotlights.map((spotlight, index) => {
-          const activeIndex = (current - 1 + spotlights.length) % spotlights.length;
-          return (
-            <button
-              key={spotlight.id}
-              type="button"
-              onClick={() => {
-                pausedRef.current = true;
-                setCurrent(index + 1);
-                window.setTimeout(() => {
-                  pausedRef.current = false;
-                }, 350);
-              }}
-              aria-label={`Go to spotlight ${index + 1}`}
-              aria-current={activeIndex === index ? "true" : undefined}
-              className={`h-1.5 rounded-full transition-all ${activeIndex === index ? "w-4 bg-[#498467]" : "w-1.5 bg-[#C8D8CE]"}`}
-            />
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function PromotionalCarousel({ onNavigate }) {
-  return (
-    <section aria-label="Promote your marketplace presence" className="px-4 py-3">
-      <div className="flex min-h-[68px] items-center justify-between gap-4 rounded-xl border border-[#DCEBE0] bg-gradient-to-r from-[#F1F8F2] via-[#F7FCF8] to-white px-4 py-3 shadow-[0_3px_10px_rgba(31,90,69,0.06)]">
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#498467]">Make your mark locally</p>
-          <h2 className="mt-0.5 truncate text-[16px] font-semibold tracking-[-0.32px] text-[#1F2D27]">Get discovered on Grolo</h2>
-        </div>
-        <button type="button" onClick={() => onNavigate("/my-shop/advertising/create")} className="shrink-0 rounded-full bg-[#498467] px-3.5 py-2 text-[12px] font-semibold text-white shadow-[0_3px_8px_rgba(73,132,103,0.16)] transition-colors hover:bg-[#376B50]">
-          Promote
+        <button type="button" onClick={() => navigate("/profile")} className="shrink-0 rounded-full bg-[#498467] px-3.5 py-2 text-[12px] font-semibold text-white shadow-[0_3px_8px_rgba(73,132,103,0.16)] transition-colors hover:bg-[#376B50]">
+          Get Started
         </button>
+      </div>
+      <div className="overflow-hidden rounded-lg touch-pan-y" onPointerDown={handlePointerDown} onPointerUp={handlePointerUp} onPointerCancel={() => { touchStartX.current = null; pausedRef.current = false; }}>
+        <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${current * 100}%)` }} onTransitionEnd={handleTransitionEnd}>
+          {slides.map((tip, index) => (
+            <button key={`${tip.id}-${index}`} type="button" onClick={(event) => openTip(event, tip)} className="relative h-[176px] w-full shrink-0 overflow-hidden text-left transition-transform duration-150 active:scale-[0.98] active:brightness-90" aria-label={`${tip.title}: ${tip.cta}`}>
+              <img src={tip.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+              <div className="absolute inset-x-4 bottom-4 pr-4 text-white">
+                <p className="text-[16px] font-semibold leading-tight">{tip.title}</p>
+                <p className="mt-1 line-clamp-2 text-[11px] leading-[140%] text-white/90">{tip.description}</p>
+                <span className="mt-2 inline-flex rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-[#498467]">{tip.cta}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="flex justify-center gap-1.5 py-2" aria-label="Community Tips slides">
+        {COMMUNITY_TIPS.map((tip, index) => {
+          const activeIndex = (current - 1 + COMMUNITY_TIPS.length) % COMMUNITY_TIPS.length;
+          return <button key={tip.id} type="button" onClick={() => { pausedRef.current = true; setCurrent(index + 1); window.setTimeout(() => { pausedRef.current = false; }, 350); }} aria-label={`Go to tip ${index + 1}`} aria-current={activeIndex === index ? "true" : undefined} className={`h-1.5 rounded-full transition-all ${activeIndex === index ? "w-4 bg-[#498467]" : "w-1.5 bg-[#C8D8CE]"}`} />;
+        })}
       </div>
     </section>
   );

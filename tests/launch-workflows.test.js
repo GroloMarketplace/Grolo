@@ -110,31 +110,27 @@ test("promotion count and page filtering use ISO creation timestamps consistentl
   assert.equal(promotionCreatedTimestamp({ createdAt }) >= openedAt, true);
 });
 
-test("Search spotlight carousel renders active campaigns or placeholders", async () => {
-  const [search, advertising] = await Promise.all([
-    readFile(new URL("../src/pages/Search.jsx", import.meta.url), "utf8"),
-    readFile(new URL("../src/context/AdvertisingContext.jsx", import.meta.url), "utf8"),
-  ]);
-  assert.match(search, /activePromotions\(\)/);
-  assert.match(search, /CommunitySpotlightCarousel sellers=\{resolvedSellers\} listings=\{discoveryProducts\} events=\{resolvedEvents\}/);
-  assert.match(search, /placeholderSpotlights/);
-  assert.doesNotMatch(search, /useAdvertising/);
-  assert.match(search, /Community Spotlight/);
-  assert.match(advertising, /AD_STORAGE_KEY/);
-  assert.match(advertising, /localStorage\.setItem/);
-  assert.equal(isCampaignActive({ status: "Trial", startsAt: "2026-08-15", endsAt: "2026-08-15", trialEndsAt: "2026-09-13" }, Date.parse("2026-08-20T12:00:00Z")), true);
+test("Community Tips carousel provides launch onboarding actions", async () => {
+  const search = await readFile(new URL("../src/pages/Search.jsx", import.meta.url), "utf8");
+  assert.match(search, /CommunityTipsCarousel/);
+  assert.match(search, /Grolo Tips/);
+  assert.match(search, /Get the most out of your local community/);
+  assert.match(search, /Complete Your Profile/);
+  assert.match(search, /List Your First Product/);
+  assert.match(search, /Create a Local Event/);
+  assert.match(search, /Get Your First Review/);
+  assert.match(search, /Follow Local Shops/);
+  assert.match(search, /Edit Profile/);
+  assert.match(search, /Add Listing/);
+  assert.match(search, /Create Event/);
+  assert.match(search, /Explore Shops/);
+  assert.doesNotMatch(search, /Community Spotlight|Promote|Start Free Trial|advertising/);
 });
 
-test("Community Spotlight reads active promotions globally", async () => {
-  const [search, api, schema] = await Promise.all([
-    readFile(new URL("../src/pages/Search.jsx", import.meta.url), "utf8"),
-    readFile(new URL("../src/lib/api/promotions.js", import.meta.url), "utf8"),
-    readFile(new URL("../supabase/schema.sql", import.meta.url), "utf8"),
-  ]);
-  assert.match(search, /activePromotions\(\)/);
-  assert.doesNotMatch(search, /useAdvertising/);
-  assert.match(api, /getPromotions\(\)[\s\S]*from\("promotions"\)\.select\("\*"\)\.order/);
-  assert.match(schema, /Promotions are viewable by everyone/);
+test("launch search does not depend on paid promotion content", async () => {
+  const search = await readFile(new URL("../src/pages/Search.jsx", import.meta.url), "utf8");
+  assert.doesNotMatch(search, /activePromotions\(\)/);
+  assert.doesNotMatch(search, /PromotionBadge|PromotionContext|CommunitySpotlight/);
 });
 
 test("Search temporarily exposes list views without Map Search", async () => {

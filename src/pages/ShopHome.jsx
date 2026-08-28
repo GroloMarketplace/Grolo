@@ -8,10 +8,8 @@ import { useSidebar } from "../hooks/useSidebar";
 import { useListings } from "../context/ListingContext";
 import { useAuth } from "../context/AuthContext";
 import SellerListingCard from "../components/SellerListingCard";
-import PromotionsBanner from "../components/PromotionsBanner";
 import { useOrders } from "../context/OrderContext";
 import { formatEventDate, formatEventTime, useEvents } from "../context/EventContext";
-import { usePromotions } from "../context/PromotionContext";
 import { useFollow } from "../context/FollowContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import OutlineIcon from "../components/OutlineIcon";
@@ -67,7 +65,6 @@ export default function ShopHome() {
   const { upcomingEvents, removeEvent } = useEvents();
   const { posts } = usePosts();
   const { sellerRating } = useReviews();
-  const { promotionsForSeller } = usePromotions();
   const { getFollowerCount, followedSellers, isFollowing } = useFollow();
   const reputationSnapshot = useReputationSnapshot(user?.id ?? "current-user");
   const createdBySeller = useCallback((item) => {
@@ -152,7 +149,6 @@ export default function ShopHome() {
     if (routeLocation.state?.eventUpdated) showToast("Event Updated — Your event has been successfully updated.");
   }, [routeLocation.state?.activeTab, routeLocation.state?.eventUpdated]);
   const tabs = ["Listings", "Posts", "Events"];
-  const sellerPromotions = promotionsForSeller(seller.id, { createdAfter: storeOpenedAt });
   const localSellerRating = sellerRating(seller.id);
 
   useEffect(() => {
@@ -463,7 +459,7 @@ export default function ShopHome() {
                   onScroll={handleContentScroll}
                   className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
                 >
-                <ShopListingsTab sellerId={seller.id} products={activeSellerProducts} lowStockProducts={lowStockSellerProducts} outOfStockProducts={outOfStockSellerProducts} archivedProducts={archivedListings.filter((product) => product.sellerId === seller.id)} hasOrderHistory={(product) => storeOrders.some((order) => order.productId === product.id || order.orderItems?.some((item) => item.productId === product.id || item.listingId === product.databaseId))} promotions={sellerPromotions} navigate={navigate} onDelete={handleDeleteListing} onOpenPromotions={() => navigate(`/promotions/${seller.id}`)} />
+                <ShopListingsTab sellerId={seller.id} products={activeSellerProducts} lowStockProducts={lowStockSellerProducts} outOfStockProducts={outOfStockSellerProducts} archivedProducts={archivedListings.filter((product) => product.sellerId === seller.id)} hasOrderHistory={(product) => storeOrders.some((order) => order.productId === product.id || order.orderItems?.some((item) => item.productId === product.id || item.listingId === product.databaseId))} navigate={navigate} onDelete={handleDeleteListing} />
                 <ShopPostsTab posts={managedPosts} onEdit={handleEditPost} onDelete={handleDeletePost} onCreate={handleCreatePost} />
                 <ShopEventsTab events={sellerEvents} navigate={navigate} onEdit={handleEditEvent} onDelete={handleDeleteEvent} />
                 </div>
@@ -516,18 +512,14 @@ function groupListingsByCategory(products) {
   return [...groups.entries()];
 }
 
-function ShopListingsTab({ sellerId, products, lowStockProducts, outOfStockProducts, archivedProducts, hasOrderHistory, promotions, navigate, onDelete, onOpenPromotions }) {
+function ShopListingsTab({ sellerId, products, lowStockProducts, outOfStockProducts, archivedProducts, hasOrderHistory, navigate, onDelete }) {
   const categoryGroups = groupListingsByCategory(products);
   return (
     <ShopTabPanel>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-[18px] font-semibold">Listings</h2>
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={() => navigate("/create-promotion")} className="text-[14px] font-medium text-[#498467]">+ Promotion</button>
-          <button type="button" onClick={() => navigate("/create-listing")} className="text-[14px] font-medium text-[#498467]">+ New Listing</button>
-        </div>
+        <button type="button" onClick={() => navigate("/create-listing")} className="text-[14px] font-medium text-[#498467]">+ New Listing</button>
       </div>
-      {promotions.length > 0 && <PromotionsBanner count={promotions.length} onClick={onOpenPromotions} />}
       {products.length === 0 ? <ShopEmptyTab>No listings yet. Create your first listing to start selling on Grolo.</ShopEmptyTab> : categoryGroups.map(([category, categoryProducts]) => <section key={category} className="mb-5 last:mb-0"><button type="button" onClick={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/${encodeURIComponent(category)}`)} className="mb-3 flex w-full items-center justify-between text-left"><h2 className="text-[16px] font-semibold">{category} ({categoryProducts.length})</h2><span aria-hidden="true" className="text-[20px] text-[#828282]">›</span></button><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{categoryProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>)}
       {lowStockProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Low Stock</h2><p className="mb-3 text-[13px] text-[#9A6700]">These listings have five or fewer items remaining.</p><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{lowStockProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>}
       {outOfStockProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><button type="button" onClick={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/Out%20of%20Stock`)} className="mb-3 flex w-full items-center justify-between text-left"><h2 className="text-[18px] font-semibold">Out of Stock ({outOfStockProducts.length})</h2><span aria-hidden="true" className="text-[20px] text-[#828282]">›</span></button><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{outOfStockProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>}
@@ -554,18 +546,17 @@ function ShopEventsTab({ events, navigate, onEdit, onDelete }) {
   );
 }
 
-function ShopRegrowsTab({ products, posts, events, promotions, isRegrown }) {
+function ShopRegrowsTab({ products, posts, events, isRegrown }) {
   const items = [
     ...posts.map((post) => ({ id: `post:${post.id}`, title: post.body, image: post.image, type: "Post" })),
     ...events.map((event) => ({ id: `event:${event.id}`, title: event.title, image: event.image, type: "Event" })),
-    ...promotions.map((promotion) => ({ id: `promotion:${promotion.id}`, title: promotion.title, image: null, type: "Promotion" })),
     ...products.map((product) => ({ id: `listing:${product.id}`, title: product.name, image: product.image, type: "Listing" })),
   ].filter((item) => isRegrown(item.id));
 
   return (
     <ShopTabPanel>
       <h2 className="mb-3 text-[18px] font-semibold">Regrows</h2>
-      {items.length === 0 ? <ShopEmptyTab>No regrows yet. Regrown community content will appear here.</ShopEmptyTab> : <div className="grid w-full min-w-0 grid-cols-2 gap-3">{items.map((item) => <div key={item.id} className="rounded-lg border border-[#E6E6E6] p-2">{item.image ? <img src={item.image} alt="" className="aspect-square w-full rounded object-cover" /> : <div className="flex aspect-square items-center justify-center rounded bg-[#F5FFF6] text-[#498467]">Promotion</div>}<span className="mt-2 block text-[12px] font-medium text-[#498467]">{item.type}</span><p className="mt-1 line-clamp-2 text-[14px]">{item.title}</p></div>)}</div>}
+      {items.length === 0 ? <ShopEmptyTab>No regrows yet. Regrown community content will appear here.</ShopEmptyTab> : <div className="grid w-full min-w-0 grid-cols-2 gap-3">{items.map((item) => <div key={item.id} className="rounded-lg border border-[#E6E6E6] p-2">{item.image ? <img src={item.image} alt="" className="aspect-square w-full rounded object-cover" /> : <div className="flex aspect-square items-center justify-center rounded bg-[#F5FFF6] text-[#498467]">Community</div>}<span className="mt-2 block text-[12px] font-medium text-[#498467]">{item.type}</span><p className="mt-1 line-clamp-2 text-[14px]">{item.title}</p></div>)}</div>}
     </ShopTabPanel>
   );
 }

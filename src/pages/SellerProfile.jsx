@@ -3,8 +3,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { ActivityCard } from "./BuyerProfile";
-import PromotionBadge from "../components/PromotionBadge";
-import PromotionsBanner from "../components/PromotionsBanner";
 import { communityPosts, followingPosts, sellers, messages } from "../data/mockData";
 import { useListings } from "../context/ListingContext";
 import { useFollow } from "../context/FollowContext";
@@ -14,7 +12,6 @@ import {
   formatEventTime,
   useEvents,
 } from "../context/EventContext";
-import { usePromotions } from "../context/PromotionContext";
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { usePosts } from "../context/PostContext";
 import OutlineIcon from "../components/OutlineIcon";
@@ -44,7 +41,6 @@ export default function SellerProfile() {
   const { user } = useAuth();
   const { sellerRating } = useReviews();
   const { upcomingEvents } = useEvents();
-  const { promotionsForSeller } = usePromotions();
   const { getPaymentMethods } = usePaymentMethods();
   const { posts } = usePosts();
   const { getSellerProfile } = useSellerSettings();
@@ -64,7 +60,6 @@ export default function SellerProfile() {
     return !Number.isNaN(createdAt) && createdAt >= storeOpenedAt;
   };
   const sellerEvents = upcomingEvents(seller.id).filter(createdBySeller);
-  const sellerPromotions = promotionsForSeller(seller.id, { createdAfter: storeOpenedAt });
   const sellerRatingData = sellerRating(seller.id);
   const { average, count } = sellerRatingData;
   const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name || p.shop === seller.name);
@@ -268,7 +263,7 @@ export default function SellerProfile() {
               onScroll={handleContentScroll}
               className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
             >
-            <ListingsTab sellerId={seller.id} products={sellerProducts} promotions={sellerPromotions} navigate={navigate} onOpenPromotions={() => navigate(`/promotions/${seller.id}`)} />
+            <ListingsTab sellerId={seller.id} products={sellerProducts} navigate={navigate} />
             <PostsTab posts={sellerPosts} navigate={navigate} profile={sellerProfile} />
             <EventsTab events={sellerEvents} navigate={navigate} profile={sellerProfile} />
             </div>
@@ -316,7 +311,7 @@ function groupListingsByCategory(products) {
   return [...groups.entries()];
 }
 
-function ListingsTab({ sellerId, products, promotions, navigate, onOpenPromotions }) {
+function ListingsTab({ sellerId, products, navigate }) {
   const isInventoryTracked = (product) => !Array.isArray(product.variants) || product.variants.length === 0;
   const activeProducts = products.filter((product) => !isInventoryTracked(product) ? product.availableForOrders !== false : Number(product.quantityAvailable) > 0);
   const outOfStockProducts = products.filter((product) => !isInventoryTracked(product) ? product.availableForOrders === false : Number(product.quantityAvailable) <= 0);
@@ -324,9 +319,8 @@ function ListingsTab({ sellerId, products, promotions, navigate, onOpenPromotion
 
   return (
     <TabPanel>
-      {promotions.length > 0 && <PromotionsBanner count={promotions.length} onClick={onOpenPromotions} />}
       {categoryGroups.length === 0 ? <EmptyTab>No active listings</EmptyTab> : categoryGroups.map(([category, categoryProducts]) => (
-        <ListingSection key={category} title={category} count={categoryProducts.length} products={categoryProducts} promotions={promotions} navigate={navigate} onCategory={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/${encodeURIComponent(category)}`)} />
+        <ListingSection key={category} title={category} count={categoryProducts.length} products={categoryProducts} navigate={navigate} onCategory={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/${encodeURIComponent(category)}`)} />
       ))}
       {outOfStockProducts.length > 0 && (
         <section className="mt-6 border-t border-black/5 pt-4">
@@ -350,7 +344,7 @@ function ListingsTab({ sellerId, products, promotions, navigate, onOpenPromotion
   );
 }
 
-function ListingSection({ title, count, products, promotions, navigate, onCategory }) {
+function ListingSection({ title, count, products, navigate, onCategory }) {
   return (
     <section>
       <button type="button" onClick={onCategory} className="mb-3 flex w-full items-center justify-between text-left">
@@ -362,12 +356,10 @@ function ListingSection({ title, count, products, promotions, navigate, onCatego
       ) : (
         <div className="grid w-full min-w-0 grid-cols-2 gap-3">
           {products.map((product) => {
-            const promotion = promotions.find((item) => item.productIds.includes(product.id));
             return (
               <button key={product.id} type="button" onClick={() => navigate(`/product/${product.id}`)} className="text-left">
                 <div className="relative">
                   <img src={product.image} alt={product.name} className="aspect-square w-full rounded-lg object-cover" />
-                  {promotion && <PromotionBadge promotion={promotion} className="absolute left-2 top-2" />}
                 </div>
                 <ServiceCategoryLabel listing={product} className="mt-2 block" />
                 <span className="mt-1 block text-[14px] font-medium">{product.name}</span>

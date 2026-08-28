@@ -115,12 +115,26 @@ test("Search spotlight carousel renders active campaigns or placeholders", async
     readFile(new URL("../src/pages/Search.jsx", import.meta.url), "utf8"),
     readFile(new URL("../src/context/AdvertisingContext.jsx", import.meta.url), "utf8"),
   ]);
-  assert.match(search, /isCampaignActive\(ad\)/);
+  assert.match(search, /activePromotions\(\)/);
+  assert.match(search, /CommunitySpotlightCarousel sellers=\{resolvedSellers\} listings=\{discoveryProducts\} events=\{resolvedEvents\}/);
   assert.match(search, /placeholderSpotlights/);
+  assert.doesNotMatch(search, /useAdvertising/);
   assert.match(search, /Community Spotlight/);
   assert.match(advertising, /AD_STORAGE_KEY/);
   assert.match(advertising, /localStorage\.setItem/);
   assert.equal(isCampaignActive({ status: "Trial", startsAt: "2026-08-15", endsAt: "2026-08-15", trialEndsAt: "2026-09-13" }, Date.parse("2026-08-20T12:00:00Z")), true);
+});
+
+test("Community Spotlight reads active promotions globally", async () => {
+  const [search, api, schema] = await Promise.all([
+    readFile(new URL("../src/pages/Search.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/lib/api/promotions.js", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/schema.sql", import.meta.url), "utf8"),
+  ]);
+  assert.match(search, /activePromotions\(\)/);
+  assert.doesNotMatch(search, /useAdvertising/);
+  assert.match(api, /getPromotions\(\)[\s\S]*from\("promotions"\)\.select\("\*"\)\.order/);
+  assert.match(schema, /Promotions are viewable by everyone/);
 });
 
 test("Search temporarily exposes list views without Map Search", async () => {

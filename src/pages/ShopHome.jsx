@@ -44,6 +44,7 @@ export default function ShopHome() {
   const { storeOpenedAt } = useProfileMode();
   const { getSellerProfile, updateSellerProfile } = useSellerSettings();
   const sellerProfile = getSellerProfile(seller.id);
+  const profileSellerId = sellerProfile.id ?? seller.id;
   const { listings, archivedListings, removeListing } = useListings();
   const [isEditing, setIsEditing] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -98,16 +99,24 @@ export default function ShopHome() {
   }, [seller.id, sellerProducts]);
 
   useEffect(() => {
+    const followerCount = getFollowerCount(profileSellerId);
+    console.log("SHOPHOME FOLLOWER AUDIT", {
+      userId: user?.id ?? null,
+      sellerProfileId: seller.id,
+      profileSellerId,
+      followerCount,
+    });
     console.info("ShopHome follower count render audit", {
       source: "seller_store_page",
-      seller_id: seller.id,
-      seller_id_type: typeof seller.id,
+      seller_id: profileSellerId,
+      seller_id_type: typeof profileSellerId,
       auth_user_id: user?.id ?? null,
+      follower_count_source: "FollowContext.get_follower_counts(user_follows)",
       followedSellers,
-      isFollowing: isFollowing(seller.id),
-      displayed_follower_count: getFollowerCount(seller.id),
+      isFollowing: isFollowing(profileSellerId),
+      displayed_follower_count: followerCount,
     });
-  }, [followedSellers, getFollowerCount, isFollowing, seller.id, user?.id]);
+  }, [followedSellers, getFollowerCount, isFollowing, profileSellerId, seller.id, user?.id]);
 
   useEffect(() => {
     console.info("ShopHome order source", {
@@ -371,7 +380,7 @@ export default function ShopHome() {
                     ({localSellerRating.count} reviews)
                   </button>
                   <span className="text-[14px] text-[#828282]">•</span>
-                  <span className="text-[14px] text-[#828282]">{getFollowerCount(seller.id)} followers</span>
+                  <span className="text-[14px] text-[#828282]">{getFollowerCount(profileSellerId)} followers</span>
                 </div>
 
                 {/* Action Buttons */}

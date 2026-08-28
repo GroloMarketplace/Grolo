@@ -12,8 +12,6 @@ import { useFavorites } from "../hooks/useFavorites";
 import { useSavedItems } from "../context/SavedContext";
 import { useReviews } from "../context/ReviewContext";
 import { useOrders } from "../context/OrderContext";
-import { useAdvertising } from "../context/AdvertisingContext";
-import { isCampaignActive } from "../utils/campaignDuration";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useListings } from "../context/ListingContext";
 import TradeBadge from "../components/TradeBadge";
@@ -329,28 +327,30 @@ function SavedHistoryCard({ item, onClick, listing, promotion }) {
 
 function CommunitySpotlightCarousel({ sellers, listings, events }) {
   const navigate = useNavigate();
-  const { ads } = useAdvertising();
+  const { activePromotions } = usePromotions();
   const touchStartX = useRef(null);
   const didSwipeRef = useRef(false);
   const pausedRef = useRef(false);
   const [current, setCurrent] = useState(1);
-  const paidSpotlights = ads
-    .filter((ad) => isCampaignActive(ad))
-    .map((ad) => ({
-      id: ad.id,
-      type: ad.type === "Event" ? "event" : ad.type === "Store" ? "store" : "product",
-      adType: ad.type,
-      destinationType: ad.destinationType,
+  const paidSpotlights = activePromotions().map((promotion) => {
+    const destinationId = promotion.productIds?.[0] ?? promotion.listingId;
+    const listing = listings.find((item) => [item.id, item.databaseId, item.legacyId].filter(Boolean).map(String).includes(String(destinationId)));
+    const seller = sellers.find((item) => String(item.id) === String(promotion.sellerId));
+    return {
+      id: promotion.id,
+      type: "product",
+      adType: "Promotion",
+      destinationType: destinationId ? "Product listing" : "Store profile",
       badge: "Sponsored",
-      title: ad.title,
-      description: ad.description,
-      sellerId: ad.sellerId,
-      productId: ad.type === "Product" || ad.type === "Promotion" ? ad.destinationId : undefined,
-      eventId: ad.type === "Event" ? ad.destinationId : undefined,
-      destinationId: ad.destinationId,
-      destinationRoute: ad.destinationRoute,
-      image: ad.image,
-    }));
+      title: promotion.title,
+      description: promotion.description,
+      sellerId: promotion.sellerId,
+      productId: destinationId,
+      destinationId: destinationId ?? promotion.sellerId,
+      destinationRoute: destinationId ? `/product/${destinationId}` : `/seller/${promotion.sellerId}`,
+      image: promotion.image || listing?.image || seller?.avatar,
+    };
+  });
   const organicSpotlights = [];
   const placeholderSpotlights = [
     { id: "spotlight-placeholder-1", badge: "Community Spotlight", title: "Put your store in the spotlight", description: "Reach more local shoppers on Grolo.", image: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80", placeholder: true },

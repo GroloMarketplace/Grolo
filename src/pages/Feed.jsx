@@ -59,6 +59,13 @@ function imageReferenceMatches(first, second) {
   return first.split("?")[0] === second.split("?")[0];
 }
 
+function sellerIdMatches(followedSellerIds, sellerId) {
+  const normalizedSellerId = sellerId == null ? "" : String(sellerId).trim().toLowerCase();
+  return normalizedSellerId !== "" && followedSellerIds.some((followedSellerId) => (
+    String(followedSellerId).trim().toLowerCase() === normalizedSellerId
+  ));
+}
+
 // Promotions don't carry their own location, so resolve one from a linked
 // listing (falling back to the promotion itself) for radius filtering/sorting.
 function promotionLocationContent(promotion, listings) {
@@ -359,13 +366,13 @@ function FollowingFeed({ followedSellers, location, radius, hiddenContentIds, bl
   const { posts } = usePosts();
   const { activePromotions } = usePromotions();
   const visibleAccount = (accountId) => !blockedUserIds.has(String(accountId));
-  const events = upcomingEvents().filter((event) => visibleAccount(event.sellerId) && followedSellers.includes(event.sellerId) && eventMatchesDiscoveryRadius(event, location, radius));
-  const followedPosts = [...followingPosts, ...posts].filter((post) => visibleAccount(post.sellerId) && followedSellers.includes(post.sellerId) && isWithinDiscoveryRadius(post, location, radius));
-  const followedListings = listings.filter((product) => visibleAccount(product.sellerId) && followedSellers.includes(product.sellerId) && isWithinDiscoveryRadius(product, location, radius));
+  const events = upcomingEvents().filter((event) => visibleAccount(event.sellerId) && sellerIdMatches(followedSellers, event.sellerId) && eventMatchesDiscoveryRadius(event, location, radius));
+  const followedPosts = [...followingPosts, ...posts].filter((post) => visibleAccount(post.sellerId) && sellerIdMatches(followedSellers, post.sellerId) && isWithinDiscoveryRadius(post, location, radius));
+  const followedListings = listings.filter((product) => visibleAccount(product.sellerId) && sellerIdMatches(followedSellers, product.sellerId) && isWithinDiscoveryRadius(product, location, radius));
   const listingsForPromotions = listings;
   const postsForItems = followedPosts;
   const listingsForItems = followedListings;
-  const promotions = activePromotions().filter((promotion) => visibleAccount(promotion.sellerId) && followedSellers.includes(promotion.sellerId) && isWithinDiscoveryRadius(promotionLocationContent(promotion, listings), location, radius));
+  const promotions = activePromotions().filter((promotion) => visibleAccount(promotion.sellerId) && sellerIdMatches(followedSellers, promotion.sellerId) && isWithinDiscoveryRadius(promotionLocationContent(promotion, listings), location, radius));
   const items = getFollowedItems({ posts: postsForItems, events, listings: listingsForItems, promotions, allListings: listingsForPromotions, hiddenContentIds, location });
 
   return (

@@ -19,6 +19,7 @@ import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { usePosts } from "../context/PostContext";
 import OutlineIcon from "../components/OutlineIcon";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import { useAuth } from "../context/AuthContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
@@ -33,13 +34,14 @@ import { useBlockedAccount } from "../hooks/useBlockedAccount";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
 
 function isCanonicalSellerId(value) {
-  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 export default function SellerProfile() {
   const { sellerId } = useParams();
   const navigate = useNavigate();
-  const { isFollowing, toggleFollow, getFollowerCount, followedSellers } = useFollow();
+  const { isFollowing, toggleFollow, getFollowerCount, followedSellers, followsLoaded } = useFollow();
+  const { user } = useAuth();
   const { sellerRating } = useReviews();
   const { upcomingEvents } = useEvents();
   const { promotionsForSeller } = usePromotions();
@@ -67,19 +69,37 @@ export default function SellerProfile() {
   const { average, count } = sellerRatingData;
   const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name || p.shop === seller.name);
   useEffect(() => {
+    if (!followsLoaded) return;
+    console.log("FOLLOW STATE REHYDRATION", {
+      currentUserId: user?.id ?? null,
+      sellerId: profileSellerId ?? sellerId,
+      resolvedProfileId: profileSellerId,
+      followedSellerIdsFromUserFollows: followedSellers,
+      followsLoaded,
+      isFollowing: profileSellerId ? isFollowing(profileSellerId) : false,
+      followerCount: profileSellerId ? getFollowerCount(profileSellerId) : 0,
+    });
+  }, [followsLoaded, getFollowerCount, isFollowing, profileSellerId, sellerId, user?.id]);
+
+  useEffect(() => {
+    const followerCount = profileSellerId ? getFollowerCount(profileSellerId) : 0;
     console.log({ profileSellerId, followedSellers, match: followedSellers.includes(profileSellerId) });
     console.info("SellerProfile follower count render audit", {
       source: "seller_profile_page",
+      userId: user?.id ?? null,
+      sellerProfileId: seller.id,
       profileSellerId,
       profile_seller_id_type: typeof profileSellerId,
       route_seller_id: sellerId,
       seller_id_origin: resolvedSeller ? "profiles.id" : isCanonicalSellerId(sellerId) ? "auth.users.id / profiles.id" : "unresolved legacy route",
+      follower_count_source: "FollowContext.get_follower_counts(user_follows)",
       followedSellers,
       match: followedSellers.includes(profileSellerId),
       isFollowing: profileSellerId ? isFollowing(profileSellerId) : false,
-      displayed_follower_count: profileSellerId ? getFollowerCount(profileSellerId) : 0,
+      followerCount,
+      displayed_follower_count: followerCount,
     });
-  }, [followedSellers, getFollowerCount, isFollowing, profileSellerId, resolvedSeller, sellerId]);
+  }, [followedSellers, getFollowerCount, isFollowing, profileSellerId, resolvedSeller, seller.id, sellerId, user?.id]);
   const sellerPosts = [...followingPosts, ...communityPosts, ...posts].filter(
     (post, index, allPosts) =>
       String(post.sellerId) === String(seller.id) && createdBySeller(post) && allPosts.findIndex((item) => item.id === post.id) === index,
@@ -198,7 +218,10 @@ export default function SellerProfile() {
             {/* Action Buttons */}
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => { if (profileSellerId) toggleFollow(profileSellerId); }}
+                onClick={() => {
+                  console.log("FOLLOW BUTTON CLICKED");
+                  if (profileSellerId) toggleFollow(profileSellerId);
+                }}
                 disabled={!profileSellerId}
                 className={`flex-1 py-2.5 rounded-lg text-[14px] font-medium ${
                   isFollowing(profileSellerId)

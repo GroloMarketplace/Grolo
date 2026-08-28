@@ -196,7 +196,6 @@ export default function ProductDetail() {
                   onClick={handleMessageSeller}
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#498467] bg-white py-3 text-[16px] font-medium text-[#498467] transition-colors hover:bg-[#F5FFF6]"
                 >
-                  <span aria-hidden="true">💬</span>
                   Message Seller
                 </button>
               )}
@@ -217,10 +216,10 @@ export default function ProductDetail() {
               product.shop
             )}
           </div>
-          <FoundingMemberBadge sellerId={seller?.id} />
+          <FoundingMemberBadge sellerId={seller?.id} foundingMember={sellerProfile?.foundingMember} />
           <TrustSafetyActions targetType="listing" targetId={product.databaseId ?? product.id} />
           <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-3" />
-          {reputationSnapshot?.sellerStatus && <TrustMetricSummary metrics={reputationSnapshot.sellerStatus.metrics} audience="seller" compact />}
+          {reputationSnapshot?.sellerStatus && <TrustMetricSummary metrics={reputationSnapshot.sellerStatus.metrics} audience="seller" memberSince={sellerProfile?.createdAt} storeCreatedAt={sellerProfile?.storeOpenedAt} compact />}
           {vacationMode && <div className="rounded-lg border border-[#D9D9D9] bg-[#F5FFF6] p-3 text-[14px] text-[#4F4F4F]">This store is temporarily not accepting orders.{sellerProfile.vacationMessage && <div className="mt-1 text-[13px] text-[#828282]">{sellerProfile.vacationMessage}</div>}</div>}
           <PaymentMethodsList paymentSettings={sellerPaymentMethods} />
           {!isService && <FulfillmentInfo paymentSettings={sellerPaymentMethods} />}

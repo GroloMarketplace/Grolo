@@ -31,10 +31,16 @@ function warnMissing(entityType, requestedId, diagnostics = {}) {
   });
 }
 
+function isFoundingYearStore(value) {
+  const date = value ? new Date(value) : null;
+  return Boolean(date && !Number.isNaN(date.getTime()) && date.getUTCFullYear() === 2026);
+}
+
 function sellerProfileFromRow(row) {
   if (!row) return null;
   const profile = row.profiles ?? row.profile ?? row;
   const id = profile.id ?? row.seller_id ?? row.sellerId;
+  const storeOpenedAt = profile.store_opened_at ?? profile.storeOpenedAt ?? null;
   return {
     ...profile,
     id,
@@ -48,7 +54,10 @@ function sellerProfileFromRow(row) {
     location: profile.location ?? "",
     avatar: profile.avatar_url ?? profile.avatar ?? "",
     banner: profile.banner_url ?? profile.banner ?? "",
-    storeProfile: Boolean(profile.shop_name || profile.store_onboarding_status || profile.store_opened_at),
+    createdAt: profile.created_at ?? profile.createdAt ?? null,
+    storeOpenedAt,
+    foundingMember: Boolean(profile.founding_member ?? profile.foundingMember) || isFoundingYearStore(storeOpenedAt),
+    storeProfile: Boolean(profile.shop_name || profile.store_onboarding_status || storeOpenedAt),
   };
 }
 

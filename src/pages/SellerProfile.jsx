@@ -74,7 +74,7 @@ export default function SellerProfile() {
       isFollowing: profileSellerId ? isFollowing(profileSellerId) : false,
       followerCount: profileSellerId ? getFollowerCount(profileSellerId) : 0,
     });
-  }, [followsLoaded, getFollowerCount, isFollowing, profileSellerId, sellerId, user?.id]);
+  }, [followedSellers, followsLoaded, getFollowerCount, isFollowing, profileSellerId, sellerId, user?.id]);
 
   useEffect(() => {
     const followerCount = profileSellerId ? getFollowerCount(profileSellerId) : 0;

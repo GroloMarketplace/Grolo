@@ -122,7 +122,7 @@ export default function StoreReviews() {
             <div className="mb-2 flex items-center gap-2 text-[13px] font-medium text-[#498467]">
               Seller reputation
             </div>
-            <ReputationSummary snapshot={reputationSnapshot} audience="seller" sellerId={resolvedStoreId} foundingMember={storeProfile?.founding_member ?? storeProfile?.foundingMember} memberSince={storeProfile?.created_at ?? storeProfile?.createdAt} storeCreatedAt={storeProfile?.store_opened_at ?? storeProfile?.storeOpenedAt} compact className="border-0 p-0" />
+            <ReputationSummary snapshot={reputationSnapshot} audience="seller" sellerId={resolvedStoreId} foundingMember={Boolean(storeProfile?.founding_member) || Boolean(storeProfile?.foundingMember)} memberSince={storeProfile?.created_at ?? storeProfile?.createdAt} storeCreatedAt={storeProfile?.store_opened_at ?? storeProfile?.storeOpenedAt} compact className="border-0 p-0" />
           </div>
         )}
 

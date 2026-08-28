@@ -193,7 +193,7 @@ function SellerAccountSettings() {
                 <ReputationStatusPill status={{ currentStatus: "established_seller" }} audience="seller" onClick={() => navigate("/seller-statuses")} />
                 <FoundingMemberBadge sellerId={SELLER_ID} ownerId={user?.id} foundingMember={profile.foundingMember} />
                 <div><div className="text-[12px] text-[#828282]">Read-only seller status</div></div>
-                <button type="button" onClick={() => navigate("/profit")} className="ml-auto text-[12px] font-medium text-[#498467]">View Progress <span aria-hidden="true">›</span></button>
+                <button type="button" onClick={() => navigate(`/founding-member/${encodeURIComponent(user?.id ?? SELLER_ID)}`)} className="ml-auto text-[12px] font-medium text-[#498467]">View Benefits <span aria-hidden="true">›</span></button>
               </div>
             </Section>
 

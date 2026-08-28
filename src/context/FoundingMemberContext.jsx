@@ -5,7 +5,7 @@ import { isSupabaseConfigured } from "../lib/supabaseClient";
 const FoundingMemberContext = createContext(null);
 const STORAGE_KEY = "grolo-founding-members";
 const MAX_FOUNDING_MEMBERS = 100;
-const FOUNDING_MEMBER_LAUNCH_CUTOFF = "2026-08-07T23:59:59.999Z";
+const FOUNDING_MEMBER_YEAR = 2026;
 const INITIAL_FOUNDING_MEMBERS = {};
 
 function today() {
@@ -44,16 +44,13 @@ function persistMembers(members) {
   }
 }
 
-function getExpirationDate(createdAt) {
-  const parsed = new Date(createdAt);
-  const expiration = Number.isNaN(parsed.getTime()) ? new Date(`${createdAt}T00:00:00`) : parsed;
-  expiration.setMonth(expiration.getMonth() + 6);
-  return expiration;
+function getExpirationDate() {
+  return null;
 }
 
-function isLaunchEraMember(accountCreatedAt) {
-  const createdAt = accountCreatedAt ? new Date(accountCreatedAt).getTime() : NaN;
-  return Number.isFinite(createdAt) && createdAt <= new Date(FOUNDING_MEMBER_LAUNCH_CUTOFF).getTime();
+function isFoundingYearStore(storeCreatedAt) {
+  const createdAt = storeCreatedAt ? new Date(storeCreatedAt) : null;
+  return Boolean(createdAt && !Number.isNaN(createdAt.getTime()) && createdAt.getUTCFullYear() === FOUNDING_MEMBER_YEAR);
 }
 
 export function FoundingMemberProvider({ children }) {
@@ -86,14 +83,14 @@ export function FoundingMemberProvider({ children }) {
       });
   }, []);
 
-  const getFoundingMember = useCallback((sellerId, accountCreatedAt) => {
+  const getFoundingMember = useCallback((sellerId, storeCreatedAt) => {
     requestSupabaseMember(sellerId);
     const member = normalizeMember(members[sellerId]);
     if (member && Number.isInteger(Number(member.registrationNumber)) && Number(member.registrationNumber) >= 1 && Number(member.registrationNumber) <= MAX_FOUNDING_MEMBERS) return member;
-    if (isLaunchEraMember(accountCreatedAt)) {
+    if (isFoundingYearStore(storeCreatedAt)) {
       return {
-        memberSince: accountCreatedAt,
-        awardedAt: accountCreatedAt,
+        memberSince: storeCreatedAt,
+        awardedAt: storeCreatedAt,
         registrationNumber: null,
         reviewSubmitted: true,
         reserved: false,
@@ -104,12 +101,13 @@ export function FoundingMemberProvider({ children }) {
     return null;
   }, [members, requestSupabaseMember]);
 
-  const isFoundingMember = useCallback((sellerId, accountCreatedAt) => Boolean(getFoundingMember(sellerId, accountCreatedAt)), [getFoundingMember]);
+  const isFoundingMember = useCallback((sellerId, storeCreatedAt) => Boolean(getFoundingMember(sellerId, storeCreatedAt)), [getFoundingMember]);
 
 
   const awardFoundingMember = useCallback((sellerId, createdAt = today()) => {
     const existing = members[sellerId];
     if (existing) return existing;
+    if (!isFoundingYearStore(createdAt)) return null;
     const usedNumbers = Object.values(members).map((member) => member.registrationNumber).filter(Boolean);
     const registrationNumber = Array.from({ length: MAX_FOUNDING_MEMBERS }, (_, index) => index + 1).find((number) => !usedNumbers.includes(number));
     if (!registrationNumber) return null;

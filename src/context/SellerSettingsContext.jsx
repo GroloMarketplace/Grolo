@@ -45,6 +45,11 @@ const emptyProfile = {
   email: "",
 };
 
+function isFoundingYearStore(value) {
+  const date = value ? new Date(value) : null;
+  return Boolean(date && !Number.isNaN(date.getTime()) && date.getUTCFullYear() === 2026);
+}
+
 function sellerProfileFromRow(row) {
   if (!row) return emptyProfile;
   return {
@@ -74,7 +79,7 @@ function sellerProfileFromRow(row) {
     sellerStatus: row.seller_status ?? "buyer",
     storeOnboardingStatus: Boolean(row.store_onboarding_status),
     storeOpenedAt: row.store_opened_at ?? null,
-    foundingMember: Boolean(row.founding_member ?? row.foundingMember),
+    foundingMember: Boolean(row.founding_member ?? row.foundingMember) || isFoundingYearStore(row.store_opened_at ?? row.storeOpenedAt),
     socialLinks: row.social_links ?? "",
     instagram: row.instagram_handle ?? "",
     facebook: row.facebook_handle ?? "",

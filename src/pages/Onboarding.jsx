@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
+import groloLogo from "../assets/grolo-new-logo.svg";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useAuth } from "../context/AuthContext";
 import ProfileAvatar from "../components/ProfileAvatar";
@@ -133,7 +134,7 @@ export default function Onboarding() {
 }
 
 function WelcomeStep({ onContinue }) {
-  return <div className="flex min-h-full flex-col items-center justify-center text-center"><img src="/grolo-logo.svg" alt="Grolo" className="mb-8 w-40" /><h1 className="text-[26px] font-semibold">Welcome to Grolo</h1><p className="mt-2 text-[15px] font-medium text-[#498467]">Locally Owned. Community Grown.</p><p className="mt-5 max-w-[310px] text-[14px] leading-[150%] text-[#4F4F4F]">Support local businesses, discover unique products and services, attend community events, and grow meaningful local connections.</p><button type="button" onClick={onContinue} className="mt-8 w-full rounded-lg bg-[#498467] py-3 text-[16px] font-medium text-white">Continue</button></div>;
+  return <div className="flex min-h-full flex-col items-center justify-center text-center"><img src={groloLogo} alt="Grolo" className="mb-8 w-32 object-contain" /><h1 className="text-[26px] font-semibold">Welcome to Grolo</h1><p className="mt-2 text-[15px] font-medium text-[#498467]">Locally Owned. Community Grown.</p><p className="mt-5 max-w-[310px] text-[14px] leading-[150%] text-[#4F4F4F]">Support local businesses, discover unique products and services, attend community events, and grow meaningful local connections.</p><button type="button" onClick={onContinue} className="mt-8 w-full rounded-lg bg-[#498467] py-3 text-[16px] font-medium text-white">Continue</button></div>;
 }
 
 function ProfileStep({ form, update, error, onContinue }) {

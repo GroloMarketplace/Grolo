@@ -648,6 +648,35 @@ test("seller dashboard maps every new order status into the New bucket", async (
   assert.match(shopOrders, /statuses: \["New", "Seller Notified", "Order Placed"\]/);
 });
 
+test("legal consent links open readable pages and return to authentication", async () => {
+  const [app, signIn, terms, privacy] = await Promise.all([
+    readFile(new URL("../src/App.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/SignIn.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/Terms.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/Privacy.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(app, /path="\/terms"/);
+  assert.match(app, /path="\/privacy"/);
+  assert.match(signIn, /navigate\("\/terms"\)/);
+  assert.match(signIn, /navigate\("\/privacy"\)/);
+  for (const page of [terms, privacy]) {
+    assert.match(page, /Header/);
+    assert.match(page, /I Agree/);
+    assert.match(page, /navigate\(-1\)/);
+    assert.match(page, /overflow-y-auto/);
+  }
+});
+
+test("launch authentication uses email and password without Google sign-in UI", async () => {
+  const signIn = await readFile(new URL("../src/pages/SignIn.jsx", import.meta.url), "utf8");
+  assert.doesNotMatch(signIn, /Continue with Google|signInWithProvider|>or</i);
+  assert.match(signIn, /type="email"/);
+  assert.match(signIn, /PasswordField/);
+  assert.match(signIn, /Forgot password\?/);
+  assert.match(signIn, /Create an account/);
+  assert.match(signIn, /Confirm your email/);
+});
+
 test("seller listing cards show live views, likes, reviews, and regrows without comments", async () => {
   const card = await readFile(new URL("../src/components/SellerListingCard.jsx", import.meta.url), "utf8");
   assert.match(card, /useReviews/);

@@ -4,6 +4,7 @@ import { Eye, EyeOff, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import MobileScreenLayout from "../components/MobileScreenLayout";
+import groloLogo from "../assets/grolo-new-logo.svg";
 
 function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -41,7 +42,7 @@ export default function SignIn() {
   const location = useLocation();
   const navigate = useNavigate();
   const signup = location.pathname === "/signup";
-  const { signInWithPassword, signUpWithPassword, sendPasswordReset, signInWithProvider, isAuthenticated, profileStatus, profileError, onboardingComplete } = useAuth();
+  const { signInWithPassword, signUpWithPassword, sendPasswordReset, isAuthenticated, profileStatus, profileError, onboardingComplete } = useAuth();
   const [forgot, setForgot] = useState(false);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -96,7 +97,7 @@ export default function SignIn() {
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
         <div className="flex items-center justify-between">
           {forgot ? <button type="button" onClick={() => { setForgot(false); setStatus("idle"); setError(""); }} className="flex items-center gap-1 text-[13px] font-medium text-[#498467]"><ArrowLeft size={16} /> Back</button> : <span />}
-          <img src="/grolo-logo.svg" alt="Grolo" className="h-auto w-24" />
+          <img src={groloLogo} alt="Grolo" className="h-auto w-32 object-contain" />
         </div>
         <div className="my-auto py-10">
           <div className="mb-8">
@@ -124,13 +125,13 @@ export default function SignIn() {
             </form>
           )}
 
-          {!forgot && status !== "confirmation" && status !== "sent" && <>
-            <div className="my-7 flex items-center gap-3 text-xs text-[#899389]"><span className="h-px flex-1 bg-[#D9E0D8]" />or<span className="h-px flex-1 bg-[#D9E0D8]" /></div>
-            <button type="button" onClick={() => signInWithProvider("google").catch((err) => setError(err.message))} className="h-12 w-full rounded-xl border border-[#D9E0D8] bg-white text-sm font-semibold text-[#30352f] transition hover:bg-[#F1F6F1]">Continue with Google</button>
+          {!forgot && status !== "confirmation" && status !== "sent" && (
             <p className="mt-6 text-center text-sm text-[#687368]">{signup ? "Already have an account?" : "New to Grolo?"} <button type="button" onClick={switchMode} className="font-semibold text-[#498467]">{signup ? "Sign in" : "Create an account"}</button></p>
-          </>}
+          )}
         </div>
-        <p className="text-center text-xs leading-5 text-[#899389]">By continuing, you agree to our Terms of Service and Privacy Policy.</p>
+        <p className="text-center text-xs leading-5 text-[#899389]">
+          By continuing, you agree to our <button type="button" onClick={() => navigate("/terms")} className="font-semibold text-[#498467] underline underline-offset-2">Terms of Service</button> and <button type="button" onClick={() => navigate("/privacy")} className="font-semibold text-[#498467] underline underline-offset-2">Privacy Policy</button>.
+        </p>
       </div>
     </MobileScreenLayout>
   );

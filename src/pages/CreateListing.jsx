@@ -12,6 +12,8 @@ import LocationAutocomplete from "../components/LocationAutocomplete";
 import { friendlyLocation } from "../data/locations";
 import { clearLocalDraft, hasDraftContent, readLocalDraft, saveLocalDraft } from "../utils/localDrafts";
 
+const CANADIAN_PROVINCES = ["Alberta", "British Columbia", "Manitoba", "New Brunswick", "Newfoundland and Labrador", "Northwest Territories", "Nova Scotia", "Nunavut", "Ontario", "Prince Edward Island", "Quebec", "Saskatchewan", "Yukon"];
+
 function TextField({ label, type = "text", value, onChange, placeholder, required }) {
   return (
     <div>
@@ -27,7 +29,7 @@ function SelectField({ label, value, onChange, options, required }) {
       <label className="mb-2 block text-[14px] font-medium">{label}</label>
       <select value={value} onChange={onChange} required={required} className="w-full rounded-lg border border-[#E6E6E6] px-4 py-3 focus:border-[#498467] focus:outline-none">
         <option value="">Select {label.toLowerCase()}</option>
-        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+        {options.map((option) => { const optionValue = typeof option === "string" ? option : option.value; const optionLabel = typeof option === "string" ? option : option.label; return <option key={optionValue} value={optionValue}>{optionLabel}</option>; })}
       </select>
     </div>
   );
@@ -80,6 +82,10 @@ export default function CreateListing() {
     location: "",
     locationDetails: null,
     serviceArea: "",
+    serviceAreaType: "city",
+    serviceLocations: [],
+    serviceProvince: "",
+    serviceAreaRadius: "",
     availableForTrade: false,
     desiredTradeItems: "",
   });
@@ -99,6 +105,10 @@ export default function CreateListing() {
       description: formData.description,
       location: formData.location,
       serviceArea: formData.serviceArea,
+      serviceAreaType: formData.serviceAreaType,
+      serviceLocations: formData.serviceLocations,
+      serviceProvince: formData.serviceProvince,
+      serviceAreaRadius: formData.serviceAreaRadius,
       locationDetails: formData.locationDetails,
       quantityAvailable: formData.quantityAvailable !== "25" ? formData.quantityAvailable : "",
       serviceType: formData.serviceType,
@@ -145,6 +155,10 @@ export default function CreateListing() {
         pricingType: formData.pricingType,
         serviceType: formData.serviceType,
         serviceArea: formData.serviceArea,
+        serviceAreaType: formData.serviceAreaType,
+        serviceLocations: formData.serviceLocations,
+        serviceProvince: formData.serviceProvince,
+        serviceAreaRadius: formData.serviceAreaRadius ? Number(formData.serviceAreaRadius) : null,
         availability: formData.availability,
         yearsOfExperience: formData.yearsOfExperience,
         preferredContactMethod: formData.preferredContactMethod,
@@ -244,7 +258,12 @@ export default function CreateListing() {
               <SelectField label="Service Type" value={formData.serviceType} onChange={updateField("serviceType")} options={["Home Services", "Lawn Care", "Snow Removal", "House Cleaning", "Pet Care", "Tutoring", "Photography", "Graphic Design", "Web Design", "Event Services", "Health & Wellness", "Trades & Repairs", "Other"]} required />
               <SelectField label="Pricing Type" value={formData.pricingType} onChange={updateField("pricingType")} options={["Hourly Rate", "Fixed Price", "Starting At", "Free Quote", "Custom Pricing"]} required />
               <TextField label="Price or Pricing Details" value={formData.price} onChange={updateField("price")} placeholder="e.g. $40 / Hour or Starting at $100" required />
-              <LocationAutocomplete label="Service Area" value={formData.serviceArea} location={formData.locationDetails} onChange={(value) => { setFormData((current) => ({ ...current, locationDetails: value, serviceArea: friendlyLocation(value), location: friendlyLocation(value) })); }} placeholder="Search neighborhood, city, or postal code" required />
+              <SelectField label="Service Area Type" value={formData.serviceAreaType} onChange={(event) => { const type = event.target.value; setFormData((current) => ({ ...current, serviceAreaType: type, serviceArea: type === "nationwide" ? "Canada" : type === "province" ? current.serviceProvince : current.serviceArea, serviceLocations: type === "province" || type === "nationwide" ? [] : current.serviceLocations })); }} options={["city", "cities", "radius", "province", "nationwide"].map((type) => ({ value: type, label: { city: "Entire City", cities: "Multiple Cities", radius: "Radius Based", province: "Province Wide", nationwide: "Nationwide" }[type] }))} required />
+              {(formData.serviceAreaType === "city" || formData.serviceAreaType === "cities" || formData.serviceAreaType === "radius") && <LocationAutocomplete label={formData.serviceAreaType === "radius" ? "Radius Origin" : "Service Area"} value={formData.serviceArea} locations={formData.serviceLocations} multiple={formData.serviceAreaType === "cities"} onChange={(values) => { const selected = Array.isArray(values) ? values : [values].filter(Boolean); const primary = selected[0] ?? null; setFormData((current) => ({ ...current, serviceLocations: selected, locationDetails: primary, serviceArea: selected.map((value) => `${friendlyLocation(value)}${value.scope === "city" ? " (Entire City)" : ""}`).join(", "), location: friendlyLocation(primary) })); }} placeholder="Search any Canadian city, town, address, or postal code" required />}
+              {formData.serviceAreaType === "province" && <SelectField label="Province" value={formData.serviceProvince} onChange={(event) => setFormData((current) => ({ ...current, serviceProvince: event.target.value, serviceArea: event.target.value }))} options={CANADIAN_PROVINCES} required />}
+              {formData.serviceAreaType === "nationwide" && <p className="rounded-lg bg-[#F1F8F2] p-3 text-[13px] text-[#315D47]">This service is available across Canada.</p>}
+              {formData.serviceAreaType === "radius" && <TextField label="Service Radius (km)" type="number" value={formData.serviceAreaRadius} onChange={updateField("serviceAreaRadius")} placeholder="e.g. 25" required />}
+              <p className="-mt-4 text-[12px] text-[#828282]">Search locations anywhere in Canada, including small towns, rural communities, addresses, and postal codes.</p>
               <SelectField label="Availability" value={formData.availability} onChange={updateField("availability")} options={["Weekdays", "Weekends", "Evenings", "By Appointment", "Flexible"]} required />
               <TextField label="Years of Experience" value={formData.yearsOfExperience} onChange={updateField("yearsOfExperience")} placeholder="e.g. 5 Years" />
               <SelectField label="Preferred Contact Method" value={formData.preferredContactMethod} onChange={updateField("preferredContactMethod")} options={["Message Through Grolo", "Email", "Phone", "Text Message"]} required />

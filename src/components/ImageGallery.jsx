@@ -95,7 +95,7 @@ function FullScreenGallery({ photos, alt, startIndex, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
-      <div className="relative w-full max-w-[375px]">
+      <div className="relative w-full max-w-full">
         <button
           onClick={onClose}
           aria-label="Close"

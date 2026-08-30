@@ -5,10 +5,10 @@ export const LOCATION_OPTIONS = [
   { id: "mission", neighborhood: "Mission", city: "Calgary", province: "Alberta", country: "Canada", postalCode: "T2S", latitude: 51.0316, longitude: -114.0635 },
   { id: "inglewood", neighborhood: "Inglewood", city: "Calgary", province: "Alberta", country: "Canada", postalCode: "T2G", latitude: 51.0391, longitude: -114.0391 },
   { id: "royal-oak", neighborhood: "Royal Oak", city: "Calgary", province: "Alberta", country: "Canada", postalCode: "T3G", latitude: 51.1378, longitude: -114.2155 },
-  { id: "calgary", city: "Calgary", province: "Alberta", country: "Canada", postalCode: "T2", latitude: 51.0447, longitude: -114.0719 },
-  { id: "airdrie", city: "Airdrie", province: "Alberta", country: "Canada", postalCode: "T4B", latitude: 51.2917, longitude: -114.0144 },
-  { id: "cochrane", city: "Cochrane", province: "Alberta", country: "Canada", postalCode: "T4C", latitude: 51.1899, longitude: -114.4676 },
-  { id: "okotoks", city: "Okotoks", province: "Alberta", country: "Canada", postalCode: "T1S", latitude: 50.7256, longitude: -113.9747 },
+  { id: "calgary", scope: "city", city: "Calgary", province: "Alberta", country: "Canada", postalCode: "T2", latitude: 51.0447, longitude: -114.0719 },
+  { id: "airdrie", scope: "city", city: "Airdrie", province: "Alberta", country: "Canada", postalCode: "T4B", latitude: 51.2917, longitude: -114.0144 },
+  { id: "cochrane", scope: "city", city: "Cochrane", province: "Alberta", country: "Canada", postalCode: "T4C", latitude: 51.1899, longitude: -114.4676 },
+  { id: "okotoks", scope: "city", city: "Okotoks", province: "Alberta", country: "Canada", postalCode: "T1S", latitude: 50.7256, longitude: -113.9747 },
   { id: "chestermere", city: "Chestermere", province: "Alberta", country: "Canada", postalCode: "T1X", latitude: 51.0388, longitude: -113.8219 },
 ];
 

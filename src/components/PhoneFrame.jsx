@@ -12,13 +12,13 @@ export default function PhoneFrame({ children, hideTabBar, backgroundColor = "bg
   const { handleTouchStart, handleTouchEnd } = useSwipeBack();
   const activeToast = toast ? { message: toast.message, visible: toast.visible, style: "bg-[#498467]" } : savedToast ? { message: savedToast, visible: true, style: "bg-[#1E1E1E]" } : null;
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#efefef] py-6">
+    <div className="min-h-[100svh] w-full bg-[#efefef]">
       <div
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        className={`relative w-full max-w-[375px] h-[812px] ${backgroundColor} overflow-hidden shadow-xl flex flex-col no-scroll-x`}
+        className={`app-frame relative flex h-[100svh] min-h-[100svh] w-full max-w-full flex-col overflow-hidden ${backgroundColor} no-scroll-x`}
       >
-        <div className={`flex-1 overflow-x-hidden relative ${hideTabBar ? "" : "pb-20"}`}>
+        <div className={`relative flex-1 overflow-x-hidden ${hideTabBar ? "pb-[env(safe-area-inset-bottom)]" : "pb-[calc(5rem+env(safe-area-inset-bottom))]"}`}>
           <MobileScreenLayout key={pathname}>
             {children}
           </MobileScreenLayout>

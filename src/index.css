@@ -58,3 +58,15 @@ body {
 .no-scroll-x {
   overflow-x: hidden;
 }
+
+html,
+body {
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.app-frame {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top);
+}

@@ -136,7 +136,7 @@ export default function OpenStore() {
     <MobileScreenLayout>
       {step > 0 && <Header title="Open a Store" onBack={back} />}
       <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar px-5 py-6">
-        <div className="mx-auto flex max-w-[390px] flex-col gap-5 pb-6">
+        <div className="mx-auto flex w-full max-w-full flex-col gap-5 pb-6">
           <Progress step={step} />
           {step === 0 && <WelcomeStep onContinue={next} />}
           {step === 1 && <BasicsStep form={form} update={update} onContinue={next} error={formError} />}

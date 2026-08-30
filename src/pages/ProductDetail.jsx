@@ -221,6 +221,7 @@ export default function ProductDetail() {
         {isService ? (
           <div className="flex flex-col gap-2 rounded-lg border border-[#E6E6E6] p-4 text-[14px] text-[#4F4F4F]">
             <span><strong>Service Area:</strong> {product.serviceArea || product.location || "Contact provider"}</span>
+            {product.serviceAreaType === "radius" && product.serviceAreaRadius != null && <span><strong>Service Radius:</strong> {product.serviceAreaRadius} km from the selected location</span>}
             <span><strong>Availability:</strong> {product.availability || "By appointment"}</span>
             {product.yearsOfExperience && <span><strong>Experience:</strong> {product.yearsOfExperience}</span>}
             <span><strong>Contact Method:</strong> {product.preferredContactMethod || "Message Through Grolo"}</span>

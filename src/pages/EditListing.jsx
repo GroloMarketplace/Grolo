@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import PhotoManager from "../components/PhotoManager";
+import LocationAutocomplete from "../components/LocationAutocomplete";
+import { friendlyLocation, locationFromLegacyText } from "../data/locations";
 import { useListings } from "../context/ListingContext";
 
 function VariantEditor({ variants, onChange }) {
@@ -37,6 +39,10 @@ export default function EditListing() {
   const [availableForTrade, setAvailableForTrade] = useState(false);
   const [desiredTradeItems, setDesiredTradeItems] = useState("");
   const [location, setLocation] = useState("");
+  const [locationDetails, setLocationDetails] = useState(null);
+  const [serviceLocations, setServiceLocations] = useState([]);
+  const [serviceAreaRadius, setServiceAreaRadius] = useState("");
+  const [serviceArea, setServiceArea] = useState("");
   const [photos, setPhotos] = useState([]);
   const [quantityAvailable, setQuantityAvailable] = useState(0);
   const [variants, setVariants] = useState([]);
@@ -52,6 +58,13 @@ export default function EditListing() {
     setAvailableForTrade(product.availableForTrade ?? false);
     setDesiredTradeItems(product.desiredTradeItems ?? "");
     setLocation(product.location || "");
+    setLocationDetails(product.neighborhood || product.city ? { neighborhood: product.neighborhood, city: product.city, province: product.province, country: product.country, postalCode: product.postalCode, latitude: product.latitude, longitude: product.longitude } : null);
+    const storedServiceLocations = Array.isArray(product.serviceLocations) && product.serviceLocations.length
+      ? product.serviceLocations
+      : [locationFromLegacyText(product.serviceArea || product.location)].filter(Boolean);
+    setServiceLocations(storedServiceLocations);
+    setServiceArea(product.serviceArea || product.location || "");
+    setServiceAreaRadius(product.serviceAreaRadius ?? "");
     setPhotos(product.images?.length ? product.images : product.image ? [product.image] : []);
     setQuantityAvailable(product.quantityAvailable ?? 0);
     setVariants(Array.isArray(product.variants) ? product.variants.map((variant) => ({ name: variant.name ?? "", price: variant.price ?? "" })) : []);
@@ -60,6 +73,7 @@ export default function EditListing() {
 
   const handleSave = async () => {
     if (!product) return;
+    const isService = category === "Services";
     const hasVariants = variants.length > 0;
     const normalizedQuantity = !hasVariants && Number.isInteger(Number(quantityAvailable)) && Number(quantityAvailable) >= 0
       ? Number(quantityAvailable)
@@ -73,15 +87,19 @@ export default function EditListing() {
       await updateListing(product.id, {
         title,
         name: title,
-        price: Number(price),
-        quantityAvailable: normalizedQuantity,
-        availableForOrders: hasVariants ? availableForOrders : true,
-        variants: variants.map((variant) => ({ name: variant.name.trim(), price: Number(variant.price) })),
+        price: isService ? price : Number(price),
+        quantityAvailable: isService ? 0 : normalizedQuantity,
+        availableForOrders: isService ? true : (hasVariants ? availableForOrders : true),
+        variants: isService ? [] : variants.map((variant) => ({ name: variant.name.trim(), price: Number(variant.price) })),
+        serviceArea: isService ? serviceArea : undefined,
+        serviceLocations: isService ? serviceLocations : undefined,
+        serviceAreaRadius: isService && serviceAreaRadius !== "" ? Number(serviceAreaRadius) : null,
         description,
         category,
         availableForTrade,
         desiredTradeItems: availableForTrade ? desiredTradeItems : "",
-        location,
+        location: isService ? serviceArea : location,
+        ...(isService && locationDetails ? { neighborhood: locationDetails.neighborhood, city: locationDetails.city, province: locationDetails.province, country: locationDetails.country, postalCode: locationDetails.postalCode, latitude: locationDetails.latitude, longitude: locationDetails.longitude } : {}),
         images: photos,
         image: photos[0],
       });
@@ -182,6 +200,7 @@ export default function EditListing() {
             <option value="Bakery">Bakery</option>
             <option value="Crafts">Crafts</option>
             <option value="Other">Other</option>
+            <option value="Services">Services</option>
           </select>
         </div>
 
@@ -212,13 +231,13 @@ export default function EditListing() {
 
         {/* Location */}
         <div className="mb-4">
-          <label className="text-[14px] font-semibold mb-2 block">Location</label>
-          <input
-            type="text"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="w-full p-3 border border-[#E6E6E6] rounded-lg text-[14px] outline-none"
-          />
+          {category === "Services" ? <>
+            <LocationAutocomplete label="Service Area" value={serviceArea} locations={serviceLocations} multiple onChange={(values) => { const primary = values[0] ?? null; setServiceLocations(values); setLocationDetails(primary); setServiceArea(values.map((value) => `${friendlyLocation(value)}${value.scope === "city" ? " (Entire City)" : ""}`).join(", ")); setLocation(friendlyLocation(primary)); }} placeholder="Search a city or neighbourhood, then add more" required />
+            <label className="mt-3 block text-[14px] font-medium">Optional Service Radius (km)<input type="number" min="0" max="500" value={serviceAreaRadius} onChange={(event) => setServiceAreaRadius(event.target.value)} placeholder="e.g. 25" className="mt-2 w-full rounded-lg border border-[#E6E6E6] p-3 text-[14px] outline-none" /></label>
+          </> : <>
+            <label className="text-[14px] font-semibold mb-2 block">Location</label>
+            <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full p-3 border border-[#E6E6E6] rounded-lg text-[14px] outline-none" />
+          </>}
         </div>
 
         {/* Images */}

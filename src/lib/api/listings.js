@@ -27,6 +27,9 @@ function variantsFor(listing) {
 function rowForListing(listing, sellerId) {
   const imageUrls = imageUrlsFor(listing);
   const variants = variantsFor(listing);
+  const isService = listing.category === "Services";
+  const serviceStatus = listing.serviceStatus ?? listing.service_status;
+  const rawPrice = String(listing.price ?? "").trim();
   const numericPrice = Number(listing.price);
   const isNumericPrice = Number.isFinite(numericPrice);
   return {
@@ -37,10 +40,10 @@ function rowForListing(listing, sellerId) {
     description: listing.description ?? "",
     category: listing.category || null,
     subcategory: listing.subcategory || null,
-    price: isNumericPrice ? numericPrice : 0,
-    pricing_details: isNumericPrice ? null : String(listing.price ?? ""),
+    price: isService && !rawPrice ? null : isNumericPrice ? numericPrice : 0,
+    pricing_details: isNumericPrice ? null : rawPrice,
     condition: listing.condition || null,
-    inventory_quantity: variants.length ? 0 : Number.isFinite(Number(listing.quantityAvailable)) ? Number(listing.quantityAvailable) : 0,
+    inventory_quantity: isService ? 0 : variants.length ? 0 : Number.isFinite(Number(listing.quantityAvailable)) ? Number(listing.quantityAvailable) : 0,
     trade_enabled: Boolean(listing.tradeEnabled ?? listing.availableForTrade),
     pickup_available: listing.pickupAvailable !== false,
     delivery_available: Boolean(listing.deliveryAvailable),
@@ -54,10 +57,11 @@ function rowForListing(listing, sellerId) {
     postal_code: listing.postalCode || listing.postal_code || null,
     latitude: Number.isFinite(Number(listing.latitude)) ? Number(listing.latitude) : null,
     longitude: Number.isFinite(Number(listing.longitude)) ? Number(listing.longitude) : null,
-    status: listing.status ?? "Active",
+    status: isService && serviceStatus === "Archived" ? "Archived" : listing.status ?? "Active",
     metadata: {
       ...(listing.metadata ?? {}),
       pricingType: listing.pricingType,
+      serviceStatus: listing.serviceStatus,
       serviceType: listing.serviceType,
       serviceArea: listing.serviceArea,
       serviceAreaType: listing.serviceAreaType,
@@ -85,6 +89,8 @@ export function listingFromRow(row) {
     ? row.image_urls
     : row.image_url ? [row.image_url] : [];
   const metadata = row.metadata ?? {};
+  const isService = row.category === "Services";
+  const effectiveStatus = row.status === "Archived" || (isService && metadata.serviceStatus === "Archived") ? "Archived" : row.status ?? "Active";
   return {
     ...row,
     ...metadata,
@@ -113,12 +119,17 @@ export function listingFromRow(row) {
     postalCode: row.postal_code ?? "",
     latitude: row.latitude ?? null,
     longitude: row.longitude ?? null,
-    status: row.status ?? "Active",
-    isActive: (row.status ?? "Active") !== "Archived",
+    status: effectiveStatus,
+    isActive: effectiveStatus !== "Archived",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     variants: variantsFor(metadata),
   };
+}
+
+function mapListingRows(rows, includeArchived = false) {
+  const listings = (rows ?? []).map(listingFromRow);
+  return includeArchived ? listings : listings.filter((listing) => listing.status !== "Archived");
 }
 
 export async function getListings({ category, limit = 50, offset = 0, sellerId, includeArchived = false } = {}) {
@@ -133,7 +144,7 @@ export async function getListings({ category, limit = 50, offset = 0, sellerId, 
   if (limit) query = query.range(offset, offset + limit - 1);
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []).map(listingFromRow);
+  return mapListingRows(data, includeArchived);
 }
 
 export async function getListingById(id) {
@@ -157,7 +168,7 @@ export async function searchListings(queryText, { limit = 30, offset = 0 } = {})
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) throw error;
-  return (data ?? []).map(listingFromRow);
+  return mapListingRows(data);
 }
 
 export async function getCategories() {
@@ -215,18 +226,19 @@ export async function updateListing(listingId, updates, sellerId) {
   return listingFromRow(data);
 }
 
-export async function deleteListing(listingId) {
+export async function deleteListing(listingId, { permanent = false } = {}) {
   requireSupabase();
   const existing = await getListingById(listingId);
   if (!existing) return { archived: false, listing: null };
 
-  const { count, error: orderLookupError } = await supabase
-    .from("order_items")
-    .select("id", { count: "exact", head: true })
-    .eq("listing_id", existing.databaseId);
-  if (orderLookupError) throw orderLookupError;
+  if (!permanent) {
+    const { count, error: orderLookupError } = await supabase
+      .from("order_items")
+      .select("id", { count: "exact", head: true })
+      .eq("listing_id", existing.databaseId);
+    if (orderLookupError) throw orderLookupError;
 
-  if ((count ?? 0) > 0) {
+    if ((count ?? 0) > 0) {
     const { data, error } = await supabase
       .from("listings")
       .update({ status: "Archived", updated_at: new Date().toISOString() })
@@ -234,7 +246,8 @@ export async function deleteListing(listingId) {
       .select(LISTING_SELECT)
       .single();
     if (error) throw error;
-    return { archived: true, listing: listingFromRow(data) };
+      return { archived: true, listing: listingFromRow(data) };
+    }
   }
 
   const { error } = await supabase.from("listings").delete().eq("id", existing.databaseId);
@@ -246,7 +259,7 @@ export async function restoreListingInventory(items) {
   requireSupabase();
   for (const item of items) {
     const listing = await getListingById(item.productId ?? item.id);
-    if (!listing || (Array.isArray(listing.variants) && listing.variants.length > 0) || item.variantName) continue;
+    if (!listing || listing.category === "Services" || (Array.isArray(listing.variants) && listing.variants.length > 0) || item.variantName) continue;
     const quantity = Math.max(0, Number(listing.quantityAvailable) || 0) + (Number(item.quantity) || 0);
     const { error } = await supabase
       .from("listings")

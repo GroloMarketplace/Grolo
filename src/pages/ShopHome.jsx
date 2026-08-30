@@ -21,6 +21,7 @@ import SellerProfileShareModal from "../components/SellerProfileShareModal";
 import ShareProfileButton from "../components/ShareProfileButton";
 import ConfirmationModal from "../components/ConfirmationModal";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
+import { isListingActive, isListingOutOfStock, isServiceListing, serviceStatusFor } from "../utils/listingDisplay";
 import ReputationSummary from "../components/ReputationSummary";
 import LocationAutocomplete from "../components/LocationAutocomplete";
 import { friendlyLocation } from "../data/locations";
@@ -43,7 +44,7 @@ export default function ShopHome() {
   const { getSellerProfile, updateSellerProfile } = useSellerSettings();
   const sellerProfile = getSellerProfile(seller.id);
   const profileSellerId = sellerProfile.id ?? seller.id;
-  const { listings, archivedListings, removeListing } = useListings();
+  const { listings, archivedListings, removeListing, restoreListing, permanentlyDeleteListing } = useListings();
   const [isEditing, setIsEditing] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [deleteRequest, setDeleteRequest] = useState(null);
@@ -109,10 +110,10 @@ export default function ShopHome() {
     { label: "Preparing", count: storeOrders.filter((o) => ["In Progress", "Preparing"].includes(o.status)).length },
     { label: "Ready", count: storeOrders.filter((o) => o.status === "Ready for Pickup").length },
   ];
-  const isInventoryTracked = (product) => !Array.isArray(product.variants) || product.variants.length === 0;
-  const activeSellerProducts = sellerProducts.filter((product) => !isInventoryTracked(product) ? product.availableForOrders !== false : Number(product.quantityAvailable) > 0);
-  const outOfStockSellerProducts = sellerProducts.filter((product) => !isInventoryTracked(product) ? product.availableForOrders === false : Number(product.quantityAvailable) <= 0);
-  const lowStockSellerProducts = sellerProducts.filter((product) => isInventoryTracked(product) && Number(product.quantityAvailable) > 0 && Number(product.quantityAvailable) <= 5);
+  const activeSellerProducts = sellerProducts.filter(isListingActive);
+  const outOfStockSellerProducts = sellerProducts.filter(isListingOutOfStock);
+  const unavailableServiceProducts = sellerProducts.filter((product) => isServiceListing(product) && serviceStatusFor(product) === "Temporarily Not Accepting New Clients");
+  const lowStockSellerProducts = sellerProducts.filter((product) => !isServiceListing(product) && !isListingOutOfStock(product) && Number(product.quantityAvailable) <= 5);
   const sellerPosts = posts.filter((post) => post.sellerId === seller.id && createdBySeller(post));
   const [managedPosts, setManagedPosts] = useState(sellerPosts);
   // Events are read straight from EventContext (which persists to localStorage)
@@ -141,6 +142,24 @@ export default function ShopHome() {
       showToast(result?.archived ? "Listing archived" : "Listing deleted");
     } catch (error) {
       showToast(error.message || "Unable to delete listing");
+    }
+  };
+
+  const handleRestoreListing = async (productId) => {
+    try {
+      await restoreListing(productId);
+      showToast("Listing restored");
+    } catch (error) {
+      showToast(error.message || "Unable to restore listing");
+    }
+  };
+
+  const handlePermanentDeleteListing = async (productId) => {
+    try {
+      await permanentlyDeleteListing(productId);
+      showToast("Listing permanently deleted");
+    } catch (error) {
+      showToast(error.message || "Unable to permanently delete listing");
     }
   };
 
@@ -427,7 +446,7 @@ export default function ShopHome() {
                   onScroll={handleContentScroll}
                   className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
                 >
-                <ShopListingsTab sellerId={seller.id} products={activeSellerProducts} lowStockProducts={lowStockSellerProducts} outOfStockProducts={outOfStockSellerProducts} archivedProducts={archivedListings.filter((product) => product.sellerId === seller.id)} hasOrderHistory={(product) => storeOrders.some((order) => order.productId === product.id || order.orderItems?.some((item) => item.productId === product.id || item.listingId === product.databaseId))} navigate={navigate} onDelete={handleDeleteListing} />
+                <ShopListingsTab sellerId={seller.id} products={activeSellerProducts} lowStockProducts={lowStockSellerProducts} outOfStockProducts={outOfStockSellerProducts} unavailableServiceProducts={unavailableServiceProducts} archivedProducts={archivedListings.filter((product) => String(product.sellerId ?? "") === String(seller.id ?? ""))} hasOrderHistory={(product) => storeOrders.some((order) => order.productId === product.id || order.orderItems?.some((item) => item.productId === product.id || item.listingId === product.databaseId))} navigate={navigate} onDelete={handleDeleteListing} onRestore={handleRestoreListing} onPermanentDelete={handlePermanentDeleteListing} />
                 <ShopPostsTab posts={managedPosts} onEdit={handleEditPost} onDelete={handleDeletePost} onCreate={handleCreatePost} />
                 <ShopEventsTab events={sellerEvents} navigate={navigate} onEdit={handleEditEvent} onDelete={handleDeleteEvent} />
                 </div>
@@ -480,7 +499,7 @@ function groupListingsByCategory(products) {
   return [...groups.entries()];
 }
 
-function ShopListingsTab({ sellerId, products, lowStockProducts, outOfStockProducts, archivedProducts, hasOrderHistory, navigate, onDelete }) {
+function ShopListingsTab({ sellerId, products, lowStockProducts, outOfStockProducts, unavailableServiceProducts, archivedProducts, hasOrderHistory, navigate, onDelete, onRestore, onPermanentDelete }) {
   const categoryGroups = groupListingsByCategory(products);
   return (
     <ShopTabPanel>
@@ -490,8 +509,9 @@ function ShopListingsTab({ sellerId, products, lowStockProducts, outOfStockProdu
       </div>
       {products.length === 0 ? <ShopEmptyTab>No listings yet. Create your first listing to start selling on Grolo.</ShopEmptyTab> : categoryGroups.map(([category, categoryProducts]) => <section key={category} className="mb-5 last:mb-0"><button type="button" onClick={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/${encodeURIComponent(category)}`)} className="mb-3 flex w-full items-center justify-between text-left"><h2 className="text-[16px] font-semibold">{category} ({categoryProducts.length})</h2><span aria-hidden="true" className="text-[20px] text-[#828282]">›</span></button><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{categoryProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>)}
       {lowStockProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Low Stock</h2><p className="mb-3 text-[13px] text-[#9A6700]">These listings have five or fewer items remaining.</p><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{lowStockProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>}
+      {unavailableServiceProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Unavailable Services</h2><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{unavailableServiceProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>}
       {outOfStockProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><button type="button" onClick={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/Out%20of%20Stock`)} className="mb-3 flex w-full items-center justify-between text-left"><h2 className="text-[18px] font-semibold">Out of Stock ({outOfStockProducts.length})</h2><span aria-hidden="true" className="text-[20px] text-[#828282]">›</span></button><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{outOfStockProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>}
-      {archivedProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Archived Listings</h2><p className="mb-3 text-[13px] text-[#828282]">Listings with previous orders are retained here for historical records.</p><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{archivedProducts.map((product) => <SellerListingCard key={product.id} product={product} archived />)}</div></section>}
+      {archivedProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Archived Listings</h2><p className="mb-3 text-[13px] text-[#828282]">Listings with previous orders are retained here for historical records.</p><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{archivedProducts.map((product) => <SellerListingCard key={product.id} product={product} archived onRestore={onRestore} onPermanentDelete={onPermanentDelete} />)}</div></section>}
     </ShopTabPanel>
   );
 }

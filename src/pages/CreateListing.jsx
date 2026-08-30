@@ -70,6 +70,7 @@ export default function CreateListing() {
     category: "",
     price: "",
     pricingType: "",
+    serviceStatus: "Accepting New Clients",
     quantityAvailable: "25",
     variants: [],
     availableForOrders: true,
@@ -109,6 +110,7 @@ export default function CreateListing() {
       serviceLocations: formData.serviceLocations,
       serviceProvince: formData.serviceProvince,
       serviceAreaRadius: formData.serviceAreaRadius,
+      serviceStatus: formData.serviceStatus,
       locationDetails: formData.locationDetails,
       quantityAvailable: formData.quantityAvailable !== "25" ? formData.quantityAvailable : "",
       serviceType: formData.serviceType,
@@ -153,6 +155,7 @@ export default function CreateListing() {
       variants: isService ? [] : formData.variants.map((variant) => ({ name: variant.name.trim(), price: Number(variant.price) })),
       ...(isService ? {
         pricingType: formData.pricingType,
+        serviceStatus: formData.serviceStatus,
         serviceType: formData.serviceType,
         serviceArea: formData.serviceArea,
         serviceAreaType: formData.serviceAreaType,
@@ -256,14 +259,15 @@ export default function CreateListing() {
           {isService ? (
             <>
               <SelectField label="Service Type" value={formData.serviceType} onChange={updateField("serviceType")} options={["Home Services", "Lawn Care", "Snow Removal", "House Cleaning", "Pet Care", "Tutoring", "Photography", "Graphic Design", "Web Design", "Event Services", "Health & Wellness", "Trades & Repairs", "Other"]} required />
-              <SelectField label="Pricing Type" value={formData.pricingType} onChange={updateField("pricingType")} options={["Hourly Rate", "Fixed Price", "Starting At", "Free Quote", "Custom Pricing"]} required />
-              <TextField label="Price or Pricing Details" value={formData.price} onChange={updateField("price")} placeholder="e.g. $40 / Hour or Starting at $100" required />
+              <SelectField label="Pricing Type" value={formData.pricingType} onChange={updateField("pricingType")} options={["Fixed Price", "Starting At", "Hourly Rate", "Contact for Quote", "Custom Pricing"]} required />
+              <TextField label="Price or Pricing Details" value={formData.price} onChange={updateField("price")} placeholder="Optional — e.g. $40 / hour or starting at $100" />
               <SelectField label="Service Area Type" value={formData.serviceAreaType} onChange={(event) => { const type = event.target.value; setFormData((current) => ({ ...current, serviceAreaType: type, serviceArea: type === "nationwide" ? "Canada" : type === "province" ? current.serviceProvince : current.serviceArea, serviceLocations: type === "province" || type === "nationwide" ? [] : current.serviceLocations })); }} options={["city", "cities", "radius", "province", "nationwide"].map((type) => ({ value: type, label: { city: "Entire City", cities: "Multiple Cities", radius: "Radius Based", province: "Province Wide", nationwide: "Nationwide" }[type] }))} required />
               {(formData.serviceAreaType === "city" || formData.serviceAreaType === "cities" || formData.serviceAreaType === "radius") && <LocationAutocomplete label={formData.serviceAreaType === "radius" ? "Radius Origin" : "Service Area"} value={formData.serviceArea} locations={formData.serviceLocations} multiple={formData.serviceAreaType === "cities"} onChange={(values) => { const selected = Array.isArray(values) ? values : [values].filter(Boolean); const primary = selected[0] ?? null; setFormData((current) => ({ ...current, serviceLocations: selected, locationDetails: primary, serviceArea: selected.map((value) => `${friendlyLocation(value)}${value.scope === "city" ? " (Entire City)" : ""}`).join(", "), location: friendlyLocation(primary) })); }} placeholder="Search any Canadian city, town, address, or postal code" required />}
               {formData.serviceAreaType === "province" && <SelectField label="Province" value={formData.serviceProvince} onChange={(event) => setFormData((current) => ({ ...current, serviceProvince: event.target.value, serviceArea: event.target.value }))} options={CANADIAN_PROVINCES} required />}
               {formData.serviceAreaType === "nationwide" && <p className="rounded-lg bg-[#F1F8F2] p-3 text-[13px] text-[#315D47]">This service is available across Canada.</p>}
               {formData.serviceAreaType === "radius" && <TextField label="Service Radius (km)" type="number" value={formData.serviceAreaRadius} onChange={updateField("serviceAreaRadius")} placeholder="e.g. 25" required />}
               <p className="-mt-4 text-[12px] text-[#828282]">Search locations anywhere in Canada, including small towns, rural communities, addresses, and postal codes.</p>
+              <SelectField label="Service Status" value={formData.serviceStatus} onChange={updateField("serviceStatus")} options={["Accepting New Clients", "Limited Availability", "Waitlist Available", "Temporarily Not Accepting New Clients", "Archived"]} required />
               <SelectField label="Availability" value={formData.availability} onChange={updateField("availability")} options={["Weekdays", "Weekends", "Evenings", "By Appointment", "Flexible"]} required />
               <TextField label="Years of Experience" value={formData.yearsOfExperience} onChange={updateField("yearsOfExperience")} placeholder="e.g. 5 Years" />
               <SelectField label="Preferred Contact Method" value={formData.preferredContactMethod} onChange={updateField("preferredContactMethod")} options={["Message Through Grolo", "Email", "Phone", "Text Message"]} required />

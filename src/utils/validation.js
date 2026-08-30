@@ -80,12 +80,12 @@ export function validateListing(form, isService = false) {
   if (!form.description?.trim() || form.description.trim().length > VALIDATION_LIMITS.description) return `Description is required and must be ${VALIDATION_LIMITS.description} characters or fewer.`;
   const price = Number(form.price);
   if (!isService && (!Number.isFinite(price) || price <= 0)) return "Price must be greater than $0.00.";
-  if (isService && !String(form.price ?? "").trim()) return "Add pricing details for this service.";
+  if (isService && form.serviceStatus && !["Accepting New Clients", "Limited Availability", "Waitlist Available", "Temporarily Not Accepting New Clients", "Archived"].includes(form.serviceStatus)) return "Choose a valid service status.";
   if (!isService && (!Number.isInteger(Number(form.quantityAvailable)) || Number(form.quantityAvailable) < 0 || Number(form.quantityAvailable) > VALIDATION_LIMITS.quantity)) return `Quantity must be a whole number from 0 to ${VALIDATION_LIMITS.quantity.toLocaleString()}.`;
   const location = isService ? form.serviceArea : form.location;
   if (!location?.trim() || location.trim().length > VALIDATION_LIMITS.listingLocation) return "Enter a valid listing location.";
   if (isService && form.serviceAreaType === "radius" && (!String(form.serviceAreaRadius ?? "").trim() || !Number.isFinite(Number(form.serviceAreaRadius)) || Number(form.serviceAreaRadius) <= 0 || Number(form.serviceAreaRadius) > VALIDATION_LIMITS.deliveryRadius)) return `Service radius must be greater than 0 and no more than ${VALIDATION_LIMITS.deliveryRadius} km.`;
-  if (isService && form.serviceAreaType !== "radius" && form.serviceAreaRadius !== "" && form.serviceAreaRadius !== null && (!Number.isFinite(Number(form.serviceAreaRadius)) || Number(form.serviceAreaRadius) < 0 || Number(form.serviceAreaRadius) > VALIDATION_LIMITS.deliveryRadius)) return `Service radius must be between 0 and ${VALIDATION_LIMITS.deliveryRadius} km.`;
+  if (isService && form.serviceAreaType !== "radius" && String(form.serviceAreaRadius ?? "").trim() && (!Number.isFinite(Number(form.serviceAreaRadius)) || Number(form.serviceAreaRadius) < 0 || Number(form.serviceAreaRadius) > VALIDATION_LIMITS.deliveryRadius)) return `Service radius must be between 0 and ${VALIDATION_LIMITS.deliveryRadius} km.`;
   if (form.availableForTrade && (!form.desiredTradeItems?.trim() || form.desiredTradeItems.trim().length > 500)) return "Describe what you are looking for in a trade (maximum 500 characters).";
   return null;
 }

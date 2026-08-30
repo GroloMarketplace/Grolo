@@ -18,7 +18,7 @@ import OutlineIcon from "../components/OutlineIcon";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useAuth } from "../context/AuthContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
-import { formatListingPrice } from "../utils/listingDisplay";
+import { formatListingPrice, isListingActive, isListingOutOfStock, isServiceListing, serviceStatusFor } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import SellerProfileShareModal from "../components/SellerProfileShareModal";
 import ShareProfileButton from "../components/ShareProfileButton";
@@ -286,9 +286,9 @@ function groupListingsByCategory(products) {
 }
 
 function ListingsTab({ sellerId, products, navigate }) {
-  const isInventoryTracked = (product) => !Array.isArray(product.variants) || product.variants.length === 0;
-  const activeProducts = products.filter((product) => !isInventoryTracked(product) ? product.availableForOrders !== false : Number(product.quantityAvailable) > 0);
-  const outOfStockProducts = products.filter((product) => !isInventoryTracked(product) ? product.availableForOrders === false : Number(product.quantityAvailable) <= 0);
+  const activeProducts = products.filter(isListingActive);
+  const outOfStockProducts = products.filter(isListingOutOfStock);
+  const unavailableServices = products.filter((product) => isServiceListing(product) && serviceStatusFor(product) === "Temporarily Not Accepting New Clients");
   const categoryGroups = groupListingsByCategory(activeProducts);
 
   return (
@@ -296,6 +296,7 @@ function ListingsTab({ sellerId, products, navigate }) {
       {categoryGroups.length === 0 ? <EmptyTab>No active listings</EmptyTab> : categoryGroups.map(([category, categoryProducts]) => (
         <ListingSection key={category} title={category} count={categoryProducts.length} products={categoryProducts} navigate={navigate} onCategory={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/${encodeURIComponent(category)}`)} />
       ))}
+      {unavailableServices.length > 0 && <ListingSection title="Unavailable Services" count={unavailableServices.length} products={unavailableServices} navigate={navigate} onCategory={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/Unavailable%20Services`)} />}
       {outOfStockProducts.length > 0 && (
         <section className="mt-6 border-t border-black/5 pt-4">
           <button type="button" onClick={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/Out%20of%20Stock`)} className="mb-3 flex w-full items-center justify-between text-left"><h2 className="text-[16px] font-semibold">Out of Stock ({outOfStockProducts.length})</h2><span aria-hidden="true" className="text-[20px] text-[#828282]">›</span></button>

@@ -33,7 +33,8 @@ export default function EditListing() {
   const product = listings.find((listing) => listing.id === id || listing.databaseId === id);
 
   const [title, setTitle] = useState("");
-  const [price, setPrice] = useState(0);
+  const [price, setPrice] = useState("");
+  const [serviceStatus, setServiceStatus] = useState("Accepting New Clients");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Produce");
   const [availableForTrade, setAvailableForTrade] = useState(false);
@@ -52,7 +53,8 @@ export default function EditListing() {
   useEffect(() => {
     if (!product) return;
     setTitle(product.name || product.title || "");
-    setPrice(product.price ?? 0);
+    setPrice(product.price ?? "");
+    setServiceStatus(product.serviceStatus || "Accepting New Clients");
     setDescription(product.description || "");
     setCategory(product.category || "Produce");
     setAvailableForTrade(product.availableForTrade ?? false);
@@ -88,6 +90,7 @@ export default function EditListing() {
         title,
         name: title,
         price: isService ? price : Number(price),
+        serviceStatus: isService ? serviceStatus : undefined,
         quantityAvailable: isService ? 0 : normalizedQuantity,
         availableForOrders: isService ? true : (hasVariants ? availableForOrders : true),
         variants: isService ? [] : variants.map((variant) => ({ name: variant.name.trim(), price: Number(variant.price) })),
@@ -146,37 +149,27 @@ export default function EditListing() {
               $
             </span>
             <input
-              type="number"
+              type={category === "Services" ? "text" : "number"}
               value={price}
-              onChange={(e) => setPrice(parseFloat(e.target.value))}
+              onChange={(e) => setPrice(category === "Services" ? e.target.value : parseFloat(e.target.value))}
               className="w-full p-3 pl-8 border border-[#E6E6E6] rounded-lg text-[14px] outline-none"
               step="0.01"
             />
           </div>
         </div>
 
-        {variants.length === 0 && <div className="mb-4">
-          <label className="text-[14px] font-semibold mb-2 block">Quantity Available</label>
-          <input
-            type="number"
-            value={quantityAvailable}
-            onChange={(e) => setQuantityAvailable(e.target.value === "" ? "" : Number(e.target.value))}
-            className="w-full p-3 border border-[#E6E6E6] rounded-lg text-[14px] outline-none"
-            min="0"
-            step="1"
-            required
-          />
-        </div>}
-
-        <VariantEditor variants={variants} onChange={setVariants} />
-        {variants.length > 0 && <div className="mb-4 rounded-lg border border-[#E6E6E6] p-3">
-          <p className="text-[14px] font-medium">Availability</p>
-          <label className="mt-2 flex items-center gap-3 text-[14px]">
-            <input type="checkbox" checked={availableForOrders} onChange={(event) => setAvailableForOrders(event.target.checked)} />
-            Available for Orders
-          </label>
-          <p className="mt-1 text-[12px] text-[#828282]">Inventory tracking is disabled for variant listings.</p>
-        </div>}
+        {category !== "Services" && <>
+          {variants.length === 0 && <div className="mb-4">
+            <label className="text-[14px] font-semibold mb-2 block">Quantity Available</label>
+            <input type="number" value={quantityAvailable} onChange={(e) => setQuantityAvailable(e.target.value === "" ? "" : Number(e.target.value))} className="w-full p-3 border border-[#E6E6E6] rounded-lg text-[14px] outline-none" min="0" step="1" required />
+          </div>}
+          <VariantEditor variants={variants} onChange={setVariants} />
+          {variants.length > 0 && <div className="mb-4 rounded-lg border border-[#E6E6E6] p-3">
+            <p className="text-[14px] font-medium">Availability</p>
+            <label className="mt-2 flex items-center gap-3 text-[14px]"><input type="checkbox" checked={availableForOrders} onChange={(event) => setAvailableForOrders(event.target.checked)} /> Available for Orders</label>
+            <p className="mt-1 text-[12px] text-[#828282]">Inventory tracking is disabled for variant listings.</p>
+          </div>}
+        </>}
 
         {/* Description */}
         <div className="mb-4">
@@ -203,6 +196,12 @@ export default function EditListing() {
             <option value="Services">Services</option>
           </select>
         </div>
+        {category === "Services" && <div className="mb-4">
+          <label className="text-[14px] font-semibold mb-2 block">Service Status</label>
+          <select value={serviceStatus} onChange={(event) => setServiceStatus(event.target.value)} className="w-full p-3 border border-[#E6E6E6] rounded-lg text-[14px] outline-none">
+            {['Accepting New Clients', 'Limited Availability', 'Waitlist Available', 'Temporarily Not Accepting New Clients', 'Archived'].map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </div>}
 
         {/* Trade */}
         <div className="rounded-lg border border-[#E6E6E6] p-3 mb-4">

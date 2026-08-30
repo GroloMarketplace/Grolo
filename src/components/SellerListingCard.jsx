@@ -4,13 +4,13 @@ import { useReviews } from "../context/ReviewContext";
 import PromotionBadge from "./PromotionBadge";
 import { usePromotions } from "../context/PromotionContext";
 import ReviewSummary from "./ReviewSummary";
-import { formatListingPrice } from "../utils/listingDisplay";
+import { formatListingPrice, isListingOutOfStock, isServiceListing, serviceStatusFor } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "./ServiceCategoryLabel";
 import ConfirmationModal from "./ConfirmationModal";
 import DistanceLabel from "./DistanceLabel";
 import TradeBadge from "./TradeBadge";
 
-export default function SellerListingCard({ product, onDelete, archived = false, hasOrderHistory = false }) {
+export default function SellerListingCard({ product, onDelete, onRestore, onPermanentDelete, archived = false, hasOrderHistory = false }) {
   const navigate = useNavigate();
   const { getListingPricing } = usePromotions();
   const { productRating } = useReviews();
@@ -20,14 +20,16 @@ export default function SellerListingCard({ product, onDelete, archived = false,
   const likeCount = Number(product.favorites ?? product.metadata?.favorites) || 0;
   const regrowCount = Number(product.regrows ?? product.metadata?.regrows) || 0;
   const promotion = pricing.promotion;
+  const isService = isServiceListing(product);
   const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
-  const inventoryTracked = !hasVariants;
+  const inventoryTracked = !isService && !hasVariants;
   const available = inventoryTracked ? Number(product.quantityAvailable) || 0 : null;
-  const computedAvailability = inventoryTracked ? available > 0 : product.availableForOrders !== false;
-  const displayedAvailability = computedAvailability ? "Available" : "Out of Stock";
+  const computedAvailability = isService ? serviceStatusFor(product) !== "Temporarily Not Accepting New Clients" && serviceStatusFor(product) !== "Archived" : !isListingOutOfStock(product);
+  const displayedAvailability = isService ? serviceStatusFor(product) : computedAvailability ? "Available" : "Out of Stock";
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [permanentDelete, setPermanentDelete] = useState(false);
   const [status] = useState(product.status || "Active");
-  const displayStatus = archived ? "Archived" : !computedAvailability ? "Sold" : hasVariants ? "Active" : status;
+  const displayStatus = archived ? "Archived" : isService ? (serviceStatusFor(product)) : !computedAvailability ? "Sold" : hasVariants ? "Active" : status;
 
   useEffect(() => {
   }, [likeCount, product.databaseId, product.id, regrowCount, reviewCount, viewCount]);
@@ -40,15 +42,14 @@ export default function SellerListingCard({ product, onDelete, archived = false,
     navigate(`/edit-listing/${product.id}`);
   };
 
-  const handleDeleteClick = () => {
+  const handleDeleteClick = (permanent = false) => {
+    setPermanentDelete(permanent);
     setShowDeleteModal(true);
   };
 
   const handleDeleteConfirm = () => {
     setShowDeleteModal(false);
-    if (onDelete) {
-      onDelete(product.id);
-    }
+    if (permanentDelete ? onPermanentDelete : onDelete) (permanentDelete ? onPermanentDelete : onDelete)(product.id);
   };
 
   const handleDeleteCancel = () => {
@@ -64,6 +65,10 @@ export default function SellerListingCard({ product, onDelete, archived = false,
     Sold: "bg-[#828282] text-white",
     Draft: "bg-[#E6E6E6] text-black",
     Archived: "bg-[#E6E6E6] text-[#4F4F4F]",
+    "Accepting New Clients": "bg-[#498467] text-white",
+    "Limited Availability": "bg-[#F5A623] text-white",
+    "Waitlist Available": "bg-[#6B7280] text-white",
+    "Temporarily Not Accepting New Clients": "bg-[#828282] text-white",
   };
 
   return (
@@ -102,7 +107,7 @@ export default function SellerListingCard({ product, onDelete, archived = false,
           {pricing.discountedPrice < pricing.originalPrice ? <div className="flex items-baseline gap-2 text-[16px] font-medium"><span>${pricing.discountedPrice.toFixed(2)}</span><span className="text-[12px] text-[#828282] line-through">${pricing.originalPrice.toFixed(2)}</span></div> : <div className="text-[16px] font-medium text-black">{formatListingPrice(product)}</div>}
           <TradeBadge listing={product} compact />
           <ReviewSummary product={product} />
-          <div className="text-[12px] text-[#828282]">{inventoryTracked ? `${available} Available` : `Availability: ${product.availableForOrders === false ? "Unavailable" : "Available"}`}</div>
+          <div className="text-[12px] text-[#828282]">{isService ? (serviceStatusFor(product)) : inventoryTracked ? `${available} Available` : `Availability: ${product.availableForOrders === false ? "Unavailable" : "Available"}`}</div>
         </div>
 
         {/* Performance Metrics */}
@@ -154,24 +159,19 @@ export default function SellerListingCard({ product, onDelete, archived = false,
 
         </div>
 
-        {!archived && <div className="flex gap-2 mt-1">
-          <button
-            onClick={handleEdit}
-            className="flex-1 text-[12px] font-medium text-[#498467] border border-[#498467] rounded py-1"
-          >
-            Edit
-          </button>
-          <button
-            onClick={handleDeleteClick}
-            className="flex-1 text-[12px] font-medium text-red-500 border border-red-500 rounded py-1"
-          >
-            Delete
-          </button>
-        </div>}
+        <div className="flex gap-2 mt-1">
+          {archived ? <>
+            <button type="button" onClick={() => onRestore?.(product.id)} className="flex-1 text-[12px] font-medium text-[#498467] border border-[#498467] rounded py-1">Restore</button>
+            <button type="button" onClick={() => handleDeleteClick(true)} className="flex-1 text-[12px] font-medium text-red-500 border border-red-500 rounded py-1">Delete Permanently</button>
+          </> : <>
+            <button onClick={handleEdit} className="flex-1 text-[12px] font-medium text-[#498467] border border-[#498467] rounded py-1">Edit</button>
+            <button onClick={() => handleDeleteClick()} className="flex-1 text-[12px] font-medium text-red-500 border border-red-500 rounded py-1">Delete</button>
+          </>}
+        </div>
       </div>
 
       {/* Delete Confirmation Modal */}
-      {showDeleteModal && <ConfirmationModal title="Delete Listing?" message={hasOrderHistory ? "This listing has previous orders and will be archived instead of permanently deleted." : "Are you sure you want to delete this listing? This action cannot be undone."} confirmLabel="Delete Listing" onCancel={handleDeleteCancel} onConfirm={handleDeleteConfirm} />}
+      {showDeleteModal && <ConfirmationModal title={permanentDelete ? "Permanently Delete Listing?" : "Delete Listing?"} message={permanentDelete ? "This permanently deletes the archived listing and cannot be undone." : hasOrderHistory ? "This listing has previous orders and will be archived instead of permanently deleted." : "Are you sure you want to delete this listing? This action cannot be undone."} confirmLabel={permanentDelete ? "Delete Permanently" : "Delete Listing"} onCancel={handleDeleteCancel} onConfirm={handleDeleteConfirm} />}
     </>
   );
 }

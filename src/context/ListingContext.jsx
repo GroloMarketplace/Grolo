@@ -96,9 +96,15 @@ export function ListingProvider({ children }) {
   const updateListing = async (listingId, updates) => {
     if (!user?.id) throw new Error("You must be signed in to update a listing.");
     const updatedListing = await updateListingRecord(listingId, updates, user.id);
-    setListings((current) => current.map((listing) => (
-      listing.id === listingId || listing.databaseId === updatedListing.databaseId ? updatedListing : listing
-    )));
+    if (updatedListing.status === "Archived") {
+      setListings((current) => current.filter((listing) => listing.id !== listingId && listing.databaseId !== updatedListing.databaseId));
+      setArchivedListings((current) => [updatedListing, ...current.filter((listing) => listing.databaseId !== updatedListing.databaseId && listing.id !== updatedListing.id)]);
+    } else {
+      setListings((current) => current.map((listing) => (
+        listing.id === listingId || listing.databaseId === updatedListing.databaseId ? updatedListing : listing
+      )));
+      setArchivedListings((current) => current.filter((listing) => listing.id !== listingId && listing.databaseId !== updatedListing.databaseId));
+    }
     return updatedListing;
   };
 
@@ -106,9 +112,22 @@ export function ListingProvider({ children }) {
     if (!user?.id) throw new Error("You must be signed in to delete a listing.");
     const result = await deleteListingRecord(listingId);
     setListings((current) => current.filter((listing) => listing.id !== listingId && listing.databaseId !== listingId));
-    if (result?.archived && result.listing) {
-      setArchivedListings((current) => [result.listing, ...current.filter((listing) => listing.id !== result.listing.id)]);
-    }
+    if (result?.archived && result.listing) setArchivedListings((current) => [result.listing, ...current.filter((listing) => listing.id !== result.listing.id)]);
+    return result;
+  };
+
+  const restoreListing = async (listingId) => {
+    const restoredListing = await updateListingRecord(listingId, { status: "Active", serviceStatus: "Accepting New Clients" }, user?.id);
+    setArchivedListings((current) => current.filter((listing) => listing.id !== listingId && listing.databaseId !== listingId));
+    setListings((current) => [restoredListing, ...current.filter((listing) => listing.id !== listingId && listing.databaseId !== listingId)]);
+    return restoredListing;
+  };
+
+  const permanentlyDeleteListing = async (listingId) => {
+    if (!user?.id) throw new Error("You must be signed in to delete a listing.");
+    const result = await deleteListingRecord(listingId, { permanent: true });
+    setArchivedListings((current) => current.filter((listing) => listing.id !== listingId && listing.databaseId !== listingId));
+    setListings((current) => current.filter((listing) => listing.id !== listingId && listing.databaseId !== listingId));
     return result;
   };
 
@@ -133,8 +152,8 @@ export function ListingProvider({ children }) {
   const pricedArchivedListings = useMemo(() => priceListings(archivedListings), [archivedListings, priceListings]);
 
   const value = useMemo(
-    () => ({ listings: pricedListings, archivedListings: pricedArchivedListings, loading, error, addListing, updateListing, removeListing, searchListings }),
-    [pricedListings, pricedArchivedListings, loading, error, searchListings],
+    () => ({ listings: pricedListings, archivedListings: pricedArchivedListings, loading, error, addListing, updateListing, removeListing, restoreListing, permanentlyDeleteListing, searchListings }),
+    [pricedListings, pricedArchivedListings, loading, error, addListing, updateListing, removeListing, restoreListing, permanentlyDeleteListing, searchListings],
   );
   return <ListingContext.Provider value={value}>{children}</ListingContext.Provider>;
 }

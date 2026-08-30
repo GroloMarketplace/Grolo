@@ -5,7 +5,7 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import { useListings } from "../context/ListingContext";
 import { useResolvedStoreProfile } from "../hooks/useEntityResolution";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
-import { formatListingPrice } from "../utils/listingDisplay";
+import { formatListingPrice, isListingActive, isListingOutOfStock, isServiceListing } from "../utils/listingDisplay";
 
 function decodeCategory(value) {
   try {
@@ -24,10 +24,9 @@ export default function StoreCategory() {
   const categoryListings = useMemo(
     () => listings.filter((product) => {
       const productCategory = (product.category?.trim() || "Other").toLowerCase();
-      const isInventoryTracked = !Array.isArray(product.variants) || product.variants.length === 0;
-      const available = isInventoryTracked ? Number(product.quantityAvailable) > 0 : product.availableForOrders !== false;
+      const isService = isServiceListing(product);
       return String(product.sellerId ?? "") === String(sellerId ?? "")
-        && (category.toLowerCase() === "out of stock" ? !available : productCategory === category.toLowerCase());
+        && (category.toLowerCase() === "out of stock" ? isListingOutOfStock(product) : productCategory === category.toLowerCase() && (isService ? isListingActive(product) : !isListingOutOfStock(product)));
     }),
     [category, listings, sellerId],
   );

@@ -8,6 +8,7 @@ import { LOCATION_OPTIONS, friendlyLocation, locationFromLegacyText } from "../s
 import { getBuyerTrustLevel } from "../src/data/buyerTrust.js";
 import { promotionCreatedTimestamp } from "../src/utils/promotionRecords.js";
 import { rankFeedItems, recencyScore } from "../src/utils/feedRanking.js";
+import { isListingActive, isListingOutOfStock, isServiceListing, serviceStatusFor } from "../src/utils/listingDisplay.js";
 import { hasRepairableStoreProfile, sellerProfileUpdates, withoutSellerActivationFields } from "../src/utils/profileActivation.js";
 
 function createCommerceState() {
@@ -81,6 +82,17 @@ test("buyer signup and onboarding validation accepts seeded data and rejects inv
   assert.equal(new Set([seed.buyer.username, "other_user"]).size, 2);
 });
 
+test("service listings use service availability instead of inventory grouping", () => {
+  const service = { category: "Services", quantityAvailable: 0, serviceStatus: "Accepting New Clients" };
+  assert.equal(isServiceListing(service), true);
+  assert.equal(serviceStatusFor(service), "Accepting New Clients");
+  assert.equal(isListingActive(service), true);
+  assert.equal(isListingOutOfStock(service), false);
+  assert.equal(isListingActive({ ...service, serviceStatus: "Temporarily Not Accepting New Clients" }), false);
+  assert.equal(isListingActive({ ...service, serviceStatus: "Archived" }), false);
+  assert.equal(isListingOutOfStock({ category: "Garden", quantityAvailable: 0 }), true);
+});
+
 test("seller store and listing workflows validate before persistence", () => {
   const requiredSellerInfo = { ...seed.seller, email: "", website: "", phone: "", instagram: "", facebook: "", x: "" };
   assert.equal(validateSellerProfile(requiredSellerInfo), null);
@@ -89,6 +101,7 @@ test("seller store and listing workflows validate before persistence", () => {
   assert.equal(validateListing(seed.listing), null);
   assert.match(validateListing({ ...seed.listing, price: "0" }), /Price/);
   assert.match(validateListing({ ...seed.listing, quantityAvailable: 1.5 }), /Quantity/);
+  assert.equal(validateListing({ title: "Lawn care", description: "City-wide service", category: "Services", serviceArea: "Toronto", serviceStatus: "Accepting New Clients", price: "" }, true), null);
 });
 
 test("seller settings updates cannot overwrite seller activation", () => {

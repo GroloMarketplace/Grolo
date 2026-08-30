@@ -47,13 +47,13 @@ export default function ProductDetail() {
   const { isFavorite, toggleFavorite } = useFavorites();
   const saved = isFavorite(product.id);
   const variants = Array.isArray(product.variants) ? product.variants : [];
-  const inventoryTracked = variants.length === 0;
-  const availableForOrders = product.availableForOrders !== false;
-  const available = inventoryTracked ? Math.max(0, Number(product.quantityAvailable) || 0) : availableForOrders ? Infinity : 0;
   const isService = product.category === "Services";
-  const computedAvailability = isService ? true : inventoryTracked ? available > 0 : availableForOrders;
-  const displayedAvailability = computedAvailability ? "Available" : "Out of Stock";
-  const soldOut = !computedAvailability;
+  const inventoryTracked = !isService && variants.length === 0;
+  const availableForOrders = product.availableForOrders !== false;
+  const available = isService ? Infinity : inventoryTracked ? Math.max(0, Number(product.quantityAvailable) || 0) : availableForOrders ? Infinity : 0;
+  const computedAvailability = isService ? (product.serviceStatus ?? product.service_status ?? "Accepting New Clients") !== "Temporarily Not Accepting New Clients" && (product.serviceStatus ?? product.service_status ?? "Accepting New Clients") !== "Archived" : inventoryTracked ? available > 0 : availableForOrders;
+  const displayedAvailability = isService ? (product.serviceStatus ?? product.service_status ?? "Accepting New Clients") : computedAvailability ? "Available" : "Out of Stock";
+  const soldOut = !isService && !computedAvailability;
   const tradePreferences = product.desiredTradeItems?.trim() ?? "";
   const resolvedListing = useResolvedListingWithSeller(product);
   const resolvedSeller = useResolvedSeller(product.sellerId);
@@ -222,7 +222,8 @@ export default function ProductDetail() {
           <div className="flex flex-col gap-2 rounded-lg border border-[#E6E6E6] p-4 text-[14px] text-[#4F4F4F]">
             <span><strong>Service Area:</strong> {product.serviceArea || product.location || "Contact provider"}</span>
             {product.serviceAreaType === "radius" && product.serviceAreaRadius != null && <span><strong>Service Radius:</strong> {product.serviceAreaRadius} km from the selected location</span>}
-            <span><strong>Availability:</strong> {product.availability || "By appointment"}</span>
+            <span><strong>Service Status:</strong> {product.serviceStatus ?? product.service_status ?? "Accepting New Clients"}</span>
+            <span><strong>Scheduling:</strong> {product.availability || "By appointment"}</span>
             {product.yearsOfExperience && <span><strong>Experience:</strong> {product.yearsOfExperience}</span>}
             <span><strong>Contact Method:</strong> {product.preferredContactMethod || "Message Through Grolo"}</span>
             {product.responseTime && <span><strong>Response time:</strong> {product.responseTime}</span>}

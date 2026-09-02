@@ -5,7 +5,9 @@ import OutlineIcon from "./OutlineIcon";
 export default function ReviewSummary({ product, onClick }) {
   const navigate = useNavigate();
   const { productRating } = useReviews();
-  const { average, count } = productRating(product.id);
+  const rating = productRating(product.id);
+  const average = Number(product.rating ?? rating.average) || 0;
+  const count = product.reviewCount == null ? rating.count : Number(product.reviewCount) || 0;
   const hasReviews = count > 0;
 
   return (

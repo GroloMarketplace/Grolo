@@ -20,6 +20,8 @@ export function trendingScore(type, item = {}, now = Date.now()) {
       [["clicks", "clickCount", "listingClicks"], 5],
       [["views", "viewCount"], 3],
       [["favorites", "favoriteCount", "likes"], 4],
+      [["reviews", "reviewCount"], 3],
+      [["regrows", "regrowCount"], 4],
       [["cartAdds", "addToCartCount"], 6],
       [["purchases", "purchaseCount", "orders"], 8],
       [["shares", "shareCount"], 5],

@@ -1,23 +1,67 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import ImpactIcon from "../components/ImpactIcon";
-import { impactTimeline } from "../data/communityImpact";
+import { events as mockEvents, products, sellers } from "../data/mockData";
 import { useEvents } from "../context/EventContext";
 import { useFollow } from "../context/FollowContext";
+import { useListings } from "../context/ListingContext";
 import { useOrders } from "../context/OrderContext";
 import { useReviews } from "../context/ReviewContext";
+import { useAuth } from "../context/AuthContext";
 import { getBuyerImpactMetrics } from "../utils/buyerImpact";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 
+function impactTimestamp(value) {
+  const timestamp = Date.parse(value ?? "");
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function formatImpactDate(value) {
+  const timestamp = impactTimestamp(value);
+  return timestamp ? new Date(timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Recently";
+}
+
 export default function CommunityImpact() {
   const navigate = useNavigate();
-  const { events, attendingEventIds } = useEvents();
+  const { events, attendingEventIds, attendanceRows } = useEvents();
+  const { user } = useAuth();
   const { followedSellers } = useFollow();
   const { buyerOrders } = useOrders();
+  const { listings } = useListings();
   const { reviewsWrittenCount } = useReviews();
-  const metrics = getBuyerImpactMetrics({ orders: buyerOrders(), events, attendingEventIds, followedSellers, reviewsWritten: reviewsWrittenCount });
+  const orders = buyerOrders();
+  const metrics = getBuyerImpactMetrics({ orders, events, attendingEventIds, followedSellers, reviewsWritten: reviewsWrittenCount });
+  const recentImpact = useMemo(() => {
+    const confirmedAttendance = (attendanceRows ?? []).filter((row) => row.user_id === user?.id && row.attendance_status === "confirmed_attended");
+    const eventActivities = confirmedAttendance.length ? confirmedAttendance.map((row) => {
+        const event = (events ?? mockEvents).find((item) => [item.id, item.databaseId].filter(Boolean).map(String).includes(String(row.event_id)));
+        if (!event) return null;
+        const date = row.created_at ?? event.date;
+        return { id: `event-${row.event_id}`, type: "event", title: `Attended ${event.title}`, date, displayDate: formatImpactDate(date), icon: "calendar" };
+      }) : attendingEventIds.map((eventId) => {
+        const event = (events ?? mockEvents).find((item) => [item.id, item.databaseId].filter(Boolean).map(String).includes(String(eventId)));
+        return event ? { id: `event-${eventId}`, type: "event", title: `Attended ${event.title}`, date: event.date, displayDate: formatImpactDate(event.date), icon: "calendar" } : null;
+      });
+    const validEventActivities = eventActivities.filter(Boolean);
+    const completedOrders = orders.filter((order) => String(order.status).toLowerCase() === "completed");
+    const purchaseActivities = completedOrders.map((order) => {
+      const listing = listings.find((item) => [item.id, item.databaseId, item.legacyId].filter(Boolean).map(String).includes(String(order.productId)))
+        ?? products.find((item) => String(item.id) === String(order.productId));
+      const storeName = listing?.shop ?? sellers[order.sellerId]?.name ?? "a local business";
+      const date = order.createdAt ?? order.created_at ?? order.date;
+      return { id: `purchase-${order.databaseId ?? order.id ?? order.productId}`, type: "purchase", title: `Purchased ${listing?.name ?? "a local item"} from ${storeName}`, date, displayDate: formatImpactDate(date), icon: "bag" };
+    });
+    const supportedBusinesses = [...new Map(completedOrders.map((order) => {
+      const storeName = listings.find((item) => String(item.sellerId) === String(order.sellerId))?.shop ?? sellers[order.sellerId]?.name ?? "a local business";
+      const date = order.createdAt ?? order.created_at ?? order.date;
+      return [String(order.sellerId ?? storeName), { id: `support-${order.databaseId ?? order.id ?? storeName}`, type: "support", title: `Supported ${storeName}`, date, displayDate: formatImpactDate(date), icon: "store" }];
+    })).values()];
+    return [...validEventActivities, ...purchaseActivities, ...supportedBusinesses]
+      .sort((a, b) => impactTimestamp(b.date) - impactTimestamp(a.date))
+      .slice(0, 3);
+  }, [attendanceRows, attendingEventIds, events, listings, orders, user?.id]);
   const impactStats = [
     { label: "Local businesses supported", value: metrics.businessesSupported, icon: "store" },
     { label: "Local purchases made", value: metrics.purchasesMade, icon: "bag" },
@@ -75,15 +119,15 @@ export default function CommunityImpact() {
         <section className="mt-6">
           <h2 className="text-[18px] font-semibold">Recent impact</h2>
           <div className="mt-3 flex flex-col">
-            {impactTimeline.map((activity, index) => (
-              <div key={activity} className="flex gap-3">
+            {recentImpact.length ? recentImpact.map((activity, index) => (
+              <div key={activity.id} className="flex gap-3">
                 <div className="flex flex-col items-center">
-                  <span className="mt-1 h-3 w-3 rounded-full bg-[#498467]" />
-                  {index < impactTimeline.length - 1 && <span className="h-full w-px bg-[#CFF7D3]" />}
+                  <span className="mt-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#CFF7D3]"><ImpactIcon type={activity.icon} size={14} /></span>
+                  {index < recentImpact.length - 1 && <span className="h-full w-px bg-[#CFF7D3]" />}
                 </div>
-                <p className="pb-5 text-[14px] leading-[140%]">{activity}</p>
+                <div className="pb-5 text-[14px] leading-[140%]"><p>{activity.title}</p><p className="mt-1 text-[12px] text-[#828282]">{activity.displayDate}</p></div>
               </div>
-            ))}
+            )) : <p className="rounded-lg border border-[#E6E6E6] px-4 py-5 text-[14px] text-[#828282]">Your recent community activities will appear here as you shop local and attend events.</p>}
           </div>
         </section>
 

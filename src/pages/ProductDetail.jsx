@@ -95,6 +95,8 @@ export default function ProductDetail() {
       void trackAnalyticsEvent("listing_view", {
         sellerId: product.sellerId,
         listingId: product.databaseId,
+      }).then((recorded) => {
+        if (recorded) window.dispatchEvent(new Event("listing-statistics-changed"));
       });
     }
   }, [available, computedAvailability, displayedAvailability, id, inventoryTracked, product.availableForTrade, product.barterEnabled, product.databaseId, product.id, product.quantityAvailable, product.sellerId, product.tradeEnabled, product.variants, variants.length]);

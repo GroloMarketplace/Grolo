@@ -274,6 +274,7 @@ export function ReviewProvider({ children }) {
       orderItemId,
     }).then((createdReview) => {
       setSubmittedReviews((prev) => [createdReview, ...prev]);
+      window.dispatchEvent(new Event("listing-statistics-changed"));
       const reviewId = createdReview?.databaseId ?? createdReview?.id ?? localReview.id;
       const revieweeId = createdReview?.revieweeId ?? createdReview?.sellerId ?? sellerId;
       void refreshUserReputation(identity.id, { eventKey: `published-review:${reviewId}:reviewer` });

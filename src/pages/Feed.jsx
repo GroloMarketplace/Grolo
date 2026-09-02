@@ -412,7 +412,7 @@ function CommunityFeed({ filter, followedSellers, followedSellerIds, interactedS
   return (
     <div className="flex flex-col">
       <div
-        className="sticky top-0 z-20 flex touch-pan-x gap-6 overflow-x-auto border-b border-black/5 bg-white px-4 py-2 no-scrollbar"
+        className="sticky top-0 z-20 touch-pan-x overflow-x-auto border-b border-black/5 bg-white px-4 py-2 no-scrollbar"
         onPointerDown={(event) => {
           event.stopPropagation();
           setTouchStart(event.clientX);
@@ -426,6 +426,7 @@ function CommunityFeed({ filter, followedSellers, followedSellerIds, interactedS
           setTouchStart(null);
         }}
       >
+        <div className="mx-auto flex min-w-max justify-center gap-6">
         {COMMUNITY_FILTERS.map((item) => (
           <button
             key={item}
@@ -437,6 +438,7 @@ function CommunityFeed({ filter, followedSellers, followedSellerIds, interactedS
             {filter === item && <span className="absolute -bottom-2 left-0 right-0 h-0.5 bg-[#498467]" />}
           </button>
         ))}
+        </div>
       </div>
       <div className="flex flex-col gap-4 px-4 py-3">
         <p className="text-[12px] text-[#828282]">Showing results within {discoveryRadiusLabel(radius)}</p>

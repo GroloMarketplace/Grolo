@@ -86,6 +86,7 @@ export function SavedProvider({ children }) {
       const listingItem = items[0]?.type === "listing" ? items[0] : null;
       if (isSupabaseConfigured && user?.id && listingItem) {
         const persist = (listingId) => (saved ? removeFavorite(user.id, listingId) : addFavorite(user.id, listingId))
+          .then(() => window.dispatchEvent(new Event("listing-statistics-changed")))
           .catch((error) => console.error("Unable to persist favorite", error));
         const listingId = listingItem.databaseId ?? listingItem.listingId;
         if (listingId) persist(listingId);

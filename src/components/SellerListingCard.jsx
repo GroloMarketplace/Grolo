@@ -15,7 +15,7 @@ export default function SellerListingCard({ product, onDelete, onRestore, onPerm
   const { getListingPricing } = usePromotions();
   const { productRating } = useReviews();
   const pricing = getListingPricing(product);
-  const { count: reviewCount } = productRating(product.id);
+  const reviewCount = product.reviewCount == null ? productRating(product.id).count : Number(product.reviewCount) || 0;
   const viewCount = Number(product.views ?? product.metadata?.views) || 0;
   const likeCount = Number(product.favorites ?? product.metadata?.favorites) || 0;
   const regrowCount = Number(product.regrows ?? product.metadata?.regrows) || 0;

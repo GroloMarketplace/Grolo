@@ -132,6 +132,48 @@ function mapListingRows(rows, includeArchived = false) {
   return includeArchived ? listings : listings.filter((listing) => listing.status !== "Archived");
 }
 
+async function attachListingStatistics(listings) {
+  if (!listings.length) return listings;
+  const listingIds = listings.map((listing) => listing.databaseId).filter(Boolean);
+  if (!listingIds.length) return listings;
+
+  const { data, error } = await supabase.rpc("get_listing_statistics", {
+    p_listing_ids: listingIds,
+  });
+  if (error) {
+    console.error("[listing-statistics] Unable to attach live statistics; returning base listings", {
+      code: error.code ?? null,
+      message: error.message ?? null,
+      details: error.details ?? null,
+    });
+    return listings;
+  }
+
+  console.log("[listing-statistics] Aggregated view counts", (data ?? []).map((row) => ({ listingId: row.listing_id, views: Number(row.views) || 0 })));
+  const statistics = new Map((data ?? []).map((row) => [String(row.listing_id), row]));
+  return listings.map((listing) => {
+    const stats = statistics.get(String(listing.databaseId));
+    if (!stats) return listing;
+    return {
+      ...listing,
+      views: Number(stats.views) || 0,
+      favorites: Number(stats.likes) || 0,
+      reviewCount: Number(stats.reviews) || 0,
+      regrows: Number(stats.regrows) || 0,
+      purchases: Number(stats.purchases) || 0,
+      lastEngagementAt: stats.last_activity_at ?? listing.lastEngagementAt ?? null,
+      metadata: {
+        ...(listing.metadata ?? {}),
+        views: Number(stats.views) || 0,
+        favorites: Number(stats.likes) || 0,
+        reviewCount: Number(stats.reviews) || 0,
+        regrows: Number(stats.regrows) || 0,
+        purchases: Number(stats.purchases) || 0,
+      },
+    };
+  });
+}
+
 export async function getListings({ category, limit = 50, offset = 0, sellerId, includeArchived = false } = {}) {
   requireSupabase();
   let query = supabase
@@ -140,11 +182,19 @@ export async function getListings({ category, limit = 50, offset = 0, sellerId, 
     .order("created_at", { ascending: false });
   if (category) query = query.eq("category", category);
   if (sellerId) query = query.eq("seller_id", sellerId);
-  if (!includeArchived) query = query.eq("status", "Active");
+  if (!includeArchived) query = query.in("status", ["Active", "active", "Published", "published"]);
   if (limit) query = query.range(offset, offset + limit - 1);
   const { data, error } = await query;
+  console.info("[listing-query] getListings", {
+    requestedSellerId: sellerId ?? null,
+    includeArchived,
+    queryError: error ? { code: error.code ?? null, message: error.message ?? null, details: error.details ?? null } : null,
+    returnedCount: data?.length ?? 0,
+    returnedSellerIds: (data ?? []).map((row) => row.seller_id),
+    returnedTitles: (data ?? []).map((row) => row.title ?? row.name),
+  });
   if (error) throw error;
-  return mapListingRows(data, includeArchived);
+  return attachListingStatistics(mapListingRows(data, includeArchived));
 }
 
 export async function getListingById(id) {
@@ -155,7 +205,9 @@ export async function getListingById(id) {
     ? query.eq("id", id).maybeSingle()
     : query.eq("legacy_id", id).maybeSingle());
   if (error) throw error;
-  return data ? listingFromRow(data) : null;
+  if (!data) return null;
+  const [listing] = await attachListingStatistics([listingFromRow(data)]);
+  return listing;
 }
 
 export async function searchListings(queryText, { limit = 30, offset = 0 } = {}) {
@@ -164,11 +216,11 @@ export async function searchListings(queryText, { limit = 30, offset = 0 } = {})
     .from("listings")
     .select(LISTING_SELECT)
     .textSearch("search_vector", queryText, { type: "websearch" })
-    .eq("status", "Active")
+    .in("status", ["Active", "active", "Published", "published"])
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) throw error;
-  return mapListingRows(data);
+  return attachListingStatistics(mapListingRows(data));
 }
 
 export async function getCategories() {
@@ -201,7 +253,8 @@ export async function createListing(listing, sellerId) {
     });
     throw error;
   }
-  return listingFromRow(data);
+  const [hydratedListing] = await attachListingStatistics([listingFromRow(data)]);
+  return hydratedListing;
 }
 
 export async function updateListing(listingId, updates, sellerId) {
@@ -223,7 +276,8 @@ export async function updateListing(listingId, updates, sellerId) {
     .select(LISTING_SELECT)
     .single();
   if (error) throw error;
-  return listingFromRow(data);
+  const [listing] = await attachListingStatistics([listingFromRow(data)]);
+  return listing;
 }
 
 export async function deleteListing(listingId, { permanent = false } = {}) {

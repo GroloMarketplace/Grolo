@@ -101,7 +101,7 @@ export default function Featured() {
       return searchableText.toLowerCase().includes(query.trim().toLowerCase());
     })
     .sort((a, b) => {
-      if (sort === "Trending") return b.trending - a.trending;
+      if (sort === "Trending" || sort === "Featured") return b.trending - a.trending;
       if (sort === "Newest") return String(b.item.date ?? b.item.id).localeCompare(String(a.item.date ?? a.item.id));
       return 0;
     });

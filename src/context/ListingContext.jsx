@@ -40,6 +40,16 @@ export function ListingProvider({ children }) {
   const [loading, setLoading] = useState(isSupabaseConfigured);
   const [error, setError] = useState(null);
 
+  const refreshListings = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    const [nextListings, sellerListings] = await Promise.all([
+      getListings(),
+      user?.id ? getListings({ sellerId: user.id, includeArchived: true }) : Promise.resolve([]),
+    ]);
+    setListings(nextListings);
+    setArchivedListings(sellerListings.filter((listing) => listing.status === "Archived"));
+  }, [user?.id]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -63,6 +73,8 @@ export function ListingProvider({ children }) {
           }
         }
         const nextListings = await getListings();
+        console.log("LISTINGS COUNT", nextListings.length);
+        console.log("LISTINGS", nextListings.slice(0, 10).map((listing) => ({ title: listing.title ?? listing.name, sellerId: listing.sellerId ?? listing.seller_id })));
         const sellerListings = user?.id ? await getListings({ sellerId: user.id, includeArchived: true }) : [];
         if (!cancelled) {
           setListings(nextListings);
@@ -83,6 +95,14 @@ export function ListingProvider({ children }) {
     loadListings();
     return () => { cancelled = true; };
   }, [storageKey, user?.id]);
+
+  useEffect(() => {
+    const handleStatisticsChanged = () => {
+      refreshListings().catch((refreshError) => console.error("Unable to refresh listing statistics", refreshError));
+    };
+    window.addEventListener("listing-statistics-changed", handleStatisticsChanged);
+    return () => window.removeEventListener("listing-statistics-changed", handleStatisticsChanged);
+  }, [refreshListings]);
 
   const addListing = async (listing) => {
     if (isSuspended) throw new Error("Your account is suspended and cannot create listings.");

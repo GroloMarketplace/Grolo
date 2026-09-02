@@ -379,6 +379,7 @@ export function EventProvider({ children }) {
     isAttending,
     getAttendeeCount,
     attendingEventIds: confirmedEventIds,
+    attendanceRows: attendeeRows,
     toggleAttendance,
     confirmAttendance,
     storeId: currentUserId,

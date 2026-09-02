@@ -5,6 +5,8 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import { ActivityCard } from "./BuyerProfile";
 import { communityPosts, followingPosts, sellers, messages } from "../data/mockData";
 import { useListings } from "../context/ListingContext";
+import { getListings } from "../lib/api/listings";
+import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { useFollow } from "../context/FollowContext";
 import { useReviews } from "../context/ReviewContext";
 import {
@@ -46,6 +48,7 @@ export default function SellerProfile() {
   const { getSellerProfile } = useSellerSettings();
   const { listings } = useListings();
   const { storeOpenedAt } = useProfileMode();
+  const [profileListings, setProfileListings] = useState(null);
   const resolvedSeller = useResolvedSeller(sellerId);
   const seller = resolvedSeller ?? sellers[sellerId] ?? { id: sellerId, name: "Seller" };
   const profileSellerId = isCanonicalSellerId(resolvedSeller?.id)
@@ -62,7 +65,24 @@ export default function SellerProfile() {
   const sellerEvents = upcomingEvents(seller.id).filter(createdBySeller);
   const sellerRatingData = sellerRating(seller.id);
   const { average, count } = sellerRatingData;
-  const sellerProducts = listings.filter((p) => p.sellerId === seller.id || p.shop === sellerProfile.name || p.shop === seller.name);
+  useEffect(() => {
+    let cancelled = false;
+    const viewedSellerId = seller.id;
+    console.info("Seller profile listings lookup", { profileId: sellerId, sellerId: viewedSellerId });
+    setProfileListings(null);
+    if (!viewedSellerId || !isSupabaseConfigured) return () => { cancelled = true; };
+    getListings({ sellerId: viewedSellerId })
+      .then((nextListings) => {
+        if (cancelled) return;
+        console.info("Seller profile listings result", { profileId: sellerId, sellerId: viewedSellerId, listingsCount: nextListings.length, listingTitles: nextListings.map((listing) => listing.title ?? listing.name) });
+        setProfileListings(nextListings);
+      })
+      .catch((error) => {
+        if (!cancelled) console.error("Unable to load seller profile listings", { profileId: sellerId, sellerId: viewedSellerId, error });
+      });
+    return () => { cancelled = true; };
+  }, [seller.id, sellerId]);
+  const sellerProducts = (profileListings ?? listings).filter((p) => String(p.sellerId ?? p.seller_id ?? "") === String(seller.id) || p.shop === sellerProfile.name || p.shop === seller.name);
   useEffect(() => {
     if (!followsLoaded) return;
   }, [followedSellers, followsLoaded, getFollowerCount, isFollowing, profileSellerId, sellerId, user?.id]);

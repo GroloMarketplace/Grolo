@@ -314,7 +314,7 @@ export default function Chat() {
               {serviceContext && <span className="text-[12px] font-medium text-[#B56576]">In Services</span>}
               <h4 className="text-[16px] font-semibold truncate">{listing.name}</h4>
               <p className="text-[14px] text-[#828282] truncate">{seller.name}</p>
-              <p className="text-[16px] font-semibold text-[#498467]">{serviceContext ? formatListingPrice(listing) : `$${Number(listing.price).toFixed(2)}`}</p>
+              <p className="text-[16px] font-semibold text-[#498467]">{formatListingPrice(listing)}</p>
               {serviceContext ? <span className="text-[12px] text-[#498467]">View Service Listing</span> : <div className="flex flex-wrap gap-x-2 text-[12px] text-[#498467]"><span>View Listing</span>{(!Array.isArray(listing.variants) || listing.variants.length === 0) && listing.quantityAvailable != null && <span>Available: {listing.quantityAvailable}</span>}{listing.availableForTrade && <span>Open to Trade</span>}</div>}
             </div>
           </button>

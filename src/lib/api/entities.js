@@ -18,14 +18,6 @@ function entityDiagnostics(source, extra = {}) {
   };
 }
 
-function logEntity(source, entityType, diagnostics) {
-  const message = source === "supabase" ? "entity source: supabase" : "entity source: legacy fallback";
-
-}
-
-function warnMissing(entityType, requestedId, diagnostics = {}) {
-}
-
 function isFoundingYearStore(value) {
   const date = value ? new Date(value) : null;
   return Boolean(date && !Number.isNaN(date.getTime()) && date.getUTCFullYear() === 2026);
@@ -83,7 +75,6 @@ async function getListingRecord(requestedId) {
   } catch (error) {
     const fallback = legacyListing(requestedId);
     if (!fallback) throw error;
-    logEntity("legacy fallback", "listing", entityDiagnostics("legacy fallback", { requestedListingId: requestedId, resolvedListingId: fallback.id }));
     return fallback;
   }
 }
@@ -98,8 +89,6 @@ async function getProfiles() {
 export async function getSellerProfileById(sellerId) {
   const fallback = legacySeller(sellerId);
   if (!sellerId || !isSupabaseConfigured) {
-    if (fallback) logEntity("legacy fallback", "seller", entityDiagnostics("legacy fallback", { requestedId: sellerId, resolvedSellerId: fallback.id }));
-    else warnMissing("seller", sellerId, entityDiagnostics("legacy fallback", { resolvedSellerId: null }));
     return fallback;
   }
 
@@ -108,17 +97,14 @@ export async function getSellerProfileById(sellerId) {
     const row = rows.find((profile) => profileMatches(profile, sellerId));
     if (row) {
       const seller = sellerProfileFromRow(row);
-      logEntity("supabase", "seller", entityDiagnostics("supabase", { requestedId: sellerId, resolvedSellerId: seller.id }));
       return seller;
     }
   } catch (error) {
   }
 
   if (fallback) {
-    logEntity("legacy fallback", "seller", entityDiagnostics("legacy fallback", { requestedId: sellerId, resolvedSellerId: fallback.id }));
     return fallback;
   }
-  warnMissing("seller", sellerId, entityDiagnostics("legacy fallback", { resolvedSellerId: null }));
   return null;
 }
 
@@ -126,14 +112,12 @@ export async function getSellerProfileForListing(listing) {
   const listingRecord = typeof listing === "object" ? listing : await getListingRecord(listing);
   const sellerId = listingRecord?.sellerId ?? listingRecord?.seller_id;
   const seller = await getSellerProfileById(sellerId);
-  if (!seller) warnMissing("seller", sellerId, { resolvedListingId: listingRecord?.databaseId ?? listingRecord?.id ?? null });
   return seller;
 }
 
 export async function getListingWithSeller(listingId) {
   const listing = typeof listingId === "object" ? listingId : await getListingRecord(listingId);
   if (!listing) {
-    warnMissing("listing", listingId, { resolvedListingId: null });
     return null;
   }
   const seller = await getSellerProfileForListing(listing);
@@ -247,22 +231,18 @@ export async function getMarketplaceEntities({ includeEvents = true, includeMapL
   if (!listings.length) {
     listings = Object.values(legacyProducts);
     diagnostics.listings = entityDiagnostics("legacy fallback", { count: listings.length });
-    logEntity("legacy fallback", "listing collection", diagnostics.listings);
   }
   if (!sellers.length) {
     sellers = Object.values(legacySellers);
     diagnostics.sellers = entityDiagnostics("legacy fallback", { count: sellers.length });
-    logEntity("legacy fallback", "seller collection", diagnostics.sellers);
   }
   if (includeEvents && !events.length) {
     events = Array.isArray(legacyEvents) ? legacyEvents : Object.values(legacyEvents);
     diagnostics.events = entityDiagnostics("legacy fallback", { count: events.length });
-    logEntity("legacy fallback", "event collection", diagnostics.events);
   }
   if (includeMapLocations && !mapLocations.length) {
     mapLocations = Array.isArray(legacyMapLocations) ? legacyMapLocations : Object.values(legacyMapLocations);
     diagnostics.mapLocations = entityDiagnostics("legacy fallback", { count: mapLocations.length });
-    logEntity("legacy fallback", "map location collection", diagnostics.mapLocations);
   }
 
   return { listings, sellers, events, mapLocations, diagnostics };

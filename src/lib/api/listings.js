@@ -141,7 +141,7 @@ async function attachListingStatistics(listings) {
     p_listing_ids: listingIds,
   });
   if (error) {
-    console.error("[listing-statistics] Unable to attach live statistics; returning base listings", {
+    console.error("Unable to attach live listing statistics; returning base listings", {
       code: error.code ?? null,
       message: error.message ?? null,
       details: error.details ?? null,
@@ -149,7 +149,6 @@ async function attachListingStatistics(listings) {
     return listings;
   }
 
-  console.log("[listing-statistics] Aggregated view counts", (data ?? []).map((row) => ({ listingId: row.listing_id, views: Number(row.views) || 0 })));
   const statistics = new Map((data ?? []).map((row) => [String(row.listing_id), row]));
   return listings.map((listing) => {
     const stats = statistics.get(String(listing.databaseId));
@@ -185,14 +184,6 @@ export async function getListings({ category, limit = 50, offset = 0, sellerId, 
   if (!includeArchived) query = query.in("status", ["Active", "active", "Published", "published"]);
   if (limit) query = query.range(offset, offset + limit - 1);
   const { data, error } = await query;
-  console.info("[listing-query] getListings", {
-    requestedSellerId: sellerId ?? null,
-    includeArchived,
-    queryError: error ? { code: error.code ?? null, message: error.message ?? null, details: error.details ?? null } : null,
-    returnedCount: data?.length ?? 0,
-    returnedSellerIds: (data ?? []).map((row) => row.seller_id),
-    returnedTitles: (data ?? []).map((row) => row.title ?? row.name),
-  });
   if (error) throw error;
   return attachListingStatistics(mapListingRows(data, includeArchived));
 }

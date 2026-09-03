@@ -15,6 +15,9 @@ export default function SellerListingCard({ product, onDelete, onRestore, onPerm
   const { getListingPricing } = usePromotions();
   const { productRating } = useReviews();
   const pricing = getListingPricing(product);
+  const originalPrice = Number(pricing.originalPrice);
+  const discountedPrice = Number(pricing.discountedPrice);
+  const hasDiscount = Number.isFinite(discountedPrice) && Number.isFinite(originalPrice) && discountedPrice < originalPrice;
   const reviewCount = product.reviewCount == null ? productRating(product.id).count : Number(product.reviewCount) || 0;
   const viewCount = Number(product.views ?? product.metadata?.views) || 0;
   const likeCount = Number(product.favorites ?? product.metadata?.favorites) || 0;
@@ -104,7 +107,7 @@ export default function SellerListingCard({ product, onDelete, onRestore, onPerm
           <div className="text-[14px] text-black line-clamp-2">
             {product.name}
           </div>
-          {pricing.discountedPrice < pricing.originalPrice ? <div className="flex items-baseline gap-2 text-[16px] font-medium"><span>${pricing.discountedPrice.toFixed(2)}</span><span className="text-[12px] text-[#828282] line-through">${pricing.originalPrice.toFixed(2)}</span></div> : <div className="text-[16px] font-medium text-black">{formatListingPrice(product)}</div>}
+          {hasDiscount ? <div className="flex items-baseline gap-2 text-[16px] font-medium"><span>${discountedPrice.toFixed(2)}</span><span className="text-[12px] text-[#828282] line-through">${originalPrice.toFixed(2)}</span></div> : <div className="text-[16px] font-medium text-black">{formatListingPrice(product)}</div>}
           <TradeBadge listing={product} compact />
           <ReviewSummary product={product} />
           <div className="text-[12px] text-[#828282]">{isService ? (serviceStatusFor(product)) : inventoryTracked ? `${available} Available` : `Availability: ${product.availableForOrders === false ? "Unavailable" : "Available"}`}</div>

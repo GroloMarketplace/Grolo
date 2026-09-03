@@ -13,8 +13,8 @@ export function isListingOutOfStock(listing) {
 }
 
 export function isListingActive(listing) {
-  if (isServiceListing(listing)) return ["Accepting New Clients", "Limited Availability", "Waitlist Available"].includes(serviceStatusFor(listing));
-  return !isListingOutOfStock(listing);
+  if (isServiceListing(listing)) return listing?.status !== "Archived" && ["Accepting New Clients", "Limited Availability", "Waitlist Available"].includes(serviceStatusFor(listing));
+  return listing?.status !== "Archived" && !isListingOutOfStock(listing);
 }
 
 export function formatListingPrice(listing) {
@@ -30,6 +30,8 @@ export function formatListingPrice(listing) {
     if (listing.pricingType === "Custom Pricing") return listing.price || "Custom Pricing";
     return listing.price || listing.pricingType;
   }
-  const price = Number(listing?.discountedPrice ?? listing?.price);
-  return Number.isFinite(price) ? `$${price.toFixed(2)}` : "Price on request";
+  const rawPrice = listing?.price;
+  const price = typeof rawPrice === "number" ? rawPrice : typeof rawPrice === "string" && rawPrice.trim() ? Number(rawPrice) : NaN;
+  if (Number.isFinite(price)) return `$${price.toFixed(2)}`;
+  return isServiceListing(listing) ? "Contact for Quote" : "Contact Seller";
 }

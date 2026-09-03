@@ -19,6 +19,7 @@ import DistanceLabel from "../components/DistanceLabel";
 import ReviewSummary from "../components/ReviewSummary";
 import TradeBadge from "../components/TradeBadge";
 import { promotionMatchesListing, promotedContentImage } from "../utils/promotionMedia";
+import { formatListingPrice } from "../utils/listingDisplay";
 
 const FILTERS = ["All", "Listings", "Events", "Stores", "Promotions"];
 const SORT_OPTIONS = ["Featured", "Trending", "Newest"];
@@ -31,6 +32,10 @@ export default function Featured() {
   const { events: liveEvents, getAttendeeCount } = useEvents();
   const { orders } = useOrders();
   const { getFollowerCount } = useFollow();
+  const safeListings = Array.isArray(listings) ? listings.filter(Boolean) : [];
+  const safeEvents = Array.isArray(liveEvents) ? liveEvents.filter(Boolean) : events.filter(Boolean);
+  const safeOrders = Array.isArray(orders) ? orders.filter(Boolean) : [];
+  const safeAds = Array.isArray(ads) ? ads.filter(Boolean) : [];
   const scrollRef = useRef(null);
   const savedFeaturedState = readNavigationState("featured", { query: "", filter: "All", sort: "Featured", scrollTop: 0 });
   const [query, setQuery] = useState(savedFeaturedState.query);
@@ -58,11 +63,11 @@ export default function Featured() {
     navigate(destination);
   };
   const promotionByProduct = useMemo(
-    () => new Map(listings.map((product) => [product.id, promotions.find((promotion) => promotionMatchesListing(promotion, product))])),
-    [listings],
+    () => new Map(safeListings.map((product) => [product.id, promotions.find((promotion) => promotionMatchesListing(promotion, product))])),
+    [safeListings],
   );
   const paidStoreIds = useMemo(() => new Set(
-    ads
+    safeAds
       .filter((ad) => (ad.status === "Trial" || ad.status === "Active") && ad.type === "Store")
       .map((ad) => ad.destinationId),
   ), [ads]);
@@ -72,29 +77,29 @@ export default function Featured() {
   ].slice(0, 4).map((store) => ({
     ...store,
     followers: getFollowerCount(store.id),
-    orders: orders.filter((order) => String(order.sellerId ?? order.seller_id ?? "") === String(store.id) && String(order.status).toLowerCase() === "completed").length,
-  })), [getFollowerCount, orders, paidStoreIds]);
+    orders: safeOrders.filter((order) => String(order.sellerId ?? order.seller_id ?? "") === String(store.id) && String(order.status).toLowerCase() === "completed").length,
+  })), [getFollowerCount, paidStoreIds, safeOrders]);
   const feed = useMemo(
     () => [
       ...featuredStores.map((store) => ({ type: "store", item: store, trending: trendingScore("store", store) })),
-      ...listings.map((product) => {
+      ...safeListings.map((product) => {
         const promotion = promotionByProduct.get(product.id);
         return { type: "listing", item: product, promotion, trending: trendingScore("listing", product) + (promotion ? trendingScore("promotion", promotion) : 0) };
       }),
-      ...(liveEvents ?? events).slice(0, 6).map((event) => ({
+      ...safeEvents.slice(0, 6).map((event) => ({
         type: "event",
         item: { ...event, attendingCount: getAttendeeCount(event.id) },
         trending: trendingScore("event", { ...event, attendingCount: getAttendeeCount(event.id) }),
       })),
     ],
-    [featuredStores, getAttendeeCount, listings, liveEvents, promotionByProduct],
+    [featuredStores, getAttendeeCount, promotionByProduct, safeEvents, safeListings],
   );
   const filteredFeed = feed
     .filter((entry) => filter === "All" || (filter === "Listings" && entry.type === "listing") || (filter === "Events" && entry.type === "event") || (filter === "Stores" && entry.type === "store") || (filter === "Promotions" && entry.promotion))
     .filter((entry) => {
-      const item = entry.item;
-      const searchableText = entry.type === "listing"
-        ? `${item.name} ${item.shop}`
+      const item = entry?.item ?? {};
+      const searchableText = entry?.type === "listing"
+        ? `${item.name ?? ""} ${item.shop ?? ""}`
         : entry.type === "event"
           ? `${item.title} ${sellers[item.sellerId]?.name} ${item.location}`
           : `${item.name} ${STORE_CATEGORIES[item.id] ?? ""}`;
@@ -161,7 +166,8 @@ function FeaturedFeedCard({ entry, onProduct }) {
 }
 
 function FeaturedListingCard({ product, promotion, onProduct }) {
-  const openReviews = () => onProduct(product.id, `/product/${product.id}/reviews`);
+  if (!product || typeof product !== "object") return null;
+  const openReviews = () => onProduct?.(product.id, `/product/${product.id}/reviews`);
   return (
     <article className="rounded-lg border border-[#E6E6E6] p-3">
       <Link to={`/product/${product.id}`} onClick={(event) => { if (onProduct) { event.preventDefault(); onProduct(product.id); } }} className="block">
@@ -172,11 +178,11 @@ function FeaturedListingCard({ product, promotion, onProduct }) {
         <div className="mt-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <ServiceCategoryLabel listing={product} className="mb-1 block" />
-            <h3 className="truncate text-[16px] font-semibold">{product.name}</h3>
-            <div className="flex flex-wrap items-center gap-2"><p className="text-[13px] text-[#498467]">{product.shop}</p><FoundingMemberBadge sellerId={product.sellerId} compact /></div>
+            <h3 className="truncate text-[16px] font-semibold">{product.name ?? "Untitled listing"}</h3>
+            <div className="flex flex-wrap items-center gap-2"><p className="text-[13px] text-[#498467]">{product.shop ?? ""}</p><FoundingMemberBadge sellerId={product.sellerId} compact /></div>
             <DistanceLabel content={product} />
           </div>
-          <span className="shrink-0 text-[16px] font-semibold">${product.price.toFixed(2)}</span>
+          <span className="shrink-0 text-[16px] font-semibold">{formatListingPrice(product)}</span>
         </div>
         <TradeBadge listing={product} compact className="mt-2" />
       </Link>
@@ -217,7 +223,7 @@ function FeaturedStoreCard({ store }) {
           <span className="flex flex-wrap items-center gap-2"><span className="truncate text-[16px] font-semibold">{store.name}</span><FoundingMemberBadge sellerId={store.id} compact /></span>
           <span className="block text-[13px] text-[#828282]">{STORE_CATEGORIES[store.id] ?? "Local store"}</span>
           <DistanceLabel content={store} className="mt-1 block" />
-          <span className="mt-1 block text-[12px] text-[#828282]"><span className="text-[#498467]">★</span> {store.rating.toFixed(1)} ({store.reviewCount})</span>
+          <span className="mt-1 block text-[12px] text-[#828282]"><span className="text-[#498467]">★</span> {Number.isFinite(Number(store.rating)) ? Number(store.rating).toFixed(1) : "New"} ({Number(store.reviewCount) || 0})</span>
         </span>
       </button>
       <button type="button" onClick={() => toggleFollow(store.id)} className={`shrink-0 rounded-lg px-3 py-2 text-[12px] font-medium ${following ? "border border-[#498467] text-[#498467]" : "bg-[#498467] text-white"}`}>

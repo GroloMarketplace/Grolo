@@ -68,13 +68,11 @@ export default function SellerProfile() {
   useEffect(() => {
     let cancelled = false;
     const viewedSellerId = seller.id;
-    console.info("Seller profile listings lookup", { profileId: sellerId, sellerId: viewedSellerId });
     setProfileListings(null);
     if (!viewedSellerId || !isSupabaseConfigured) return () => { cancelled = true; };
     getListings({ sellerId: viewedSellerId })
       .then((nextListings) => {
         if (cancelled) return;
-        console.info("Seller profile listings result", { profileId: sellerId, sellerId: viewedSellerId, listingsCount: nextListings.length, listingTitles: nextListings.map((listing) => listing.title ?? listing.name) });
         setProfileListings(nextListings);
       })
       .catch((error) => {

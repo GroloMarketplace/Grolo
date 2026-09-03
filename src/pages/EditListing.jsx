@@ -29,12 +29,13 @@ function VariantEditor({ variants, onChange }) {
 export default function EditListing() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { listings, updateListing } = useListings();
-  const product = listings.find((listing) => listing.id === id || listing.databaseId === id);
+  const { listings, archivedListings, updateListing } = useListings();
+  const product = [...listings, ...archivedListings].find((listing) => listing.id === id || listing.databaseId === id);
 
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [serviceStatus, setServiceStatus] = useState("Accepting New Clients");
+  const [listingStatus, setListingStatus] = useState("Available");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Produce");
   const [availableForTrade, setAvailableForTrade] = useState(false);
@@ -54,7 +55,8 @@ export default function EditListing() {
     if (!product) return;
     setTitle(product.name || product.title || "");
     setPrice(product.price ?? "");
-    setServiceStatus(product.serviceStatus || "Accepting New Clients");
+    setServiceStatus(product.status === "Archived" ? "Archived" : product.serviceStatus || "Accepting New Clients");
+    setListingStatus(product.status === "Archived" ? "Archived" : "Available");
     setDescription(product.description || "");
     setCategory(product.category || "Produce");
     setAvailableForTrade(product.availableForTrade ?? false);
@@ -89,6 +91,7 @@ export default function EditListing() {
       await updateListing(product.id, {
         title,
         name: title,
+        status: isService ? (serviceStatus === "Archived" ? "Archived" : "Active") : listingStatus === "Archived" ? "Archived" : "Active",
         price: isService ? price : Number(price),
         serviceStatus: isService ? serviceStatus : undefined,
         quantityAvailable: isService ? 0 : normalizedQuantity,
@@ -196,12 +199,25 @@ export default function EditListing() {
             <option value="Services">Services</option>
           </select>
         </div>
-        {category === "Services" && <div className="mb-4">
-          <label className="text-[14px] font-semibold mb-2 block">Service Status</label>
-          <select value={serviceStatus} onChange={(event) => setServiceStatus(event.target.value)} className="w-full p-3 border border-[#E6E6E6] rounded-lg text-[14px] outline-none">
-            {['Accepting New Clients', 'Limited Availability', 'Waitlist Available', 'Temporarily Not Accepting New Clients', 'Archived'].map((option) => <option key={option} value={option}>{option}</option>)}
+        <div className="mb-4">
+          <label className="text-[14px] font-semibold mb-2 block">Listing Status</label>
+          <select
+            value={category === "Services" ? serviceStatus : listingStatus}
+            onChange={(event) => category === "Services" ? setServiceStatus(event.target.value) : setListingStatus(event.target.value)}
+            className="w-full p-3 border border-[#E6E6E6] rounded-lg text-[14px] outline-none"
+          >
+            {(category === "Services"
+              ? ["Accepting New Clients", "Temporarily Not Accepting New Clients", "Archived"]
+              : ["Available", "Archived"]
+            ).map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
-        </div>}
+          <p className="mt-1 text-[12px] text-[#828282]">
+            {category === "Services"
+              ? serviceStatus === "Archived" ? "Hidden from marketplace and seller profiles." : serviceStatus === "Temporarily Not Accepting New Clients" ? "Visible, but not accepting new work." : "Visible and accepting inquiries."
+              : listingStatus === "Archived" ? "Hidden from marketplace, profiles, and search." : "Visible, searchable, and available for purchase."
+            }
+          </p>
+        </div>
 
         {/* Trade */}
         <div className="rounded-lg border border-[#E6E6E6] p-3 mb-4">

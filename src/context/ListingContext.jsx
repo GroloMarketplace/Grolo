@@ -73,8 +73,6 @@ export function ListingProvider({ children }) {
           }
         }
         const nextListings = await getListings();
-        console.log("LISTINGS COUNT", nextListings.length);
-        console.log("LISTINGS", nextListings.slice(0, 10).map((listing) => ({ title: listing.title ?? listing.name, sellerId: listing.sellerId ?? listing.seller_id })));
         const sellerListings = user?.id ? await getListings({ sellerId: user.id, includeArchived: true }) : [];
         if (!cancelled) {
           setListings(nextListings);
@@ -120,9 +118,13 @@ export function ListingProvider({ children }) {
       setListings((current) => current.filter((listing) => listing.id !== listingId && listing.databaseId !== updatedListing.databaseId));
       setArchivedListings((current) => [updatedListing, ...current.filter((listing) => listing.databaseId !== updatedListing.databaseId && listing.id !== updatedListing.id)]);
     } else {
-      setListings((current) => current.map((listing) => (
-        listing.id === listingId || listing.databaseId === updatedListing.databaseId ? updatedListing : listing
-      )));
+      setListings((current) => {
+        const hasUpdatedListing = current.some((listing) => listing.id === listingId || listing.databaseId === updatedListing.databaseId);
+        const nextListings = current.map((listing) => (
+          listing.id === listingId || listing.databaseId === updatedListing.databaseId ? updatedListing : listing
+        ));
+        return hasUpdatedListing ? nextListings : [updatedListing, ...nextListings];
+      });
       setArchivedListings((current) => current.filter((listing) => listing.id !== listingId && listing.databaseId !== updatedListing.databaseId));
     }
     return updatedListing;
@@ -134,13 +136,6 @@ export function ListingProvider({ children }) {
     setListings((current) => current.filter((listing) => listing.id !== listingId && listing.databaseId !== listingId));
     if (result?.archived && result.listing) setArchivedListings((current) => [result.listing, ...current.filter((listing) => listing.id !== result.listing.id)]);
     return result;
-  };
-
-  const restoreListing = async (listingId) => {
-    const restoredListing = await updateListingRecord(listingId, { status: "Active", serviceStatus: "Accepting New Clients" }, user?.id);
-    setArchivedListings((current) => current.filter((listing) => listing.id !== listingId && listing.databaseId !== listingId));
-    setListings((current) => [restoredListing, ...current.filter((listing) => listing.id !== listingId && listing.databaseId !== listingId)]);
-    return restoredListing;
   };
 
   const permanentlyDeleteListing = async (listingId) => {
@@ -172,8 +167,8 @@ export function ListingProvider({ children }) {
   const pricedArchivedListings = useMemo(() => priceListings(archivedListings), [archivedListings, priceListings]);
 
   const value = useMemo(
-    () => ({ listings: pricedListings, archivedListings: pricedArchivedListings, loading, error, addListing, updateListing, removeListing, restoreListing, permanentlyDeleteListing, searchListings }),
-    [pricedListings, pricedArchivedListings, loading, error, addListing, updateListing, removeListing, restoreListing, permanentlyDeleteListing, searchListings],
+    () => ({ listings: pricedListings, archivedListings: pricedArchivedListings, loading, error, addListing, updateListing, removeListing, permanentlyDeleteListing, searchListings }),
+    [pricedListings, pricedArchivedListings, loading, error, addListing, updateListing, removeListing, permanentlyDeleteListing, searchListings],
   );
   return <ListingContext.Provider value={value}>{children}</ListingContext.Provider>;
 }

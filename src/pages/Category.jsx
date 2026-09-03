@@ -10,6 +10,7 @@ import { useListings } from "../context/ListingContext";
 import DistanceLabel from "../components/DistanceLabel";
 import PromotionBadge from "../components/PromotionBadge";
 import TradeBadge from "../components/TradeBadge";
+import { formatListingPrice } from "../utils/listingDisplay";
 
 function getCategoryName(value) {
   try {
@@ -99,6 +100,7 @@ function ProductSection({ title, products: sectionProducts, onProduct }) {
 
 function CategoryProductCard({ product, onProduct }) {
   const navigate = useNavigate();
+  if (!product || typeof product !== "object") return null;
   const seller = sellers[product.sellerId];
 
   return (
@@ -128,10 +130,10 @@ function CategoryProductCard({ product, onProduct }) {
         </Link>
         <div className="flex items-center gap-1 text-[12px] text-[#828282]">
           <span className="text-[#498467]">★</span>
-          <span>{product.rating?.toFixed(1) ?? "New"}</span>
+          <span>{Number.isFinite(Number(product.rating)) && Number(product.rating) > 0 ? Number(product.rating).toFixed(1) : "New"}</span>
           {product.reviewCount && <span>({product.reviewCount})</span>}
         </div>
-        {product.discountedPrice < product.originalPrice ? <span className="text-[16px] font-semibold text-[#498467]">${product.discountedPrice.toFixed(2)} <span className="text-[11px] font-normal text-[#828282] line-through">${product.originalPrice.toFixed(2)}</span></span> : <span className="text-[16px] font-semibold">${product.price.toFixed(2)}</span>}
+        <span className="text-[16px] font-semibold">{formatListingPrice(product)}</span>
         <TradeBadge listing={product} compact />
       </div>
     </article>

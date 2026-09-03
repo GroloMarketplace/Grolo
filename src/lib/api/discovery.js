@@ -7,10 +7,6 @@ function sourceDiagnostics(source, extra = {}) {
   return { source, discovery_source: source, ...extra };
 }
 
-function logSource(message, diagnostics) {
-
-}
-
 function coordinatesFor(entity) {
   const latitude = Number(entity?.latitude ?? entity?.lat);
   const longitude = Number(entity?.longitude ?? entity?.lng ?? entity?.lon);
@@ -54,13 +50,11 @@ async function getCategories() {
       const { data, error } = await supabase.from("categories").select("*").order("name");
       if (error) throw error;
       const categories = data ?? [];
-      logSource("discovery source: supabase", { entityType: "categories", count: categories.length });
       return { values: categories, diagnostics: sourceDiagnostics("supabase", { count: categories.length }) };
     } catch (error) {
     }
   }
   const values = Array.isArray(legacyCategories) ? legacyCategories : Object.values(legacyCategories);
-  logSource("discovery source: legacy fallback", { entityType: "categories", count: values.length });
   return { values, diagnostics: sourceDiagnostics("legacy fallback", { count: values.length }) };
 }
 
@@ -70,13 +64,11 @@ async function getPosts() {
       const { data, error } = await supabase.from("community_posts").select("*").order("created_at", { ascending: false });
       if (error) throw error;
       const posts = data ?? [];
-      logSource("discovery source: supabase", { entityType: "community posts", count: posts.length });
       return { values: posts, diagnostics: sourceDiagnostics("supabase", { count: posts.length }) };
     } catch (error) {
     }
   }
   const values = [...followingPosts, ...communityPosts];
-  logSource("discovery source: legacy fallback", { entityType: "community posts", count: values.length });
   return { values, diagnostics: sourceDiagnostics("legacy fallback", { count: values.length }) };
 }
 
@@ -103,7 +95,6 @@ export async function getStoreDiscovery() {
     ...entities.diagnostics,
     stores: sourceDiagnostics(entities.diagnostics.sellers?.source ?? "legacy fallback", { count: stores.length }),
   };
-  logSource("discovery source: stores", diagnostics.stores);
   return { stores, listings: entities.listings, diagnostics };
 }
 
@@ -113,7 +104,6 @@ export async function getEventDiscovery() {
     ...event,
     diagnostics: sourceDiagnostics(entities.diagnostics.events?.source ?? "legacy fallback", { eventId: event.id }),
   }));
-  logSource("discovery source: events", { source: entities.diagnostics.events?.source ?? "legacy fallback", count: events.length });
   return { events, diagnostics: entities.diagnostics.events ?? sourceDiagnostics("legacy fallback", { count: events.length }) };
 }
 
@@ -152,7 +142,6 @@ export async function getMapLocations() {
     ...entities.diagnostics,
     map: sourceDiagnostics(mapSource, { count: normalizedLocations.length }),
   };
-  logSource("map source: resolved", diagnostics.map);
   return { locations: normalizedLocations, diagnostics };
 }
 
@@ -177,7 +166,6 @@ export async function getMarketplaceDiscovery() {
       { listingCount: listings.length, storeCount: stores.stores.length, eventCount: events.events.length },
     ),
   };
-  logSource("discovery source: marketplace", diagnostics.discovery);
   return {
     stores: stores.stores,
     listings,

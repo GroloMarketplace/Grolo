@@ -196,25 +196,6 @@ export function MessageProvider({ children }) {
         const mappedMessages = normalizedConversations.filter((conversation) => conversation.id);
         const sortedMessages = sortConversations(mappedMessages);
         const messageCount = mappedMessages.reduce((count, conversation) => count + conversation.messages.length, 0);
-        const hydrationRows = sortedMessages.flatMap((conversation) => conversation.messages.map((message) => ({
-          conversationId: conversation.databaseId ?? conversation.id,
-          messageId: message.databaseId ?? message.id,
-          senderId: message.senderId,
-          currentUserId: user.id,
-          isIncoming: Boolean(message.senderId && user.id && message.senderId !== user.id),
-          readAt: message.readAt ?? null,
-          computedUnread: message.unread === true,
-        })));
-        console.table(hydrationRows);
-        const unreadSummaryRows = sortedMessages.map((conversation) => {
-          const unreadMessageIds = conversation.messages.filter((message) => message.unread === true).map((message) => message.databaseId ?? message.id);
-          return {
-            conversationId: conversation.databaseId ?? conversation.id,
-            unreadMessageCount: unreadMessageIds.length,
-            unreadMessageIds: unreadMessageIds.join(", "),
-          };
-        });
-        console.table(unreadSummaryRows);
         setMessages(sortedMessages);
         const activeConversationIds = hydratedConversations.map((conversation) => conversation.databaseId ?? conversation.id);
         reconcileRealtimeSubscriptions(activeConversationIds);

@@ -68,6 +68,9 @@ export default function ProductDetail() {
   const { getListingPricing } = usePromotions();
   const pricedProduct = selectedVariant ? { ...product, price: Number(selectedVariant.price) } : product;
   const pricing = getListingPricing(pricedProduct);
+  const originalPrice = Number(pricing.originalPrice);
+  const discountedPrice = Number(pricing.discountedPrice);
+  const hasDiscount = Number.isFinite(discountedPrice) && Number.isFinite(originalPrice) && discountedPrice < originalPrice;
   const promotion = pricing.promotion;
   const { reviewsForProduct, productRating, canReviewProduct } = useReviews();
   const { average, count } = productRating(product.id);
@@ -165,10 +168,10 @@ export default function ProductDetail() {
                 </div>
               )}
               <div className="flex flex-wrap items-baseline gap-3">
-                {pricing.discountedPrice < pricing.originalPrice ? (
+                {hasDiscount ? (
                   <>
-                    <span className="text-[24px] font-bold text-[#498467]">${pricing.discountedPrice.toFixed(2)}</span>
-                    <span className="text-[16px] text-[#757575] line-through">${pricing.originalPrice.toFixed(2)}</span>
+                    <span className="text-[24px] font-bold text-[#498467]">${discountedPrice.toFixed(2)}</span>
+                    <span className="text-[16px] text-[#757575] line-through">${originalPrice.toFixed(2)}</span>
                   </>
                 ) : isService ? <span className="text-[24px] font-bold text-[#498467]">{formatListingPrice(product)}</span> : <>
                   <span className="text-[24px] font-bold">$</span>

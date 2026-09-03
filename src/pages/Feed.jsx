@@ -489,6 +489,9 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
   const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
   const resolvedSeller = useResolvedSeller(product.sellerId);
   const seller = resolvedSeller ?? sellers[product.sellerId];
+  const originalPrice = Number(product.originalPrice ?? product.price);
+  const discountedPrice = Number(product.discountedPrice);
+  const hasDiscount = Number.isFinite(discountedPrice) && Number.isFinite(originalPrice) && discountedPrice < originalPrice;
   const savedItem = { id: `listing:${product.id}`, type: "listing", sourceId: product.id, name: product.name, storeName: product.shop, image: product.image, description: product.name };
   const menuContent = { id: `listing:${product.id}`, type: "listing", title: product.name, name: product.name, sellerId: product.sellerId, productId: product.id, sharePath: `/product/${product.id}`, savedItem };
   const openProduct = () => {
@@ -530,7 +533,7 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
       </button>
       <button type="button" onClick={openProduct} className="mt-2 block text-left">
         <h3 className="text-[16px] font-semibold">{product.name}</h3>
-        {product.discountedPrice < product.originalPrice ? <p className="text-[14px] text-[#498467]">${product.discountedPrice.toFixed(2)} <span className="text-[11px] text-[#828282] line-through">${product.originalPrice.toFixed(2)}</span></p> : <p className="text-[14px] text-[#498467]">{formatListingPrice(product)}</p>}
+        {hasDiscount ? <p className="text-[14px] text-[#498467]">${discountedPrice.toFixed(2)} <span className="text-[11px] text-[#828282] line-through">${originalPrice.toFixed(2)}</span></p> : <p className="text-[14px] text-[#498467]">{formatListingPrice(product)}</p>}
         <TradeBadge listing={product} compact className="mt-1" />
       </button>
       <ReviewSummary product={product} onClick={openReviews} />

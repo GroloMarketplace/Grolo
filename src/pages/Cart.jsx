@@ -10,6 +10,11 @@ import OutlineIcon from "../components/OutlineIcon";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { getActiveCartItems, getCartItemStoreName, groupCartItemsByStore } from "../utils/cartGrouping";
 
+function formatCartPrice(value) {
+  const price = Number(value);
+  return Number.isFinite(price) ? `$${price.toFixed(2)}` : "Contact Seller";
+}
+
 export default function Cart() {
   const navigate = useNavigate();
   const { items, updateQuantity, getItemPricing, removeItems: removeCartItems, restoreItems, addToCart } = useCart();
@@ -206,7 +211,7 @@ function SavedForLaterCard({ item, available, onMove, onRemove, onViewListing, o
       <img src={item.image} alt={item.name} className="h-20 w-20 rounded-lg object-cover" />
       <div className="min-w-0 flex-1">
         <button type="button" onClick={(event) => { event.stopPropagation(); openProduct(item); }} className="block text-left text-[14px] font-medium text-[#498467]">{item.name}</button>
-        <div className="mt-1 text-[13px] text-[#828282]">${item.price.toFixed(2)}</div>
+        <div className="mt-1 text-[13px] text-[#828282]">{formatCartPrice(item.price)}</div>
         {!item.variantName && <div className="mt-1 text-[12px] text-[#828282]">Listing Inventory: {available}</div>}
         {!canMoveToCart && <p className="mt-2 text-[12px] text-[#828282]">Still Sold Out</p>}
         <div className="mt-3 flex flex-wrap gap-3">
@@ -224,6 +229,9 @@ function SavedForLaterCard({ item, available, onMove, onRemove, onViewListing, o
 }
 
 function CartItem({ item, pricing, updateQuantity, removeItem, saveForLater, available, onProductClick }) {
+  const originalPrice = Number(pricing?.originalPrice);
+  const discountedPrice = Number(pricing?.discountedPrice);
+  const hasDiscount = Number.isFinite(discountedPrice) && Number.isFinite(originalPrice) && discountedPrice < originalPrice;
   return (
     <SwipeToDelete onDelete={removeItem}>
       <div role="link" tabIndex="0" className="flex gap-3 cursor-pointer" onClick={(event) => { if (!event.target.closest("button")) onProductClick("card"); }} onKeyDown={(event) => { if ((event.key === "Enter" || event.key === " ") && !event.target.closest("button")) onProductClick("card"); }}>
@@ -245,8 +253,8 @@ function CartItem({ item, pricing, updateQuantity, removeItem, saveForLater, ava
           <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); saveForLater(); }} className="mt-2 text-[12px] font-medium text-[#498467]">Save for Later</button>
         </div>
         <button type="button" onClick={(event) => { event.stopPropagation(); onProductClick("price"); }} className="shrink-0 text-right text-[14px]">
-          {pricing.discountedPrice < pricing.originalPrice && <span className="mr-1 text-[11px] text-[#828282] line-through">${pricing.originalPrice.toFixed(2)}</span>}
-          ${pricing.discountedPrice.toFixed(2)}
+          {hasDiscount && <span className="mr-1 text-[11px] text-[#828282] line-through">{formatCartPrice(originalPrice)}</span>}
+          {formatCartPrice(discountedPrice)}
         </button>
       </div>
     </SwipeToDelete>

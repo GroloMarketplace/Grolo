@@ -13,6 +13,9 @@ import TradeBadge from "./TradeBadge";
 export default function ProductCard({ product, onClick }) {
   const { getListingPricing } = usePromotions();
   const pricing = getListingPricing(product);
+  const originalPrice = Number(pricing.originalPrice);
+  const discountedPrice = Number(pricing.discountedPrice);
+  const hasDiscount = Number.isFinite(discountedPrice) && Number.isFinite(originalPrice) && discountedPrice < originalPrice;
   const { getSellerProfile } = useSellerSettings();
   const vacationMode = getSellerProfile(product.sellerId)?.vacationMode;
 
@@ -62,10 +65,10 @@ export default function ProductCard({ product, onClick }) {
         <div className="text-[14px] text-black line-clamp-2">
           {product.name}
         </div>
-        {pricing.promotion && pricing.discountedPrice < pricing.originalPrice ? (
+        {pricing.promotion && hasDiscount ? (
           <div className="flex items-baseline gap-2 text-[16px] font-medium">
-            <span className="text-black">${pricing.discountedPrice.toFixed(2)}</span>
-            <span className="text-[12px] text-black/50 line-through">${pricing.originalPrice.toFixed(2)}</span>
+            <span className="text-black">${discountedPrice.toFixed(2)}</span>
+            <span className="text-[12px] text-black/50 line-through">${originalPrice.toFixed(2)}</span>
           </div>
         ) : <div className="text-[16px] font-medium text-black">{formatListingPrice(product)}</div>}
         <TradeBadge listing={product} compact />

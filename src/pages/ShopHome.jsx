@@ -40,28 +40,22 @@ export default function ShopHome() {
       navigate(routeLocation.pathname, { replace: true, state: null });
     }
   }, [routeLocation, openSidebar, navigate]);
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const seller = { id: user?.id ?? "current-user" };
-  console.log("Auth User ID:", user?.id);
-  console.log("Profile ID:", seller?.id);
-  console.log("Store ID:", profile?.id);
   const { storeOpenedAt } = useProfileMode();
   const { getSellerProfile, updateSellerProfile } = useSellerSettings();
   const sellerProfile = getSellerProfile(seller.id);
   const profileSellerId = sellerProfile.id ?? seller.id;
-  const { listings, archivedListings, removeListing, restoreListing, permanentlyDeleteListing } = useListings();
+  const { listings, archivedListings, removeListing, permanentlyDeleteListing } = useListings();
   useEffect(() => {
     let cancelled = false;
     const currentSellerId = user?.id ?? seller.id;
-    console.info("Seller dashboard listings lookup", { currentUserId: user?.id ?? null, sellerId: currentSellerId });
     setProfileListings(null);
     if (!currentSellerId || !isSupabaseConfigured) return () => { cancelled = true; };
     getListings({ sellerId: currentSellerId, includeArchived: true })
       .then((nextListings) => {
         if (cancelled) return;
         const activeListings = nextListings.filter((listing) => ["active", "published"].includes(String(listing.status ?? "").toLowerCase()));
-        console.info("Seller dashboard listings result", { currentUserId: user?.id ?? null, sellerId: currentSellerId, listingsCount: activeListings.length, listingTitles: activeListings.map((listing) => listing.title ?? listing.name) });
-        console.log("Listing Seller IDs:", nextListings.map((listing) => ({ title: listing.title ?? listing.name, sellerId: listing.sellerId ?? listing.seller_id })));
         setProfileListings(activeListings);
       })
       .catch((error) => {
@@ -95,7 +89,7 @@ export default function ShopHome() {
   }, [markSellerOrdersSeen, seller.id]);
   const { posts } = usePosts();
   const { sellerRating } = useReviews();
-  const { getFollowerCount, followedSellers, isFollowing } = useFollow();
+  const { getFollowerCount } = useFollow();
   const reputationSnapshot = useReputationSnapshot(user?.id ?? "current-user");
   const createdBySeller = useCallback((item) => {
     const createdAt = typeof item.createdAt === "number" ? item.createdAt : Date.parse(item.createdAt);
@@ -109,26 +103,7 @@ export default function ShopHome() {
     () => sellerOrderRows.filter(createdBySeller),
     [createdBySeller, sellerOrderRows],
   );
-  const orderFilterAudit = useMemo(() => sellerOrderRows.map((order) => {
-    const createdAtValue = order.created_at ?? order.createdAt;
-    const createdAt = typeof createdAtValue === "number" ? createdAtValue : Date.parse(createdAtValue);
-    const included = !storeOpenedAt || (Number.isFinite(createdAt) && createdAt >= storeOpenedAt);
-    return {
-      orderId: order.databaseId ?? order.id ?? null,
-      created_at: order.created_at ?? null,
-      orderCreatedAt: order.createdAt ?? null,
-      storeOpenedAt: storeOpenedAt ?? null,
-      included,
-      exclusionReason: included ? null : !Number.isFinite(createdAt) ? "invalid order.created_at" : "order.created_at is before storeOpenedAt",
-    };
-  }), [sellerOrderRows, storeOpenedAt]);
-  const newOrders = useMemo(
-    () => storeOrders.filter((order) => ["New", "Seller Notified", "Order Placed"].includes(order.status)),
-    [storeOrders],
-  );
   const sellerProducts = (profileListings ?? listings).filter((p) => String(p.sellerId ?? p.seller_id ?? "") === String(seller.id ?? "") || p.shop === sellerProfile.name);
-
-  const followerCount = getFollowerCount(profileSellerId);
 
   const orderCounts = [
     { label: "New", count: storeOrders.filter((o) => ["New", "Seller Notified", "Order Placed"].includes(o.status)).length },
@@ -137,16 +112,6 @@ export default function ShopHome() {
   ];
   const activeSellerProducts = sellerProducts.filter(isListingActive);
   const outOfStockSellerProducts = sellerProducts.filter(isListingOutOfStock);
-  console.info("[seller-dashboard-ui] Listings tab", {
-    currentUserId: user?.id ?? null,
-    sellerProfileId: profileSellerId,
-    sellerProductsCount: sellerProducts.length,
-    activeSellerProductsCount: activeSellerProducts.length,
-    sellerProductSellerIds: sellerProducts.map((listing) => listing.sellerId ?? listing.seller_id ?? null),
-    sellerProductTitles: sellerProducts.map((listing) => listing.title ?? listing.name),
-    emptyStateCondition: activeSellerProducts.length === 0,
-    renderedBranch: activeSellerProducts.length === 0 ? "empty-state" : "listings-grid",
-  });
   const unavailableServiceProducts = sellerProducts.filter((product) => isServiceListing(product) && serviceStatusFor(product) === "Temporarily Not Accepting New Clients");
   const lowStockSellerProducts = sellerProducts.filter((product) => !isServiceListing(product) && !isListingOutOfStock(product) && Number(product.quantityAvailable) <= 5);
   const sellerPosts = posts.filter((post) => post.sellerId === seller.id && createdBySeller(post));
@@ -180,13 +145,8 @@ export default function ShopHome() {
     }
   };
 
-  const handleRestoreListing = async (productId) => {
-    try {
-      await restoreListing(productId);
-      showToast("Listing restored");
-    } catch (error) {
-      showToast(error.message || "Unable to restore listing");
-    }
+  const handleRestoreListing = (productId) => {
+    navigate(`/edit-listing/${productId}`);
   };
 
   const handlePermanentDeleteListing = async (productId) => {

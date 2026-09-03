@@ -428,22 +428,6 @@ export async function getMessages(conversationId, userId) {
   const mappedMessages = data
     .map((message) => databaseMessageToLegacyMessage(message, { currentUserId: authenticatedUserId }))
     .filter(Boolean);
-  const hydrationRows = mappedMessages.map((message) => ({
-    conversationId,
-    messageId: message.databaseId ?? message.id,
-    senderId: message.senderId,
-    currentUserId: authenticatedUserId,
-    isIncoming: Boolean(message.senderId && authenticatedUserId && message.senderId !== authenticatedUserId),
-    readAt: message.readAt ?? null,
-    computedUnread: message.unread === true,
-  }));
-  const unreadMessageIds = hydrationRows.filter((message) => message.computedUnread).map((message) => message.messageId);
-  console.table(hydrationRows);
-  console.table([{
-    conversationId,
-    unreadMessageCount: unreadMessageIds.length,
-    unreadMessageIds: unreadMessageIds.join(", "),
-  }]);
   return mappedMessages;
 }
 

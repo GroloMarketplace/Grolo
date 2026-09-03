@@ -29,20 +29,16 @@ export async function trackAnalyticsEvent(eventType, options = {}) {
 
   try {
     const { data: { user } = {}, error: authError } = await supabase.auth.getUser();
-    if (authError) console.error("[listing-view] Auth lookup error", authError);
+    if (authError) console.error("Unable to resolve analytics viewer", authError);
     const viewerId = user?.id ?? "anonymous";
     const key = storageKey(eventType, { ...options, viewerId });
     const now = Date.now();
     if (VIEW_EVENT_TYPES.has(eventType) && wasRecordedInSession(key)) return false;
     if (now - (recentEvents.get(key) ?? 0) < 1000) return false;
     recentEvents.set(key, now);
-    console.log("[listing-view] Attempt", { listingId: options.listingId ?? null, viewerId, sellerId: options.sellerId });
-
     let error;
-    let data;
     if (eventType === "listing_view" && options.listingId) {
       const response = await supabase.rpc("record_listing_view", { p_listing_id: options.listingId, p_metadata: options.metadata ?? {} });
-      data = response.data;
       error = response.error;
     } else {
       const response = await supabase.from("vendor_analytics_events").insert({
@@ -53,15 +49,13 @@ export async function trackAnalyticsEvent(eventType, options = {}) {
         user_id: user?.id ?? null,
         metadata: options.metadata ?? {},
       });
-      data = response.data;
       error = response.error;
     }
-    console.log("[listing-view] Creation result", { listingId: options.listingId ?? null, viewerId, recorded: !error, data, error: error ? { code: error.code ?? null, message: error.message ?? null, details: error.details ?? null } : null });
     if (error) throw error;
     if (VIEW_EVENT_TYPES.has(eventType) || options.persistInSession) markRecordedInSession(key);
     return true;
   } catch (error) {
-    console.error("[listing-view] Creation error", { listingId: options.listingId ?? null, error: { code: error.code ?? null, message: error.message ?? String(error), details: error.details ?? null } });
+    console.error("Unable to record analytics event", { eventType, listingId: options.listingId ?? null, error: { code: error.code ?? null, message: error.message ?? String(error), details: error.details ?? null } });
     return false;
   }
 }

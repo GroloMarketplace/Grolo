@@ -73,11 +73,6 @@ async function currentUserId() {
   return data.user.id;
 }
 
-function logEventSource(source, operation, extra = {}) {
-  const message = source === "supabase" ? "event source: supabase" : "event source: local fallback";
-
-}
-
 export async function getEvents() {
   if (!isSupabaseConfigured) return null;
   const { data, error } = await supabase
@@ -86,17 +81,6 @@ export async function getEvents() {
     .order("created_at", { ascending: false });
   if (error) throw error;
   const events = (data ?? []).map(eventFromRow);
-  logEventSource("supabase", "getEvents", {
-    count: events.length,
-    events: events.map((event) => ({
-      event_id: event.databaseId ?? event.id ?? null,
-      event_status: event.status ?? null,
-      visibility: event.visibility ?? null,
-      creator_id: event.sellerId ?? null,
-      event_date: event.date ?? null,
-      approval_state: event.approval_status ?? event.approvalState ?? event.moderation_status ?? event.moderationState ?? null,
-    })),
-  });
   return events;
 }
 
@@ -106,7 +90,6 @@ export async function getEvent(eventId) {
   const { data, error } = await (isUuid(eventId) ? query.eq("id", eventId) : query.eq("legacy_id", eventId)).maybeSingle();
   if (error) throw error;
   const event = eventFromRow(data);
-  logEventSource("supabase", "getEvent", { eventId, found: Boolean(event) });
   return event;
 }
 
@@ -131,7 +114,6 @@ export async function createEvent(event) {
     throw error;
   }
   const created = eventFromRow(data);
-  logEventSource("supabase", "createEvent", { eventId: created.id, sellerId: ownerId });
   return created;
 }
 
@@ -145,7 +127,6 @@ export async function updateEvent(eventId, updates) {
   const { data, error } = await (isUuid(eventId) ? query.eq("id", eventId) : query.eq("legacy_id", eventId)).select("*, profiles(*)").single();
   if (error) throw error;
   const updated = eventFromRow(data);
-  logEventSource("supabase", "updateEvent", { eventId: updated.id, sellerId: ownerId });
   return updated;
 }
 
@@ -172,7 +153,6 @@ export async function deleteEvent(eventId) {
   const query = supabase.from("events").delete().eq("seller_id", ownerId);
   const { error } = await (isUuid(eventId) ? query.eq("id", eventId) : query.eq("legacy_id", eventId));
   if (error) throw error;
-  logEventSource("supabase", "deleteEvent", { eventId, sellerId: ownerId });
   return true;
 }
 

@@ -423,7 +423,7 @@ export default function Chat() {
               }));
             }}
             placeholder="Message..."
-            className="min-h-6 max-h-[120px] flex-1 resize-none overflow-y-hidden break-words text-[14px] leading-5 text-[#828282] outline-none"
+            className="min-h-6 max-h-[120px] flex-1 resize-none overflow-y-hidden break-words text-[16px] leading-5 text-[#828282] outline-none"
           />
           <button type="button" onClick={handleSend} disabled={blocked || !user || !conversationUUID || !conversationReady || sending} aria-label="Send message" className="mb-1 shrink-0 text-[#498467] disabled:opacity-50">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">

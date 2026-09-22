@@ -166,9 +166,7 @@ export default function TabBar() {
           </NavLink>
         ))}
       </div>
-      <div className="flex justify-center pb-2">
-        <div className="w-[134px] h-[5px] rounded-full bg-black" />
-      </div>
+      <div className="flex justify-center pb-2" />
     </div>
   );
 }

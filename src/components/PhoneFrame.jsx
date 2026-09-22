@@ -10,13 +10,14 @@ export default function PhoneFrame({ children, hideTabBar, backgroundColor = "bg
   const { toast } = useRegrow();
   const { toast: savedToast } = useSavedItems();
   const { handleTouchStart, handleTouchEnd } = useSwipeBack();
+  const isAndroidChat = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent) && pathname.startsWith("/messages/");
   const activeToast = toast ? { message: toast.message, visible: toast.visible, style: "bg-[#498467]" } : savedToast ? { message: savedToast, visible: true, style: "bg-[#1E1E1E]" } : null;
   return (
-    <div className="min-h-[100svh] w-full bg-[#efefef]">
+    <div className={`${isAndroidChat ? "min-h-[100dvh]" : "min-h-[100svh]"} w-full bg-[#efefef]`}>
       <div
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        className={`app-frame relative flex h-[100svh] min-h-[100svh] w-full max-w-full flex-col overflow-hidden ${backgroundColor} no-scroll-x`}
+        className={`app-frame relative flex ${isAndroidChat ? "h-[100dvh] min-h-[100dvh]" : "h-[100svh] min-h-[100svh]"} w-full max-w-full flex-col overflow-hidden ${backgroundColor} no-scroll-x`}
       >
         <div className={`relative flex-1 overflow-x-hidden ${hideTabBar ? "pb-[env(safe-area-inset-bottom)]" : "pb-[calc(5rem+env(safe-area-inset-bottom))]"}`}>
           <MobileScreenLayout key={pathname}>

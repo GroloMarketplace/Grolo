@@ -32,6 +32,7 @@ export default function Chat() {
   const conversationRouteRef = useRef(null);
   const [conversationAttempt, setConversationAttempt] = useState(0);
   const inputRef = useRef(null);
+  const messageListRef = useRef(null);
   const { listings } = useListings();
   const { messages, appendMessage, ensureConversation, markConversationRead, respondToTradeProposal } = useMessages();
   const { user } = useAuth();
@@ -70,6 +71,11 @@ export default function Chat() {
     textarea.style.height = `${nextHeight}px`;
     textarea.style.overflowY = textarea.scrollHeight > nextHeight ? "auto" : "hidden";
   }, [text]);
+
+  useEffect(() => {
+    const messageList = messageListRef.current;
+    if (messageList) messageList.scrollTop = messageList.scrollHeight;
+  }, [conversation?.messages?.length]);
 
   useEffect(() => {
     let active = true;
@@ -211,7 +217,7 @@ export default function Chat() {
   }, [conversation?.messages, id, isTradeThread]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex min-h-0 flex-col h-full">
       <div className="flex shrink-0 items-center gap-3 h-14 px-4 border-b border-[#E6E6E6]">
         <button onClick={() => navigate(-1)} aria-label="Back">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -237,7 +243,7 @@ export default function Chat() {
         </div>
         <TrustSafetyActions targetType="message" targetId={conversation?.databaseId ?? conversation?.id ?? id} blockUserId={conversationProfile.id} compact />
       </div>
-      <div className="min-h-0 flex-1 flex flex-col gap-3 p-4 overflow-y-auto no-scrollbar">
+      <div ref={messageListRef} className="min-h-0 flex-1 flex flex-col gap-3 p-4 overflow-y-auto no-scrollbar">
         {isOrderThread && currentOrderContext ? (
           <button
             onClick={() => navigate(`/product/${currentOrderContext.productId}`)}

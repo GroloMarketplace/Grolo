@@ -9,7 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import { uploadImage, removeImage } from "../lib/imageStorage";
 import { normalizeWebsite, validateSellerProfile } from "../utils/validation";
 import LocationAutocomplete from "../components/LocationAutocomplete";
-import { friendlyLocation } from "../data/locations";
+import { formatLocation, friendlyLocation } from "../data/locations";
 
 const SELLER_ID = "current-user";
 const DRAFT_KEY = "grolo-open-store-draft";
@@ -121,7 +121,7 @@ export default function OpenStore() {
     const previousBanner = profile.banner;
     const location = form.locationDetails ?? {};
     try {
-      await updateSellerProfile(SELLER_ID, { ...normalizedForm, location: location.neighborhood || location.city || normalizedForm.location, neighborhood: location.neighborhood, city: location.city, province: location.province, country: location.country, postalCode: location.postalCode, latitude: location.latitude, longitude: location.longitude, socialLinks });
+      await updateSellerProfile(SELLER_ID, { ...normalizedForm, location: formatLocation(location) || normalizedForm.location, neighborhood: location.neighborhood, city: location.city, province: location.province, country: location.country, postalCode: location.postalCode, latitude: location.latitude, longitude: location.longitude, socialLinks });
       if (previousAvatar && previousAvatar !== form.avatar) await removeImage(previousAvatar, user.id).catch((error) => console.error("Unable to remove previous avatar", error));
       if (previousBanner && previousBanner !== form.banner) await removeImage(previousBanner, user.id).catch((error) => console.error("Unable to remove previous banner", error));
       await activateStore();

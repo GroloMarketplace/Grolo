@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { isValidWebsite, normalizeWebsite, validateAddress, validateBuyerProfile, validateFulfillment, validateListing, validateSellerProfile } from "../src/utils/validation.js";
 import { ACTIVE_CAMPAIGN_ERROR, addCalendarDays, campaignDurationDays, calendarDaysUntil, isCampaignActive, validateCampaignDates } from "../src/utils/campaignDuration.js";
 import { seed } from "./fixtures/seed.js";
-import { LOCATION_OPTIONS, friendlyLocation, locationFromLegacyText } from "../src/data/locations.js";
+import { LOCATION_OPTIONS, formatLocation, friendlyLocation, locationFromLegacyText } from "../src/data/locations.js";
 import { getBuyerTrustLevel } from "../src/data/buyerTrust.js";
 import { promotionCreatedTimestamp } from "../src/utils/promotionRecords.js";
 import { rankFeedItems, recencyScore } from "../src/utils/feedRanking.js";
@@ -59,6 +59,10 @@ test("normalized location options support friendly labels, postal search, and co
   assert.equal(postalMatch?.city, "Calgary");
   assert.equal(Number.isFinite(mardaLoop?.latitude), true);
   assert.equal(Number.isFinite(mardaLoop?.longitude), true);
+  assert.equal(formatLocation({ city: "Calgary", province: "Alberta", country: "Canada" }), "Calgary, AB");
+  assert.equal(formatLocation({ city: "Seattle", province: "Washington", country: "United States" }), "Seattle, WA");
+  assert.equal(formatLocation({ city: "Paris", country: "France" }), "Paris, France");
+  assert.equal(formatLocation(`Calgary, AB (${"Entire"} City)`), "Calgary, AB");
 });
 
 test("For You ranking prioritizes freshness over proximity and boosts engagement", () => {
@@ -479,10 +483,11 @@ test("follower counts derive from the live user_follows aggregate", async () => 
 });
 
 test("email confirmation uses the dedicated confirmation page and login destination", async () => {
-  const [authContext, app, confirmEmail] = await Promise.all([
+  const [authContext, app, confirmEmail, signIn] = await Promise.all([
     readFile(new URL("../src/context/AuthContext.jsx", import.meta.url), "utf8"),
     readFile(new URL("../src/App.jsx", import.meta.url), "utf8"),
     readFile(new URL("../src/pages/ConfirmEmail.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/SignIn.jsx", import.meta.url), "utf8"),
   ]);
   assert.match(authContext, /const configuredOrigin = import\.meta\.env\.VITE_APP_URL\?\.trim\(\)/);
   assert.match(authContext, /localhost\(\?::\\d\+\)\?\$\/i/);
@@ -495,6 +500,7 @@ test("email confirmation uses the dedicated confirmation page and login destinat
   assert.match(confirmEmail, /You can now log in and start exploring Grolo\./);
   assert.match(confirmEmail, /Log In/);
   assert.match(confirmEmail, /Return to Home/);
+  assert.match(signIn, /setStatus\("idle"\); setForgot\(false\); navigate\("\/signin", \{ replace: true \}\)/);
 });
 
 test("website validation accepts and normalizes common domains", () => {

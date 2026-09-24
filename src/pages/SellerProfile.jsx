@@ -17,6 +17,7 @@ import {
 import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { usePosts } from "../context/PostContext";
 import OutlineIcon from "../components/OutlineIcon";
+import { formatLocation } from "../data/locations";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useAuth } from "../context/AuthContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
@@ -174,7 +175,7 @@ export default function SellerProfile() {
               <div className="flex-1">
                 <h1 className="text-[20px] font-semibold">{sellerProfile.name}</h1>
 
-                <p className="mt-0.5 flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{sellerProfile.location}</p>
+                <p className="mt-0.5 flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{formatLocation(sellerProfile)}</p>
                 <DistanceLabel content={sellerProfile} />
                 <FulfillmentAvailability methods={sellerPaymentMethods.fulfillmentMethods} />
               </div>
@@ -388,7 +389,7 @@ function EventsTab({ events, navigate, profile }) {
                 id: event.id,
                 type: "event",
                 label: event.title,
-                timestamp: `${formatEventDate(event.date)} · ${formatEventTime(event.startTime)} · ${event.location}`,
+                timestamp: `${formatEventDate(event.date)} · ${formatEventTime(event.startTime)} · ${formatLocation(event)}`,
                 event,
               }}
               navigate={navigate}

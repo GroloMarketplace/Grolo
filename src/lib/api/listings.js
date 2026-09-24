@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from "../supabaseClient";
 import { validateListing } from "../../utils/validation";
+import { formatLocation } from "../../data/locations";
 
 function requireSupabase() {
   if (!isSupabaseConfigured) {
@@ -111,7 +112,7 @@ export function listingFromRow(row) {
     image: imageUrls[0] ?? "",
     images: imageUrls,
     shop: row.profiles?.shop_name ?? "",
-    location: row.location ?? "",
+    location: formatLocation({ city: row.city, province: row.province, country: row.country, location: row.location }),
     neighborhood: row.neighborhood ?? "",
     city: row.city ?? "",
     province: row.province ?? "",

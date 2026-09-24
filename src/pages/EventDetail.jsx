@@ -10,6 +10,7 @@ import {
 import EventRsvp from "../components/EventRsvp";
 import DistanceLabel from "../components/DistanceLabel";
 import UnavailableAccount from "../components/UnavailableAccount";
+import { formatLocation } from "../data/locations";
 import { useBlockedAccount } from "../hooks/useBlockedAccount";
 
 export default function EventDetail() {
@@ -81,7 +82,7 @@ export default function EventDetail() {
               label="Time"
               value={`${formatEventTime(event.startTime)} – ${formatEventTime(event.endTime)}`}
             />
-            <DetailRow label="Location" value={event.location} />
+            <DetailRow label="Location" value={formatLocation(event)} />
           </div>
 
           <div className="flex flex-col gap-2">

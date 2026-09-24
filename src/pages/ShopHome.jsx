@@ -26,7 +26,7 @@ import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { isListingActive, isListingOutOfStock, isServiceListing, serviceStatusFor } from "../utils/listingDisplay";
 import ReputationSummary from "../components/ReputationSummary";
 import LocationAutocomplete from "../components/LocationAutocomplete";
-import { friendlyLocation } from "../data/locations";
+import { formatLocation, friendlyLocation } from "../data/locations";
 import { SaveButton, SaveToast, useSaveFeedback } from "../components/SaveFeedback";
 
 export default function ShopHome() {
@@ -71,7 +71,7 @@ export default function ShopHome() {
   const { status: saveStatus, errorMessage: saveError, lastSavedAt, runSave } = useSaveFeedback();
   const [storeName, setStoreName] = useState(sellerProfile.name);
   const [location, setLocation] = useState(sellerProfile.location);
-  const [locationDetails, setLocationDetails] = useState(sellerProfile.neighborhood ? { neighborhood: sellerProfile.neighborhood, city: sellerProfile.city, province: sellerProfile.province, country: sellerProfile.country, postalCode: sellerProfile.postalCode, latitude: sellerProfile.latitude, longitude: sellerProfile.longitude } : null);
+  const [locationDetails, setLocationDetails] = useState(sellerProfile.neighborhood || sellerProfile.city ? { neighborhood: sellerProfile.neighborhood, city: sellerProfile.city, province: sellerProfile.province, country: sellerProfile.country, postalCode: sellerProfile.postalCode, latitude: sellerProfile.latitude, longitude: sellerProfile.longitude } : null);
   const [description, setDescription] = useState(sellerProfile.description);
   
   const { getPaymentMethods, updatePaymentMethods, updateFulfillment } = usePaymentMethods();
@@ -163,7 +163,7 @@ export default function ShopHome() {
   };
 
   const handleSaveStore = () => runSave(async () => {
-    await updateSellerProfile(seller.id, { name: storeName, pickupLocation, location: friendlyLocation(locationDetails) || location, neighborhood: locationDetails?.neighborhood, city: locationDetails?.city, province: locationDetails?.province, country: locationDetails?.country, postalCode: locationDetails?.postalCode, latitude: locationDetails?.latitude, longitude: locationDetails?.longitude, description });
+    await updateSellerProfile(seller.id, { name: storeName, pickupLocation, location: formatLocation(locationDetails) || location, neighborhood: locationDetails?.neighborhood, city: locationDetails?.city, province: locationDetails?.province, country: locationDetails?.country, postalCode: locationDetails?.postalCode, latitude: locationDetails?.latitude, longitude: locationDetails?.longitude, description });
     updatePaymentMethods(seller.id, paymentMethods);
     updateFulfillment(seller.id, fulfillmentMethods, deliveryFee, deliveryRadius, pickupLocation, pickupNotes);
     setIsEditing(false);
@@ -270,7 +270,7 @@ export default function ShopHome() {
                     {isEditing ? (
                       <LocationAutocomplete label="Store location" value={location} location={locationDetails} onChange={(value) => { setLocationDetails(value); setLocation(friendlyLocation(value)); }} placeholder="Search neighborhood, city, or postal code" />
                     ) : (
-                      <p className="flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{location}</p>
+                      <p className="flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{formatLocation(locationDetails) || location}</p>
                     )}
                     <FulfillmentType methods={fulfillmentMethods} />
                   </div>
@@ -524,7 +524,7 @@ function ShopEventsTab({ events, navigate, onEdit, onDelete }) {
   return (
     <ShopTabPanel>
       <div className="mb-3 flex items-center justify-between"><h2 className="text-[18px] font-semibold">Events</h2><button type="button" onClick={() => navigate("/create-event")} className="text-[14px] font-medium text-[#498467]">+ New Event</button></div>
-      {events.length === 0 ? <ShopEmptyTab>No events yet. Host your first community event.</ShopEmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{events.map((event) => <div key={event.id} className="rounded-lg border border-[#E6E6E6] p-3"><div className="flex gap-3"><img src={event.image} alt={event.title} className="h-16 w-16 shrink-0 rounded-lg object-cover" /><div className="min-w-0 flex-1"><p className="text-[14px] font-semibold">{event.title}</p><p className="text-[12px] text-[#498467]">{event.type}</p><p className="text-[12px] text-[#828282]">{formatEventDate(event.date)} · {formatEventTime(event.startTime)} – {formatEventTime(event.endTime)}</p><p className="text-[12px] text-[#828282]">{event.location}</p></div></div><div className="mt-3 flex gap-2"><button type="button" onClick={() => onEdit(event)} className="flex-1 rounded border border-[#498467] py-1 text-[12px] font-medium text-[#498467]">Edit</button><button type="button" onClick={() => onDelete(event.id)} className="flex-1 rounded border border-red-500 py-1 text-[12px] font-medium text-red-500">Delete</button></div></div>)}</div>}
+      {events.length === 0 ? <ShopEmptyTab>No events yet. Host your first community event.</ShopEmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{events.map((event) => <div key={event.id} className="rounded-lg border border-[#E6E6E6] p-3"><div className="flex gap-3"><img src={event.image} alt={event.title} className="h-16 w-16 shrink-0 rounded-lg object-cover" /><div className="min-w-0 flex-1"><p className="text-[14px] font-semibold">{event.title}</p><p className="text-[12px] text-[#498467]">{event.type}</p><p className="text-[12px] text-[#828282]">{formatEventDate(event.date)} · {formatEventTime(event.startTime)} – {formatEventTime(event.endTime)}</p><p className="text-[12px] text-[#828282]">{formatLocation(event)}</p></div></div><div className="mt-3 flex gap-2"><button type="button" onClick={() => onEdit(event)} className="flex-1 rounded border border-[#498467] py-1 text-[12px] font-medium text-[#498467]">Edit</button><button type="button" onClick={() => onDelete(event.id)} className="flex-1 rounded border border-red-500 py-1 text-[12px] font-medium text-red-500">Delete</button></div></div>)}</div>}
     </ShopTabPanel>
   );
 }

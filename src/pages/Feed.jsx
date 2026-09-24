@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import Header from "../components/Header";
+import { formatLocation } from "../data/locations";
 import CommunityImpactCard from "../components/CommunityImpactCard";
 import ContentActionSheet from "../components/ContentActionSheet";
 import ShareSheet from "../components/ShareSheet";
@@ -749,7 +750,7 @@ function EventPost({ event, onOpenDetail, onComment, onMenu, onShare }) {
           label="Time"
           value={`${formatEventTime(event.startTime)} – ${formatEventTime(event.endTime)}`}
         />
-        <EventMeta label="Location" value={event.location} />
+        <EventMeta label="Location" value={formatLocation(event)} />
       </div>
 
       <EngagementRow

@@ -1,4 +1,5 @@
 import { isSupabaseConfigured, supabase } from "../supabaseClient";
+import { formatLocation } from "../../data/locations";
 
 const DEFAULT_EVENT_IMAGE = "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80";
 
@@ -20,6 +21,7 @@ function eventFromRow(row) {
     province: row.province ?? "",
     country: row.country ?? "",
     postalCode: row.postal_code ?? "",
+    location: formatLocation({ city: row.city, province: row.province, country: row.country, location: row.location }),
     latitude: row.latitude ?? null,
     longitude: row.longitude ?? null,
     image: row.image_url ?? row.image ?? DEFAULT_EVENT_IMAGE,

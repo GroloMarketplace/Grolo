@@ -13,6 +13,7 @@ import { useOrders } from "../context/OrderContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useListings } from "../context/ListingContext";
 import TradeBadge from "../components/TradeBadge";
+import { formatLocation } from "../data/locations";
 import ReviewSummary from "../components/ReviewSummary";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { discoveryRadiusLabel, resolveUserLocation, sortByDistance } from "../utils/locationRadius";
@@ -199,7 +200,7 @@ function SearchResults({ products, sellers, events, posts, blockedUserIds, query
   const groups = [
     { title: "Products", items: productResults, render: (product) => <ProductSearchRow key={product.id} product={product} onProduct={onProduct} /> },
     { title: "Stores", items: storeResults, render: (seller) => <SellerResultRow key={seller.id} seller={seller} onClick={() => navigate(`/seller/${seller.id}`)} /> },
-    { title: "Events", items: eventResults, render: (event) => <ResultRow key={event.id} title={event.title} subtitle={event.location} content={event} onClick={() => navigate(`/event/${event.id}`)} /> },
+    { title: "Events", items: eventResults, render: (event) => <ResultRow key={event.id} title={event.title} subtitle={formatLocation(event)} content={event} onClick={() => navigate(`/event/${event.id}`)} /> },
     { title: "Posts", items: postResults, render: (post) => <ResultRow key={post.id} title={post.body} subtitle={post.name} onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })} /> },
     { title: "Trades", items: tradeResults, render: (product) => <ResultRow key={`trade-${product.id}`} title={`Looking to trade ${product.name}`} subtitle={`For ${product.desiredTradeItems || product.tradeAvailable}`} onClick={() => onProduct(product.id)} /> },
   ];
@@ -233,7 +234,7 @@ function SellerResultRow({ seller, onClick }) {
     <button type="button" onClick={onClick} className="flex w-full items-center justify-between rounded-lg border border-[#E6E6E6] p-3 text-left hover:bg-[#F5FFF6]">
       <div className="min-w-0">
         <div className="truncate text-[14px] font-medium">{seller.name}</div>
-        <div className="mt-1 truncate text-[12px] text-[#828282]">{seller.location}</div>
+        <div className="mt-1 truncate text-[12px] text-[#828282]">{formatLocation(seller)}</div>
         <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-1 max-w-full" />
         <DistanceLabel content={seller} className="mt-1 block" />
       </div>

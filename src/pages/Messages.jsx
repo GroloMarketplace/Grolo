@@ -14,6 +14,7 @@ import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { getOrderStatusClass, getOrderStatusLabel } from "../utils/orderStatus";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { formatMessageTimestamp } from "../utils/messageTimestamp";
+import { formatLocation } from "../data/locations";
 
 const TAB_NAMES = ["All", "Selling", "Buying", "Trading", "Orders"];
 
@@ -169,7 +170,7 @@ function MessageRow({ message, orders, navigate, getSellerProfile, buyerProfile,
             <div className={`truncate text-[15px] ${showUnread ? "font-bold" : "font-semibold"} text-[#262626]`}>{participantName}</div>
             {participantId === message.sellerId && <FoundingMemberBadge sellerId={message.sellerId} compact iconOnly />}
           </div>
-          {(participantProfile.location || message.location) && <div className="mt-0.5 flex items-center gap-1 truncate text-[12px] text-[#828282]"><OutlineIcon name="location" size={12} />{participantProfile.location || message.location}</div>}
+          {(participantProfile.location || message.location) && <div className="mt-0.5 flex items-center gap-1 truncate text-[12px] text-[#828282]"><OutlineIcon name="location" size={12} />{formatLocation(participantProfile) || formatLocation(message.location)}</div>}
           <div className="mt-0.5 truncate text-[13px] font-medium text-[#498467]">{listingTitle}</div>
           <p className="mt-1 line-clamp-1 text-[13px] text-[#666]">{latestMessage?.text || "No messages yet"}</p>
           {isOrderConversation && <div className={`mt-1 flex min-w-0 items-center gap-1 text-[12px] ${getOrderStatusClass(orderStatus)}`}><span className="truncate">{orderStatus ? getOrderStatusLabel(orderStatus) : "Order"}</span><span aria-hidden="true">•</span><span className="shrink-0">Order #{String(orderNumber ?? "").replace(/^#/, "")}</span></div>}

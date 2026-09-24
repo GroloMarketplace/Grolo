@@ -18,9 +18,9 @@ import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { ReputationStatusPill } from "../components/ReputationSummary";
 import { useFollow } from "../context/FollowContext";
 import { LOCATION_RADIUS_OPTIONS, discoveryRadiusLabel } from "../utils/locationRadius";
+import { formatLocation, friendlyLocation } from "../data/locations";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import LocationAutocomplete from "../components/LocationAutocomplete";
-import { friendlyLocation } from "../data/locations";
 import { SaveButton, SaveToast, useSaveFeedback } from "../components/SaveFeedback";
 
 const SELLER_ID = "current-user";
@@ -131,7 +131,7 @@ function SellerAccountSettings() {
       name,
       description,
       pickupLocation,
-      location: friendlyLocation(locationDetails) || location,
+      location: formatLocation(locationDetails) || location,
       neighborhood: locationDetails?.neighborhood,
       city: locationDetails?.city,
       province: locationDetails?.province,
@@ -268,7 +268,7 @@ function BuyerAccountSettings() {
     setDisplayName(settings.displayName);
     setBio(settings.bio);
     setLocation(settings.location);
-    setLocationDetails(settings.neighborhood ? { neighborhood: settings.neighborhood, city: settings.city, province: settings.province, country: settings.country, postalCode: settings.postalCode, latitude: settings.latitude, longitude: settings.longitude } : null);
+    setLocationDetails(settings.neighborhood || settings.city ? { neighborhood: settings.neighborhood, city: settings.city, province: settings.province, country: settings.country, postalCode: settings.postalCode, latitude: settings.latitude, longitude: settings.longitude } : null);
     setLocationRadius(settings.locationRadius ?? 25);
     setAvatar(settings.avatar);
     setNotifications(settings.notifications);
@@ -299,7 +299,7 @@ function BuyerAccountSettings() {
 
   const handleSave = () => runSave(async () => {
     const previousAvatar = settings.avatar;
-    await updateSettings({ displayName, bio, location: friendlyLocation(locationDetails) || location, neighborhood: locationDetails?.neighborhood, city: locationDetails?.city, province: locationDetails?.province, country: locationDetails?.country, postalCode: locationDetails?.postalCode, latitude: locationDetails?.latitude, longitude: locationDetails?.longitude, locationRadius, avatar, notifications, showLocationPublicly });
+    await updateSettings({ displayName, bio, location: formatLocation(locationDetails) || location, neighborhood: locationDetails?.neighborhood, city: locationDetails?.city, province: locationDetails?.province, country: locationDetails?.country, postalCode: locationDetails?.postalCode, latitude: locationDetails?.latitude, longitude: locationDetails?.longitude, locationRadius, avatar, notifications, showLocationPublicly });
     if (previousAvatar && previousAvatar !== avatar) await removeImage(previousAvatar, user.id).catch((error) => console.error("Unable to remove previous avatar", error));
   });
 
@@ -327,7 +327,7 @@ function BuyerAccountSettings() {
                 <div className="text-[14px] font-medium">Location Access</div>
                 <div className="mt-1 text-[13px] text-[#4F4F4F]">{settings.locationPermission === "enabled" ? "Enabled" : "Disabled"}</div>
                 <div className="mt-3 text-[14px] font-medium">Current Community</div>
-                <div className="mt-1 text-[13px] text-[#4F4F4F]">{settings.city || location || "Not set"}{settings.province ? `, ${settings.province}` : ""}</div>
+                <div className="mt-1 text-[13px] text-[#4F4F4F]">{formatLocation({ city: settings.city, province: settings.province, country: settings.country, location }) || "Not set"}</div>
                 {settings.locationPermission !== "enabled" && (
                   <p className="mt-2 text-[12px] text-[#828282]">Location access disabled. Enable location services for more accurate local discovery.</p>
                 )}

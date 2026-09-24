@@ -1,4 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { Geolocation } from "@capacitor/geolocation";
+import { AndroidSettings, IOSSettings, NativeSettings } from "capacitor-native-settings";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { isTemporaryImageSource, uploadImageSource } from "../lib/imageStorage";
@@ -217,29 +220,100 @@ export function BuyerSettingsProvider({ children }) {
     return true;
   };
 
-  const refreshLocation = () => new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      updateSettings({ locationPermission: "unsupported" })
-        .then(() => resolve({ ok: false, error: "Location services are not available on this device." }))
-        .catch((error) => resolve({ ok: false, error: error.message }));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
+  const refreshLocation = async () => {
+    const isNative = Capacitor.isNativePlatform();
+    console.log("[Location] refreshLocation() called", {
+      isNative,
+      platform: Capacitor.getPlatform(),
+    });
+    const savePermissionState = async (locationPermission) => {
+      try {
+        await updateSettings({ locationPermission });
+      } catch (error) {
+        return error.message;
+      }
+      return null;
+    };
+    const openSettings = async () => {
+      if (!isNative) return;
+      console.log("[Location] Opening Grolo app settings");
+      try {
+        await NativeSettings.open({
+          optionAndroid: AndroidSettings.ApplicationDetails,
+          optionIOS: IOSSettings.App,
+        });
+      } catch (error) {
+        console.error("[Location] Unable to open app settings", error);
+      }
+    };
+    const deniedResult = async (message = "Location access is disabled. Enable it in Grolo's app settings, then try again.") => {
+      console.warn("[Location] Permission denied; directing user to app settings");
+      const saveError = await savePermissionState("denied");
+      if (saveError) return { ok: false, error: saveError };
+      await openSettings();
+      return { ok: false, error: message };
+    };
+
+    if (isNative) {
+      try {
+        console.log("[Location] Calling Geolocation.checkPermissions()");
+        let permission = await Geolocation.checkPermissions();
+        console.log("[Location] checkPermissions() resolved", permission);
+        if (permission.location === "denied") return deniedResult();
+        if (permission.location !== "granted") {
+          console.log("[Location] Calling Geolocation.requestPermissions()");
+          permission = await Geolocation.requestPermissions();
+          console.log("[Location] requestPermissions() resolved", permission);
+          if (permission.location !== "granted") return deniedResult();
+        }
+        console.log("[Location] Calling Geolocation.getCurrentPosition()");
+        const { coords } = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 });
+        console.log("[Location] getCurrentPosition() resolved", {
+          hasCoordinates: Boolean(coords),
+          accuracy: coords?.accuracy,
+        });
         const next = { latitude: coords.latitude, longitude: coords.longitude, locationPermission: "enabled" };
-        updateSettings(next)
-          .then(() => resolve({ ok: true, ...next }))
-          .catch((error) => resolve({ ok: false, error: error.message }));
-      },
-      (error) => {
-        const locationPermission = error.code === 1 ? "denied" : "unavailable";
-        updateSettings({ locationPermission })
-          .then(() => resolve({ ok: false, error: error.message }))
-          .catch((updateError) => resolve({ ok: false, error: updateError.message }));
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
-    );
-  });
+        await updateSettings(next);
+        console.log("[Location] Coordinates saved successfully");
+        return { ok: true, ...next };
+      } catch (error) {
+        console.error("[Location] Native geolocation call failed", error);
+        console.log("[Location] Checking permission state after failure");
+        const permission = await Geolocation.checkPermissions().catch((permissionError) => {
+          console.error("[Location] checkPermissions() after failure also failed", permissionError);
+          return null;
+        });
+        console.log("[Location] Permission state after failure", permission);
+        if (permission?.location === "denied") return deniedResult();
+        return { ok: false, error: error.message || "We couldn't determine your location." };
+      }
+    }
+
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      const saveError = await savePermissionState("unsupported");
+      return { ok: false, error: saveError || "Location services are not available on this device." };
+    }
+
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        async ({ coords }) => {
+          const next = { latitude: coords.latitude, longitude: coords.longitude, locationPermission: "enabled" };
+          try {
+            await updateSettings(next);
+            resolve({ ok: true, ...next });
+          } catch (error) {
+            resolve({ ok: false, error: error.message });
+          }
+        },
+        async (error) => {
+          const locationPermission = error.code === 1 ? "denied" : "unavailable";
+          const saveError = await savePermissionState(locationPermission);
+          resolve({ ok: false, error: saveError || error.message || "We couldn't determine your location." });
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+      );
+    });
+  };
 
   return <BuyerSettingsContext.Provider value={{ settings, updateSettings, refreshLocation, profileLoading, profileLoaded, profileFound, profileError }}>{children}</BuyerSettingsContext.Provider>;
 }

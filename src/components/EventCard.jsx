@@ -7,6 +7,7 @@ import {
 import { EventAttendanceCount } from "./EventRsvp";
 import { sellers } from "../data/mockData";
 import DistanceLabel from "./DistanceLabel";
+import { formatLocation } from "../data/locations";
 
 const BADGE_STYLES = {
   Today: "bg-[#498467] text-white",
@@ -51,7 +52,7 @@ export default function EventCard({ event, showStore }) {
           {formatEventTime(event.endTime)}
         </span>
         <EventAttendanceCount eventId={event.id} />
-        <span className="text-[12px] text-[#828282]">{event.location}</span>
+        <span className="text-[12px] text-[#828282]">{formatLocation(event)}</span>
         <p className="text-[14px] mt-1 leading-[140%] line-clamp-2">
           {event.description}
         </p>

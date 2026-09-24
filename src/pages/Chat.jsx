@@ -1,6 +1,7 @@
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { sellers } from "../data/mockData";
+import { formatLocation } from "../data/locations";
 import { useListings } from "../context/ListingContext";
 import { useMessages } from "../context/MessageContext";
 import { useAuth } from "../context/AuthContext";
@@ -336,7 +337,7 @@ export default function Chat() {
             />
             <div className="flex-1 flex flex-col justify-center">
               <h4 className="text-[16px] font-semibold">{seller.name}</h4>
-              <p className="flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{seller.location}</p>
+              <p className="flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{formatLocation(seller)}</p>
               <p className="text-[16px] font-semibold text-[#498467]">Active Listings</p>
             </div>
           </button>

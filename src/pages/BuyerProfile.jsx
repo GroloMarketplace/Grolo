@@ -6,6 +6,7 @@ import ProfileSwitcher from "../components/ProfileSwitcher";
 import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../hooks/useSidebar";
 import { formatEventDate, formatEventTime, useEvents } from "../context/EventContext";
+import { formatLocation } from "../data/locations";
 import { useFollow } from "../context/FollowContext";
 import { getBuyerImpactMetrics } from "../utils/buyerImpact";
 import { impactTimeline } from "../data/communityImpact";
@@ -327,7 +328,7 @@ function PostPreview({ post, text }) {
 
 function EventPreview({ event }) {
   if (!event) return null;
-  return <><img src={event.image} alt={event.title} className="mt-3 aspect-square w-full rounded-lg object-cover" /><h3 className="mt-2 text-[15px] font-semibold">{event.title}</h3><p className="mt-1 text-[13px] text-[#828282]">{formatEventDate(event.date)} · {formatEventTime(event.startTime)} · {event.location}</p><EventAttendanceCount eventId={event.id} className="mt-1 block" /></>;
+  return <><img src={event.image} alt={event.title} className="mt-3 aspect-square w-full rounded-lg object-cover" /><h3 className="mt-2 text-[15px] font-semibold">{event.title}</h3><p className="mt-1 text-[13px] text-[#828282]">{formatEventDate(event.date)} · {formatEventTime(event.startTime)} · {formatLocation(event)}</p><EventAttendanceCount eventId={event.id} className="mt-1 block" /></>;
 }
 
 function ListingPreview({ listing }) {

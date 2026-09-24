@@ -4,7 +4,7 @@ import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import PhotoManager from "../components/PhotoManager";
 import LocationAutocomplete from "../components/LocationAutocomplete";
-import { friendlyLocation, locationFromLegacyText } from "../data/locations";
+import { formatLocation, friendlyLocation, locationFromLegacyText } from "../data/locations";
 import { useListings } from "../context/ListingContext";
 
 function VariantEditor({ variants, onChange }) {
@@ -61,13 +61,13 @@ export default function EditListing() {
     setCategory(product.category || "Produce");
     setAvailableForTrade(product.availableForTrade ?? false);
     setDesiredTradeItems(product.desiredTradeItems ?? "");
-    setLocation(product.location || "");
+    setLocation(formatLocation(product) || "");
     setLocationDetails(product.neighborhood || product.city ? { neighborhood: product.neighborhood, city: product.city, province: product.province, country: product.country, postalCode: product.postalCode, latitude: product.latitude, longitude: product.longitude } : null);
     const storedServiceLocations = Array.isArray(product.serviceLocations) && product.serviceLocations.length
       ? product.serviceLocations
       : [locationFromLegacyText(product.serviceArea || product.location)].filter(Boolean);
     setServiceLocations(storedServiceLocations);
-    setServiceArea(product.serviceArea || product.location || "");
+    setServiceArea(formatLocation(product.serviceArea || product.location) || "");
     setServiceAreaRadius(product.serviceAreaRadius ?? "");
     setPhotos(product.images?.length ? product.images : product.image ? [product.image] : []);
     setQuantityAvailable(product.quantityAvailable ?? 0);
@@ -104,7 +104,7 @@ export default function EditListing() {
         category,
         availableForTrade,
         desiredTradeItems: availableForTrade ? desiredTradeItems : "",
-        location: isService ? serviceArea : location,
+        location: isService ? serviceArea : formatLocation(locationDetails) || location,
         ...(isService && locationDetails ? { neighborhood: locationDetails.neighborhood, city: locationDetails.city, province: locationDetails.province, country: locationDetails.country, postalCode: locationDetails.postalCode, latitude: locationDetails.latitude, longitude: locationDetails.longitude } : {}),
         images: photos,
         image: photos[0],
@@ -247,7 +247,7 @@ export default function EditListing() {
         {/* Location */}
         <div className="mb-4">
           {category === "Services" ? <>
-            <LocationAutocomplete label="Service Area" value={serviceArea} locations={serviceLocations} multiple onChange={(values) => { const primary = values[0] ?? null; setServiceLocations(values); setLocationDetails(primary); setServiceArea(values.map((value) => `${friendlyLocation(value)}${value.scope === "city" ? " (Entire City)" : ""}`).join(", ")); setLocation(friendlyLocation(primary)); }} placeholder="Search a city or neighbourhood, then add more" required />
+            <LocationAutocomplete label="Service Area" value={serviceArea} locations={serviceLocations} multiple onChange={(values) => { const primary = values[0] ?? null; setServiceLocations(values); setLocationDetails(primary); setServiceArea(values.map((value) => formatLocation(value) || friendlyLocation(value)).join(", ")); setLocation(formatLocation(primary) || friendlyLocation(primary)); }} placeholder="Search a city or neighbourhood, then add more" required />
             <label className="mt-3 block text-[14px] font-medium">Optional Service Radius (km)<input type="number" min="0" max="500" value={serviceAreaRadius} onChange={(event) => setServiceAreaRadius(event.target.value)} placeholder="e.g. 25" className="mt-2 w-full rounded-lg border border-[#E6E6E6] p-3 text-[14px] outline-none" /></label>
           </> : <>
             <label className="text-[14px] font-semibold mb-2 block">Location</label>

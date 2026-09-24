@@ -12,6 +12,7 @@ import ReviewSummary from "../components/ReviewSummary";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
+import { formatLocation } from "../data/locations";
 
 export default function Saved() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -151,7 +152,7 @@ function SavedContentCard({ item, event, promotion, onClick }) {
         {promotion && product && <><span className="text-[14px] font-semibold text-[#498467]">{formatListingPrice(product)}</span><ReviewSummary product={product} /></>}
         {event && item.event && (
           <span className="text-[12px] text-[#498467]">
-            {item.event.location} · {item.event.date}
+            {formatLocation(item.event)} · {item.event.date}
           </span>
         )}
       </div>

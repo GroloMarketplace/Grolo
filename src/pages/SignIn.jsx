@@ -111,7 +111,7 @@ export default function SignIn() {
               <CheckCircle2 className="mx-auto mb-3 text-[#498467]" size={30} />
               <h2 className="text-lg font-semibold text-[#202A21]">Check your inbox</h2>
               <p className="mt-2 text-sm leading-6 text-[#687368]">{status === "confirmation" ? "Your account is ready. Confirm your email, then return here to sign in." : "We sent a secure password reset link to your email address."}</p>
-              <button type="button" onClick={() => { setStatus("idle"); setForgot(false); }} className="mt-5 text-sm font-semibold text-[#498467]">Return to sign in</button>
+              <button type="button" onClick={() => { setStatus("idle"); setForgot(false); navigate("/signin", { replace: true }); }} className="mt-5 text-sm font-semibold text-[#498467]">Return to sign in</button>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">

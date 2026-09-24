@@ -1,9 +1,8 @@
 import { MapPin, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { LOCATION_OPTIONS, friendlyLocation } from "../data/locations";
+import { LOCATION_OPTIONS, formatLocation, friendlyLocation } from "../data/locations";
 
 const GEOCODING_URL = import.meta.env.VITE_GEOCODING_URL || "https://nominatim.openstreetmap.org/search";
-const PROVINCE_ABBREVIATIONS = { Alberta: "AB", "British Columbia": "BC", Manitoba: "MB", "New Brunswick": "NB", "Newfoundland and Labrador": "NL", "Northwest Territories": "NT", "Nova Scotia": "NS", Nunavut: "NU", Ontario: "ON", "Prince Edward Island": "PE", Quebec: "QC", Saskatchewan: "SK", Yukon: "YT" };
 
 function normalizeResult(result) {
   const address = result.address ?? {};
@@ -22,6 +21,7 @@ function normalizeResult(result) {
     city,
     province,
     country,
+    countryCode: address.country_code || "",
     postalCode,
     latitude: Number(result.lat),
     longitude: Number(result.lon),
@@ -30,17 +30,18 @@ function normalizeResult(result) {
 }
 
 function optionLabel(option) {
-  if (option.scope === "city") return `${option.city}, ${PROVINCE_ABBREVIATIONS[option.province] || option.province} (Entire City)`;
+  if (option.city) return formatLocation(option);
   if (option.label) return option.label;
-  return `${friendlyLocation(option)}${option.scope === "province" ? " (Province Wide)" : ""}`;
+  return friendlyLocation(option);
 }
 
 function addDynamicCityOptions(results) {
-  const cities = results.filter((option) => option.city && option.province).map((option) => ({
-    id: `city-${option.city.toLowerCase()}-${option.province.toLowerCase()}`,
+  const cities = results.filter((option) => option.city && (option.province || option.country)).map((option) => ({
+    id: `city-${option.city.toLowerCase()}-${(option.province || option.country).toLowerCase()}`,
     city: option.city,
     province: option.province,
     country: option.country,
+    countryCode: option.countryCode,
     latitude: option.latitude,
     longitude: option.longitude,
     scope: "city",
@@ -48,7 +49,7 @@ function addDynamicCityOptions(results) {
   return [...cities, ...results];
 }
 
-export default function LocationAutocomplete({ label = "Location", value = "", location = null, locations = [], multiple = false, onChange, required = false, placeholder = "Search Canadian address, city, or postal code" }) {
+export default function LocationAutocomplete({ label = "Location", value = "", location = null, locations = [], multiple = false, onChange, required = false, placeholder = "Search an address, city, or postal code" }) {
   const selectedLocations = useMemo(() => (multiple ? locations : location ? [location] : []), [multiple, locations, location]);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -74,7 +75,6 @@ export default function LocationAutocomplete({ label = "Location", value = "", l
         url.searchParams.set("q", normalized);
         url.searchParams.set("format", "jsonv2");
         url.searchParams.set("addressdetails", "1");
-        url.searchParams.set("countrycodes", "ca");
         url.searchParams.set("limit", "8");
         const response = await fetch(url, { signal: controller.signal, headers: { Accept: "application/json" } });
         if (!response.ok) throw new Error("Location lookup failed");
@@ -91,7 +91,7 @@ export default function LocationAutocomplete({ label = "Location", value = "", l
   const matches = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     const source = normalized ? [...remoteMatches, ...LOCATION_OPTIONS] : LOCATION_OPTIONS;
-    const unique = source.filter((option, index, all) => all.findIndex((candidate) => candidate.id === option.id || (candidate.scope === "city" && option.scope === "city" && candidate.city === option.city && candidate.province === option.province) || (candidate.city === option.city && candidate.province === option.province && candidate.postalCode === option.postalCode)) === index);
+    const unique = source.filter((option, index, all) => all.findIndex((candidate) => candidate.id === option.id || (candidate.scope === "city" && option.scope === "city" && candidate.city === option.city && candidate.province === option.province && candidate.country === option.country) || (candidate.city === option.city && candidate.province === option.province && candidate.country === option.country && candidate.postalCode === option.postalCode)) === index);
     return unique
       .filter((option) => !selectedLocations.some((selected) => selected.id === option.id))
       .sort((a, b) => (a.scope === "city" ? 0 : 1) - (b.scope === "city" ? 0 : 1))
@@ -122,10 +122,10 @@ export default function LocationAutocomplete({ label = "Location", value = "", l
         {(query || loading) && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { setQuery(""); setOpen(false); if (multiple) onChange(selectedLocations); else onChange(null); }} aria-label={`Clear ${label.toLowerCase()}`} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#789083]"><X className="h-4 w-4" /></button>}
       </div>
       {open && matches.length > 0 && <div role="listbox" className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 overflow-hidden rounded-xl border border-[#DCEBE0] bg-white p-1 shadow-[0_8px_24px_rgba(31,90,69,0.14)]">
-        {matches.map((option) => <button key={option.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => selectLocation(option)} className="flex w-full items-start gap-2 rounded-lg px-3 py-2.5 text-left hover:bg-[#F1F8F2]"><MapPin aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-[#498467]" strokeWidth={1.8} /><span><span className="block text-[13px] font-semibold text-[#1F2D27]">{optionLabel(option)}</span><span className="block text-[11px] font-normal text-[#828282]">{[option.neighborhood, option.city, option.province, option.postalCode].filter(Boolean).join(" · ")}</span></span></button>)}
+        {matches.map((option) => <button key={option.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => selectLocation(option)} className="flex w-full items-start gap-2 rounded-lg px-3 py-2.5 text-left hover:bg-[#F1F8F2]"><MapPin aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-[#498467]" strokeWidth={1.8} /><span><span className="block text-[13px] font-semibold text-[#1F2D27]">{optionLabel(option)}</span><span className="block text-[11px] font-normal text-[#828282]">{[option.neighborhood, formatLocation(option), option.postalCode].filter(Boolean).filter((value, index, values) => values.indexOf(value) === index).join(" · ")}</span></span></button>)}
       </div>}
-      {open && loading && <p className="text-[12px] font-normal text-[#828282]">Searching Canadian locations…</p>}
-      {open && !loading && query.trim() && matches.length === 0 && <p className="text-[12px] font-normal text-[#828282]">No Canadian locations found.</p>}
+      {open && loading && <p className="text-[12px] font-normal text-[#828282]">Searching locations…</p>}
+      {open && !loading && query.trim() && matches.length === 0 && <p className="text-[12px] font-normal text-[#828282]">No locations found.</p>}
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { useEvents } from "../context/EventContext";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage } from "../lib/imageStorage";
 import LocationAutocomplete from "../components/LocationAutocomplete";
-import { friendlyLocation } from "../data/locations";
+import { formatLocation, friendlyLocation } from "../data/locations";
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -57,7 +57,7 @@ export default function CreateEvent() {
     setSaveError("");
     const location = formData.locationDetails ?? {};
     try {
-      await addEvent({ ...formData, location: friendlyLocation(location) || formData.location, neighborhood: location.neighborhood, city: location.city, province: location.province, country: location.country, postalCode: location.postalCode, latitude: location.latitude, longitude: location.longitude });
+      await addEvent({ ...formData, location: formatLocation(location) || formData.location, neighborhood: location.neighborhood, city: location.city, province: location.province, country: location.country, postalCode: location.postalCode, latitude: location.latitude, longitude: location.longitude });
       navigate("/", { state: { tab: "Your Community", communityFilter: "Events", eventCreated: true } });
     } catch (error) {
       setSaveError(error?.message || "Unable to save this event. Please try again.");

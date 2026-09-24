@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import ThreadedComments from "../components/ThreadedComments";
 import { formatEventDate, formatEventTime } from "../context/EventContext";
+import { formatLocation } from "../data/locations";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useEngagement } from "../context/EngagementContext";
 import { useAuth } from "../context/AuthContext";
@@ -159,7 +160,7 @@ function OriginalContent({ content, profile }) {
         <p className="mt-1 text-[14px] leading-[140%]">{event.description}</p>
         <div className="mt-3 flex flex-col gap-1 text-[12px] text-[#828282]">
           <span>{formatEventDate(event.date)} · {formatEventTime(event.startTime)} – {formatEventTime(event.endTime)}</span>
-          <span>{event.location}</span>
+          <span>{formatLocation(event)}</span>
         </div>
       </section>
     );

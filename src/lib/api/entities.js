@@ -3,6 +3,7 @@ import { getListingById, getListings, listingFromRow } from "./listings";
 import { getEvents } from "./events";
 import { getReputationSnapshot } from "./reputation";
 import { isSupabaseConfigured, supabase } from "../supabaseClient";
+import { formatLocation } from "../../data/locations";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -38,7 +39,7 @@ function sellerProfileFromRow(row) {
     shopName: profile.shop_name ?? "",
     shopSlug: profile.shop_slug ?? "",
     description: profile.store_description ?? profile.bio ?? "",
-    location: profile.location ?? "",
+    location: formatLocation({ city: profile.city, province: profile.province, country: profile.country, location: profile.location }),
     avatar: profile.avatar_url ?? profile.avatar ?? "",
     banner: profile.banner_url ?? profile.banner ?? "",
     createdAt: profile.created_at ?? profile.createdAt ?? null,

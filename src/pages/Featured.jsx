@@ -18,6 +18,7 @@ import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import DistanceLabel from "../components/DistanceLabel";
 import ReviewSummary from "../components/ReviewSummary";
 import TradeBadge from "../components/TradeBadge";
+import { formatLocation } from "../data/locations";
 import { promotionMatchesListing, promotedContentImage } from "../utils/promotionMedia";
 import { formatListingPrice } from "../utils/listingDisplay";
 
@@ -203,7 +204,7 @@ function FeaturedEventCard({ event }) {
         <p className="text-[13px] text-[#498467]">{seller?.name}</p>
         <DistanceLabel content={event} />
         <p className="text-[12px] text-[#828282]">{formatEventDate(event.date)} • {formatEventTime(event.startTime)} – {formatEventTime(event.endTime)}</p>
-        <p className="text-[12px] text-[#828282]">{event.location}</p>
+        <p className="text-[12px] text-[#828282]">{formatLocation(event)}</p>
         <EventAttendanceCount eventId={event.id} />
       </div>
     </button>

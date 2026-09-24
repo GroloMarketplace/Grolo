@@ -7,7 +7,7 @@ import { useEvents } from "../context/EventContext";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage } from "../lib/imageStorage";
 import LocationAutocomplete from "../components/LocationAutocomplete";
-import { friendlyLocation } from "../data/locations";
+import { formatLocation, friendlyLocation } from "../data/locations";
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const VISIBILITY_OPTIONS = [
@@ -84,7 +84,7 @@ export default function EditEvent() {
   const handleSubmit = (e) => {
     e.preventDefault();
     const location = formData.locationDetails ?? {};
-    updateEvent(eventId, { ...formData, location: friendlyLocation(location) || formData.location, neighborhood: location.neighborhood, city: location.city, province: location.province, country: location.country, postalCode: location.postalCode, latitude: location.latitude, longitude: location.longitude });
+    updateEvent(eventId, { ...formData, location: formatLocation(location) || formData.location, neighborhood: location.neighborhood, city: location.city, province: location.province, country: location.country, postalCode: location.postalCode, latitude: location.latitude, longitude: location.longitude });
     navigate("/shop", { state: { activeTab: "Events", eventUpdated: true } });
   };
 

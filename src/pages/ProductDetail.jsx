@@ -18,6 +18,7 @@ import { useListings } from "../context/ListingContext";
 import { useMessages } from "../context/MessageContext";
 import { formatListingPrice } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
+import { formatLocation } from "../data/locations";
 import DistanceLabel from "../components/DistanceLabel";
 import TradeBadge from "../components/TradeBadge";
 import { CompactReputationHeader, TrustMetricSummary } from "../components/ReputationSummary";
@@ -225,7 +226,7 @@ export default function ProductDetail() {
 
         {isService ? (
           <div className="flex flex-col gap-2 rounded-lg border border-[#E6E6E6] p-4 text-[14px] text-[#4F4F4F]">
-            <span><strong>Service Area:</strong> {product.serviceArea || product.location || "Contact provider"}</span>
+            <span><strong>Service Area:</strong> {formatLocation(product.serviceArea || product.location) || "Contact provider"}</span>
             {product.serviceAreaType === "radius" && product.serviceAreaRadius != null && <span><strong>Service Radius:</strong> {product.serviceAreaRadius} km from the selected location</span>}
             <span><strong>Service Status:</strong> {product.serviceStatus ?? product.service_status ?? "Accepting New Clients"}</span>
             <span><strong>Scheduling:</strong> {product.availability || "By appointment"}</span>

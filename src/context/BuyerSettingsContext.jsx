@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
-import { AndroidSettings, IOSSettings, Settings } from "@cap-kit/settings";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { isTemporaryImageSource, uploadImageSource } from "../lib/imageStorage";
@@ -234,24 +233,10 @@ export function BuyerSettingsProvider({ children }) {
       }
       return null;
     };
-    const openSettings = async () => {
-      if (!isNative) return;
-      console.log("[Location] Opening Grolo app settings");
-      try {
-        await Settings.open({
-          optionAndroid: AndroidSettings.ApplicationDetails,
-          optionIOS: IOSSettings.App,
-        });
-      } catch (error) {
-        console.error("[Location] Unable to open app settings", error);
-      }
-    };
-    const deniedResult = async (message = "Location access is disabled. Enable it in Grolo's app settings, then try again.") => {
-      console.warn("[Location] Permission denied; directing user to app settings");
+    const deniedResult = async (message = "Location access is disabled. Enable location access in your device settings, then try again.") => {
+      console.warn("[Location] Permission denied; asking user to enable access in device settings");
       const saveError = await savePermissionState("denied");
-      if (saveError) return { ok: false, error: saveError };
-      await openSettings();
-      return { ok: false, error: message };
+      return { ok: false, error: saveError || message };
     };
 
     if (isNative) {

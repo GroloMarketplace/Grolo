@@ -22,8 +22,35 @@ export async function registerNativePushNotifications({ onToken, onAction } = {}
   };
 }
 
-export async function requestNativePushPermission() {
+export async function getNativePushPermissionStatus() {
   if (!Capacitor.isNativePlatform()) return "web";
+  const permission = await PushNotifications.checkPermissions();
+  return permission.receive;
+}
+
+export function openAppNotificationSettings() {
+  if (!Capacitor.isNativePlatform()) return false;
+  const platform = Capacitor.getPlatform();
+  if (platform === "ios") {
+    window.location.href = "app-settings:";
+    return true;
+  }
+  if (platform === "android") {
+    const packageName = "ca.grolomarketplace.app";
+    window.location.href = `intent:#Intent;action=android.settings.APP_NOTIFICATION_SETTINGS;S.android.provider.extra.APP_PACKAGE=${packageName};end`;
+    return true;
+  }
+  return false;
+}
+
+export async function requestNativePushPermission({ openSettingsOnDenied = false } = {}) {
+  const status = await getNativePushPermissionStatus();
+  if (status === "web" || status === "granted") return status;
+  if (status === "denied") {
+    if (openSettingsOnDenied) openAppNotificationSettings();
+    return status;
+  }
   const permission = await PushNotifications.requestPermissions();
+  if (permission.receive === "denied" && openSettingsOnDenied) openAppNotificationSettings();
   return permission.receive;
 }

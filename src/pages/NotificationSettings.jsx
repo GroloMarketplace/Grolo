@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useProfileMode } from "../context/ProfileModeContext";
-import { requestNativePushPermission } from "../lib/pushNotifications";
+import { getNativePushPermissionStatus, requestNativePushPermission } from "../lib/pushNotifications";
 
 const BUYER_OPTIONS = [
   ["newMessages", "New Messages", "Messaging"],
@@ -31,10 +31,26 @@ export default function NotificationSettings() {
   const { settings, updateSettings } = useBuyerSettings();
   const { getSellerProfile, updateSellerProfile } = useSellerSettings();
   const sellerProfile = getSellerProfile("current-user");
-  const [permissionStatus, setPermissionStatus] = useState("");
+  const [permissionStatus, setPermissionStatus] = useState("prompt");
   const isSeller = profileMode === "seller";
   const options = isSeller ? SELLER_OPTIONS : BUYER_OPTIONS;
   const notifications = isSeller ? sellerProfile.notifications : settings.notifications;
+
+  useEffect(() => {
+    let active = true;
+    const refreshPermission = async () => {
+      const status = await getNativePushPermissionStatus();
+      if (active) setPermissionStatus(status);
+    };
+    refreshPermission();
+    window.addEventListener("focus", refreshPermission);
+    document.addEventListener("visibilitychange", refreshPermission);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", refreshPermission);
+      document.removeEventListener("visibilitychange", refreshPermission);
+    };
+  }, []);
 
   const toggle = async (key) => {
     const next = { ...notifications, [key]: !notifications[key] };
@@ -43,9 +59,10 @@ export default function NotificationSettings() {
   };
 
   const requestPermission = async () => {
-    const permission = await requestNativePushPermission();
-    setPermissionStatus(permission === "granted" ? "Push notifications enabled." : permission === "denied" ? "Permission denied. Enable notifications in system settings." : "Push notifications are available in the mobile app.");
+    const permission = await requestNativePushPermission({ openSettingsOnDenied: true });
+    setPermissionStatus(permission);
   };
+  const permissionLabel = permissionStatus === "granted" ? "Enabled" : permissionStatus === "denied" ? "Disabled" : permissionStatus === "prompt" ? "Not Determined" : "Unavailable on web";
 
   return (
     <MobileScreenLayout>
@@ -62,7 +79,7 @@ export default function NotificationSettings() {
             </section>
           ))}
         </div>
-        <div className="mt-5 rounded-lg bg-[#F5FFF6] p-4"><div className="flex items-center justify-between gap-3"><div><h2 className="text-[14px] font-semibold">Mobile push notifications</h2><p className="mt-1 text-[12px] text-[#4F4F4F]">Receive alerts even when Grolo is closed.</p></div><button type="button" onClick={requestPermission} className="rounded-lg border border-[#498467] px-3 py-2 text-[12px] font-medium text-[#498467]">Enable</button></div>{permissionStatus && <p className="mt-2 text-[12px] text-[#4F4F4F]">{permissionStatus}</p>}</div>
+        <div className="mt-5 rounded-lg bg-[#F5FFF6] p-4"><div className="flex items-center justify-between gap-3"><div><h2 className="text-[14px] font-semibold">Mobile push notifications</h2><p className="mt-1 text-[12px] text-[#4F4F4F]">Receive alerts even when Grolo is closed.</p><p className="mt-1 text-[12px] font-medium text-[#498467]">Status: {permissionLabel}</p></div><button type="button" onClick={requestPermission} className="rounded-lg border border-[#498467] px-3 py-2 text-[12px] font-medium text-[#498467]">{permissionStatus === "denied" ? "Open Settings" : "Enable"}</button></div></div>
       </div>
     </MobileScreenLayout>
   );

@@ -32,9 +32,9 @@ export default function FoundingMemberBadge({ sellerId, ownerId = sellerId, foun
   }
 
   return (
-    <button type="button" aria-label="Learn more about Founding Member • 2026 status" onClick={openFoundingMember} className={`group inline-flex w-fit items-center gap-1 rounded-md border border-[#E7C66A] bg-[#FFF9E6] px-1.5 py-0.5 font-medium text-[#6F5B1A] transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6F5B1A] ${compact ? "text-[10px]" : "text-[11px]"}`}>
+    <button type="button" aria-label="Learn more about Founding Member • 2026 status" onClick={openFoundingMember} className={`group inline-flex max-w-full min-w-0 items-center gap-1 rounded-md border border-[#E7C66A] bg-[#FFF9E6] px-1.5 py-0.5 text-left font-medium text-[#6F5B1A] transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6F5B1A] ${compact ? "text-[10px]" : "text-[11px]"}`}>
       <FounderIcon compact={compact} />
-      <span className="group-hover:underline">Founding Member • 2026</span>
+      <span className="min-w-0 break-words group-hover:underline">Founding Member • 2026</span>
       <span aria-hidden="true" className="text-[14px] opacity-60">›</span>
     </button>
   );

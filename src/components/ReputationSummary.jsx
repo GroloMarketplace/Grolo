@@ -139,8 +139,8 @@ export default function ReputationSummary({ snapshot, audience = "buyer", member
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] font-medium uppercase tracking-[0.4px] text-[#498467]">Reputation</span>
       </div>
-      <div className="mt-2 flex flex-nowrap items-center gap-1 whitespace-nowrap">
-        {audience === "seller" && <FoundingMemberBadge sellerId={sellerId} foundingMember={foundingMember} runtimeDiagnostic={runtimeDiagnostic} />}
+      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
+        {audience === "seller" && <FoundingMemberBadge sellerId={sellerId} compact foundingMember={foundingMember} runtimeDiagnostic={runtimeDiagnostic} />}
         <ReputationStatusPill status={status} audience={audience} onClick={() => navigate(audience === "seller" ? "/seller-statuses" : "/trust-reputation")} />
       </div>
       {audience !== "seller" && <div className="mt-2"><BadgeRow badges={activeBadges} compact={compact} includeFoundingMember={includeFoundingMember} /></div>}

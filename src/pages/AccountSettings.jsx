@@ -397,7 +397,7 @@ function Field({ label, value, onChange, type = "text", placeholder, prefix, suf
 
 function PushPermissionButton({ status, onStatusChange }) {
   const request = async () => {
-    const permission = await requestNativePushPermission();
+    const permission = await requestNativePushPermission({ openSettingsOnDenied: true });
     onStatusChange(permission === "granted" ? "Notifications enabled" : permission === "denied" ? "Notifications are disabled. Enable them in system settings." : "Push notifications are available in the mobile app.");
   };
   return <div className="mt-3 rounded-lg bg-[#F5FFF6] p-3"><div className="flex items-center justify-between gap-3"><div><div className="text-[13px] font-medium">Push notifications</div><div className="text-[11px] text-[#828282]">Receive alerts even when Grolo is closed.</div></div><button type="button" onClick={request} className="rounded-lg border border-[#498467] px-3 py-2 text-[12px] font-medium text-[#498467]">Enable</button></div>{status && <p className="mt-2 text-[11px] text-[#4F4F4F]">{status}</p>}</div>;

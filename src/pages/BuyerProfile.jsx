@@ -269,13 +269,18 @@ export default function BuyerProfile() {
 function buildActivity(activities, savedItems, followedSellers, regrownIds) {
   // Real activity is generated as the buyer interacts with the marketplace.
   // New accounts should start with no activity rather than sample entries.
+  const safeSavedItems = Array.isArray(savedItems) ? savedItems.filter(Boolean) : [];
+  const safeFollowedSellers = Array.isArray(followedSellers) ? followedSellers.filter(Boolean) : [];
+  const safeRegrownIds = Array.isArray(regrownIds) ? regrownIds.filter(Boolean) : [];
   const fallbackActivities = [
-    ...savedItems.map((item) => ({ id: `save:${item.id}`, type: item.type === "event" ? "Save event" : "Save listing", label: `Saved ${item.name ?? item.title ?? "community content"}`, timestamp: item.createdAt, content: item })),
-    ...followedSellers.map((sellerId) => ({ id: `follow:${sellerId}`, type: "Follow store", label: "Followed a store", entityId: sellerId })),
-    ...regrownIds.map((itemId) => ({ id: `regrow:${itemId}`, type: "Regrow", label: "Regrew community content", entityId: itemId })),
+    ...safeSavedItems.map((item) => ({ id: `save:${item.id}`, type: item.type === "event" ? "Save event" : "Save listing", label: `Saved ${item.name ?? item.title ?? "community content"}`, timestamp: item.createdAt, content: item })),
+    ...safeFollowedSellers.map((sellerId) => ({ id: `follow:${sellerId}`, type: "Follow store", label: "Followed a store", entityId: sellerId })),
+    ...safeRegrownIds.map((itemId) => ({ id: `regrow:${itemId}`, type: "Regrow", label: "Regrew community content", entityId: itemId })),
   ];
   const merged = new Map(fallbackActivities.map((activity) => [activity.id, activity]));
-  activities.forEach((activity) => merged.set(activity.id, activity));
+  (Array.isArray(activities) ? activities : []).forEach((activity) => {
+    if (activity && typeof activity === "object" && activity.id) merged.set(activity.id, activity);
+  });
   return [...merged.values()].sort((first, second) => new Date(second.timestamp ?? 0) - new Date(first.timestamp ?? 0));
 }
 
@@ -364,12 +369,13 @@ export function CommunityImpactTab({ metrics, publicView = false, profileId = "y
   );
 }
 
-export function ActivityCard({ activity, navigate, profile }) {
+export function ActivityCard({ activity: rawActivity, navigate, profile }) {
+  const activity = rawActivity && typeof rawActivity === "object" ? rawActivity : {};
   const content = activity.content ?? activity.event ?? activity.listing ?? activity.post ?? null;
   const contentType = content?.type ?? activity.contentType ?? (activity.type === "Save event" ? "event" : activity.type === "Save listing" ? "listing" : activity.entityId?.startsWith("event:") ? "event" : activity.entityId?.startsWith("post:") ? "post" : null);
-  const event = contentType === "event" ? content.event ?? content : null;
-  const listing = contentType === "listing" ? content.listing ?? content : null;
-  const post = contentType === "post" ? content.post ?? content : null;
+  const event = contentType === "event" && content && typeof content === "object" ? content.event ?? content : null;
+  const listing = contentType === "listing" && content && typeof content === "object" ? content.listing ?? content : null;
+  const post = contentType === "post" && content && typeof content === "object" ? content.post ?? content : null;
   const openActivity = () => {
     if (event?.id) navigate(`/event/${event.id}`);
     else if (listing?.id || listing?.sourceId) navigate(`/product/${listing.databaseId ?? listing.id ?? listing.sourceId}`);
@@ -417,8 +423,8 @@ function PostPreview({ post, text }) {
 }
 
 function EventPreview({ event }) {
-  if (!event) return null;
-  return <><img src={event.image} alt={event.title} className="mt-3 aspect-square w-full rounded-lg object-cover" /><h3 className="mt-2 text-[15px] font-semibold">{event.title}</h3><p className="mt-1 text-[13px] text-[#828282]">{formatEventDate(event.date)} · {formatEventTime(event.startTime)} · {formatLocation(event)}</p><EventAttendanceCount eventId={event.id} className="mt-1 block" /></>;
+  if (!event || typeof event !== "object") return <p className="mt-3 rounded-md bg-[#F5FFF6] p-3 text-[13px] text-[#4F4F4F]">This event is no longer available.</p>;
+  return <><img src={event.image ?? ""} alt={event.title ?? "Event"} className="mt-3 aspect-square w-full rounded-lg object-cover" /><h3 className="mt-2 text-[15px] font-semibold">{event.title ?? "Event unavailable"}</h3><p className="mt-1 text-[13px] text-[#828282]">{event.date ? formatEventDate(event.date) : "Date unavailable"}{event.startTime ? ` · ${formatEventTime(event.startTime)}` : ""}{formatLocation(event) ? ` · ${formatLocation(event)}` : ""}</p>{event.id ? <EventAttendanceCount eventId={event.id} className="mt-1 block" /> : null}</>;
 }
 
 function ListingPreview({ listing }) {

@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "test": "node --test tests/launch-workflows.test.js",
     "test:watch": "node --test --watch tests/launch-workflows.test.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "node scripts/patch-capacitor-push-notifications.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

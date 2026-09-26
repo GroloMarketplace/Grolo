@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Settings } from "lucide-react";
 import Header from "../components/Header";
 import { useNotifications } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
@@ -121,7 +122,7 @@ export default function NotificationCenter() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <Header title="Notifications" onBack={() => navigate(-1)} />
+      <Header title="Notifications" onBack={() => navigate(-1)} right={<button type="button" aria-label="Notification settings" onClick={() => navigate("/notification-settings")} className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E6ECE8] bg-[#F8FAF8] text-[#1F5A45]"><Settings className="h-4 w-4" /></button>} />
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
         {loading && <p className="py-8 text-center text-[14px] text-[#777]">Loading notifications...</p>}
         {!loading && !chronologicalNotifications.length && (

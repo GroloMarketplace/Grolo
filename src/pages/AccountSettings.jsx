@@ -22,6 +22,7 @@ import { formatLocation, friendlyLocation } from "../data/locations";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import LocationAutocomplete from "../components/LocationAutocomplete";
 import { SaveButton, SaveToast, useSaveFeedback } from "../components/SaveFeedback";
+import { requestNativePushPermission } from "../lib/pushNotifications";
 
 const SELLER_ID = "current-user";
 const seller = { rating: 0 };
@@ -62,13 +63,14 @@ function SellerAccountSettings() {
   const [vacationMessage, setVacationMessage] = useState(profile.vacationMessage ?? "");
   const [returnDate, setReturnDate] = useState(profile.returnDate ?? "");
   const { status: saveStatus, errorMessage: saveError, lastSavedAt, runSave } = useSaveFeedback();
+  const [pushPermissionStatus, setPushPermissionStatus] = useState("");
 
   useEffect(() => {
     setName(profile.name);
     setDescription(profile.description || "");
     setLocation(profile.location || "");
     setPickupLocation(profile.pickupLocation || paymentSettings.pickupLocation || "");
-    setLocationDetails(profile.neighborhood ? { neighborhood: profile.neighborhood, city: profile.city, province: profile.province, country: profile.country, postalCode: profile.postalCode, latitude: profile.latitude, longitude: profile.longitude } : null);
+    setLocationDetails(profile.neighborhood || profile.city || profile.location ? { location: profile.location, neighborhood: profile.neighborhood, city: profile.city, province: profile.province, country: profile.country, postalCode: profile.postalCode, latitude: profile.latitude, longitude: profile.longitude } : null);
     setAvatar(profile.avatar);
     setBanner(profile.banner);
     setNotifications(profile.notifications);
@@ -224,6 +226,7 @@ function SellerAccountSettings() {
 
             <Section title="Notifications">
               {[["newOrders", "New Orders"], ["newMessages", "New Messages"], ["newFollowers", "New Followers"], ["reviews", "Reviews"], ["eventInteractions", "Event Interactions"]].map(([key, label]) => <Checkbox key={key} label={label} checked={notifications[key]} onChange={() => setNotifications((current) => ({ ...current, [key]: !current[key] }))} />)}
+              <PushPermissionButton status={pushPermissionStatus} onStatusChange={setPushPermissionStatus} />
             </Section>
 
             <div className="flex flex-col gap-2">
@@ -255,6 +258,7 @@ function BuyerAccountSettings() {
   const [locationStatus, setLocationStatus] = useState("");
   const [profileUploadProgress, setProfileUploadProgress] = useState(null);
   const { status: saveStatus, errorMessage: saveError, lastSavedAt, runSave } = useSaveFeedback();
+  const [pushPermissionStatus, setPushPermissionStatus] = useState("");
   const reputationSnapshot = useReputationSnapshot(user?.id ?? "current-user");
   const buyerReputationMetrics = reputationSnapshot?.buyerStatus?.metrics ?? {};
   const status = reputationSnapshot?.buyerStatus ?? { currentStatus: "new_buyer" };
@@ -269,7 +273,7 @@ function BuyerAccountSettings() {
     setDisplayName(settings.displayName);
     setBio(settings.bio);
     setLocation(settings.location);
-    setLocationDetails(settings.neighborhood || settings.city ? { neighborhood: settings.neighborhood, city: settings.city, province: settings.province, country: settings.country, postalCode: settings.postalCode, latitude: settings.latitude, longitude: settings.longitude } : null);
+    setLocationDetails(settings.neighborhood || settings.city || settings.location ? { location: settings.location, neighborhood: settings.neighborhood, city: settings.city, province: settings.province, country: settings.country, postalCode: settings.postalCode, latitude: settings.latitude, longitude: settings.longitude } : null);
     setLocationRadius(settings.locationRadius ?? 25);
     setAvatar(settings.avatar);
     setNotifications(settings.notifications);
@@ -366,6 +370,7 @@ function BuyerAccountSettings() {
 
             <Section title="Notification Settings">
               {[['newMessages', 'New Messages'], ['newFollowers', 'New Followers'], ['productUpdates', 'Product Updates'], ['eventUpdates', 'Event Updates'], ['tradeRequests', 'Trade Requests'], ['orderUpdates', 'Order Updates'], ['communityActivity', 'Community Activity']].map(([key, label]) => <Checkbox key={key} label={label} checked={notifications[key]} onChange={() => setNotifications((current) => ({ ...current, [key]: !current[key] }))} />)}
+              <PushPermissionButton status={pushPermissionStatus} onStatusChange={setPushPermissionStatus} />
             </Section>
 
             <Section title="Privacy">
@@ -388,6 +393,14 @@ function Section({ title, children }) {
 
 function Field({ label, value, onChange, type = "text", placeholder, prefix, suffix, step }) {
   return <label className="flex flex-col gap-2 text-[14px] font-medium">{label}<div className="relative"><span className={prefix ? "absolute left-3 top-1/2 -translate-y-1/2 text-[#828282]" : "hidden"}>{prefix}</span><input type={type} value={value} onChange={(event) => onChange(type === "number" ? event.target.value : event.target.value)} placeholder={placeholder} step={step} className={`w-full rounded-lg border border-[#E0E0E0] px-3 py-3 text-[14px] font-normal outline-none focus:border-[#498467] ${prefix ? "pl-7" : ""} ${suffix ? "pr-10" : ""}`} />{suffix && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-[#828282]">{suffix}</span>}</div></label>;
+}
+
+function PushPermissionButton({ status, onStatusChange }) {
+  const request = async () => {
+    const permission = await requestNativePushPermission();
+    onStatusChange(permission === "granted" ? "Notifications enabled" : permission === "denied" ? "Notifications are disabled. Enable them in system settings." : "Push notifications are available in the mobile app.");
+  };
+  return <div className="mt-3 rounded-lg bg-[#F5FFF6] p-3"><div className="flex items-center justify-between gap-3"><div><div className="text-[13px] font-medium">Push notifications</div><div className="text-[11px] text-[#828282]">Receive alerts even when Grolo is closed.</div></div><button type="button" onClick={request} className="rounded-lg border border-[#498467] px-3 py-2 text-[12px] font-medium text-[#498467]">Enable</button></div>{status && <p className="mt-2 text-[11px] text-[#4F4F4F]">{status}</p>}</div>;
 }
 
 function Checkbox({ label, checked, onChange }) {

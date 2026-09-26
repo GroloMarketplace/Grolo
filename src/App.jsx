@@ -31,6 +31,7 @@ import AppErrorBoundary from "./components/AppErrorBoundary";
 import { EngagementProvider } from "./context/EngagementContext";
 import Feed from "./pages/Feed";
 import NotificationCenter from "./pages/NotificationCenter";
+import NotificationSettings from "./pages/NotificationSettings";
 import Search from "./pages/Search";
 import Category from "./pages/Category";
 import Featured from "./pages/Featured";
@@ -132,6 +133,7 @@ export default function App() {
         <Route path="/" element={<PhoneFrame key="home"><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
         <Route path="/home" element={<PhoneFrame key="home"><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
         <Route path="/notifications" element={<PhoneFrame><ProtectedRoute><AppErrorBoundary label="Notifications"><NotificationCenter /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
+        <Route path="/notification-settings" element={<PhoneFrame><ProtectedRoute><AppErrorBoundary label="Notification Settings"><NotificationSettings /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
         <Route path="/shop" element={<PhoneFrame><AppErrorBoundary label="Seller Profile"><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></AppErrorBoundary></PhoneFrame>} />
         <Route path="/seller-profile" element={<PhoneFrame><AppErrorBoundary label="Seller Profile"><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></AppErrorBoundary></PhoneFrame>} />
         <Route path="/profile" element={<PhoneFrame><AppErrorBoundary label="Buyer Profile"><BuyerProfile /></AppErrorBoundary></PhoneFrame>} />

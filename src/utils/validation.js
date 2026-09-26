@@ -2,13 +2,13 @@ export const VALIDATION_LIMITS = {
   username: 30,
   displayName: 80,
   bio: 500,
-  location: 120,
+  location: 240,
   storeName: 80,
   storeDescription: 1000,
   socialHandle: 50,
   title: 120,
   description: 2000,
-  listingLocation: 120,
+  listingLocation: 240,
   quantity: 1000000,
   deliveryRadius: 500,
 };
@@ -92,11 +92,16 @@ export function validateListing(form, isService = false) {
 
 export function validateAddress(address) {
   if (!address?.fullName?.trim() || address.fullName.trim().length > 100) return "Enter your full name.";
-  if (!address.streetAddress?.trim() || address.streetAddress.trim().length > 150) return "Enter a valid street address.";
+  if (!address.streetAddress?.trim() || address.streetAddress.trim().length > 180) return "Enter a valid street address.";
   if (!address.city?.trim() || address.city.trim().length > 80) return "Enter a valid city.";
-  if (!/^[A-Za-z]{2}$/.test(String(address.province ?? "").trim())) return "Province must be a two-letter code, such as AB.";
-  if (!/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/.test(String(address.postalCode ?? "").trim())) return "Enter a valid Canadian postal code.";
-  if (address.unit?.trim().length > 30) return "Apartment or unit must be 30 characters or fewer.";
+  if (!address.province?.trim() || address.province.trim().length > 80) return "Enter a valid province or state.";
+  const postalCode = String(address.postalCode ?? "").trim();
+  const validPostalCode = /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/.test(postalCode)
+    || /^\d{5}(?:-\d{4})?$/.test(postalCode)
+    || /^(?=.*\d)[A-Za-z0-9][A-Za-z0-9 -]{2,19}$/.test(postalCode);
+  if (!validPostalCode) return "Enter a valid postal code or ZIP code.";
+  if (address.country?.trim().length > 80) return "Country must be 80 characters or fewer.";
+  if (address.unit?.trim().length > 40) return "Apartment or unit must be 40 characters or fewer.";
   if (address.notes?.trim().length > 300) return "Delivery notes must be 300 characters or fewer.";
   return null;
 }

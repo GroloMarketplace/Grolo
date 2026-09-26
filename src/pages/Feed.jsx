@@ -702,7 +702,7 @@ function EventPost({ event, onOpenDetail, onComment, onMenu, onShare }) {
 
   const menuContent = { id: `event:${event.id}`, type: "event", title: event.title, name: event.title, sellerId: event.sellerId, eventId: event.id, sharePath: `/event/${event.id}`, savedItem: savedEvent, commentContent: { type: "event", event, seller } };
   const handleLike = () => {
-    toggleLike("event", event.id);
+    toggleLike("event", event.id, event);
     toggleSaved([savedEvent]);
   };
 
@@ -712,6 +712,7 @@ function EventPost({ event, onOpenDetail, onComment, onMenu, onShare }) {
     toggleRegrow(
       `event:${event.id}`,
       regrown ? "🌱 Regrow removed" : "🎉 Event regrown successfully",
+      event,
     );
   };
 
@@ -879,7 +880,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
   const menuContent = { id: `post:${post.id}`, type: "post", title: post.body, name: post.body, sellerId: post.sellerId, productId: post.productId, sharePath: post.productId ? `/product/${post.productId}` : "/", savedItems: [savedPost, ...(savedPromotion ? [savedPromotion] : [])], commentContent: { type: "post", post } };
 
   const handleSave = () => {
-    togglePostLike(post.id);
+    togglePostLike(post.id, post);
     toggleSaved([savedPost, ...(savedPromotion ? [savedPromotion] : [])]);
   };
 
@@ -892,7 +893,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
         ? "🛍 Product regrown successfully"
         : "🌱 Post regrown successfully";
     togglePostRegrow(post.id);
-    toggleRegrow(regrowId, regrown ? "🌱 Regrow removed" : message);
+    toggleRegrow(regrowId, regrown ? "🌱 Regrow removed" : message, post);
   };
 
   const handleSellerClick = () => {

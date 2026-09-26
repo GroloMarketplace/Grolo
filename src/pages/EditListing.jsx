@@ -62,7 +62,7 @@ export default function EditListing() {
     setAvailableForTrade(product.availableForTrade ?? false);
     setDesiredTradeItems(product.desiredTradeItems ?? "");
     setLocation(formatLocation(product) || "");
-    setLocationDetails(product.neighborhood || product.city ? { neighborhood: product.neighborhood, city: product.city, province: product.province, country: product.country, postalCode: product.postalCode, latitude: product.latitude, longitude: product.longitude } : null);
+    setLocationDetails(product.neighborhood || product.city || product.location ? { location: product.location, neighborhood: product.neighborhood, city: product.city, province: product.province, country: product.country, postalCode: product.postalCode, latitude: product.latitude, longitude: product.longitude } : null);
     const storedServiceLocations = Array.isArray(product.serviceLocations) && product.serviceLocations.length
       ? product.serviceLocations
       : [locationFromLegacyText(product.serviceArea || product.location)].filter(Boolean);

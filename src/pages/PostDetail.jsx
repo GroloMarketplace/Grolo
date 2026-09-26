@@ -98,11 +98,11 @@ export default function PostDetail() {
     }
   };
 
-  const handlePostLike = () => togglePostLike(post.id);
+  const handlePostLike = () => togglePostLike(post.id, post);
   const handleShareSuccess = () => incrementPostShares(post.id);
   const handlePostRegrow = () => {
     togglePostRegrow(post.id);
-    toggleRegrow(`post:${post.id}`, regrown ? "🌱 Regrow removed" : "Post regrown");
+    toggleRegrow(`post:${post.id}`, regrown ? "🌱 Regrow removed" : "Post regrown", post);
     setShowRegrowConfirm(false);
   };
 

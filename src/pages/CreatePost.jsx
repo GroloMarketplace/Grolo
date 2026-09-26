@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
+import { Capacitor } from "@capacitor/core";
+import { Camera as CameraIcon, Image as ImageIcon, Video as VideoIcon, Mic, Upload } from "lucide-react";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { POST_CLASSIFICATIONS } from "../data/postClassifications";
@@ -104,9 +107,7 @@ export default function CreatePost() {
   const sellerListings = listings.filter((listing) => listing.sellerId === sellerId);
   const attachedListing = attachedListingId ? sellerListings.find((listing) => listing.id === attachedListingId) : null;
 
-  const handleFiles = async (event) => {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = "";
+  const handleSelectedFiles = async (files) => {
     if (!files.length) return;
     setMediaError("");
     const room = MAX_MEDIA - media.length;
@@ -131,6 +132,28 @@ export default function CreatePost() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleFiles = async (event) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    await handleSelectedFiles(files);
+  };
+
+  const handleCameraPhoto = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const photo = await Camera.getPhoto({ quality: 90, resultType: CameraResultType.DataUrl, source: CameraSource.Camera, correctOrientation: true });
+        if (!photo.dataUrl) return;
+        const response = await fetch(photo.dataUrl);
+        const blob = await response.blob();
+        await handleSelectedFiles([new File([blob], `camera-${Date.now()}.${photo.format || "jpg"}`, { type: blob.type || "image/jpeg" })]);
+      } catch (error) {
+        if (error?.message !== "User cancelled photos app") setMediaError(error.message || "Unable to access the camera.");
+      }
+      return;
+    }
+    cameraPhotoInputRef.current?.click();
   };
 
   const startAudioRecording = async () => {
@@ -255,16 +278,16 @@ export default function CreatePost() {
           <div className="mb-2 flex items-center justify-between"><p className="text-[14px] font-semibold">Add to your post</p><span className="text-[12px] text-[#828282]">{media.length}/{MAX_MEDIA}</span></div>
           <input ref={cameraPhotoInputRef} type="file" accept="image/*" capture="environment" onChange={handleFiles} className="hidden" />
           <input ref={photoInputRef} type="file" accept={mediaAccept(IMAGE_MEDIA_TYPES)} multiple onChange={handleFiles} className="hidden" />
-          <input ref={cameraVideoInputRef} type="file" accept={mediaAccept(VIDEO_MEDIA_TYPES)} capture="environment" onChange={handleFiles} className="hidden" />
+          <input ref={cameraVideoInputRef} type="file" accept={mediaAccept(VIDEO_MEDIA_TYPES)} capture="camcorder" onChange={handleFiles} className="hidden" />
           <input ref={videoInputRef} type="file" accept={mediaAccept(VIDEO_MEDIA_TYPES)} multiple onChange={handleFiles} className="hidden" />
           <input ref={audioInputRef} type="file" accept={mediaAccept(AUDIO_MEDIA_TYPES)} onChange={handleFiles} className="hidden" />
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => cameraPhotoInputRef.current?.click()} disabled={uploading || media.length >= MAX_MEDIA} className="rounded-lg border border-[#E6E6E6] bg-[#F5F5F5] px-3 py-3 text-left text-[13px] font-medium disabled:opacity-50">📷 Camera<span className="mt-1 block text-[11px] font-normal text-[#828282]">Take a photo</span></button>
-            <button type="button" onClick={() => photoInputRef.current?.click()} disabled={uploading || media.length >= MAX_MEDIA} className="rounded-lg border border-[#E6E6E6] bg-[#F5F5F5] px-3 py-3 text-left text-[13px] font-medium disabled:opacity-50">🖼 Photos<span className="mt-1 block text-[11px] font-normal text-[#828282]">Choose from gallery</span></button>
-            <button type="button" onClick={() => cameraVideoInputRef.current?.click()} disabled={uploading || media.length >= MAX_MEDIA} className="rounded-lg border border-[#E6E6E6] bg-[#F5F5F5] px-3 py-3 text-left text-[13px] font-medium disabled:opacity-50">🎥 Video<span className="mt-1 block text-[11px] font-normal text-[#828282]">Record up to 90 sec</span></button>
-            <button type="button" onClick={recording ? stopAudioRecording : startAudioRecording} disabled={uploading || (!recording && media.length >= MAX_MEDIA)} className={`rounded-lg border px-3 py-3 text-left text-[13px] font-medium disabled:opacity-50 ${recording ? "border-red-500 bg-red-50 text-red-700" : "border-[#E6E6E6] bg-[#F5F5F5]"}`}>{recording ? "■ Stop Recording" : "🎙 Record Audio"}<span className="mt-1 block text-[11px] font-normal text-[#828282]">Up to 2 minutes</span></button>
+            <button type="button" onClick={handleCameraPhoto} disabled={uploading || media.length >= MAX_MEDIA} className="flex items-start gap-2 rounded-lg border border-[#E6E6E6] bg-[#F5F5F5] px-3 py-3 text-left text-[13px] font-medium disabled:opacity-50"><CameraIcon className="h-4 w-4 text-[#498467]" /> <span>Camera<span className="mt-1 block text-[11px] font-normal text-[#828282]">Take a photo</span></span></button>
+            <button type="button" onClick={() => photoInputRef.current?.click()} disabled={uploading || media.length >= MAX_MEDIA} className="flex items-start gap-2 rounded-lg border border-[#E6E6E6] bg-[#F5F5F5] px-3 py-3 text-left text-[13px] font-medium disabled:opacity-50"><ImageIcon className="h-4 w-4 text-[#498467]" /> <span>Photos<span className="mt-1 block text-[11px] font-normal text-[#828282]">Choose from gallery</span></span></button>
+            <button type="button" onClick={() => cameraVideoInputRef.current?.click()} disabled={uploading || media.length >= MAX_MEDIA} className="flex items-start gap-2 rounded-lg border border-[#E6E6E6] bg-[#F5F5F5] px-3 py-3 text-left text-[13px] font-medium disabled:opacity-50"><VideoIcon className="h-4 w-4 text-[#498467]" /> <span>Video<span className="mt-1 block text-[11px] font-normal text-[#828282]">Record up to 90 sec</span></span></button>
+            <button type="button" onClick={recording ? stopAudioRecording : startAudioRecording} disabled={uploading || (!recording && media.length >= MAX_MEDIA)} className={`flex items-start gap-2 rounded-lg border px-3 py-3 text-left text-[13px] font-medium disabled:opacity-50 ${recording ? "border-red-500 bg-red-50 text-red-700" : "border-[#E6E6E6] bg-[#F5F5F5]"}`}><Mic className="h-4 w-4" /> <span>{recording ? "Stop Recording" : "Record Audio"}<span className="mt-1 block text-[11px] font-normal text-[#828282]">Up to 2 minutes</span></span></button>
           </div>
-          <button type="button" onClick={() => videoInputRef.current?.click()} disabled={uploading || media.length >= MAX_MEDIA} className="mt-2 w-full rounded-lg border border-dashed border-[#498467] px-3 py-2 text-[13px] font-medium text-[#498467] disabled:opacity-50">Add videos from gallery</button>
+          <button type="button" onClick={() => videoInputRef.current?.click()} disabled={uploading || media.length >= MAX_MEDIA} className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#498467] px-3 py-2 text-[13px] font-medium text-[#498467] disabled:opacity-50"><Upload className="h-4 w-4" /> Add Video From Gallery</button>
           {uploading && <p className="mt-2 text-[13px] text-[#498467]">Uploading media…</p>}
           {mediaError && <p className="mt-2 text-[13px] font-medium text-red-600">{mediaError}</p>}
           {media.length > 0 && <div className="mt-3 flex gap-2 overflow-x-auto pb-1 no-scrollbar">{media.map((item, index) => <MediaPreview key={`${item.path}-${index}`} item={item} index={index} onRemove={removeMedia} />)}</div>}

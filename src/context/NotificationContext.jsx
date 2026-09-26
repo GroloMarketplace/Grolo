@@ -1,5 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
+import { useNavigate } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
+import { registerNativePushNotifications } from "../lib/pushNotifications";
+import { savePushToken } from "../lib/api/pushTokens";
 import {
   getNotifications,
   getUnreadNotificationCount,
@@ -11,14 +15,46 @@ import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const NotificationContext = createContext(null);
 
+function routeForPushNotification(notification) {
+  const data = notification?.data ?? {};
+  if (data.route) return data.route;
+  const relatedId = data.relatedId ?? data.related_id;
+  const type = String(data.type ?? notification?.title ?? "").toLowerCase();
+  if (type.includes("message")) return relatedId ? `/messages/${encodeURIComponent(relatedId)}` : "/messages";
+  if (type.includes("order")) return relatedId ? `/orders/${encodeURIComponent(relatedId)}` : "/orders";
+  if (type.includes("review")) return "/my-shop/reviews";
+  if (type.includes("event")) return relatedId ? `/event/${encodeURIComponent(relatedId)}` : "/notifications";
+  if (type.includes("trade")) return relatedId ? `/messages/${encodeURIComponent(relatedId)}` : "/messages";
+  if (type.includes("follow")) return data.actorId ? `/profile/${encodeURIComponent(data.actorId)}` : "/notifications";
+  return "/notifications";
+}
+
 export function NotificationProvider({ children }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const PAGE_SIZE = 30;
+
+  useEffect(() => {
+    let cancelled = false;
+    let cleanup;
+    if (!user?.id) return undefined;
+    registerNativePushNotifications({
+      onToken: (token) => savePushToken({ userId: user.id, token, platform: Capacitor.getPlatform() }).catch((error) => console.error("Unable to save push token", error)),
+      onAction: (notification) => navigate(routeForPushNotification(notification)),
+    }).then((registration) => {
+      if (cancelled) registration.cleanup?.();
+      else cleanup = registration.cleanup;
+    }).catch((error) => console.error("Unable to register push notifications", error));
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, [navigate, user?.id]);
 
   useEffect(() => {
     let cancelled = false;

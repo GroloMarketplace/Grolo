@@ -46,11 +46,11 @@ export function RegrowProvider({ children }) {
     clearTimer.current = window.setTimeout(() => setToast(null), 5000);
   }, []);
 
-  const toggleRegrow = useCallback((id, message) => {
+  const toggleRegrow = useCallback((id, message, content = null) => {
     setRegrownIds((current) => {
       const active = current.includes(id);
       const next = active ? current.filter((itemId) => itemId !== id) : [...current, id];
-      if (!active) recordActivity({ id: `regrow:${id}`, type: "Regrow", label: "Regrew community content", entityId: id });
+      if (!active) recordActivity({ id: `regrow:${id}`, type: "Regrow", label: `Regrew ${content?.title ?? content?.name ?? "community content"}`, entityId: id, content });
       writeRegrownIds(storageKey, next);
       return next;
     });

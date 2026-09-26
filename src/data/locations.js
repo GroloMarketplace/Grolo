@@ -30,7 +30,7 @@ function regionLabel(region, country) {
 }
 
 export function friendlyLocation(location) {
-  return location?.neighborhood || location?.city || location?.location || "";
+  return location?.streetAddress || location?.addressLine || location?.neighborhood || location?.city || location?.location || "";
 }
 
 function cleanLocationText(value) {
@@ -43,9 +43,16 @@ export function formatLocation(location) {
   const city = String(location.city ?? "").trim();
   const country = String(location.country ?? "").trim();
   const region = regionLabel(String(location.province ?? location.state ?? "").trim(), normalizedCountry(location) || country);
+  const rawLocation = cleanLocationText(location.location);
+  const street = cleanLocationText(location.streetAddress ?? location.addressLine ?? "");
+  const unit = cleanLocationText(location.unit ?? location.suite ?? "");
+  const streetLine = [street, unit].filter(Boolean).join(", ");
+  const hasFullRawAddress = rawLocation && /\d+\s+\S/.test(rawLocation) && rawLocation.toLowerCase() !== city.toLowerCase();
+  if (streetLine) return [streetLine, city, [region, location.postalCode].filter(Boolean).join(" "), country].filter(Boolean).join(", ");
+  if (hasFullRawAddress) return rawLocation;
   if (city && region) return `${city}, ${region}`;
   if (city && country) return `${city}, ${country}`;
-  return city || cleanLocationText(location.location ?? location.neighborhood);
+  return city || rawLocation || cleanLocationText(location.neighborhood);
 }
 
 export function locationSummary(location) {

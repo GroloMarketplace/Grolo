@@ -55,13 +55,13 @@ export function EngagementProvider({ children }) {
 
   const updatePost = useCallback((id, update) => updateEngagement("post", id, update), [updateEngagement]);
 
-  const toggleLike = useCallback((type, id) => {
+  const toggleLike = useCallback((type, id, content = null) => {
     let nextLiked;
     setEngagement((current) => {
       const key = keyFor(type, id);
       const previous = { ...emptyEngagement, ...current[key] };
       nextLiked = !previous.liked;
-      if (nextLiked) recordActivity({ id: `like:${key}`, type: "Community engagement", label: "Liked community content", entityId: id });
+      if (nextLiked) recordActivity({ id: `like:${key}`, type: "Community engagement", label: `Liked ${content?.title ?? content?.name ?? "community content"}`, entityId: id, content, contentType: type });
       const next = { ...current, [key]: { ...previous, liked: nextLiked, likes: Math.max(0, previous.likes + (nextLiked ? 1 : -1)) } };
       writeEngagement(next);
       return next;
@@ -69,7 +69,7 @@ export function EngagementProvider({ children }) {
     return nextLiked;
   }, [recordActivity]);
 
-  const togglePostLike = useCallback((id) => toggleLike("post", id), [toggleLike]);
+  const togglePostLike = useCallback((id, content = null) => toggleLike("post", id, content), [toggleLike]);
 
   const incrementShares = useCallback((type, id) => {
     setEngagement((current) => {

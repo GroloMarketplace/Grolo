@@ -83,7 +83,7 @@ export function SavedProvider({ children }) {
         : [...savedItems, ...items.filter((item) => !savedItems.some((current) => current.id === item.id))];
       setSavedItems(next);
       writeSavedItems(storageKey, next);
-      if (!saved) items.forEach((item) => recordActivity({ id: `save:${item.id}`, type: item.type === "event" ? "Save event" : "Save listing", label: `Saved ${item.name ?? item.title ?? "community content"}`, entityId: item.sourceId ?? item.id }));
+      if (!saved) items.forEach((item) => recordActivity({ id: `save:${item.id}`, type: item.type === "event" ? "Save event" : "Save listing", label: `Saved ${item.name ?? item.title ?? "community content"}`, entityId: item.sourceId ?? item.id, content: item }));
       showToast(saved ? "Removed from Saved Items" : "Saved to Saved Items");
 
       const listingItem = items[0]?.type === "listing" ? items[0] : null;

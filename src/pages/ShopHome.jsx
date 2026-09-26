@@ -71,7 +71,7 @@ export default function ShopHome() {
   const { status: saveStatus, errorMessage: saveError, lastSavedAt, runSave } = useSaveFeedback();
   const [storeName, setStoreName] = useState(sellerProfile.name);
   const [location, setLocation] = useState(sellerProfile.location);
-  const [locationDetails, setLocationDetails] = useState(sellerProfile.neighborhood || sellerProfile.city ? { neighborhood: sellerProfile.neighborhood, city: sellerProfile.city, province: sellerProfile.province, country: sellerProfile.country, postalCode: sellerProfile.postalCode, latitude: sellerProfile.latitude, longitude: sellerProfile.longitude } : null);
+  const [locationDetails, setLocationDetails] = useState(sellerProfile.neighborhood || sellerProfile.city || sellerProfile.location ? { location: sellerProfile.location, neighborhood: sellerProfile.neighborhood, city: sellerProfile.city, province: sellerProfile.province, country: sellerProfile.country, postalCode: sellerProfile.postalCode, latitude: sellerProfile.latitude, longitude: sellerProfile.longitude } : null);
   const [description, setDescription] = useState(sellerProfile.description);
   
   const { getPaymentMethods, updatePaymentMethods, updateFulfillment } = usePaymentMethods();

@@ -10,13 +10,18 @@ function normalizeResult(result) {
   const province = address.state || address.province || address.region || "";
   const country = address.country || "Canada";
   const postalCode = address.postcode || "";
-  const hasStreet = address.house_number || address.road || address.pedestrian;
+  const streetAddress = [address.house_number, address.road || address.pedestrian].filter(Boolean).join(" ").trim();
+  const unit = address.unit || address.suite || address.floor || "";
+  const hasStreet = streetAddress;
   const placeType = `${result.class || ""}:${result.type || ""}`;
   const isCityPlace = /place:(city|town|village|municipality)|boundary:administrative/.test(placeType);
   const scope = address.country_code === "ca" && !city && address.state ? "province" : city && (!hasStreet || isCityPlace) ? "city" : "address";
   return {
     id: `geocode-${result.place_id}`,
     label: result.display_name,
+    addressLine: streetAddress,
+    streetAddress,
+    unit,
     neighborhood: address.suburb || address.neighbourhood || "",
     city,
     province,
@@ -49,7 +54,7 @@ function addDynamicCityOptions(results) {
   return [...cities, ...results];
 }
 
-export default function LocationAutocomplete({ label = "Location", value = "", location = null, locations = [], multiple = false, onChange, required = false, placeholder = "Search an address, city, or postal code" }) {
+export default function LocationAutocomplete({ label = "Location", value = "", location = null, locations = [], multiple = false, onChange, required = false, placeholder = "Search an address, city, or postal code", maxLength = 240 }) {
   const selectedLocations = useMemo(() => (multiple ? locations : location ? [location] : []), [multiple, locations, location]);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -117,7 +122,7 @@ export default function LocationAutocomplete({ label = "Location", value = "", l
       </div>}
       <div className="relative">
         <MapPin aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#498467]" strokeWidth={1.8} />
-        <input id={inputId} required={false} value={query} onChange={(event) => { setQuery(event.target.value); setOpen(true); if (!multiple && location) onChange(null); }} onFocus={() => setOpen(true)} onBlur={handleBlur} placeholder={placeholder} autoComplete="off" className="w-full rounded-xl border border-[#DCEBE0] bg-white py-3 pl-9 pr-9 text-[14px] font-normal outline-none transition-colors focus:border-[#498467] focus:ring-2 focus:ring-[#EAF5ED]" />
+        <input id={inputId} required={false} maxLength={maxLength} value={query} onChange={(event) => { setQuery(event.target.value); setOpen(true); if (!multiple && location) onChange(null); }} onFocus={() => setOpen(true)} onBlur={handleBlur} placeholder={placeholder} autoComplete="off" className="w-full rounded-xl border border-[#DCEBE0] bg-white py-3 pl-9 pr-9 text-[14px] font-normal outline-none transition-colors focus:border-[#498467] focus:ring-2 focus:ring-[#EAF5ED]" />
         {required && <input tabIndex={-1} aria-hidden="true" value={multiple ? selectedLocations.map((option) => option.id).join(",") : location?.id ?? (value ? "legacy-location" : "")} required={multiple ? selectedLocations.length === 0 : !value} readOnly className="pointer-events-none absolute h-0 w-0 opacity-0" />}
         {(query || loading) && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { setQuery(""); setOpen(false); if (multiple) onChange(selectedLocations); else onChange(null); }} aria-label={`Clear ${label.toLowerCase()}`} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#789083]"><X className="h-4 w-4" /></button>}
       </div>

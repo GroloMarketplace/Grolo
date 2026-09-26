@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
-import { SettingsLauncher } from "@capawesome/capacitor-settings-launcher";
+import { AndroidSettings, IOSSettings, Settings } from "@cap-kit/settings";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { isTemporaryImageSource, uploadImageSource } from "../lib/imageStorage";
@@ -238,7 +238,10 @@ export function BuyerSettingsProvider({ children }) {
       if (!isNative) return;
       console.log("[Location] Opening Grolo app settings");
       try {
-        await SettingsLauncher.openAppSettings();
+        await Settings.open({
+          optionAndroid: AndroidSettings.ApplicationDetails,
+          optionIOS: IOSSettings.App,
+        });
       } catch (error) {
         console.error("[Location] Unable to open app settings", error);
       }

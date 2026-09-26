@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
+import { useActivity } from "./ActivityContext";
 import { addFavorite, getFavorites, removeFavorite } from "../lib/api/favorites";
 import { getListingById } from "../lib/api/listings";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
@@ -39,6 +40,7 @@ function savedListingFromFavorite(row) {
 
 export function SavedProvider({ children }) {
   const { user, isSuspended } = useAuth();
+  const { recordActivity } = useActivity();
   const storageKey = `${STORAGE_KEY}-${user?.id ?? "anonymous"}`;
   const [savedItems, setSavedItems] = useState(() => readSavedItems(storageKey));
 
@@ -81,6 +83,7 @@ export function SavedProvider({ children }) {
         : [...savedItems, ...items.filter((item) => !savedItems.some((current) => current.id === item.id))];
       setSavedItems(next);
       writeSavedItems(storageKey, next);
+      if (!saved) items.forEach((item) => recordActivity({ id: `save:${item.id}`, type: item.type === "event" ? "Save event" : "Save listing", label: `Saved ${item.name ?? item.title ?? "community content"}`, entityId: item.sourceId ?? item.id }));
       showToast(saved ? "Removed from Saved Items" : "Saved to Saved Items");
 
       const listingItem = items[0]?.type === "listing" ? items[0] : null;
@@ -96,7 +99,7 @@ export function SavedProvider({ children }) {
         }).catch((error) => console.error("Unable to resolve favorite listing", error));
       }
     },
-    [isSuspended, savedItems, showToast, storageKey, user?.id],
+    [isSuspended, recordActivity, savedItems, showToast, storageKey, user?.id],
   );
 
   return (

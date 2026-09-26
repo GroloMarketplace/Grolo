@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { useActivity } from "./ActivityContext";
 
 const EngagementContext = createContext(null);
 const STORAGE_KEY = "grolo-post-engagement";
@@ -25,6 +26,7 @@ function keyFor(type, id) {
 }
 
 export function EngagementProvider({ children }) {
+  const { recordActivity } = useActivity();
   const [engagement, setEngagement] = useState(readEngagement);
 
   const getEngagement = useCallback((type, item) => {
@@ -59,12 +61,13 @@ export function EngagementProvider({ children }) {
       const key = keyFor(type, id);
       const previous = { ...emptyEngagement, ...current[key] };
       nextLiked = !previous.liked;
+      if (nextLiked) recordActivity({ id: `like:${key}`, type: "Community engagement", label: "Liked community content", entityId: id });
       const next = { ...current, [key]: { ...previous, liked: nextLiked, likes: Math.max(0, previous.likes + (nextLiked ? 1 : -1)) } };
       writeEngagement(next);
       return next;
     });
     return nextLiked;
-  }, []);
+  }, [recordActivity]);
 
   const togglePostLike = useCallback((id) => toggleLike("post", id), [toggleLike]);
 
@@ -86,12 +89,13 @@ export function EngagementProvider({ children }) {
       const key = keyFor(type, id);
       const previous = { ...emptyEngagement, ...current[key] };
       nextRegrown = !previous.regrown;
+      if (nextRegrown) recordActivity({ id: `regrow:${key}`, type: "Regrow", label: "Regrew community content", entityId: id });
       const next = { ...current, [key]: { ...previous, regrown: nextRegrown, regrows: Math.max(0, previous.regrows + (nextRegrown ? 1 : -1)) } };
       writeEngagement(next);
       return next;
     });
     return nextRegrown;
-  }, []);
+  }, [recordActivity]);
 
   const togglePostRegrow = useCallback((id) => toggleRegrow("post", id), [toggleRegrow]);
 

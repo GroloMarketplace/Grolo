@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { useTrustSafety } from "./TrustSafetyContext";
+import { useActivity } from "./ActivityContext";
 
 const FollowContext = createContext(null);
 const STORAGE_KEY = "grolo-following";
@@ -42,6 +43,7 @@ function persistFollowing(userKey, followedSellers) {
 export function FollowProvider({ children }) {
   const { user, isSuspended } = useAuth();
   const { checkBlocked } = useTrustSafety();
+  const { recordActivity } = useActivity();
   const userKey = user?.id ?? "current-user";
   const [followedSellers, setFollowedSellers] = useState(() => readStoredFollowing(userKey));
   const [followerCounts, setFollowerCounts] = useState({});
@@ -157,6 +159,7 @@ export function FollowProvider({ children }) {
     const next = [...previous, sellerKey];
     setFollowedSellers(next);
     setFollowerCounts((current) => ({ ...current, [sellerKey]: (current[sellerKey] ?? 0) + 1 }));
+    recordActivity({ id: `follow:${sellerKey}`, type: "Follow store", label: "Followed a store", entityId: sellerKey });
     persistFollowing(userKey, next);
 
     if (!isSupabaseConfigured || !user?.id) {

@@ -9,17 +9,26 @@ export default function PhoneFrame({ children, hideTabBar, backgroundColor = "bg
   const { pathname } = useLocation();
   const { toast } = useRegrow();
   const { toast: savedToast } = useSavedItems();
-  const { handleTouchStart, handleTouchEnd } = useSwipeBack();
+  const { handleTouchStart, handleTouchMove, handleTouchEnd, swipeOffset, isSwiping } = useSwipeBack();
   const isMobileChat = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && pathname.startsWith("/messages/");
   const activeToast = toast ? { message: toast.message, visible: toast.visible, style: "bg-[#498467]" } : savedToast ? { message: savedToast, visible: true, style: "bg-[#1E1E1E]" } : null;
   return (
     <div className={`${isMobileChat ? "min-h-[100dvh]" : "min-h-[100svh]"} w-full bg-[#efefef]`}>
       <div
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        style={{ touchAction: "pan-y" }}
         className={`app-frame relative flex ${isMobileChat ? "h-[100dvh] min-h-[100dvh]" : "h-[100svh] min-h-[100svh]"} w-full max-w-full flex-col overflow-hidden ${backgroundColor} no-scroll-x`}
       >
-        <div className={`relative flex-1 overflow-x-hidden ${hideTabBar ? "pb-[env(safe-area-inset-bottom)]" : "pb-[calc(5rem+env(safe-area-inset-bottom))]"}`}>
+        <div
+          className={`relative flex-1 overflow-x-hidden ${hideTabBar ? "pb-[env(safe-area-inset-bottom)]" : "pb-[calc(5rem+env(safe-area-inset-bottom))]"}`}
+          style={{
+            transform: swipeOffset ? `translateX(${swipeOffset}px)` : "translateX(0)",
+            transition: isSwiping ? "none" : "transform 180ms ease-out",
+          }}
+        >
           <MobileScreenLayout key={pathname}>
             {children}
           </MobileScreenLayout>

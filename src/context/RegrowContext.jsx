@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
+import { useActivity } from "./ActivityContext";
 
 const RegrowContext = createContext(null);
 const STORAGE_KEY = "grolo-regrown-items";
@@ -18,6 +19,7 @@ function writeRegrownIds(storageKey, ids) {
 
 export function RegrowProvider({ children }) {
   const { user } = useAuth();
+  const { recordActivity } = useActivity();
   const storageKey = `${STORAGE_KEY}-${user?.id ?? "anonymous"}`;
   const [regrownIds, setRegrownIds] = useState(() => readRegrownIds(storageKey));
 
@@ -48,14 +50,15 @@ export function RegrowProvider({ children }) {
     setRegrownIds((current) => {
       const active = current.includes(id);
       const next = active ? current.filter((itemId) => itemId !== id) : [...current, id];
+      if (!active) recordActivity({ id: `regrow:${id}`, type: "Regrow", label: "Regrew community content", entityId: id });
       writeRegrownIds(storageKey, next);
       return next;
     });
     showToast(message);
-  }, [showToast, storageKey]);
+  }, [recordActivity, showToast, storageKey]);
 
   return (
-    <RegrowContext.Provider value={{ isRegrown, toggleRegrow, toast }}>
+    <RegrowContext.Provider value={{ isRegrown, regrownIds, toggleRegrow, toast }}>
       {children}
     </RegrowContext.Provider>
   );

@@ -27,6 +27,8 @@ import SellerReviewCard from "../components/SellerReviewCard";
 import ReputationSummary from "../components/ReputationSummary";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import { useActivity } from "../context/ActivityContext";
+import { useRegrow } from "../context/RegrowContext";
 
 const BUYER = {
   username: "remi",
@@ -59,6 +61,8 @@ export default function BuyerProfile() {
   const buyerProfile = { ...BUYER, username: settings.displayName, handle: settings.username, bio: settings.bio, avatar: settings.avatar };
   const publicLocation = settings.showLocationPublicly && settings.location.trim() ? `${settings.location.trim()}, Calgary` : "";
   const { savedItems } = useSavedItems();
+  const { activities } = useActivity();
+  const { regrownIds } = useRegrow();
   const savedProductCount = savedItems.filter((item) => item.type === "listing").length;
   const [savedProfileState] = useState(() => readNavigationState("buyer-profile", { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 }));
   const [editing, setEditing] = useState(false);
@@ -114,7 +118,7 @@ export default function BuyerProfile() {
       tabScroll?.removeEventListener("scroll", saveState);
     };
   }, [activeTab]);
-  const activity = buildActivity();
+  const activity = buildActivity(activities, savedItems, followedSellers, regrownIds);
 
   const handleProfileChange = (field, value) => {
     setProfileDraft((current) => ({ ...current, [field]: value }));
@@ -262,10 +266,17 @@ export default function BuyerProfile() {
   );
 }
 
-function buildActivity() {
+function buildActivity(activities, savedItems, followedSellers, regrownIds) {
   // Real activity is generated as the buyer interacts with the marketplace.
   // New accounts should start with no activity rather than sample entries.
-  return [];
+  const fallbackActivities = [
+    ...savedItems.map((item) => ({ id: `save:${item.id}`, type: item.type === "event" ? "Save event" : "Save listing", label: `Saved ${item.name ?? item.title ?? "community content"}`, timestamp: item.createdAt })),
+    ...followedSellers.map((sellerId) => ({ id: `follow:${sellerId}`, type: "Follow store", label: "Followed a store", entityId: sellerId })),
+    ...regrownIds.map((itemId) => ({ id: `regrow:${itemId}`, type: "Regrow", label: "Regrew community content", entityId: itemId })),
+  ];
+  const merged = new Map(fallbackActivities.map((activity) => [activity.id, activity]));
+  activities.forEach((activity) => merged.set(activity.id, activity));
+  return [...merged.values()].sort((first, second) => new Date(second.timestamp ?? 0) - new Date(first.timestamp ?? 0));
 }
 
 export function TrustStatusBadge({ status }) {
@@ -355,24 +366,26 @@ export function CommunityImpactTab({ metrics, publicView = false, profileId = "y
 
 export function ActivityCard({ activity, navigate, profile }) {
   const openActivity = () => {
-    if (activity.type === "event") navigate(`/event/${activity.event.id}`);
-    else if (activity.type === "listing" || activity.type === "promotion") navigate(`/product/${activity.listing.id}`);
-    else navigate("/comments", { state: { content: { type: "post", post: activity.post } } });
+    if (activity.type === "event" && activity.event?.id) navigate(`/event/${activity.event.id}`);
+    else if ((activity.type === "listing" || activity.type === "promotion") && activity.listing?.id) navigate(`/product/${activity.listing.id}`);
+    else if (activity.post) navigate("/comments", { state: { content: { type: "post", post: activity.post } } });
   };
+  const avatar = profile?.avatar ?? activity.post?.avatar ?? activity.event?.avatar;
+  const timestamp = activity.timestamp ? new Date(activity.timestamp).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
 
   return (
-    <button type="button" onClick={openActivity} className={`w-full rounded-lg border border-[#E6E6E6] p-3 text-left transition-colors hover:bg-[#F5FFF6]`}>
+    <button type="button" onClick={openActivity} className="w-full rounded-lg border border-[#E6E6E6] p-3 text-left transition-colors hover:bg-[#F5FFF6]">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <img src={profile?.avatar ?? activity.post?.avatar ?? activity.event?.avatar} alt={profile?.username ?? activity.post?.name ?? activity.event?.title} className="h-8 w-8 rounded-full object-cover" />
+          {avatar && <img src={avatar} alt={profile?.username ?? activity.post?.name ?? activity.event?.title ?? "Profile"} className="h-8 w-8 rounded-full object-cover" />}
           <div>
             <p className="text-[14px] font-semibold">{activity.label}</p>
-            <p className="text-[12px] text-[#828282]">{activity.timestamp}</p>
+            <p className="text-[12px] text-[#828282]">{timestamp}</p>
           </div>
         </div>
         <span className="text-[12px] text-[#498467]">{activity.type}</span>
       </div>
-      {activity.type === "event" ? <EventPreview event={activity.event} /> : activity.type === "listing" ? <ListingPreview listing={activity.listing} /> : activity.type === "promotion" ? <PromotionPreview promotion={activity.promotion} listing={activity.listing} /> : <PostPreview post={activity.post} text={activity.text} />}
+      {activity.type === "event" ? <EventPreview event={activity.event} /> : activity.type === "listing" ? <ListingPreview listing={activity.listing} /> : activity.type === "promotion" ? <PromotionPreview promotion={activity.promotion} listing={activity.listing} /> : activity.post ? <PostPreview post={activity.post} text={activity.text} /> : <p className="mt-3 rounded-md bg-[#F5FFF6] p-3 text-[13px] text-[#4F4F4F]">This community action is part of your activity history.</p>}
     </button>
   );
 }

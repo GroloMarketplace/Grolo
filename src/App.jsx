@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import PhoneFrame from "./components/PhoneFrame";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
+import { ActivityProvider } from "./context/ActivityContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { TrustSafetyProvider } from "./context/TrustSafetyContext";
 import { FollowProvider } from "./context/FollowContext";
@@ -93,6 +94,7 @@ export default function App() {
   return (
     <AppErrorBoundary>
       <AuthProvider>
+      <ActivityProvider>
       <NotificationProvider>
       <TrustSafetyProvider>
       <ProfileModeProvider>
@@ -401,6 +403,7 @@ export default function App() {
       </ProfileModeProvider>
       </TrustSafetyProvider>
       </NotificationProvider>
+      </ActivityProvider>
       </AuthProvider>
     </AppErrorBoundary>
   );

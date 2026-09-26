@@ -106,7 +106,9 @@ export default function Feed() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [feedVersion, setFeedVersion] = useState(0);
   const touchStartRef = useRef(null);
+  const pullDistanceRef = useRef(0);
   const { unreadCount: unreadNotificationCount } = useNotifications();
+  const { refreshListings } = useListings();
   const { followedSellers } = useFollow();
   const { savedItems } = useSavedItems();
   const { settings: buyerSettings = {} } = useBuyerSettings();
@@ -195,37 +197,59 @@ export default function Feed() {
 
   const openShare = (content, onComplete) => setShareContent({ content, onComplete });
 
-  const refreshFeed = () => {
+  const refreshFeed = async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
-    setRefreshDistance(56);
-    setFeedVersion((version) => version + 1);
-    window.setTimeout(() => {
+    setRefreshDistance(72);
+    try {
+      await refreshListings();
+      setFeedVersion((version) => version + 1);
+      await new Promise((resolve) => window.setTimeout(resolve, 500));
+    } catch (error) {
+      console.error("Unable to refresh feed", error);
+    } finally {
       setIsRefreshing(false);
       setRefreshDistance(0);
-    }, 900);
+      pullDistanceRef.current = 0;
+    }
   };
 
   const handleTouchStart = (event) => {
-    if (scrollContainerRef.current?.scrollTop === 0 && !isRefreshing) {
+    if (event.touches.length !== 1 || isRefreshing) return;
+    if (scrollContainerRef.current?.scrollTop === 0) {
       touchStartRef.current = event.touches[0].clientY;
+      pullDistanceRef.current = 0;
     }
   };
 
   const handleTouchMove = (event) => {
-    if (touchStartRef.current === null || isRefreshing || scrollContainerRef.current?.scrollTop !== 0) return;
-    const distance = event.touches[0].clientY - touchStartRef.current;
-    if (distance > 0) {
-      setRefreshDistance(Math.min(distance * 0.55, 72));
-      if (distance > 4) event.preventDefault();
+    if (touchStartRef.current === null || isRefreshing || event.touches.length !== 1) return;
+    if (scrollContainerRef.current?.scrollTop !== 0) {
+      touchStartRef.current = null;
+      pullDistanceRef.current = 0;
+      setRefreshDistance(0);
+      return;
     }
+    const distance = event.touches[0].clientY - touchStartRef.current;
+    if (distance <= 0) {
+      pullDistanceRef.current = 0;
+      setRefreshDistance(0);
+      return;
+    }
+    pullDistanceRef.current = distance;
+    setRefreshDistance(Math.min(distance, 96));
+    event.preventDefault();
   };
 
   const handleTouchEnd = () => {
     if (touchStartRef.current === null) return;
-    if (refreshDistance >= 48) refreshFeed();
-    else setRefreshDistance(0);
+    const shouldRefresh = pullDistanceRef.current >= 64;
     touchStartRef.current = null;
+    if (shouldRefresh) refreshFeed();
+    else {
+      setRefreshDistance(0);
+      pullDistanceRef.current = 0;
+    }
   };
 
   return (
@@ -253,7 +277,8 @@ export default function Feed() {
 
       <div
         ref={scrollContainerRef}
-        className="overflow-y-auto flex-1 no-scrollbar"
+        className="overflow-y-auto flex-1 overscroll-y-contain no-scrollbar"
+        style={{ touchAction: "pan-y" }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -261,8 +286,10 @@ export default function Feed() {
       >
         {(refreshDistance > 0 || isRefreshing) && (
           <div
+            role="status"
+            aria-live="polite"
             className="flex items-center justify-center overflow-hidden text-[#498467] transition-[height] duration-150"
-            style={{ height: `${isRefreshing ? 56 : refreshDistance}px` }}
+            style={{ height: `${isRefreshing ? 64 : refreshDistance}px` }}
           >
             <div className="flex flex-col items-center gap-1 text-[12px] font-medium">
               <span className={isRefreshing ? "animate-spin text-[#498467]" : "text-[#498467]"}><OutlineIcon name="sprout" size={20} /></span>

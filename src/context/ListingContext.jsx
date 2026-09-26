@@ -11,6 +11,7 @@ import {
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { refreshUserReputation } from "../lib/api/reputation";
 import { usePromotions } from "./PromotionContext";
+import { useActivity } from "./ActivityContext";
 
 const ListingContext = createContext(null);
 const STORAGE_KEY = "grolo-listings";
@@ -33,6 +34,7 @@ function clearLegacyListings(storageKey) {
 
 export function ListingProvider({ children }) {
   const { user, isSuspended } = useAuth();
+  const { recordActivity } = useActivity();
   const { getListingPricing } = usePromotions();
   const storageKey = `${STORAGE_KEY}-${user?.id ?? "anonymous"}`;
   const [listings, setListings] = useState([]);
@@ -107,6 +109,7 @@ export function ListingProvider({ children }) {
     if (!user?.id) throw new Error("You must be signed in to create a listing.");
     const createdListing = await createListingRecord(listing, user.id);
     setListings((current) => [createdListing, ...current]);
+    recordActivity({ id: `listing-created:${createdListing?.databaseId ?? createdListing?.id}`, type: "Listing creation", label: `Created listing: ${createdListing?.name ?? listing.name ?? "New listing"}`, entityId: createdListing?.databaseId ?? createdListing?.id });
     void refreshUserReputation(user.id, { eventKey: `listing-created:${createdListing?.databaseId ?? createdListing?.id}` });
     return createdListing;
   };
@@ -167,8 +170,8 @@ export function ListingProvider({ children }) {
   const pricedArchivedListings = useMemo(() => priceListings(archivedListings), [archivedListings, priceListings]);
 
   const value = useMemo(
-    () => ({ listings: pricedListings, archivedListings: pricedArchivedListings, loading, error, addListing, updateListing, removeListing, permanentlyDeleteListing, searchListings }),
-    [pricedListings, pricedArchivedListings, loading, error, addListing, updateListing, removeListing, permanentlyDeleteListing, searchListings],
+    () => ({ listings: pricedListings, archivedListings: pricedArchivedListings, loading, error, addListing, updateListing, removeListing, permanentlyDeleteListing, searchListings, refreshListings }),
+    [pricedListings, pricedArchivedListings, loading, error, addListing, updateListing, removeListing, permanentlyDeleteListing, searchListings, refreshListings],
   );
   return <ListingContext.Provider value={value}>{children}</ListingContext.Provider>;
 }

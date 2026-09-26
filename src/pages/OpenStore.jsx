@@ -5,6 +5,7 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useFoundingMember } from "../context/FoundingMemberContext";
+import { useActivity } from "../context/ActivityContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage, removeImage } from "../lib/imageStorage";
@@ -45,6 +46,7 @@ export default function OpenStore() {
   const { activateStore, storeActive } = useProfileMode();
   const { getSellerProfile, refreshSellerProfile, updateSellerProfile } = useSellerSettings();
   const { awardFoundingMember } = useFoundingMember();
+  const { recordActivity } = useActivity();
   const { settings: buyerSettings } = useBuyerSettings();
   const { user } = useAuth();
   const storageKey = `${DRAFT_KEY}-${user?.id ?? "anonymous"}`;
@@ -127,7 +129,10 @@ export default function OpenStore() {
       if (previousAvatar && previousAvatar !== form.avatar) await removeImage(previousAvatar, user.id).catch((error) => console.error("Unable to remove previous avatar", error));
       if (previousBanner && previousBanner !== form.banner) await removeImage(previousBanner, user.id).catch((error) => console.error("Unable to remove previous banner", error));
       const activation = await activateStore();
-      if (user?.id && activation?.openedAt) await awardFoundingMember(user.id, activation.openedAt);
+      if (user?.id && activation?.openedAt) {
+        await awardFoundingMember(user.id, activation.openedAt);
+        recordActivity({ id: `store-created:${user.id}`, type: "Store creation", label: `Created store: ${normalizedForm.name}`, entityId: user.id });
+      }
       await refreshSellerProfile();
       try { localStorage.removeItem(storageKey); } catch { /* Ignore storage cleanup failures. */ }
       navigate("/shop", { replace: true });

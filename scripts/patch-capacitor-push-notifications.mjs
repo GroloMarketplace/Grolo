@@ -10,7 +10,11 @@ const withoutUnavailableConfigApi = source.replace(
   /        if let optionsArray = self\.plugin\?\.getConfig\(\)\.getArray\("presentationOptions"\) as\? \[String\] \{[\s\S]*?        return \[\]\n/,
   "        return [.banner, .list, .badge, .sound]\n",
 );
-const patched = withoutUnavailableConfigApi.replace(
+const withoutExistingHelpers = withoutUnavailableConfigApi.replace(
+  /    private func jsValue\(_ value: Any\) -> JSValue\? \{\n        switch value \{\n        case let value as String: return value\n        case let value as Bool: return value\n        case let value as Int: return value\n        case let value as Double: return value\n        case let value as NSNumber: return value\n        case let value as NSNull: return value\n        case let value as \[Any\]: return value\.compactMap\(jsValue\)\n        case let value as \[AnyHashable: Any\]:\n            return value\.reduce\(into: JSObject\(\)\) \{ result, item in\n                if let key = item\.key as\? String, let value = jsValue\(item\.value\) \{ result\[key\] = value \}\n            \}\n        default: return nil\n        \}\n    \}\n/g,
+  "",
+);
+const patched = withoutExistingHelpers.replace(
   /    func makeNotificationRequestJSObject\(_ request: UNNotificationRequest\) -> JSObject \{[\s\S]*?\n    \}\n\}/,
   `    private func jsValue(_ value: Any) -> JSValue? {
         switch value {

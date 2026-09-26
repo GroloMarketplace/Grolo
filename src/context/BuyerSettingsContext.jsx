@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { Capacitor } from "@capacitor/core";
-import { Geolocation } from "@capacitor/geolocation";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { isTemporaryImageSource, uploadImageSource } from "../lib/imageStorage";
@@ -233,47 +232,6 @@ export function BuyerSettingsProvider({ children }) {
       }
       return null;
     };
-    const deniedResult = async (message = "Location access is disabled. Enable location access in your device settings, then try again.") => {
-      console.warn("[Location] Permission denied; asking user to enable access in device settings");
-      const saveError = await savePermissionState("denied");
-      return { ok: false, error: saveError || message };
-    };
-
-    if (isNative) {
-      try {
-        console.log("[Location] Calling Geolocation.checkPermissions()");
-        let permission = await Geolocation.checkPermissions();
-        console.log("[Location] checkPermissions() resolved", permission);
-        if (permission.location === "denied") return deniedResult();
-        if (permission.location !== "granted") {
-          console.log("[Location] Calling Geolocation.requestPermissions()");
-          permission = await Geolocation.requestPermissions();
-          console.log("[Location] requestPermissions() resolved", permission);
-          if (permission.location !== "granted") return deniedResult();
-        }
-        console.log("[Location] Calling Geolocation.getCurrentPosition()");
-        const { coords } = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 });
-        console.log("[Location] getCurrentPosition() resolved", {
-          hasCoordinates: Boolean(coords),
-          accuracy: coords?.accuracy,
-        });
-        const next = { latitude: coords.latitude, longitude: coords.longitude, locationPermission: "enabled" };
-        await updateSettings(next);
-        console.log("[Location] Coordinates saved successfully");
-        return { ok: true, ...next };
-      } catch (error) {
-        console.error("[Location] Native geolocation call failed", error);
-        console.log("[Location] Checking permission state after failure");
-        const permission = await Geolocation.checkPermissions().catch((permissionError) => {
-          console.error("[Location] checkPermissions() after failure also failed", permissionError);
-          return null;
-        });
-        console.log("[Location] Permission state after failure", permission);
-        if (permission?.location === "denied") return deniedResult();
-        return { ok: false, error: error.message || "We couldn't determine your location." };
-      }
-    }
-
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       const saveError = await savePermissionState("unsupported");
       return { ok: false, error: saveError || "Location services are not available on this device." };

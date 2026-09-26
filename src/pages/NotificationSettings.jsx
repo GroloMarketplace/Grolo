@@ -8,21 +8,22 @@ import { useProfileMode } from "../context/ProfileModeContext";
 import { getNativePushPermissionStatus, requestNativePushPermission } from "../lib/pushNotifications";
 
 const BUYER_OPTIONS = [
-  ["newMessages", "New Messages", "Messaging"],
-  ["newFollowers", "New Followers", "Community"],
+  ["newMessages", "New Messages", "Messages"],
+  ["newOrders", "New Orders", "Orders"],
+  ["orderAccepted", "Order Accepted", "Orders"],
+  ["orderCompleted", "Order Completed", "Orders"],
+  ["newFollowers", "Followers", "Community"],
+  ["regrows", "Regrows", "Community"],
+  ["communityActivity", "Community Activity", "Community"],
+  ["eventReminders", "Event Reminders", "Events"],
+  ["savedEventUpdates", "Saved Event Updates", "Events"],
+  ["reviewsReceived", "Reviews Received", "Reviews"],
   ["productUpdates", "Product Updates", "Marketing"],
-  ["eventUpdates", "Event Reminders and Saved Event Updates", "Events"],
-  ["tradeRequests", "Trade Activity", "Community"],
-  ["orderUpdates", "Order Updates", "Orders"],
-  ["communityActivity", "Regrows and Community Activity", "Community"],
+  ["groloAnnouncements", "Grolo Announcements", "Marketing"],
 ];
 
 const SELLER_OPTIONS = [
-  ["newMessages", "New Messages", "Messaging"],
-  ["newOrders", "New Orders", "Orders"],
-  ["newFollowers", "New Followers", "Community"],
-  ["reviews", "Review Received", "Reviews"],
-  ["eventInteractions", "Event Activity", "Events"],
+  ...BUYER_OPTIONS,
 ];
 
 export default function NotificationSettings() {

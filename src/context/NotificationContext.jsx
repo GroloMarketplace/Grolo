@@ -43,15 +43,23 @@ export function NotificationProvider({ children }) {
     let cancelled = false;
     let cleanup;
     if (!user?.id) return undefined;
-    registerNativePushNotifications({
+
+    const register = () => registerNativePushNotifications({
       onToken: (token) => savePushToken({ userId: user.id, token, platform: Capacitor.getPlatform() }).catch((error) => console.error("Unable to save push token", error)),
       onAction: (notification) => navigate(routeForPushNotification(notification)),
     }).then((registration) => {
       if (cancelled) registration.cleanup?.();
-      else cleanup = registration.cleanup;
+      else {
+        cleanup?.();
+        cleanup = registration.cleanup;
+      }
     }).catch((error) => console.error("Unable to register push notifications", error));
+
+    register();
+    window.addEventListener("grolo:push-permission-changed", register);
     return () => {
       cancelled = true;
+      window.removeEventListener("grolo:push-permission-changed", register);
       cleanup?.();
     };
   }, [navigate, user?.id]);
@@ -80,7 +88,7 @@ export function NotificationProvider({ children }) {
     channel = subscribeToNotifications(user.id, (notification) => {
       setNotifications((current) => [notification, ...current.filter((item) => item.id !== notification.id)]);
       if (!notification.read) setUnreadCount((current) => current + 1);
-    }, (status, error) => {
+    }, () => {
     });
     return () => {
       cancelled = true;

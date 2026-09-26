@@ -9,9 +9,18 @@ const SellerSettingsContext = createContext(null);
 const CURRENT_USER_SELLER_ID = "current-user";
 
 const defaultNotifications = {
-  newOrders: true,
   newMessages: true,
+  newOrders: true,
+  orderAccepted: true,
+  orderCompleted: true,
   newFollowers: true,
+  regrows: true,
+  communityActivity: true,
+  eventReminders: true,
+  savedEventUpdates: true,
+  reviewsReceived: true,
+  productUpdates: true,
+  groloAnnouncements: true,
   reviews: true,
   eventInteractions: true,
 };

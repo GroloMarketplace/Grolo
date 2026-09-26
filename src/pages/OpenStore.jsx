@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import { useFoundingMember } from "../context/FoundingMemberContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useAuth } from "../context/AuthContext";
 import { uploadImage, removeImage } from "../lib/imageStorage";
@@ -42,7 +43,8 @@ function readDraft(storageKey, profile, buyerAvatar) {
 export default function OpenStore() {
   const navigate = useNavigate();
   const { activateStore, storeActive } = useProfileMode();
-  const { getSellerProfile, updateSellerProfile } = useSellerSettings();
+  const { getSellerProfile, refreshSellerProfile, updateSellerProfile } = useSellerSettings();
+  const { awardFoundingMember } = useFoundingMember();
   const { settings: buyerSettings } = useBuyerSettings();
   const { user } = useAuth();
   const storageKey = `${DRAFT_KEY}-${user?.id ?? "anonymous"}`;
@@ -124,7 +126,9 @@ export default function OpenStore() {
       await updateSellerProfile(SELLER_ID, { ...normalizedForm, location: formatLocation(location) || normalizedForm.location, neighborhood: location.neighborhood, city: location.city, province: location.province, country: location.country, postalCode: location.postalCode, latitude: location.latitude, longitude: location.longitude, socialLinks });
       if (previousAvatar && previousAvatar !== form.avatar) await removeImage(previousAvatar, user.id).catch((error) => console.error("Unable to remove previous avatar", error));
       if (previousBanner && previousBanner !== form.banner) await removeImage(previousBanner, user.id).catch((error) => console.error("Unable to remove previous banner", error));
-      await activateStore();
+      const activation = await activateStore();
+      if (user?.id && activation?.openedAt) await awardFoundingMember(user.id, activation.openedAt);
+      await refreshSellerProfile();
       try { localStorage.removeItem(storageKey); } catch { /* Ignore storage cleanup failures. */ }
       navigate("/shop", { replace: true });
     } catch (error) {

@@ -142,7 +142,7 @@ export function ProfileModeProvider({ children }) {
     setStoreOpenedAt(new Date(openedAt).getTime());
     setProfileModeState("seller");
     writeStoredMode(user.id, "seller");
-    return true;
+    return { openedAt };
   };
 
   const setProfileMode = (mode) => {

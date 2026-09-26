@@ -92,7 +92,7 @@ export function FoundingMemberProvider({ children }) {
         reviewSubmitted: true,
         reserved: false,
         qualifiedByLaunchEra: true,
-        expiresAt: getExpirationDate(accountCreatedAt),
+        expiresAt: getExpirationDate(storeCreatedAt),
       };
     }
     return null;
@@ -101,7 +101,7 @@ export function FoundingMemberProvider({ children }) {
   const isFoundingMember = useCallback((sellerId, storeCreatedAt) => Boolean(getFoundingMember(sellerId, storeCreatedAt)), [getFoundingMember]);
 
 
-  const awardFoundingMember = useCallback((sellerId, createdAt = today()) => {
+  const awardFoundingMember = useCallback(async (sellerId, createdAt = today()) => {
     const existing = members[sellerId];
     if (existing) return existing;
     if (!isFoundingYearStore(createdAt)) return null;
@@ -114,7 +114,7 @@ export function FoundingMemberProvider({ children }) {
     persistMembers(next);
 
     if (isSupabaseConfigured) {
-      awardBadge({
+      await awardBadge({
         userId: sellerId,
         badgeCode: "founding_member",
         metadata: {

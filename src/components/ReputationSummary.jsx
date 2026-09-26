@@ -82,7 +82,7 @@ function formatMemberSince(storeCreatedAt, memberSince) {
 
 export function CompactReputationHeader({ snapshot, audience = "seller", includeFoundingMember = true, className = "" }) {
   const navigate = useNavigate();
-  const status = audience === "seller" ? { ...(snapshot?.sellerStatus ?? {}), currentStatus: "established_seller" } : snapshot?.buyerStatus;
+  const status = audience === "seller" ? snapshot?.sellerStatus : snapshot?.buyerStatus;
   const metrics = status?.metrics ?? {};
   const activeBadges = snapshot?.activeBadges ?? [];
   const values = audience === "seller"
@@ -126,7 +126,7 @@ export function TrustMetricSummary({ metrics = {}, audience = "buyer", memberSin
 
 export default function ReputationSummary({ snapshot, audience = "buyer", memberSince, storeCreatedAt, sellerId, foundingMember = false, compact = false, includeFoundingMember = true, runtimeDiagnostic = false, className = "" }) {
   const navigate = useNavigate();
-  const status = audience === "seller" ? { ...(snapshot?.sellerStatus ?? {}), currentStatus: "established_seller" } : snapshot?.buyerStatus;
+  const status = audience === "seller" ? snapshot?.sellerStatus : snapshot?.buyerStatus;
   const metrics = status?.metrics ?? {};
   const activeBadges = snapshot?.activeBadges ?? [];
 

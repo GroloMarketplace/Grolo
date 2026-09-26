@@ -4,7 +4,6 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import GroloStatusIcon from "../components/GroloStatusIcon";
 import { useAuth } from "../context/AuthContext";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
-import { useProfileMode } from "../context/ProfileModeContext";
 
 const SELLER_STATUSES = [
   {
@@ -39,55 +38,13 @@ const SELLER_STATUSES = [
   },
 ];
 
-function sellerMetrics(snapshot, storeActive) {
-  const metrics = snapshot?.sellerStatus?.metrics ?? {};
-  return {
-    profileCompleted: Number(metrics.profileCompleted ?? metrics.profile_completed ?? storeActive),
-    activeListings: Number(metrics.activeListings ?? metrics.activeListingCount ?? metrics.active_listing_count ?? 0),
-    accountInGoodStanding: Number(metrics.accountInGoodStanding ?? metrics.account_in_good_standing ?? storeActive),
-    completedOrders: Number(metrics.completedOrders ?? metrics.completedOrderCount ?? metrics.completed_order_count ?? 0),
-    activeStoreDays: Number(metrics.activeStoreDays ?? metrics.activeDays ?? metrics.active_days ?? 0),
-    buyerReviews: Number(metrics.buyerReviews ?? metrics.buyerReviewCount ?? metrics.buyer_review_count ?? metrics.reviewCount ?? 0),
-    averageRating: Number(metrics.averageRating ?? metrics.average_rating ?? 0),
-    noTrustSafetyViolations: Number(metrics.noTrustSafetyViolations ?? metrics.no_trust_safety_violations ?? 0),
-    noUnresolvedDisputes: Number(metrics.noUnresolvedDisputes ?? metrics.no_unresolved_disputes ?? 0),
-    responseRate: Number(metrics.responseRate ?? metrics.response_rate ?? 0),
-    communityContribution: Number(metrics.communityContribution ?? 0),
-  };
-}
-
-function requirementsMet(status, metrics) {
-  return status.requirements.every((requirement) => {
-    const target = requirement.includes("4.8") ? 4.8 : requirement.includes("Average rating") ? 4.7 : null;
-    if (target != null) return metrics.averageRating >= target;
-    if (requirement.includes("Store profile")) return metrics.profileCompleted >= 1;
-    if (requirement.includes("active listing")) return metrics.activeListings >= (requirement.includes("5") ? 5 : 1);
-    if (requirement.includes("good standing")) return metrics.accountInGoodStanding >= 1;
-    if (requirement.includes("10 completed")) return metrics.completedOrders >= 10;
-    if (requirement.includes("50 completed")) return metrics.completedOrders >= 50;
-    if (requirement.includes("100 completed")) return metrics.completedOrders >= 100;
-    if (requirement.includes("30+")) return metrics.activeStoreDays >= 30;
-    if (requirement.includes("90+")) return metrics.activeStoreDays >= 90;
-    if (requirement.includes("180+")) return metrics.activeStoreDays >= 180;
-    if (requirement.includes("1 completed buyer")) return metrics.buyerReviews >= 1;
-    if (requirement.includes("15 buyer")) return metrics.buyerReviews >= 15;
-    if (requirement.includes("25 buyer")) return metrics.buyerReviews >= 25;
-    if (requirement.includes("trust")) return metrics.noTrustSafetyViolations >= 1;
-    if (requirement.includes("disputes")) return metrics.noUnresolvedDisputes >= 1;
-    if (requirement.includes("Response")) return metrics.responseRate >= 90;
-    if (requirement.includes("community")) return metrics.communityContribution >= 1;
-    return false;
-  });
-}
-
 export default function SellerStatuses() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { storeActive } = useProfileMode();
   const snapshot = useReputationSnapshot(user?.id ?? "current-user");
-  const metrics = sellerMetrics(snapshot, storeActive);
-  const earnedCodes = new Set(SELLER_STATUSES.filter((status) => !status.future && requirementsMet(status, metrics)).map((status) => status.code));
-  const currentCode = [...SELLER_STATUSES].reverse().find((status) => earnedCodes.has(status.code))?.code ?? "new_seller";
+  const currentCode = snapshot?.sellerStatus?.currentStatus ?? "new_seller";
+  const currentIndex = SELLER_STATUSES.findIndex((status) => status.code === currentCode);
+  const earnedCodes = new Set(SELLER_STATUSES.filter((status, index) => !status.future && index <= Math.max(currentIndex, 0)).map((status) => status.code));
 
   return (
     <MobileScreenLayout>

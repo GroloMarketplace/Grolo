@@ -14,16 +14,22 @@ export function useReputationSnapshot(userId) {
       };
     }
 
-    getReputationSnapshot(userId)
-      .then((nextSnapshot) => {
-        if (cancelled) return;
-        setSnapshot(nextSnapshot);
-      })
-      .catch((error) => {
-      });
+    const loadSnapshot = () => {
+      getReputationSnapshot(userId)
+        .then((nextSnapshot) => {
+          if (!cancelled) setSnapshot(nextSnapshot);
+        })
+        .catch(() => {});
+    };
+    const handleReputationUpdate = (event) => {
+      if (!event.detail?.userId || event.detail.userId === userId || userId === "current-user") loadSnapshot();
+    };
 
+    loadSnapshot();
+    window.addEventListener("grolo:reputation-updated", handleReputationUpdate);
     return () => {
       cancelled = true;
+      window.removeEventListener("grolo:reputation-updated", handleReputationUpdate);
     };
   }, [userId]);
 

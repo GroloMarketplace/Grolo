@@ -37,7 +37,7 @@ const BUYER = {
 export default function BuyerProfile() {
   const navigate = useNavigate();
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
-  const { settings } = useBuyerSettings();
+  const { settings, updateSettings } = useBuyerSettings();
   const { user } = useAuth();
   const { events: liveEvents, attendingEventIds } = useEvents();
   const { followedSellers } = useFollow();
@@ -62,6 +62,15 @@ export default function BuyerProfile() {
   const savedProductCount = savedItems.filter((item) => item.type === "listing").length;
   const [savedProfileState] = useState(() => readNavigationState("buyer-profile", { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 }));
   const [editing, setEditing] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [profileDraft, setProfileDraft] = useState(() => ({
+    displayName: settings.displayName,
+    username: settings.username,
+    bio: settings.bio,
+    location: settings.location,
+    showLocationPublicly: settings.showLocationPublicly,
+  }));
   const [activeTab, setActiveTab] = useState(() => Math.min(Math.max(savedProfileState.activeTab, 0), 2));
   const pageScrollRef = useRef(null);
   const tabContentRef = useRef(null);
@@ -83,6 +92,18 @@ export default function BuyerProfile() {
   }, [activeTab, savedProfileState.scrollTop]);
 
   useEffect(() => {
+    if (!editing) {
+      setProfileDraft({
+        displayName: settings.displayName,
+        username: settings.username,
+        bio: settings.bio,
+        location: settings.location,
+        showLocationPublicly: settings.showLocationPublicly,
+      });
+    }
+  }, [editing, settings]);
+
+  useEffect(() => {
     const saveState = () => writeNavigationState("buyer-profile", { activeTab, scrollTop: pageScrollRef.current?.scrollTop ?? 0, tabScrollLeft: tabContentRef.current?.scrollLeft ?? 0 });
     const pageScroll = pageScrollRef.current;
     const tabScroll = tabContentRef.current;
@@ -94,6 +115,37 @@ export default function BuyerProfile() {
     };
   }, [activeTab]);
   const activity = buildActivity();
+
+  const handleProfileChange = (field, value) => {
+    setProfileDraft((current) => ({ ...current, [field]: value }));
+    setProfileError("");
+  };
+
+  const handleProfileButton = async () => {
+    if (!editing) {
+      setProfileDraft({
+        displayName: settings.displayName,
+        username: settings.username,
+        bio: settings.bio,
+        location: settings.location,
+        showLocationPublicly: settings.showLocationPublicly,
+      });
+      setProfileError("");
+      setEditing(true);
+      return;
+    }
+
+    setSavingProfile(true);
+    setProfileError("");
+    try {
+      await updateSettings(profileDraft);
+      setEditing(false);
+    } catch (error) {
+      setProfileError(error.message || "We couldn't save your profile. Please try again.");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const handleTabChange = (index) => {
     setActiveTab(index);
@@ -126,15 +178,37 @@ export default function BuyerProfile() {
             <div className="flex items-start gap-3">
               <img src={buyerProfile.avatar} alt={buyerProfile.username} className="h-16 w-16 rounded-full border-2 border-white object-cover shadow" />
               <div className="flex-1">
-                {editing ? <input defaultValue={buyerProfile.username} className="w-full border-b border-[#E6E6E6] text-[20px] font-semibold outline-none" /> : <h1 className="text-[20px] font-semibold">{buyerProfile.username}</h1>}
-                <p className="text-[12px] text-[#828282]">@{buyerProfile.handle}</p>
+                {editing ? (
+                  <label className="flex flex-col gap-1 text-[11px] font-medium text-[#828282]">
+                    Display name
+                    <input value={profileDraft.displayName} onChange={(event) => handleProfileChange("displayName", event.target.value)} className="w-full rounded-md border border-[#E6E6E6] px-2 py-1 text-[20px] font-semibold text-black outline-none focus:border-[#498467]" />
+                  </label>
+                ) : <h1 className="text-[20px] font-semibold">{buyerProfile.username || "Your profile"}</h1>}
+                {editing ? (
+                  <label className="mt-2 flex flex-col gap-1 text-[11px] font-medium text-[#828282]">
+                    Username
+                    <input value={profileDraft.username} onChange={(event) => handleProfileChange("username", event.target.value)} className="w-full rounded-md border border-[#E6E6E6] px-2 py-1 text-[12px] text-black outline-none focus:border-[#498467]" />
+                  </label>
+                ) : <p className="text-[12px] text-[#828282]">@{buyerProfile.handle}</p>}
                 <FoundingMemberBadge sellerId="current-user" />
                 <TrustStatusBadge status={reputationSnapshot?.buyerStatus} buyerId="you" />
-                {publicLocation && <p className="mt-0.5 flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{publicLocation}</p>}
+                {editing ? (
+                  <label className="mt-2 flex flex-col gap-1 text-[11px] font-medium text-[#828282]">
+                    Location
+                    <input value={profileDraft.location} onChange={(event) => handleProfileChange("location", event.target.value)} placeholder="City or neighborhood" className="w-full rounded-md border border-[#E6E6E6] px-2 py-1 text-[13px] text-black outline-none focus:border-[#498467]" />
+                  </label>
+                ) : publicLocation && <p className="mt-0.5 flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{publicLocation}</p>}
               </div>
             </div>
-            <p className="mt-3 text-[14px] leading-[140%]">{buyerProfile.bio}</p>
-            <button type="button" onClick={() => setEditing((current) => !current)} className="mt-4 w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">{editing ? "Save Profile" : "Edit Profile"}</button>
+            {editing ? (
+              <label className="mt-3 flex flex-col gap-1 text-[11px] font-medium text-[#828282]">
+                Bio
+                <textarea value={profileDraft.bio} onChange={(event) => handleProfileChange("bio", event.target.value)} rows={3} className="resize-none rounded-md border border-[#E6E6E6] px-2 py-2 text-[14px] font-normal text-black outline-none focus:border-[#498467]" />
+              </label>
+            ) : <p className="mt-3 text-[14px] leading-[140%]">{buyerProfile.bio}</p>}
+            {editing && <label className="mt-3 flex items-center gap-2 text-[13px] text-[#505050]"><input type="checkbox" checked={profileDraft.showLocationPublicly} onChange={(event) => handleProfileChange("showLocationPublicly", event.target.checked)} className="h-4 w-4 accent-[#498467]" />Show location publicly</label>}
+            {profileError && <p role="alert" className="mt-3 text-[13px] text-red-600">{profileError}</p>}
+            <button type="button" disabled={savingProfile} onClick={handleProfileButton} className="mt-4 w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467] disabled:cursor-wait disabled:opacity-60">{savingProfile ? "Saving…" : editing ? "Save Profile" : "Edit Profile"}</button>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <BuyerStat icon="users" label="Stores Followed" value={impactMetrics.storesFollowed} />
               <button type="button" onClick={() => navigate("/saved")} className="text-left"><BuyerStat icon="heart" label="Saved Items" value={savedProductCount} /></button>

@@ -164,6 +164,14 @@ export function SellerSettingsProvider({ children }) {
     return resolvedId === user?.id ? currentUserSellerProfile : profiles[resolvedId] ?? emptyProfile;
   };
 
+  const refreshSellerProfile = async () => {
+    if (!user?.id || !isSupabaseConfigured) return false;
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+    if (error) throw error;
+    if (data) setProfiles((current) => ({ ...current, [user.id]: sellerProfileFromRow(data) }));
+    return Boolean(data);
+  };
+
   const updateSellerProfile = async (sellerId, updates) => {
     const resolvedId = resolveUserId(sellerId);
     if (!user?.id || !isSupabaseConfigured) {
@@ -199,7 +207,7 @@ export function SellerSettingsProvider({ children }) {
     return true;
   };
 
-  return <SellerSettingsContext.Provider value={{ profiles, getSellerProfile, updateSellerProfile }}>{children}</SellerSettingsContext.Provider>;
+  return <SellerSettingsContext.Provider value={{ profiles, getSellerProfile, refreshSellerProfile, updateSellerProfile }}>{children}</SellerSettingsContext.Provider>;
 }
 
 export function useSellerSettings() {

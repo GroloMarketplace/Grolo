@@ -309,16 +309,11 @@ export async function getBuyerStatus(userId) {
 export async function getSellerStatus(userId) {
   requireSupabase();
   const resolvedUserId = await resolveReputationUserId(userId);
-  if (!resolvedUserId) return statusPayload(null, "unranked", {}, {}, emptyDiagnostics());
-  const [row, aggregate] = await Promise.all([getStatusRow(resolvedUserId, "seller"), getSellerAggregate(resolvedUserId)]);
-  const fallbackStatus = aggregate.metrics.completedOrderCount >= 10
-    && aggregate.metrics.activeDays >= 30
-    && aggregate.metrics.activeListingCount >= 5
-    && aggregate.metrics.reviewCount >= 1
-    ? "established_seller"
-    : "unranked";
-  const diagnostics = emptyDiagnostics({ statusSource: row ? "user_reputation_status" : "derived", aggregateSource: "reviews, orders, listings" });
-  return { userId, user_id: userId, ...statusPayload(row, fallbackStatus, aggregate.progress, aggregate.metrics, diagnostics) };
+  if (!resolvedUserId) return statusPayload(null, "new_seller", {}, {}, emptyDiagnostics());
+  const aggregate = await getSellerAggregate(resolvedUserId);
+  const calculated = calculateStatus(SELLER_STATUS_RULES, aggregate.metrics);
+  const diagnostics = emptyDiagnostics({ statusSource: "derived_from_seller_requirements", aggregateSource: "reviews, orders, listings" });
+  return { userId, user_id: userId, ...statusPayload(null, calculated.statusCode, calculated.progress, aggregate.metrics, diagnostics) };
 }
 
 export async function getCommunityImpact(userId) {
@@ -439,6 +434,9 @@ export async function refreshUserReputation(userId, { eventKey = "manual" } = {}
 
   reputationRefreshes.set(refreshKey, refresh);
   refresh.finally(() => reputationRefreshes.delete(refreshKey));
+  refresh.then(() => {
+    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("grolo:reputation-updated", { detail: { userId } }));
+  }).catch(() => {});
   return refresh;
 }
 
@@ -579,10 +577,8 @@ const BUYER_STATUS_RULES = [
 ];
 
 const SELLER_STATUS_RULES = [
-  { code: "community_seeding", metrics: {} },
-  { code: "community_growing", metrics: { listingsCreated: 5, completedSellerOrders: 1, followers: 5 } },
-  { code: "community_flourishing", metrics: { completedSellerOrders: 10, followers: 15, sellerReviews: 3, marketplaceInteractions: 10, activeDays: 30 } },
-  { code: "grolo_partner", metrics: { completedSellerOrders: 25, followers: 25, sellerReviews: 10, sellerRating: 4.5, activeDays: 90, communityContribution: 1 } },
+  { code: "new_seller", metrics: {} },
+  { code: "established_seller", metrics: { completedSellerOrders: 10, activeDays: 30, listingsCreated: 5, sellerReviews: 1 } },
 ];
 
 function statusProgress(rules, index, metrics) {

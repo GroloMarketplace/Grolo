@@ -4,10 +4,12 @@ import { fileURLToPath } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const pluginRoot = path.join(projectRoot, "node_modules", "@capacitor", "push-notifications", "ios", "Sources", "PushNotificationsPlugin");
+const cameraPath = path.join(projectRoot, "node_modules", "@capacitor", "camera", "ios", "Sources", "CameraPlugin", "CameraPlugin.swift");
 const handlerPath = path.join(pluginRoot, "PushNotificationsHandler.swift");
 const pluginPath = path.join(pluginRoot, "PushNotificationsPlugin.swift");
 const source = await readFile(handlerPath, "utf8");
 const pluginSource = await readFile(pluginPath, "utf8");
+const cameraSource = await readFile(cameraPath, "utf8");
 
 const withoutUnavailableConfigApi = source.replace(
   /        if let optionsArray = self\.plugin\?\.getConfig\(\)\.getArray\("presentationOptions"\) as\? \[String\] \{[\s\S]*?        return \[\]\n/,
@@ -60,9 +62,13 @@ const patchedPlugin = pluginSource
   .replace("guard let notifications = call.getArray(\"notifications\", JSObject.self) else {\n            call.unimplemented(\"Must supply notifications to remove\")\n            return\n        }", notificationArrayValidation)
   .replace("guard let notifications = call.getArray(\"notifications\")?.compactMap({ $0 as? JSObject }) else {\n            call.unimplemented(\"Must supply notifications to remove\")\n            return\n        }", notificationArrayValidation)
   .replace("let ret = notifications.map({ (notification) -> [String: Any] in", "let ret = notifications.map({ (notification) -> JSObject in");
+const patchedCamera = cameraSource
+  .replaceAll("bridge?.viewController", "bridge?.webView?.window?.rootViewController")
+  .replaceAll(".reject(", ".unimplemented(");
 
 if (patchedHandler === source && (source.includes("getArray(\"presentationOptions\")") || source.includes("coerceDictionaryToJSObject"))) {
   throw new Error(`Unable to patch ${handlerPath}`);
 }
 if (patchedHandler !== source) await writeFile(handlerPath, patchedHandler);
 if (patchedPlugin !== pluginSource) await writeFile(pluginPath, patchedPlugin);
+if (patchedCamera !== cameraSource) await writeFile(cameraPath, patchedCamera);

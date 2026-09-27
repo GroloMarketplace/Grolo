@@ -64,3 +64,4 @@ if (patchedHandler === source && (source.includes("getArray(\"presentationOption
 }
 if (patchedHandler !== source) await writeFile(handlerPath, patchedHandler);
 if (patchedPlugin !== pluginSource) await writeFile(pluginPath, patchedPlugin);
+if (patchedPlugin !== pluginSource) await writeFile(pluginPath, patchedPlugin);

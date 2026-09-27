@@ -54,14 +54,15 @@ const patchedHandler = withoutExistingHelpers.replace(
 }`,
 );
 
+const notificationArrayValidation = "let notifications = call.getArray(\"notifications\", []).compactMap({ $0 as? JSObject })\n        if notifications.isEmpty {\n            call.unimplemented(\"Must supply notifications to remove\")\n            return\n        }";
 const patchedPlugin = pluginSource
   .replaceAll("call.reject(", "call.unimplemented(")
-  .replace("guard let notifications = call.getArray(\"notifications\", JSObject.self) else {", "guard let notifications = call.getArray(\"notifications\")?.compactMap({ $0 as? JSObject }) else {")
+  .replace("guard let notifications = call.getArray(\"notifications\", JSObject.self) else {\n            call.unimplemented(\"Must supply notifications to remove\")\n            return\n        }", notificationArrayValidation)
+  .replace("guard let notifications = call.getArray(\"notifications\")?.compactMap({ $0 as? JSObject }) else {\n            call.unimplemented(\"Must supply notifications to remove\")\n            return\n        }", notificationArrayValidation)
   .replace("let ret = notifications.map({ (notification) -> [String: Any] in", "let ret = notifications.map({ (notification) -> JSObject in");
 
 if (patchedHandler === source && (source.includes("getArray(\"presentationOptions\")") || source.includes("coerceDictionaryToJSObject"))) {
   throw new Error(`Unable to patch ${handlerPath}`);
 }
 if (patchedHandler !== source) await writeFile(handlerPath, patchedHandler);
-if (patchedPlugin !== pluginSource) await writeFile(pluginPath, patchedPlugin);
 if (patchedPlugin !== pluginSource) await writeFile(pluginPath, patchedPlugin);

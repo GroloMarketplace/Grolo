@@ -9,16 +9,14 @@
     "lint": "oxlint",
     "test": "node --test tests/launch-workflows.test.js",
     "test:watch": "node --test --watch tests/launch-workflows.test.js",
-    "preview": "vite preview",
-    "postinstall": "node scripts/patch-capacitor-push-notifications.mjs"
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@capacitor/android": "^8.5.2",
-    "@capacitor/camera": "^8.1.0",
-    "@capacitor/cli": "^8.5.2",
-    "@capacitor/core": "^8.5.2",
-    "@capacitor/ios": "^8.5.2",
-    "@capacitor/push-notifications": "^8.1.2",
+    "@capacitor/android": "^7.6.9",
+    "@capacitor/camera": "^7.0.5",
+    "@capacitor/core": "^7.6.9",
+    "@capacitor/ios": "^7.6.9",
+    "@capacitor/push-notifications": "^7.0.7",
     "@supabase/supabase-js": "^2.111.0",
     "lucide-react": "^0.468.0",
     "qrcode": "^1.5.4",
@@ -27,6 +25,7 @@
     "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.6.9",
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

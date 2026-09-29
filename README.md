@@ -86,6 +86,7 @@ migration as a substitute.
    13. `supabase/migrations/20260824_add_founding_member_flag.sql`
    14. `supabase/migrations/20260824_trade_orders.sql`
    15. `supabase/migrations/20260824_trade_proposals.sql`
+   16. `supabase/migrations/20260926_push_notification_tokens.sql`
 
 4. Run `supabase/verify_bootstrap.sql` in the same project. The script must
    finish with `Grolo Supabase bootstrap verification passed` and must not
@@ -125,6 +126,7 @@ The authoritative path provisions these tables:
 - Reputation: `reputation_events`, `badge_definitions`, `user_badges`,
   `user_reputation_status`.
 - Operations and safety: `vendor_analytics_events`, `reports`, `user_blocks`.
+- Push delivery: `push_tokens`.
 
 The required RPC surface is `create_order_with_items`,
 `cancel_order_with_inventory`, `update_order_status`, `create_review`,

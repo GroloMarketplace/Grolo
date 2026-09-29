@@ -21,7 +21,7 @@ from (values
   ('notifications'), ('orders'), ('order_items'), ('payments'),
   ('reputation_events'), ('badge_definitions'), ('user_badges'),
   ('user_reputation_status'), ('promotions'), ('vendor_analytics_events'),
-  ('reports'), ('user_blocks'), ('posts')
+  ('reports'), ('user_blocks'), ('posts'), ('push_tokens')
 ) required(required_name);
 
 insert into grolo_bootstrap_checks
@@ -132,7 +132,9 @@ from (values
   ('order_items', 'original_price'), ('order_items', 'discounted_price'),
   ('order_items', 'promotion_id'), ('payments', 'order_id'),
   ('payments', 'buyer_id'), ('payments', 'seller_id'),
-  ('payments', 'amount'), ('payments', 'payment_status')
+  ('payments', 'amount'), ('payments', 'payment_status'),
+  ('push_tokens', 'user_id'), ('push_tokens', 'token'),
+  ('push_tokens', 'platform'), ('push_tokens', 'updated_at')
 ) required(table_name, column_name);
 
 insert into grolo_bootstrap_checks
@@ -151,7 +153,7 @@ from (values
   ('notifications'), ('orders'), ('order_items'), ('payments'),
   ('reputation_events'), ('badge_definitions'), ('user_badges'),
   ('user_reputation_status'), ('promotions'), ('vendor_analytics_events'),
-  ('reports'), ('user_blocks'), ('posts')
+  ('reports'), ('user_blocks'), ('posts'), ('push_tokens')
 ) required(required_name);
 
 insert into grolo_bootstrap_checks
@@ -283,6 +285,7 @@ from (values
   ('public', 'Users can see blocks affecting them'),
   ('public', 'Sellers can view their analytics events'),
   ('public', 'Sellers can record their analytics events'),
+  ('public', 'Users can manage their own push tokens'),
   ('storage', 'Grolo users can upload own images'),
   ('storage', 'Grolo users can update own images'),
   ('storage', 'Grolo users can delete own images')
@@ -300,7 +303,8 @@ from (values
   ('notifications_user_created_idx'), ('notifications_unread_idx'),
   ('vendor_analytics_events_seller_idx'), ('reports_status_created_idx'),
   ('user_blocks_blocker_idx'), ('orders_buyer_idx'), ('orders_seller_idx'),
-  ('order_items_order_idx'), ('payments_buyer_idx'), ('payments_seller_idx')
+  ('order_items_order_idx'), ('payments_buyer_idx'), ('payments_seller_idx'),
+  ('push_tokens_user_id_idx')
 ) required(required_name);
 
 -- A clean bootstrap must use the canonical contracts. Existing databases may

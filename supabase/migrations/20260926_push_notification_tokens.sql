@@ -15,3 +15,5 @@ create policy "Users can manage their own push tokens"
   for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+notify pgrst, 'reload schema';

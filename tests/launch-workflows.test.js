@@ -10,6 +10,7 @@ import { promotionCreatedTimestamp } from "../src/utils/promotionRecords.js";
 import { rankFeedItems, recencyScore } from "../src/utils/feedRanking.js";
 import { isListingActive, isListingOutOfStock, isServiceListing, serviceStatusFor } from "../src/utils/listingDisplay.js";
 import { hasRepairableStoreProfile, sellerProfileUpdates, withoutSellerActivationFields } from "../src/utils/profileActivation.js";
+import { authRouteDecision } from "../src/utils/authRouting.js";
 
 function createCommerceState() {
   return {
@@ -312,6 +313,25 @@ test("conversation creation uses the conversations table contract", async () => 
   assert.match(api, /content,/);
 });
 
+test("auth routing covers fresh launch, verification, onboarding, and expiry states", () => {
+  const base = {
+    authInitialized: true,
+    loading: false,
+    profileStatus: "loaded",
+  };
+  assert.deepEqual(authRouteDecision({ ...base, session: null, emailVerified: false, onboardingComplete: false, pathname: "/" }).redirectTo, "/signin");
+  assert.equal(authRouteDecision({ ...base, session: null, emailVerified: false, onboardingComplete: false, pathname: "/verify-email", pendingVerificationEmail: "new@example.com" }).redirectTo, null);
+  assert.equal(authRouteDecision({ ...base, session: null, emailVerified: false, onboardingComplete: false, pathname: "/signup" }).redirectTo, "/signin");
+  assert.equal(authRouteDecision({ ...base, session: null, emailVerified: false, onboardingComplete: false, pathname: "/signup", allowSignup: true }).redirectTo, null);
+  assert.equal(authRouteDecision({ ...base, session: { user: {} }, emailVerified: false, onboardingComplete: false, pathname: "/onboarding" }).redirectTo, "/verify-email");
+  assert.equal(authRouteDecision({ ...base, session: null, emailVerified: false, onboardingComplete: false, pathname: "/onboarding" }).redirectTo, "/signin");
+  assert.equal(authRouteDecision({ ...base, session: null, emailVerified: false, onboardingComplete: false, pathname: "/onboarding", pendingVerificationEmail: "new@example.com" }).redirectTo, "/verify-email");
+  assert.equal(authRouteDecision({ ...base, session: { user: {} }, emailVerified: true, onboardingComplete: false, pathname: "/signin" }).redirectTo, "/onboarding");
+  assert.equal(authRouteDecision({ ...base, session: { user: {} }, emailVerified: true, onboardingComplete: true, pathname: "/signin" }).redirectTo, "/");
+  assert.equal(authRouteDecision({ ...base, session: null, emailVerified: false, onboardingComplete: false, pathname: "/verify-email" }).redirectTo, "/signin");
+  assert.equal(authRouteDecision({ ...base, session: null, emailVerified: false, onboardingComplete: false, pathname: "/onboarding" }).decision, "redirect-signed-out-to-signin");
+});
+
 test("onboarding does not complete before the authenticated profile is persisted", async () => {
   const [onboarding, auth, buyerSettings, protectedRoute] = await Promise.all([
     readFile(new URL("../src/pages/Onboarding.jsx", import.meta.url), "utf8"),
@@ -326,6 +346,7 @@ test("onboarding does not complete before the authenticated profile is persisted
   assert.match(auth, /profileHasCompletedOnboarding/);
   assert.doesNotMatch(auth, /Boolean\(data\?\.onboarding_completed \|\| data\?\.id\)/);
   assert.match(buyerSettings, /supabase\.auth\.getUser\(\)/);
+  assert.match(buyerSettings, /email_confirmed_at/);
   assert.match(buyerSettings, /upsertProfileWithLocationFallback\(authenticatedUser\.id/);
   assert.match(protectedRoute, /!onboardingComplete/);
 });

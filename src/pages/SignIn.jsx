@@ -73,21 +73,22 @@ export default function SignIn() {
     if (passwordError) { setError(passwordError); return; }
     if (signup && !name.trim()) { setError("Name is required."); return; }
     if (signup && password !== confirmPassword) { setError("Passwords do not match."); return; }
-    if (!isSupabaseConfigured) { navigate("/onboarding"); return; }
+    if (!isSupabaseConfigured) { setError("Authentication is currently unavailable. Please try again later."); return; }
     try {
       setStatus("working");
       if (signup) {
-        try { localStorage.setItem("grolo-pending-email", normalizedEmail); } catch { }
         const data = await signUpWithPassword(normalizedEmail, password, name);
-        if (data.session) navigate("/onboarding", { replace: true });
-        else setStatus("confirmation");
+        try { localStorage.setItem("grolo-pending-email", normalizedEmail); } catch { }
+        const verified = Boolean(data.user?.email_confirmed_at || data.user?.confirmed_at || data.session?.user?.email_confirmed_at || data.session?.user?.confirmed_at);
+        if (verified) navigate("/onboarding", { replace: true });
+        else navigate("/verify-email", { replace: true });
       } else {
         await signInWithPassword(normalizedEmail, password);
       }
     } catch (err) { setError(err.message || "Authentication failed. Please try again."); setStatus("idle"); }
   }
 
-  function switchMode() { setError(""); setForgot(false); navigate(signup ? "/signin" : "/signup"); }
+  function switchMode() { setError(""); setForgot(false); navigate(signup ? "/signin" : "/signup", { state: signup ? undefined : { allowSignup: true } }); }
 
   const title = forgot ? "Reset your password" : signup ? "Create your account" : "Welcome back";
   const subtitle = forgot ? "We'll email you a secure link to choose a new password." : signup ? "Join your local marketplace community." : "Sign in to continue to your local marketplace.";

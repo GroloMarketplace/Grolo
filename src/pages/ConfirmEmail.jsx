@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import groloLogo from "../assets/grolo-new-logo.svg";
-import { useAuth } from "../context/AuthContext";
+import { readPendingVerificationEmail, useAuth } from "../context/AuthContext";
 
 export default function ConfirmEmail() {
   const navigate = useNavigate();
@@ -33,15 +33,19 @@ export default function ConfirmEmail() {
 
 export function VerifyEmail() {
   const navigate = useNavigate();
-  const { user, emailVerified, resendVerificationEmail, refreshSession, signOut } = useAuth();
+  const { authInitialized, isAuthenticated, user, emailVerified, resendVerificationEmail, refreshSession, signOut } = useAuth();
+  const pendingEmail = readPendingVerificationEmail();
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
+
+  if (authInitialized && isAuthenticated && emailVerified) return <Navigate to="/" replace />;
+  if (authInitialized && !isAuthenticated && !pendingEmail) return <Navigate to="/signin" replace />;
 
   const resend = async () => {
     setStatus("working");
     setError("");
     try {
-      await resendVerificationEmail();
+      await resendVerificationEmail(user?.email || pendingEmail);
       setStatus("sent");
     } catch (resendError) {
       setStatus("idle");
@@ -54,7 +58,12 @@ export function VerifyEmail() {
     setError("");
     try {
       const { session } = await refreshSession();
-      if (!emailVerified && !session?.user?.email_confirmed_at && !session?.user?.confirmed_at) {
+      if (!session?.user) {
+        setStatus("idle");
+        setError("After confirming your email, return to sign in so we can start onboarding.");
+        return;
+      }
+      if (!emailVerified && !session.user.email_confirmed_at && !session.user.confirmed_at) {
         setStatus("idle");
         setError("Your email is not verified yet. Open the verification link, then try again.");
         return;
@@ -80,7 +89,7 @@ export function VerifyEmail() {
             <CheckCircle2 className="mx-auto mb-3 text-[#498467]" size={34} />
             <h1 className="text-2xl font-semibold text-[#202A21]">Verify your email</h1>
             <p className="mt-2 text-[15px] leading-6 text-[#687368]">Confirm your email before setting up your Grolo profile.</p>
-            <p className="mt-1 break-words text-[14px] leading-6 text-[#687368]">We sent a verification link to {user?.email || "your account email"}.</p>
+            <p className="mt-1 break-words text-[14px] leading-6 text-[#687368]">We sent a verification link to {user?.email || pendingEmail || "your account email"}.</p>
             {status === "sent" && <p className="mt-3 text-[13px] text-[#355F45]">Verification email sent.</p>}
             {error && <p role="alert" className="mt-3 text-[13px] text-[#B42318]">{error}</p>}
             <button type="button" onClick={checkVerification} disabled={status === "working"} className="mt-6 h-12 w-full rounded-xl bg-[#498467] text-[15px] font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60">{status === "working" ? "Checking..." : "I've verified my email"}</button>

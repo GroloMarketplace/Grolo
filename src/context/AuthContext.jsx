@@ -4,6 +4,7 @@ import { supabase, isSupabaseConfigured } from "../lib/supabaseClient";
 const AuthContext = createContext(null);
 const LEGACY_BUYER_KEY = "grolo-buyer-settings";
 const LEGACY_SELLER_KEY = "grolo-seller-profiles";
+const PENDING_EMAIL_KEY = "grolo-pending-email";
 
 function readLegacyJson(key) {
   try {
@@ -11,6 +12,14 @@ function readLegacyJson(key) {
     return stored ? JSON.parse(stored) : null;
   } catch {
     return null;
+  }
+}
+
+export function readPendingVerificationEmail() {
+  try {
+    return localStorage.getItem(PENDING_EMAIL_KEY)?.trim() ?? "";
+  } catch {
+    return "";
   }
 }
 
@@ -110,6 +119,7 @@ function readLegacyProfile(userId) {
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
+  const [authInitialized, setAuthInitialized] = useState(!isSupabaseConfigured);
   const [loading, setLoading] = useState(isSupabaseConfigured);
   const [profileStatus, setProfileStatus] = useState(isSupabaseConfigured ? "unknown" : "loaded");
   const [profileError, setProfileError] = useState(null);
@@ -131,7 +141,10 @@ export function AuthProvider({ children }) {
       setOnboardingComplete(nextSession ? null : false);
 
       if (!nextSession?.user?.id) {
-        if (!cancelled && currentRequestId === requestId) setLoading(false);
+        if (!cancelled && currentRequestId === requestId) {
+          setAuthInitialized(true);
+          setLoading(false);
+        }
         return;
       }
 
@@ -146,6 +159,7 @@ export function AuthProvider({ children }) {
         setProfileError(error);
         setProfileStatus("error");
         setOnboardingComplete(null);
+        setAuthInitialized(true);
         setLoading(false);
         return;
       }
@@ -164,6 +178,7 @@ export function AuthProvider({ children }) {
           setProfileError(migration.error);
           setProfileStatus("error");
           setOnboardingComplete(null);
+          setAuthInitialized(true);
           setLoading(false);
           return;
         }
@@ -179,6 +194,7 @@ export function AuthProvider({ children }) {
       setProfile(resolvedProfile ?? null);
       setOnboardingComplete(profileHasCompletedOnboarding(resolvedProfile));
       setProfileStatus("loaded");
+      setAuthInitialized(true);
       setLoading(false);
     }
 
@@ -249,13 +265,14 @@ export function AuthProvider({ children }) {
     return data;
   }
 
-  async function resendVerificationEmail() {
-    if (!isSupabaseConfigured || !session?.user?.email) throw new Error("Unable to determine the account email.");
+  async function resendVerificationEmail(emailOverride) {
+    const email = emailOverride?.trim() || session?.user?.email;
+    if (!isSupabaseConfigured || !email) throw new Error("Unable to determine the account email.");
     const configuredOrigin = import.meta.env.VITE_APP_URL?.trim().replace(/\/$/, "");
     const redirectOrigin = configuredOrigin && !/^https?:\/\/localhost(?::\d+)?$/i.test(configuredOrigin) ? configuredOrigin : window.location.origin;
     const { error } = await supabase.auth.resend({
       type: "signup",
-      email: session.user.email,
+      email,
       options: { emailRedirectTo: `${redirectOrigin}/confirm-email` },
     });
     if (error) throw error;
@@ -314,12 +331,17 @@ export function AuthProvider({ children }) {
 
   async function signOut() {
     if (!isSupabaseConfigured) return;
+    try {
+      localStorage.removeItem(PENDING_EMAIL_KEY);
+    } catch {
+    }
     await supabase.auth.signOut();
   }
 
   const value = {
     session,
     user: session?.user ?? null,
+    authInitialized,
     loading,
     profile,
     profileStatus,

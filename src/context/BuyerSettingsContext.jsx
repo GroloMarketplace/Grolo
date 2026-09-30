@@ -210,6 +210,9 @@ export function BuyerSettingsProvider({ children }) {
     if (authError || !authData.user?.id) {
       throw new Error("Your sign-in session is no longer available. Please sign in again and retry.");
     }
+    if (!authData.user.email_confirmed_at && !authData.user.confirmed_at) {
+      throw new Error("Please verify your email before saving your profile.");
+    }
     const authenticatedUser = authData.user;
     const current = settings;
     const next = {

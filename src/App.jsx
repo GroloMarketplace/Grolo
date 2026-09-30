@@ -1,8 +1,9 @@
-import { Routes, Route } from "react-router-dom";
-import { lazy, Suspense } from "react";
+import { Navigate, Routes, Route, useLocation } from "react-router-dom";
+import { lazy, Suspense, useEffect } from "react";
 import PhoneFrame from "./components/PhoneFrame";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, readPendingVerificationEmail, useAuth } from "./context/AuthContext";
+import { authRouteDecision } from "./utils/authRouting";
 import { ActivityProvider } from "./context/ActivityContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { TrustSafetyProvider } from "./context/TrustSafetyContext";
@@ -91,6 +92,38 @@ const CreateListing = lazy(() => import("./pages/CreateListing"));
 const EditListing = lazy(() => import("./pages/EditListing"));
 const OpenStore = lazy(() => import("./pages/OpenStore"));
 
+function AuthStartupGate({ children }) {
+  const { authInitialized, loading, session, emailVerified, profileStatus, onboardingComplete } = useAuth();
+  const location = useLocation();
+  const { pathname } = location;
+  const pendingVerificationEmail = readPendingVerificationEmail();
+  const routeDecision = authRouteDecision({
+    authInitialized,
+    loading,
+    session,
+    emailVerified,
+    profileStatus,
+    onboardingComplete,
+    pathname,
+    pendingVerificationEmail,
+    allowSignup: location.state?.allowSignup === true,
+  });
+
+  useEffect(() => {
+    console.info("[AuthDiagnostics]", {
+      authInitializationComplete: authInitialized,
+      sessionPresent: Boolean(session),
+      emailVerified,
+      currentRoute: pathname,
+      redirectDecision: routeDecision.decision,
+    });
+  }, [authInitialized, emailVerified, pathname, routeDecision.decision, session]);
+
+  if (routeDecision.waiting) return <div className="flex h-full min-h-[100svh] items-center justify-center text-[14px] text-[#777]">Loading...</div>;
+  if (routeDecision.redirectTo) return <Navigate to={routeDecision.redirectTo} replace />;
+  return children;
+}
+
 export default function App() {
   return (
     <AppErrorBoundary>
@@ -121,6 +154,7 @@ export default function App() {
         <PostProvider>
         <DeliveryAddressProvider>
         <Suspense fallback={<div className="flex h-full items-center justify-center text-[14px] text-[#777]">Loading…</div>}>
+        <AuthStartupGate>
         <Routes>
         <Route path="/signin" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SignIn /></PhoneFrame>} />
         <Route path="/signup" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SignIn /></PhoneFrame>} />
@@ -381,6 +415,7 @@ export default function App() {
           }
         />
       </Routes>
+        </AuthStartupGate>
         </Suspense>
         </DeliveryAddressProvider>
         </PostProvider>

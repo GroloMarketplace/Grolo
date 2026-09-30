@@ -6,7 +6,7 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const webhookSecret = Deno.env.get("PUSH_WEBHOOK_SECRET");
 const apnsKeyId = Deno.env.get("APNS_KEY_ID");
 const apnsTeamId = Deno.env.get("APNS_TEAM_ID");
-const apnsPrivateKey = Deno.env.get("APNS_PRIVATE_KEY")?.replace(/\\n/g, "\n");
+const rawApnsPrivateKey = Deno.env.get("APNS_PRIVATE_KEY");
 const apnsBundleId = Deno.env.get("APNS_BUNDLE_ID") ?? "ca.grolomarketplace.app";
 const apnsEnvironment = Deno.env.get("APNS_ENVIRONMENT") === "production" ? "production" : "sandbox";
 
@@ -35,6 +35,37 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
+function normalizeApnsPrivateKey(value: string | undefined) {
+  if (!value) throw new Error("APNS_PRIVATE_KEY is missing");
+
+  let key = value.trim();
+  if (key.startsWith("\"") && key.endsWith("\"")) {
+    try {
+      const parsed = JSON.parse(key);
+      key = typeof parsed === "string" ? parsed : key.slice(1, -1);
+    } catch {
+      key = key.slice(1, -1);
+    }
+  }
+
+  key = key
+    .replace(/\\r\\n/g, "\n")
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "")
+    .replace(/\r\n/g, "\n")
+    .trim();
+
+  const match = key.match(/-----BEGIN PRIVATE KEY-----([\s\S]*?)-----END PRIVATE KEY-----/);
+  if (!match) throw new Error("APNS_PRIVATE_KEY must be PEM-encoded PKCS#8 with BEGIN/END PRIVATE KEY markers");
+
+  const body = match[1].replace(/\s/g, "");
+  if (!body || body.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(body)) {
+    throw new Error("APNS_PRIVATE_KEY contains invalid base64 between the PKCS#8 PEM markers");
+  }
+
+  return `-----BEGIN PRIVATE KEY-----\n${body.match(/.{1,64}/g).join("\n")}\n-----END PRIVATE KEY-----`;
+}
+
 function assertConfiguration() {
   const missing = [
     ["SUPABASE_URL", supabaseUrl],
@@ -42,14 +73,14 @@ function assertConfiguration() {
     ["PUSH_WEBHOOK_SECRET", webhookSecret],
     ["APNS_KEY_ID", apnsKeyId],
     ["APNS_TEAM_ID", apnsTeamId],
-    ["APNS_PRIVATE_KEY", apnsPrivateKey],
+    ["APNS_PRIVATE_KEY", rawApnsPrivateKey],
   ].filter(([, value]) => !value).map(([name]) => name);
   if (missing.length) throw new Error(`Missing Edge Function secrets: ${missing.join(", ")}`);
   if (!supabase) throw new Error("Supabase service client could not be initialized.");
 }
 
 async function providerToken() {
-  const key = await importPKCS8(apnsPrivateKey!, "ES256");
+  const key = await importPKCS8(normalizeApnsPrivateKey(rawApnsPrivateKey), "ES256");
   return new SignJWT({})
     .setProtectedHeader({ alg: "ES256", kid: apnsKeyId!, typ: "JWT" })
     .setIssuer(apnsTeamId!)

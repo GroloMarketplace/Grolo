@@ -394,6 +394,8 @@ test("APNs push worker handles notification webhooks securely", async () => {
   assert.match(worker, /APNS_KEY_ID/);
   assert.match(worker, /APNS_TEAM_ID/);
   assert.match(worker, /APNS_PRIVATE_KEY/);
+  assert.match(worker, /normalizeApnsPrivateKey/);
+  assert.match(worker, /invalid base64 between the PKCS#8 PEM markers/);
   assert.match(worker, /api\.push\.apple\.com/);
   assert.match(worker, /apns-topic/);
   assert.match(worker, /apns-push-type/);

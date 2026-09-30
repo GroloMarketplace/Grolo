@@ -12,6 +12,7 @@ import { useProfileMode } from "../context/ProfileModeContext";
 import { useAuth } from "../context/AuthContext";
 import { useReviews } from "../context/ReviewContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
+import { createPortal } from "react-dom";
 
 const SECTIONS = [
   { title: "Pickup Orders · New", statuses: ["New", "Seller Notified", "Order Placed"], fulfillmentMethod: "pickup" },
@@ -250,8 +251,8 @@ export default function ShopOrders() {
 }
 
 function InProgressConfirmation({ onKeepNew, onConfirm }) {
-  return (
-    <div className="absolute inset-0 z-50 flex items-end bg-black/30" role="dialog" aria-modal="true" aria-labelledby="in-progress-title">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end overflow-hidden bg-black/30" role="dialog" aria-modal="true" aria-labelledby="in-progress-title">
       <section
         className="flex max-h-full min-h-0 w-full flex-col rounded-t-2xl bg-white shadow-2xl"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
@@ -270,7 +271,8 @@ function InProgressConfirmation({ onKeepNew, onConfirm }) {
           <button type="button" onClick={onConfirm} className="flex-1 rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">Mark as In Progress</button>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -243,7 +243,16 @@ export default function ShopOrders() {
           );
         })}
       </div>
-      {statusToast && <div className="absolute bottom-[76px] left-1/2 z-40 w-[calc(100%-2rem)] max-w-[343px] -translate-x-1/2 rounded-lg bg-[#02542D] p-3 text-center text-[14px] font-medium text-white shadow-lg" role="status">{statusToast}</div>}
+      {statusToast && createPortal(
+        <div
+          className="fixed left-1/2 z-[110] w-[calc(100%-2rem)] max-w-[343px] -translate-x-1/2 rounded-lg bg-[#02542D] p-3 text-center text-[14px] font-medium leading-5 text-white shadow-lg whitespace-normal break-words"
+          style={{ bottom: "calc(76px + env(safe-area-inset-bottom))" }}
+          role="status"
+        >
+          {statusToast}
+        </div>,
+        document.body,
+      )}
       {inProgressOrder && <InProgressConfirmation onKeepNew={() => setInProgressOrder(null)} onConfirm={confirmInProgress} />}
       {reviewOrder && <BuyerReviewForm order={reviewOrder} onClose={() => setReviewOrder(null)} onSubmitted={() => { setReviewedOrderKeys((current) => new Set([...current, String(reviewOrder.databaseId ?? reviewOrder.orderId ?? reviewOrder.id)])); setReviewOrder(null); }} />}
     </MobileScreenLayout>

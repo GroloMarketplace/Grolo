@@ -8,7 +8,7 @@ import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useAuth } from "../context/AuthContext";
-import { openAppNotificationSettings, registerNativePushNotifications } from "../lib/pushNotifications";
+import { getLatestNativePushToken, openAppNotificationSettings, registerNativePushNotifications } from "../lib/pushNotifications";
 import { savePushToken } from "../lib/api/pushTokens";
 
 const BUYER_OPTIONS = [
@@ -55,21 +55,26 @@ export default function NotificationSettings() {
   const registerIfGranted = async () => {
     if (registrationActive.current || !user?.id || !Capacitor.isNativePlatform()) return;
     try {
+      let callbackToken = null;
+      const persistToken = async (token, source) => {
+        callbackToken = token;
+        addDiagnostic(source === "registration-callback" ? "Registration callback fired" : "Using cached registration token");
+        try {
+          const result = await savePushToken({ userId: user.id, token, platform: Capacitor.getPlatform() });
+          addDiagnostic(`Token saved: ${result.platform}, project ${result.projectReference ?? "unknown"}`);
+        } catch (error) {
+          addDiagnostic(`Token save error: ${error?.message ?? String(error)}`);
+        }
+      };
       const registration = await registerNativePushNotifications({
-        onToken: async (token) => {
-          addDiagnostic("Registration callback fired");
-          try {
-            const result = await savePushToken({ userId: user.id, token, platform: Capacitor.getPlatform() });
-            addDiagnostic(`Token saved: ${result.platform}, project ${result.projectReference ?? "unknown"}`);
-          } catch (error) {
-            addDiagnostic(`Token save error: ${error?.message ?? String(error)}`);
-          }
-        },
+        onToken: (token) => persistToken(token, "registration-callback"),
       });
       if (!registration.enabled) {
         addDiagnostic(`Registration skipped: ${registration.reason}`);
         return;
       }
+      const latestToken = registration.token ?? getLatestNativePushToken();
+      if (latestToken && latestToken !== callbackToken) await persistToken(latestToken, "registration-result");
       registrationActive.current = true;
       registrationCleanup.current = registration.cleanup;
       addDiagnostic("Registration success");
@@ -97,6 +102,8 @@ export default function NotificationSettings() {
   };
 
   useEffect(() => {
+    registrationActive.current = false;
+    registrationCleanup.current?.();
     refreshPermission();
     const refreshOnForeground = () => {
       if (document.visibilityState === "visible") refreshPermission();
@@ -107,8 +114,10 @@ export default function NotificationSettings() {
       window.removeEventListener("focus", refreshOnForeground);
       document.removeEventListener("visibilitychange", refreshOnForeground);
       registrationCleanup.current?.();
+      registrationCleanup.current = null;
+      registrationActive.current = false;
     };
-  }, []);
+  }, [user?.id]);
 
   const toggle = async (key) => {
     const next = { ...notifications, [key]: !notifications[key] };

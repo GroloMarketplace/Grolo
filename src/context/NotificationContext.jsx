@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { useAuth } from "./AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
-import { registerNativePushNotifications } from "../lib/pushNotifications";
+import { getLatestNativePushToken, registerNativePushNotifications } from "../lib/pushNotifications";
 import { savePushToken } from "../lib/api/pushTokens";
 import {
   getNotifications,
@@ -44,18 +44,23 @@ export function NotificationProvider({ children }) {
     let cleanup;
     if (!user?.id) return undefined;
 
+    let callbackToken = null;
+    const persistToken = async (token, source) => {
+      callbackToken = token;
+      console.info("[PushDiagnostics] token available", { source, platform: Capacitor.getPlatform(), userId: user.id });
+      try {
+        const result = await savePushToken({ userId: user.id, token, platform: Capacitor.getPlatform() });
+        console.info("[PushDiagnostics] token saved", result);
+      } catch (error) {
+        console.error("[PushDiagnostics] token save failed", error);
+      }
+    };
     const register = () => registerNativePushNotifications({
-      onToken: async (token) => {
-        console.info("[PushDiagnostics] registration callback fired", { platform: Capacitor.getPlatform(), userId: user.id });
-        try {
-          const result = await savePushToken({ userId: user.id, token, platform: Capacitor.getPlatform() });
-          console.info("[PushDiagnostics] token saved", result);
-        } catch (error) {
-          console.error("[PushDiagnostics] token save failed", error);
-        }
-      },
+      onToken: (token) => persistToken(token, "registration-callback"),
       onAction: (notification) => navigate(routeForPushNotification(notification)),
     }).then((registration) => {
+      const token = registration.token ?? getLatestNativePushToken();
+      if (token && token !== callbackToken) persistToken(token, "registration-result");
       if (cancelled) registration.cleanup?.();
       else {
         cleanup?.();

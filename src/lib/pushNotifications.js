@@ -1,18 +1,28 @@
 import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 
+let latestNativePushToken = null;
+
+export function getLatestNativePushToken() {
+  return latestNativePushToken;
+}
+
 export async function registerNativePushNotifications({ onToken, onAction } = {}) {
   if (!Capacitor.isNativePlatform()) return { enabled: false, reason: "web" };
 
   const permission = await PushNotifications.checkPermissions();
   if (permission.receive !== "granted") return { enabled: false, reason: permission.receive };
 
-  const tokenHandle = await PushNotifications.addListener("registration", ({ value }) => onToken?.(value));
+  const tokenHandle = await PushNotifications.addListener("registration", ({ value }) => {
+    latestNativePushToken = value;
+    onToken?.(value);
+  });
   const actionHandle = await PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => onAction?.(notification));
   await PushNotifications.register();
 
   return {
     enabled: true,
+    token: latestNativePushToken,
     cleanup: async () => {
       await Promise.all([tokenHandle.remove(), actionHandle.remove()]);
     },

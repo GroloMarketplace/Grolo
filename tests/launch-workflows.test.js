@@ -369,10 +369,11 @@ test("email verification gates onboarding and protected app routes", async () =>
 });
 
 test("push token persistence verifies the active Supabase user and reports failures", async () => {
-  const [tokens, settings, context, client] = await Promise.all([
+  const [tokens, settings, context, pushRegistration, client] = await Promise.all([
     readFile(new URL("../src/lib/api/pushTokens.js", import.meta.url), "utf8"),
     readFile(new URL("../src/pages/NotificationSettings.jsx", import.meta.url), "utf8"),
     readFile(new URL("../src/context/NotificationContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/lib/pushNotifications.js", import.meta.url), "utf8"),
     readFile(new URL("../src/lib/supabaseClient.js", import.meta.url), "utf8"),
   ]);
   assert.match(tokens, /supabase\.auth\.getUser\(\)/);
@@ -382,9 +383,13 @@ test("push token persistence verifies the active Supabase user and reports failu
   assert.match(settings, /Registration callback fired/);
   assert.match(settings, /Token saved:/);
   assert.match(settings, /Token save error:/);
-  assert.match(context, /\[PushDiagnostics\] registration callback fired/);
   assert.match(context, /\[PushDiagnostics\] token saved/);
   assert.match(context, /\[PushDiagnostics\] token save failed/);
+  assert.match(context, /getLatestNativePushToken/);
+  assert.match(context, /registration-result/);
+  assert.match(settings, /\[user\?\.id\]/);
+  assert.match(pushRegistration, /latestNativePushToken/);
+  assert.match(pushRegistration, /token: latestNativePushToken/);
   assert.match(client, /supabaseProjectReference/);
 });
 

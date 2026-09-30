@@ -42,7 +42,7 @@ export default function SignIn() {
   const location = useLocation();
   const navigate = useNavigate();
   const signup = location.pathname === "/signup";
-  const { signInWithPassword, signUpWithPassword, sendPasswordReset, isAuthenticated, profileStatus, profileError, onboardingComplete } = useAuth();
+  const { signInWithPassword, signUpWithPassword, sendPasswordReset, isAuthenticated, emailVerified, profileStatus, profileError, onboardingComplete } = useAuth();
   const [forgot, setForgot] = useState(false);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -53,10 +53,10 @@ export default function SignIn() {
 
   useEffect(() => {
     if (isAuthenticated && profileStatus === "loaded" && onboardingComplete !== null) {
-      navigate(onboardingComplete ? "/" : "/onboarding", { replace: true });
+      navigate(emailVerified ? (onboardingComplete ? "/" : "/onboarding") : "/verify-email", { replace: true });
     }
     if (isAuthenticated && profileStatus === "error") setError(profileError?.message || "Unable to load your profile. Please try again.");
-  }, [isAuthenticated, navigate, onboardingComplete, profileError, profileStatus]);
+  }, [emailVerified, isAuthenticated, navigate, onboardingComplete, profileError, profileStatus]);
 
   const clearError = () => { if (error) setError(""); };
   const normalizedEmail = email.trim().toLowerCase();

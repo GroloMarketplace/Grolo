@@ -42,6 +42,7 @@ export default function Onboarding() {
   });
   const [error, setError] = useState("");
   const [uploadProgress, setUploadProgress] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const toggleInterest = (interest) => update("interests", form.interests.includes(interest)
@@ -75,6 +76,7 @@ export default function Onboarding() {
   };
 
   const finish = async () => {
+    if (saving) return;
     const validationError = validateBuyerProfile(form);
     if (validationError) {
       setError(validationError);
@@ -82,14 +84,10 @@ export default function Onboarding() {
       return;
     }
     const normalizedForm = { ...form, username: normalizeUsername(form.username) };
+    setSaving(true);
+    setError("");
     try {
       if (user?.email !== normalizedForm.email.trim()) await updateEmail(normalizedForm.email.trim());
-    } catch (updateError) {
-      setError(updateError.message || "We couldn't update your email address.");
-      setStep(1);
-      return;
-    }
-    try {
       await updateSettings({
         ...normalizedForm,
         email: normalizedForm.email.trim(),
@@ -103,20 +101,28 @@ export default function Onboarding() {
         longitude: normalizedForm.locationDetails?.longitude,
         onboardingCompleted: true,
       });
+      localStorage.removeItem("grolo-pending-email");
+      setStep(5);
     } catch (saveError) {
-      setError(saveError.code === "23505" ? "That username is already taken. Choose another one." : saveError.message || "We couldn't save your profile. Please try again.");
-      return;
+      const message = saveError.code === "23505"
+        ? "That username is already taken. Choose another one."
+        : saveError.code === "23503" && saveError.message?.includes("profiles_id_fkey")
+          ? "We couldn't create your profile because your sign-in session is no longer available. Please sign in again and retry."
+          : saveError.message || "We couldn't save your profile. Please try again.";
+      setError(message);
+    } finally {
+      setSaving(false);
     }
-    localStorage.removeItem("grolo-pending-email");
-    navigate("/", {
-      replace: true,
-      state: {
-        tab: "Your Community",
-        communityFilter: "For You",
-        refreshFeed: Date.now(),
-      },
-    });
   };
+
+  const enterGrolo = () => navigate("/", {
+    replace: true,
+    state: {
+      tab: "Your Community",
+      communityFilter: "For You",
+      refreshFeed: Date.now(),
+    },
+  });
 
   return (
     <MobileScreenLayout>
@@ -126,8 +132,8 @@ export default function Onboarding() {
         {step === 1 && <ProfileStep form={form} update={update} error={error} onContinue={handleProfileContinue} />}
         {step === 2 && <PhotoStep form={form} handleFile={handleFile} error={error} uploadProgress={uploadProgress} onContinue={() => { setError(""); setStep(3); }} onSkip={() => { setError(""); setStep(3); }} />}
         {step === 3 && <InterestsStep interests={form.interests} toggleInterest={toggleInterest} onContinue={() => { setError(""); setStep(4); }} />}
-        {step === 4 && <LocationStep form={form} update={update} error={error} onContinue={() => { setError(""); setStep(5); }} />}
-        {step === 5 && <ReadyStep form={form} onEnter={finish} />}
+        {step === 4 && <LocationStep form={form} update={update} error={error} saving={saving} onContinue={finish} />}
+        {step === 5 && <ReadyStep form={form} onEnter={enterGrolo} />}
       </div>
     </MobileScreenLayout>
   );
@@ -149,8 +155,8 @@ function InterestsStep({ interests, toggleInterest, onContinue }) {
   return <Step title="Personalize Your Experience"><p className="text-[13px] text-[#828282]">What interests you? Choose as many as you like.</p><div className="grid grid-cols-2 gap-2">{INTERESTS.map((interest) => <button key={interest} type="button" onClick={() => toggleInterest(interest)} className={`rounded-lg border px-3 py-3 text-left text-[12px] font-medium ${interests.includes(interest) ? "border-[#498467] bg-[#498467] text-white" : "border-[#E0E0E0] bg-white"}`}>{interest}</button>)}</div><NextButton onClick={onContinue}>Continue</NextButton></Step>;
 }
 
-function LocationStep({ form, update, error, onContinue }) {
-  return <Step title="Set Your Community Location"><LocationAutocomplete label="City or Location" value={form.location} location={form.locationDetails} onChange={(value) => { update("locationDetails", value); update("location", friendlyLocation(value)); }} placeholder="Search neighborhood, city, or postal code" />{error && <ErrorMessage>{error}</ErrorMessage>}<NextButton onClick={onContinue}>Continue</NextButton></Step>;
+function LocationStep({ form, update, error, saving, onContinue }) {
+  return <Step title="Set Your Community Location"><LocationAutocomplete label="City or Location" value={form.location} location={form.locationDetails} onChange={(value) => { update("locationDetails", value); update("location", friendlyLocation(value)); }} placeholder="Search neighborhood, city, or postal code" />{error && <ErrorMessage>{error}</ErrorMessage>}<NextButton onClick={onContinue} disabled={saving}>{saving ? "Saving profile..." : "Continue"}</NextButton></Step>;
 }
 
 function ReadyStep({ form, onEnter }) {
@@ -159,6 +165,6 @@ function ReadyStep({ form, onEnter }) {
 
 function Step({ title, children }) { return <div className="mx-auto flex w-full max-w-full flex-col gap-5"><div><div className="mb-1 text-[12px] font-medium uppercase tracking-wide text-[#498467]">Grolo setup</div><h1 className="text-[24px] font-semibold">{title}</h1></div>{children}</div>; }
 function Field({ label, value, onChange, placeholder, required = false }) { return <label className="flex flex-col gap-2 text-[14px] font-medium">{label}<input required={required} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="rounded-lg border border-[#E0E0E0] px-3 py-3 text-[14px] font-normal outline-none focus:border-[#498467]" /></label>; }
-function NextButton({ onClick, children }) { return <button type="button" onClick={onClick} className="w-full rounded-lg bg-[#498467] py-3 text-[16px] font-medium text-white">{children}</button>; }
+function NextButton({ onClick, children, disabled = false }) { return <button type="button" onClick={onClick} disabled={disabled} className="w-full rounded-lg bg-[#498467] py-3 text-[16px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-60">{children}</button>; }
 function ErrorMessage({ children }) { return <p role="alert" className="text-[12px] text-red-600">{children}</p>; }
 function UploadProgress({ progress, stage }) { return <div className="w-full max-w-[240px] text-center text-[11px] text-[#687368]"><div className="mb-1 h-1.5 overflow-hidden rounded-full bg-[#E6E6E6]"><div className="h-full rounded-full bg-[#498467] transition-all" style={{ width: `${progress}%` }} /></div>{stage}</div>; }

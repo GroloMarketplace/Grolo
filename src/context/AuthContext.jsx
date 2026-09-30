@@ -18,6 +18,10 @@ function hasText(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function isEmailVerified(user) {
+  return Boolean(user?.email_confirmed_at || user?.confirmed_at);
+}
+
 function hasLegacyBuyerProfile(profile) {
   return Boolean(
     hasText(profile?.displayName)
@@ -37,6 +41,13 @@ function hasLegacySellerProfile(profile) {
       || hasText(profile?.location)
       || profile?.avatar
       || profile?.banner,
+  );
+}
+
+function profileHasCompletedOnboarding(profile) {
+  return Boolean(
+    profile?.onboarding_completed
+      || (hasText(profile?.display_name) && hasText(profile?.username) && hasText(profile?.bio)),
   );
 }
 
@@ -165,10 +176,8 @@ export function AuthProvider({ children }) {
         }
       }
 
-      const hasLegacyCompletedProfile = Boolean(resolvedProfile?.display_name?.trim() && resolvedProfile?.username?.trim() && resolvedProfile?.bio?.trim());
-      const hasExistingProfile = Boolean(resolvedProfile?.id);
       setProfile(resolvedProfile ?? null);
-      setOnboardingComplete(Boolean(resolvedProfile?.onboarding_completed || hasLegacyCompletedProfile || hasExistingProfile));
+      setOnboardingComplete(profileHasCompletedOnboarding(resolvedProfile));
       setProfileStatus("loaded");
       setLoading(false);
     }
@@ -225,7 +234,7 @@ export function AuthProvider({ children }) {
       setOnboardingComplete(null);
       throw error;
     }
-    const nextOnboardingComplete = Boolean(data?.onboarding_completed || data?.id);
+    const nextOnboardingComplete = profileHasCompletedOnboarding(data);
     setProfile(data ?? null);
     setOnboardingComplete(nextOnboardingComplete);
     setProfileStatus("loaded");
@@ -236,6 +245,25 @@ export function AuthProvider({ children }) {
   async function signInWithPassword(email, password) {
     if (!isSupabaseConfigured) throw new Error("Supabase is not configured.");
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return data;
+  }
+
+  async function resendVerificationEmail() {
+    if (!isSupabaseConfigured || !session?.user?.email) throw new Error("Unable to determine the account email.");
+    const configuredOrigin = import.meta.env.VITE_APP_URL?.trim().replace(/\/$/, "");
+    const redirectOrigin = configuredOrigin && !/^https?:\/\/localhost(?::\d+)?$/i.test(configuredOrigin) ? configuredOrigin : window.location.origin;
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: session.user.email,
+      options: { emailRedirectTo: `${redirectOrigin}/confirm-email` },
+    });
+    if (error) throw error;
+  }
+
+  async function refreshSession() {
+    if (!isSupabaseConfigured) throw new Error("Supabase is not configured.");
+    const { data, error } = await supabase.auth.refreshSession();
     if (error) throw error;
     return data;
   }
@@ -301,8 +329,11 @@ export function AuthProvider({ children }) {
     refreshProfile,
     isSuspended: Boolean(profile?.suspended_at),
     onboardingComplete,
+    emailVerified: isEmailVerified(session?.user),
     isAuthenticated: Boolean(session),
     signInWithPassword,
+    resendVerificationEmail,
+    refreshSession,
     signUpWithPassword,
     sendPasswordReset,
     updatePassword,

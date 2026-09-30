@@ -312,6 +312,41 @@ test("conversation creation uses the conversations table contract", async () => 
   assert.match(api, /content,/);
 });
 
+test("onboarding does not complete before the authenticated profile is persisted", async () => {
+  const [onboarding, auth, buyerSettings, protectedRoute] = await Promise.all([
+    readFile(new URL("../src/pages/Onboarding.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/context/AuthContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/context/BuyerSettingsContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/components/ProtectedRoute.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(onboarding, /await updateSettings\(/);
+  assert.match(onboarding, /setStep\(5\)/);
+  assert.match(onboarding, /onContinue=\{finish\}/);
+  assert.match(onboarding, /profiles_id_fkey/);
+  assert.match(auth, /profileHasCompletedOnboarding/);
+  assert.doesNotMatch(auth, /Boolean\(data\?\.onboarding_completed \|\| data\?\.id\)/);
+  assert.match(buyerSettings, /supabase\.auth\.getUser\(\)/);
+  assert.match(buyerSettings, /upsertProfileWithLocationFallback\(authenticatedUser\.id/);
+  assert.match(protectedRoute, /!onboardingComplete/);
+});
+
+test("email verification gates onboarding and protected app routes", async () => {
+  const [auth, protectedRoute, signIn, app, confirmation] = await Promise.all([
+    readFile(new URL("../src/context/AuthContext.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/components/ProtectedRoute.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/SignIn.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/App.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/ConfirmEmail.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(auth, /emailVerified: isEmailVerified\(session\?\.user\)/);
+  assert.match(auth, /supabase\.auth\.resend/);
+  assert.match(protectedRoute, /!emailVerified && !allowUnverified/);
+  assert.match(signIn, /emailVerified \? \(onboardingComplete \? "/);
+  assert.match(app, /path="\/verify-email"/);
+  assert.match(app, /allowUnverified/);
+  assert.match(confirmation, /Verify your email/);
+});
+
 test("critical Supabase contracts are present for regression coverage", async () => {
   const [orders, notifications, validation, sellerSettings, profileActivation, postsMigration, postContext, sellerProfile, profileMode, openStore] = await Promise.all([
     readFile(new URL("../supabase/migrations/20260813_apply_promotions_to_order_items.sql", import.meta.url), "utf8"),

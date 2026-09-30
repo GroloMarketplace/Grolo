@@ -206,8 +206,12 @@ export function BuyerSettingsProvider({ children }) {
       throw new Error("Supabase is not configured or the user is not signed in.");
     }
 
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData.user?.id) {
+      throw new Error("Your sign-in session is no longer available. Please sign in again and retry.");
+    }
+    const authenticatedUser = authData.user;
     const current = settings;
-    const oldAvatarUrl = current.avatar ?? null;
     const next = {
       ...current,
       ...updates,
@@ -216,13 +220,13 @@ export function BuyerSettingsProvider({ children }) {
         ...(updates.notifications ?? {}),
       },
     };
-    const data = await upsertProfileWithLocationFallback(user.id, { id: user.id, ...profileUpdates(next) });
-    setSettings(settingsFromProfile(data, user));
+    const data = await upsertProfileWithLocationFallback(authenticatedUser.id, { id: authenticatedUser.id, ...profileUpdates(next) });
+    setSettings(settingsFromProfile(data, authenticatedUser));
     setProfileFound(true);
     setProfileLoaded(true);
     setProfileLoading(false);
     setProfileError(null);
-    const refreshedProfile = await refreshProfile(user.id);
+    await refreshProfile(authenticatedUser.id);
     return true;
   };
 

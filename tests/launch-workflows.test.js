@@ -388,6 +388,22 @@ test("push token persistence verifies the active Supabase user and reports failu
   assert.match(client, /supabaseProjectReference/);
 });
 
+test("APNs push worker handles notification webhooks securely", async () => {
+  const worker = await readFile(new URL("../supabase/functions/send-push-notification/index.ts", import.meta.url), "utf8");
+  assert.match(worker, /x-push-webhook-secret/);
+  assert.match(worker, /APNS_KEY_ID/);
+  assert.match(worker, /APNS_TEAM_ID/);
+  assert.match(worker, /APNS_PRIVATE_KEY/);
+  assert.match(worker, /api\.push\.apple\.com/);
+  assert.match(worker, /apns-topic/);
+  assert.match(worker, /apns-push-type/);
+  assert.match(worker, /from\("push_tokens"\)/);
+  assert.match(worker, /from\("profiles"\)/);
+  assert.match(worker, /filtered by preference/);
+  assert.match(worker, /status === 0 \|\| \[429, 500, 502, 503, 504\]/);
+  assert.match(worker, /\[400, 410\]\.includes\(result\.status\)/);
+});
+
 test("critical Supabase contracts are present for regression coverage", async () => {
   const [orders, notifications, validation, sellerSettings, profileActivation, postsMigration, postContext, sellerProfile, profileMode, openStore] = await Promise.all([
     readFile(new URL("../supabase/migrations/20260813_apply_promotions_to_order_items.sql", import.meta.url), "utf8"),

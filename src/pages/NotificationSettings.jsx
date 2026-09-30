@@ -56,7 +56,15 @@ export default function NotificationSettings() {
     if (registrationActive.current || !user?.id || !Capacitor.isNativePlatform()) return;
     try {
       const registration = await registerNativePushNotifications({
-        onToken: (token) => savePushToken({ userId: user.id, token, platform: Capacitor.getPlatform() }).catch((error) => addDiagnostic(`Token save error: ${error?.message ?? String(error)}`)),
+        onToken: async (token) => {
+          addDiagnostic("Registration callback fired");
+          try {
+            const result = await savePushToken({ userId: user.id, token, platform: Capacitor.getPlatform() });
+            addDiagnostic(`Token saved: ${result.platform}, project ${result.projectReference ?? "unknown"}`);
+          } catch (error) {
+            addDiagnostic(`Token save error: ${error?.message ?? String(error)}`);
+          }
+        },
       });
       if (!registration.enabled) {
         addDiagnostic(`Registration skipped: ${registration.reason}`);

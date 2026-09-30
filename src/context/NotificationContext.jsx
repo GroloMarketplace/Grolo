@@ -45,7 +45,15 @@ export function NotificationProvider({ children }) {
     if (!user?.id) return undefined;
 
     const register = () => registerNativePushNotifications({
-      onToken: (token) => savePushToken({ userId: user.id, token, platform: Capacitor.getPlatform() }).catch((error) => console.error("Unable to save push token", error)),
+      onToken: async (token) => {
+        console.info("[PushDiagnostics] registration callback fired", { platform: Capacitor.getPlatform(), userId: user.id });
+        try {
+          const result = await savePushToken({ userId: user.id, token, platform: Capacitor.getPlatform() });
+          console.info("[PushDiagnostics] token saved", result);
+        } catch (error) {
+          console.error("[PushDiagnostics] token save failed", error);
+        }
+      },
       onAction: (notification) => navigate(routeForPushNotification(notification)),
     }).then((registration) => {
       if (cancelled) registration.cleanup?.();

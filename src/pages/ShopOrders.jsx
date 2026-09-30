@@ -250,7 +250,28 @@ export default function ShopOrders() {
 }
 
 function InProgressConfirmation({ onKeepNew, onConfirm }) {
-  return <div className="absolute inset-0 z-50 flex items-end bg-black/30"><div className="w-full rounded-t-2xl bg-white p-5"><h2 className="text-[18px] font-semibold">Start Preparing Order?</h2><p className="mt-3 text-[14px] leading-6 text-[#4F4F4F]">Once this order is marked as In Progress:</p><ul className="mt-2 list-disc pl-5 text-[14px] leading-6 text-[#4F4F4F]"><li>The buyer can no longer cancel the order.</li><li>This confirms that preparation has begun.</li><li>The order will move to Preparing Orders.</li></ul><div className="mt-5 flex gap-3"><button type="button" onClick={onKeepNew} className="flex-1 rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467]">Keep as New Order</button><button type="button" onClick={onConfirm} className="flex-1 rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">Mark as In Progress</button></div></div></div>;
+  return (
+    <div className="absolute inset-0 z-50 flex items-end bg-black/30" role="dialog" aria-modal="true" aria-labelledby="in-progress-title">
+      <section
+        className="flex max-h-full min-h-0 w-full flex-col rounded-t-2xl bg-white shadow-2xl"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <div className="min-h-0 overflow-y-auto overscroll-contain p-5 pb-2">
+          <h2 id="in-progress-title" className="text-[18px] font-semibold">Start Preparing Order?</h2>
+          <p className="mt-3 text-[14px] leading-6 text-[#4F4F4F]">Once this order is marked as In Progress:</p>
+          <ul className="mt-2 list-disc pl-5 text-[14px] leading-6 text-[#4F4F4F]">
+            <li>The buyer can no longer cancel the order.</li>
+            <li>This confirms that preparation has begun.</li>
+            <li>The order will move to Preparing Orders.</li>
+          </ul>
+        </div>
+        <div className="flex shrink-0 gap-3 px-5 pb-5 pt-3">
+          <button type="button" onClick={onKeepNew} className="flex-1 rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467]">Keep as New Order</button>
+          <button type="button" onClick={onConfirm} className="flex-1 rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">Mark as In Progress</button>
+        </div>
+      </section>
+    </div>
+  );
 }
 
 function BuyerReviewForm({ order, onClose, onSubmitted }) {

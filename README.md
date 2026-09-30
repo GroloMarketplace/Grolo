@@ -87,6 +87,8 @@ migration as a substitute.
    14. `supabase/migrations/20260824_trade_orders.sql`
    15. `supabase/migrations/20260824_trade_proposals.sql`
    16. `supabase/migrations/20260926_push_notification_tokens.sql`
+   17. `supabase/migrations/20260817_z_message_notification_repair.sql`
+   18. `supabase/migrations/20260929_message_push_without_feed.sql`
 
 4. Run `supabase/verify_bootstrap.sql` in the same project. The script must
    finish with `Grolo Supabase bootstrap verification passed` and must not

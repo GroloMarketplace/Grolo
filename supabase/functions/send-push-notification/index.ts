@@ -137,9 +137,45 @@ Deno.serve(async (request) => {
     if (request.method !== "POST") return jsonResponse({ error: "POST required" }, 405);
 
     const webhook = await request.json();
-    const notification = webhook?.record;
-    if (webhook?.type !== "INSERT" || webhook?.table !== "notifications" || !notification?.id || !notification?.user_id) {
-      return jsonResponse({ ignored: true, reason: "Not a notification INSERT" });
+    if (webhook?.type !== "INSERT" || !["notifications", "messages"].includes(webhook?.table)) {
+      return jsonResponse({ ignored: true, reason: "Not a supported INSERT webhook" });
+    }
+
+    let notification = webhook.record;
+    if (webhook.table === "messages") {
+      const message = webhook.record;
+      const { data: conversation, error: conversationError } = await supabase!
+        .from("conversations")
+        .select("buyer_id,seller_id")
+        .eq("id", message.conversation_id)
+        .single();
+      if (conversationError) throw conversationError;
+
+      const recipientId = conversation.buyer_id === message.sender_id
+        ? conversation.seller_id
+        : conversation.buyer_id;
+      if (!recipientId || recipientId === message.sender_id) {
+        return jsonResponse({ ignored: true, reason: "Message has no other conversation participant" });
+      }
+
+      const { data: sender } = await supabase!
+        .from("profiles")
+        .select("display_name,username,shop_name")
+        .eq("id", message.sender_id)
+        .maybeSingle();
+      const senderName = sender?.display_name ?? sender?.username ?? sender?.shop_name ?? "Someone";
+      notification = {
+        id: `message:${message.id}`,
+        user_id: recipientId,
+        type: "new_message",
+        title: "New message",
+        message: `${senderName} sent you a message.`,
+        related_id: message.conversation_id,
+      };
+    }
+
+    if (!notification?.id || !notification?.user_id) {
+      return jsonResponse({ ignored: true, reason: "Webhook record has no notification identity" });
     }
 
     const { data: tokens, error: tokenError } = await supabase!
@@ -164,12 +200,33 @@ Deno.serve(async (request) => {
       return jsonResponse({ delivered: 0, filtered: true, preferenceKey });
     }
 
-    const { count: unreadCount, error: unreadError } = await supabase!
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", notification.user_id)
-      .eq("read", false);
-    if (unreadError) throw unreadError;
+    let unreadCount = 0;
+    if (webhook.table === "messages") {
+      const { data: conversations, error: conversationsError } = await supabase!
+        .from("conversations")
+        .select("id")
+        .or(`buyer_id.eq.${notification.user_id},seller_id.eq.${notification.user_id}`);
+      if (conversationsError) throw conversationsError;
+      const conversationIds = (conversations ?? []).map((row) => row.id);
+      if (conversationIds.length) {
+        const { count, error: unreadMessageError } = await supabase!
+          .from("messages")
+          .select("id", { count: "exact", head: true })
+          .in("conversation_id", conversationIds)
+          .neq("sender_id", notification.user_id)
+          .is("read_at", null);
+        if (unreadMessageError) throw unreadMessageError;
+        unreadCount = count ?? 0;
+      }
+    } else {
+      const { count, error: unreadNotificationError } = await supabase!
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", notification.user_id)
+        .eq("read", false);
+      if (unreadNotificationError) throw unreadNotificationError;
+      unreadCount = count ?? 0;
+    }
 
     const jwt = await providerToken();
     const payload = {

@@ -174,7 +174,6 @@ from (values
   ('create_event_attendance_confirmation_notifications', 'public.create_event_attendance_confirmation_notifications()'),
   ('respond_to_event_attendance_confirmation', 'public.respond_to_event_attendance_confirmation(text,boolean)'),
   ('create_activity_notification', 'public.create_activity_notification(uuid,text,text,text,text)'),
-  ('notify_new_message', 'public.notify_new_message()'),
   ('create_review', 'public.create_review(text,smallint,uuid,uuid,uuid,uuid,text,text,jsonb,jsonb)'),
   ('create_order_with_items', 'public.create_order_with_items(uuid,text,numeric,jsonb,jsonb)'),
   ('cancel_order_with_inventory', 'public.cancel_order_with_inventory(uuid)'),
@@ -228,6 +227,27 @@ from (values
   ('notifications_on_review'), ('notifications_on_promotion'),
   ('notifications_on_listing'), ('notifications_on_order_status')
 ) required(required_name);
+
+insert into grolo_bootstrap_checks
+select 'contract:messages_not_in_notification_feed',
+       not exists (
+         select 1 from pg_trigger t
+         join pg_class c on c.oid = t.tgrelid
+         join pg_namespace n on n.oid = c.relnamespace
+         where n.nspname = 'public'
+           and c.relname = 'messages'
+           and t.tgname = 'notifications_on_message'
+           and not t.tgisinternal
+       ),
+       case when not exists (
+         select 1 from pg_trigger t
+         join pg_class c on c.oid = t.tgrelid
+         join pg_namespace n on n.oid = c.relnamespace
+         where n.nspname = 'public'
+           and c.relname = 'messages'
+           and t.tgname = 'notifications_on_message'
+           and not t.tgisinternal
+       ) then 'message feed trigger absent' else 'message feed trigger remains' end;
 
 insert into grolo_bootstrap_checks
 select 'policy:' || required_name,

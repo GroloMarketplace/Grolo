@@ -388,6 +388,12 @@ test("push token persistence verifies the active Supabase user and reports failu
   assert.match(client, /supabaseProjectReference/);
 });
 
+test("message pushes bypass the notification feed", async () => {
+  const migration = await readFile(new URL("../supabase/migrations/20260929_message_push_without_feed.sql", import.meta.url), "utf8");
+  assert.match(migration, /drop trigger if exists notifications_on_message/);
+  assert.match(migration, /drop function if exists public\.notify_new_message/);
+});
+
 test("APNs push worker handles notification webhooks securely", async () => {
   const worker = await readFile(new URL("../supabase/functions/send-push-notification/index.ts", import.meta.url), "utf8");
   assert.match(worker, /x-push-webhook-secret/);
@@ -399,6 +405,9 @@ test("APNs push worker handles notification webhooks securely", async () => {
   assert.match(worker, /api\.push\.apple\.com/);
   assert.match(worker, /apns-topic/);
   assert.match(worker, /apns-push-type/);
+  assert.match(worker, /webhook\.table === "messages"/);
+  assert.match(worker, /from\("conversations"\)/);
+  assert.match(worker, /from\("messages"\)/);
   assert.match(worker, /from\("push_tokens"\)/);
   assert.match(worker, /from\("profiles"\)/);
   assert.match(worker, /filtered by preference/);

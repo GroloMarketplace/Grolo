@@ -137,6 +137,13 @@ Deno.serve(async (request) => {
     if (request.method !== "POST") return jsonResponse({ error: "POST required" }, 405);
 
     const webhook = await request.json();
+    console.info("[PushWorker] webhook received", {
+      table: webhook?.table,
+      eventType: webhook?.type,
+      notificationId: webhook?.record?.id,
+      notificationType: webhook?.record?.type,
+      userId: webhook?.record?.user_id,
+    });
     if (webhook?.type !== "INSERT" || !["notifications", "messages"].includes(webhook?.table)) {
       return jsonResponse({ ignored: true, reason: "Not a supported INSERT webhook" });
     }
@@ -192,10 +199,25 @@ Deno.serve(async (request) => {
     if (profileError) throw profileError;
 
     const preferenceKey = preferenceKeyForType(notification.type);
+    console.info("[PushWorker] notification routed", {
+      table: webhook.table,
+      notificationId: notification.id,
+      type: notification.type,
+      recipientId: notification.user_id,
+      tokenCount: tokens?.length ?? 0,
+      preferenceKey,
+    });
     const preferences = profile?.store_onboarding_status || profile?.seller_status === "active"
       ? (profile?.seller_notifications ?? {})
       : (profile?.buyer_notifications ?? {});
-    if (preferences[preferenceKey] === false) {
+    const preferenceEnabled = preferences[preferenceKey] !== false;
+    console.info("[PushWorker] preference decision", {
+      notificationId: notification.id,
+      type: notification.type,
+      preferenceKey,
+      enabled: preferenceEnabled,
+    });
+    if (!preferenceEnabled) {
       console.info("[PushWorker] filtered by preference", { notificationId: notification.id, preferenceKey });
       return jsonResponse({ delivered: 0, filtered: true, preferenceKey });
     }

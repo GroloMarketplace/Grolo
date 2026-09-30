@@ -403,6 +403,11 @@ test("APNs push worker handles notification webhooks securely", async () => {
   const worker = await readFile(new URL("../supabase/functions/send-push-notification/index.ts", import.meta.url), "utf8");
   assert.match(worker, /x-push-webhook-secret/);
   assert.match(worker, /APNS_KEY_ID/);
+  assert.match(worker, /type === "new_follower"/);
+  assert.match(worker, /newFollowers/);
+  assert.match(worker, /\[PushWorker\] webhook received/);
+  assert.match(worker, /\[PushWorker\] notification routed/);
+  assert.match(worker, /\[PushWorker\] preference decision/);
   assert.match(worker, /APNS_TEAM_ID/);
   assert.match(worker, /APNS_PRIVATE_KEY/);
   assert.match(worker, /normalizeApnsPrivateKey/);

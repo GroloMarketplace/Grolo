@@ -18,6 +18,7 @@ import { useSavedItems } from "../context/SavedContext";
 import { useBuyerTrust } from "../context/BuyerTrustContext";
 import { useAuth } from "../context/AuthContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
+import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useOrders } from "../context/OrderContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { formatListingPrice } from "../utils/listingDisplay";
@@ -40,6 +41,7 @@ export default function BuyerProfile() {
   const navigate = useNavigate();
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
   const { settings, updateSettings } = useBuyerSettings();
+  const { getSellerProfile } = useSellerSettings();
   const { user } = useAuth();
   const { events: liveEvents, attendingEventIds } = useEvents();
   const { followedSellers } = useFollow();
@@ -250,7 +252,7 @@ export default function BuyerProfile() {
                   </div>
                 ) : (
                   <div className="flex w-full min-w-0 flex-col gap-4">
-                    {activity.map((item) => <ActivityCard key={item.id} activity={item} navigate={navigate} profile={buyerProfile} />)}
+                    {activity.map((item) => <ActivityCard key={item.id} activity={item} navigate={navigate} profile={buyerProfile} getSellerProfile={getSellerProfile} />)}
                   </div>
                 )}
               </div>
@@ -279,7 +281,11 @@ function buildActivity(activities, savedItems, followedSellers, regrownIds) {
   ];
   const merged = new Map(fallbackActivities.map((activity) => [activity.id, activity]));
   (Array.isArray(activities) ? activities : []).forEach((activity) => {
-    if (activity && typeof activity === "object" && activity.id) merged.set(activity.id, activity);
+    if (!activity || typeof activity !== "object" || !activity.id) return;
+    const savedListing = activity.type === "Save listing"
+      ? safeSavedItems.find((item) => [item.id, item.sourceId, item.databaseId].filter(Boolean).map(String).includes(String(activity.entityId)))
+      : null;
+    merged.set(activity.id, savedListing && !activity.content ? { ...activity, content: savedListing } : activity);
   });
   return [...merged.values()].sort((first, second) => new Date(second.timestamp ?? 0) - new Date(first.timestamp ?? 0));
 }
@@ -369,33 +375,45 @@ export function CommunityImpactTab({ metrics, publicView = false, profileId = "y
   );
 }
 
-export function ActivityCard({ activity: rawActivity, navigate, profile }) {
+export function ActivityCard({ activity: rawActivity, navigate, profile, getSellerProfile }) {
   const activity = rawActivity && typeof rawActivity === "object" ? rawActivity : {};
   const content = activity.content ?? activity.event ?? activity.listing ?? activity.post ?? null;
   const contentType = content?.type ?? activity.contentType ?? (activity.type === "Save event" ? "event" : activity.type === "Save listing" ? "listing" : activity.entityId?.startsWith("event:") ? "event" : activity.entityId?.startsWith("post:") ? "post" : null);
   const event = contentType === "event" && content && typeof content === "object" ? content.event ?? content : null;
   const listing = contentType === "listing" && content && typeof content === "object" ? content.listing ?? content : null;
   const post = contentType === "post" && content && typeof content === "object" ? content.post ?? content : null;
+  const followedStore = activity.type === "Follow store" ? getSellerProfile?.(activity.entityId) : null;
+  const isSavedListing = activity.type === "Save listing" && Boolean(listing);
   const openActivity = () => {
-    if (event?.id) navigate(`/event/${event.id}`);
+    if (activity.type === "Follow store" && (followedStore?.id || activity.entityId)) navigate(`/seller/${encodeURIComponent(followedStore?.id ?? activity.entityId)}`);
+    else if (event?.id) navigate(`/event/${event.id}`);
     else if (listing?.id || listing?.sourceId) navigate(`/product/${listing.databaseId ?? listing.id ?? listing.sourceId}`);
     else if (post) navigate("/comments", { state: { content: { type: "post", post } } });
   };
-  const avatar = profile?.avatar ?? post?.avatar ?? event?.avatar ?? listing?.image;
+  const avatar = followedStore?.avatar ?? profile?.avatar ?? post?.avatar ?? event?.avatar ?? listing?.image;
+  const activityLabel = followedStore?.name || (isSavedListing ? `Saved ${listing.name ?? listing.title ?? "listing"}` : activity.label);
   const timestamp = activity.timestamp ? new Date(activity.timestamp).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
-  const preview = event ? <EventPreview event={event} /> : listing ? <ListingPreview listing={listing} /> : post ? <PostPreview post={post} text={activity.text} /> : <p className="mt-3 rounded-md bg-[#F5FFF6] p-3 text-[13px] text-[#4F4F4F]">The original content is no longer available.</p>;
+  const preview = followedStore ? <StorePreview store={followedStore} /> : event ? <EventPreview event={event} /> : listing ? <ListingPreview listing={listing} /> : post ? <PostPreview post={post} text={activity.text} /> : <p className="mt-3 rounded-md bg-[#F5FFF6] p-3 text-[13px] text-[#4F4F4F]">The original content is no longer available.</p>;
+  const actionLabel = followedStore ? "View Store" : isSavedListing ? "View Listing" : "";
 
   return (
-    <button type="button" onClick={openActivity} className="w-full rounded-lg border border-[#E6E6E6] p-3 text-left transition-colors hover:bg-[#F5FFF6]">
+    <article
+      className="w-full rounded-lg border border-[#E6E6E6] p-3 text-left transition-colors hover:bg-[#F5FFF6]"
+      onClick={!actionLabel ? openActivity : undefined}
+      onKeyDown={!actionLabel ? (event) => { if (event.key === "Enter" || event.key === " ") openActivity(); } : undefined}
+      role={!actionLabel ? "button" : undefined}
+      tabIndex={!actionLabel ? 0 : undefined}
+    >
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {avatar && <img src={avatar} alt={profile?.username ?? post?.name ?? event?.title ?? listing?.name ?? "Profile"} className="h-8 w-8 rounded-full object-cover" />}
-          <div><p className="text-[14px] font-semibold">{activity.label}</p><p className="text-[12px] text-[#828282]">{timestamp}</p></div>
+        <div className="flex min-w-0 items-center gap-2">
+          {avatar && <img src={avatar} alt={followedStore?.name ?? profile?.username ?? post?.name ?? event?.title ?? listing?.name ?? "Profile"} className="h-8 w-8 shrink-0 rounded-full object-cover" />}
+          <div className="min-w-0"><p className="truncate text-[14px] font-semibold">{activityLabel}</p><p className="text-[12px] text-[#828282]">{timestamp}</p></div>
         </div>
-        <span className="text-[12px] text-[#498467]">{activity.type}</span>
+        <span className="shrink-0 text-[12px] text-[#498467]">{activity.type}</span>
       </div>
       {preview}
-    </button>
+      {actionLabel && <button type="button" onClick={openActivity} className="mt-3 w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">{actionLabel}</button>}
+    </article>
   );
 }
 
@@ -427,9 +445,14 @@ function EventPreview({ event }) {
   return <><img src={event.image ?? ""} alt={event.title ?? "Event"} className="mt-3 aspect-square w-full rounded-lg object-cover" /><h3 className="mt-2 text-[15px] font-semibold">{event.title ?? "Event unavailable"}</h3><p className="mt-1 text-[13px] text-[#828282]">{event.date ? formatEventDate(event.date) : "Date unavailable"}{event.startTime ? ` · ${formatEventTime(event.startTime)}` : ""}{formatLocation(event) ? ` · ${formatLocation(event)}` : ""}</p>{event.id ? <EventAttendanceCount eventId={event.id} className="mt-1 block" /> : null}</>;
 }
 
+function StorePreview({ store }) {
+  if (!store) return null;
+  return <div className="mt-3 rounded-lg bg-[#F5FFF6] p-3"><div className="flex items-center gap-3">{store.avatar ? <img src={store.avatar} alt={store.name || "Store"} className="h-14 w-14 rounded-lg object-cover" /> : <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-[#DCEBE0] text-[11px] font-semibold text-[#498467]">Store</div>}<div className="min-w-0"><h3 className="truncate text-[15px] font-semibold">{store.name || "Store"}</h3><p className="mt-1 line-clamp-2 text-[13px] leading-5 text-[#4F4F4F]">{store.description || "View this store profile and its listings."}</p></div></div></div>;
+}
+
 function ListingPreview({ listing }) {
   if (!listing) return null;
-  return <><img src={listing.image} alt={listing.name} className="mt-3 aspect-square w-full rounded-lg object-cover" /><ServiceCategoryLabel listing={listing} className="mt-2 block" /><p className="mt-1 text-[14px] font-semibold">{listing.name}</p><p className="text-[14px] text-[#498467]">{listing.shop} · {formatListingPrice(listing)}</p></>;
+  return <><img src={listing.image} alt={listing.name} className="mt-3 aspect-square w-full rounded-lg object-cover" /><ServiceCategoryLabel listing={listing} className="mt-2 block" /><p className="mt-1 text-[14px] font-semibold">{listing.name}</p><p className="text-[14px] text-[#498467]">{listing.shop || "Local store"} · {formatListingPrice(listing)}</p></>;
 }
 
 function PromotionPreview({ promotion, listing }) {

@@ -81,7 +81,7 @@ export default function SignIn() {
         try { localStorage.setItem("grolo-pending-email", normalizedEmail); } catch { }
         const verified = Boolean(data.user?.email_confirmed_at || data.user?.confirmed_at || data.session?.user?.email_confirmed_at || data.session?.user?.confirmed_at);
         if (verified) navigate("/onboarding", { replace: true });
-        else navigate("/verify-email", { replace: true });
+        else setStatus("confirmation");
       } else {
         await signInWithPassword(normalizedEmail, password);
       }
@@ -111,7 +111,7 @@ export default function SignIn() {
             <div className="rounded-2xl border border-[#C9DCCB] bg-white p-6 text-center shadow-sm">
               <CheckCircle2 className="mx-auto mb-3 text-[#498467]" size={30} />
               <h2 className="text-lg font-semibold text-[#202A21]">Check your inbox</h2>
-              <p className="mt-2 text-sm leading-6 text-[#687368]">{status === "confirmation" ? "Your account is ready. Confirm your email, then return here to sign in." : "We sent a secure password reset link to your email address."}</p>
+              <p className="mt-2 text-sm leading-6 text-[#687368]">{status === "confirmation" ? `Check your email and verify your email address. Confirm your email before returning here to sign in${email ? `: ${email}` : ""}.` : "We sent a secure password reset link to your email address."}</p>
               <button type="button" onClick={() => { setStatus("idle"); setForgot(false); navigate("/signin", { replace: true }); }} className="mt-5 text-sm font-semibold text-[#498467]">Return to sign in</button>
             </div>
           ) : (

@@ -304,7 +304,24 @@ function BuyerReviewForm({ order, onClose, onSubmitted }) {
       console.error("buyer review modal submit rejected", { orderId: reviewInput.orderId ?? null, error: error?.message ?? String(error) });
     }
   };
-  return <div className="absolute inset-0 z-50 flex items-end bg-black/30"><div className="w-full rounded-t-2xl bg-white p-5"><div className="flex items-center justify-between"><h2 className="text-[18px] font-semibold">Review Buyer</h2><button type="button" onClick={onClose} className="text-[14px] text-[#828282]">Close</button></div><p className="mt-1 text-[13px] text-[#828282]">Share positive feedback about {getBuyerDisplayName(order)}.</p><div className="mt-4 flex flex-col gap-3">{options.map((option) => <Checkbox key={option} label={option} checked={criteria.includes(option)} onChange={() => setCriteria((current) => current.includes(option) ? current.filter((item) => item !== option) : [...current, option])} />)}</div><label className="mt-4 flex flex-col gap-2 text-[14px] font-medium">Additional Notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-2 text-[14px] font-normal outline-none focus:border-[#498467]" /></label><button type="button" onClick={submit} className="mt-4 w-full rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">Save Review</button></div></div>;
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end overflow-hidden bg-black/30" role="dialog" aria-modal="true" aria-labelledby="review-buyer-title">
+      <button type="button" aria-label="Close review buyer dialog" onClick={onClose} className="absolute inset-0 h-full w-full" />
+      <section className="relative flex max-h-full min-h-0 w-full flex-col rounded-t-2xl bg-white shadow-2xl">
+        <div className="min-h-0 overflow-y-auto overscroll-contain p-5 pb-2">
+          <div className="flex items-center justify-between"><h2 id="review-buyer-title" className="text-[18px] font-semibold">Review Buyer</h2><button type="button" onClick={onClose} className="text-[14px] text-[#828282]">Cancel</button></div>
+          <p className="mt-1 text-[13px] text-[#828282]">Share positive feedback about {getBuyerDisplayName(order)}.</p>
+          <div className="mt-4 flex flex-col gap-3">{options.map((option) => <Checkbox key={option} label={option} checked={criteria.includes(option)} onChange={() => setCriteria((current) => current.includes(option) ? current.filter((item) => item !== option) : [...current, option])} />)}</div>
+          <label className="mt-4 flex flex-col gap-2 text-[14px] font-medium">Additional Notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="resize-none rounded-lg border border-[#E0E0E0] px-3 py-2 text-[14px] font-normal outline-none focus:border-[#498467]" /></label>
+        </div>
+        <div className="flex shrink-0 gap-3 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3">
+          <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-[#498467] py-3 text-[14px] font-medium text-[#498467]">Cancel</button>
+          <button type="button" onClick={submit} className="flex-1 rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white">Save Review</button>
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
 }
 
 function Checkbox({ label, checked, onChange }) {

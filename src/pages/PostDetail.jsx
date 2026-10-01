@@ -45,7 +45,13 @@ export default function PostDetail() {
   const resolvedSeller = useResolvedSeller(post?.sellerId ?? post?.authorId);
   const blocked = useBlockedAccount(post?.sellerId ?? post?.authorId);
   const seller = post ? resolvedSeller ?? sellers[post.sellerId] ?? Object.values(sellers).find((item) => item.name === post.name) : null;
-  const postAvatar = post?.authorId === authUser?.id ? buyerProfile.avatar : seller?.avatar ?? post?.avatar;
+  const isStorePost = Boolean(seller?.storeProfile || seller?.shopName || seller?.storeOpenedAt);
+  const postAuthorName = isStorePost ? seller?.name ?? post?.name : post?.name ?? seller?.name;
+  const postAvatar = isStorePost ? seller?.avatar ?? post?.avatar : post?.authorId === authUser?.id ? buyerProfile.avatar : seller?.avatar ?? post?.avatar;
+  const openAuthorProfile = () => {
+    if (isStorePost && seller?.id) navigate(`/seller/${encodeURIComponent(seller.id)}`);
+    else if (post?.authorId) navigate(`/profile/${encodeURIComponent(post.authorId)}`);
+  };
   const engagement = getPostEngagement(post);
   const regrown = post ? isRegrown(`post:${post.id}`) : false;
   const attachedProduct = post?.productId
@@ -132,8 +138,8 @@ export default function PostDetail() {
       <Header title="Post Detail" onBack={() => navigate(-1)} />
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-5">
         <div className="flex items-center gap-3">
-          <img src={postAvatar} alt={post.name} className="h-10 w-10 rounded-full object-cover" />
-          <div className="min-w-0 flex-1"><div className="flex items-center gap-1"><span className="truncate text-[16px] font-semibold text-[#498467]">{post.name}</span><FoundingMemberBadge sellerId={post.sellerId} iconOnly /></div><div className="flex flex-col gap-1 text-[12px] text-[#828282]"><DistanceLabel content={post} /><span>{post.location ?? seller?.location ?? "Local community"} · {post.time}</span></div></div>
+          <button type="button" onClick={openAuthorProfile} aria-label={`Open ${postAuthorName} profile`} className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#498467]"><img src={postAvatar} alt={postAuthorName} className="h-10 w-10 rounded-full object-cover" /></button>
+          <div className="min-w-0 flex-1"><div className="flex items-center gap-1"><button type="button" onClick={openAuthorProfile} className="truncate text-left text-[16px] font-semibold text-[#498467] hover:underline">{postAuthorName}</button><FoundingMemberBadge sellerId={post.sellerId} iconOnly /></div><div className="flex flex-col gap-1 text-[12px] text-[#828282]"><DistanceLabel content={post} /><span>{post.location ?? seller?.location ?? "Local community"} · {post.time}</span></div></div>
         </div>
         {postImages.length > 0 && (
           <div className={postImages.length > 1 ? "mt-5 flex gap-2 overflow-x-auto no-scrollbar" : "mt-5"}>

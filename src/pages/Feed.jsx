@@ -5,7 +5,6 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 import Header from "../components/Header";
 import { formatLocation } from "../data/locations";
 import CommunityImpactCard from "../components/CommunityImpactCard";
-import ContentActionSheet from "../components/ContentActionSheet";
 import ShareSheet from "../components/ShareSheet";
 import { useSavedItems } from "../context/SavedContext";
 import { useRegrow } from "../context/RegrowContext";
@@ -98,9 +97,8 @@ export default function Feed() {
       : "For You");
   const [tab, setTab] = useState(initialTabRef.current);
   const [communityFilter, setCommunityFilter] = useState(communityFilterRef.current);
-  const [actionContent, setActionContent] = useState(null);
   const [shareContent, setShareContent] = useState(null);
-  const [hiddenContentIds, setHiddenContentIds] = useState(() => new Set());
+  const hiddenContentIds = new Set();
   const [feedToast, setFeedToast] = useState("");
   const [refreshDistance, setRefreshDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -189,10 +187,6 @@ export default function Feed() {
   const showFeedToast = (message) => {
     setFeedToast(message);
     window.setTimeout(() => setFeedToast(""), 2200);
-  };
-
-  const hideContent = (contentId) => {
-    setHiddenContentIds((current) => new Set([...current, contentId]));
   };
 
   const openShare = (content, onComplete) => setShareContent({ content, onComplete });
@@ -312,7 +306,6 @@ export default function Feed() {
                 hiddenContentIds={hiddenContentIds}
                 blockedUserIds={blockedUserIds}
                 onComment={openComments}
-                onMenu={setActionContent}
                 onShare={openShare}
               />
             </div>
@@ -324,7 +317,6 @@ export default function Feed() {
                 onFilterChange={handleCommunityFilterChange}
                 onOpenDetail={openFeedDetail}
                 onComment={openComments}
-                onMenu={setActionContent}
                 onShare={openShare}
                 location={resolveUserLocation(buyerSettings)}
                 radius={buyerSettings.locationRadius ?? 25}
@@ -339,14 +331,6 @@ export default function Feed() {
           </div>
         </div>
       </div>
-      {actionContent && (
-        <ContentActionSheet
-          content={actionContent}
-          onClose={() => setActionContent(null)}
-          onHide={hideContent}
-          onToast={showFeedToast}
-        />
-      )}
       {shareContent && (
         <ShareSheet
           content={shareContent.content}
@@ -362,7 +346,7 @@ export default function Feed() {
   );
 }
 
-function FollowingFeed({ followedSellers, location, radius, hiddenContentIds, blockedUserIds, onComment, onMenu, onShare }) {
+function FollowingFeed({ followedSellers, location, radius, hiddenContentIds, blockedUserIds, onComment, onShare }) {
   const { upcomingEvents } = useEvents();
   const { listings } = useListings();
   const { posts } = usePosts();
@@ -377,7 +361,7 @@ function FollowingFeed({ followedSellers, location, radius, hiddenContentIds, bl
       {items.length === 0 ? (
         <div className="text-center py-12"><p className="text-[14px] text-[#828282]">{followedSellers.length === 0 ? "Follow stores to see their posts here" : "No content from followed stores yet"}</p></div>
       ) : (
-        items.map((item) => renderCommunityItem(item, null, onComment, onMenu, onShare))
+        items.map((item) => renderCommunityItem(item, null, onComment, onShare))
       )}
     </div>
   );
@@ -397,7 +381,7 @@ function feedItemContent(item) {
   return item.post ?? item.event ?? item.product ?? item.promotion ?? {};
 }
 
-function CommunityFeed({ filter, followedSellers, followedSellerIds, interactedSellerIds, savedItems, onFilterChange, onOpenDetail, onComment, onMenu, onShare, location, radius, hiddenContentIds, blockedUserIds }) {
+function CommunityFeed({ filter, followedSellers, followedSellerIds, interactedSellerIds, savedItems, onFilterChange, onOpenDetail, onComment, onShare, location, radius, hiddenContentIds, blockedUserIds }) {
   const { upcomingEvents } = useEvents();
   const { listings } = useListings();
   const { posts } = usePosts();
@@ -470,7 +454,7 @@ function CommunityFeed({ filter, followedSellers, followedSellerIds, interactedS
       <div className="flex flex-col gap-4 px-4 py-3">
         <p className="text-[12px] text-[#828282]">Showing results within {discoveryRadiusLabel(radius)}</p>
         <CommunityImpactCard />
-        {items.map((item) => renderCommunityItem(item, onOpenDetail, onComment, onMenu, onShare))}
+        {items.map((item) => renderCommunityItem(item, onOpenDetail, onComment, onShare))}
       </div>
     </div>
   );
@@ -504,14 +488,14 @@ function getCommunityItems(filter, { events, listings, posts, currentPromotions,
 }
 
 
-function renderCommunityItem(item, onOpenDetail, onComment, onMenu, onShare) {
-  if (item.type === "post") return <Post key={item.id} post={item.post} stacked onOpenDetail={onOpenDetail} onComment={onComment} onMenu={onMenu} onShare={onShare} />;
-  if (item.type === "event") return <EventPost key={item.id} event={item.event} onOpenDetail={onOpenDetail} onComment={onComment} onMenu={onMenu} onShare={onShare} />;
-  if (item.type === "listing") return <ListingFeedCard key={item.id} product={item.product} onOpenDetail={onOpenDetail} onMenu={onMenu} onShare={onShare} />;
-  return <PromotionFeedCard key={item.id} promotion={item.promotion} product={item.product} onOpenDetail={onOpenDetail} onMenu={onMenu} onShare={onShare} />;
+function renderCommunityItem(item, onOpenDetail, onComment, onShare) {
+  if (item.type === "post") return <Post key={item.id} post={item.post} stacked onOpenDetail={onOpenDetail} onComment={onComment} onShare={onShare} />;
+  if (item.type === "event") return <EventPost key={item.id} event={item.event} onOpenDetail={onOpenDetail} onComment={onComment} onShare={onShare} />;
+  if (item.type === "listing") return <ListingFeedCard key={item.id} product={item.product} onOpenDetail={onOpenDetail} onShare={onShare} />;
+  return <PromotionFeedCard key={item.id} promotion={item.promotion} product={item.product} onOpenDetail={onOpenDetail} onShare={onShare} />;
 }
 
-function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
+function ListingFeedCard({ product, onOpenDetail, onShare }) {
   const navigate = useNavigate();
   const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
   const resolvedSeller = useResolvedSeller(product.sellerId);
@@ -548,7 +532,6 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
           </button>
           <FoundingMemberBadge sellerId={product.sellerId} iconOnly />
         </div>
-        <MoreButton onClick={() => onMenu(menuContent)} />
       </div>
       <DistanceLabel content={product} className="mt-1" />
       <p className="text-[12px] text-[#828282]">{product.postedAt ?? "Recently posted"}</p>
@@ -569,7 +552,7 @@ function ListingFeedCard({ product, onOpenDetail, onMenu, onShare }) {
   );
 }
 
-function PromotionFeedCard({ promotion, product, onOpenDetail, onMenu, onShare }) {
+function PromotionFeedCard({ promotion, product, onOpenDetail, onShare }) {
   const navigate = useNavigate();
   const sellerProfile = useResolvedSeller(promotion.sellerId);
   const seller = sellerProfile ?? sellers[promotion.sellerId] ?? {};
@@ -592,7 +575,6 @@ function PromotionFeedCard({ promotion, product, onOpenDetail, onMenu, onShare }
           <img src={seller.avatar ?? ""} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
           <span className="truncate text-[14px] font-semibold text-[#498467]">{storeName}</span>
         </button>
-        <MoreButton onClick={() => onMenu(menuContent)} />
       </div>
       <div className="px-4 pt-3">
         <PromotionBadge promotion={promotion} variant={isStorePromotion ? "featured" : undefined} label={isStorePromotion ? "Featured" : undefined} />
@@ -664,15 +646,7 @@ function VacationBadge({ sellerId }) {
     : null;
 }
 
-function MoreButton({ onClick }) {
-  return (
-    <button type="button" aria-label="More options" onClick={(event) => { event.stopPropagation(); onClick(event); }} className="p-1">
-      <svg width="15" height="3" viewBox="0 0 15 3" fill="none"><path d="M1.5 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" fill="black" /></svg>
-    </button>
-  );
-}
-
-function EventPost({ event, onOpenDetail, onComment, onMenu, onShare }) {
+function EventPost({ event, onOpenDetail, onComment, onShare }) {
   const navigate = useNavigate();
   const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
   const { toggleSaved } = useSavedItems();
@@ -744,7 +718,6 @@ function EventPost({ event, onOpenDetail, onComment, onMenu, onShare }) {
             <EventAttendanceCount eventId={event.id} />
           </div>
         </div>
-        <MoreButton onClick={() => onMenu(menuContent)} />
       </div>
       <DistanceLabel content={event} />
 
@@ -825,7 +798,7 @@ function PostMediaGallery({ media, onOpen, promotion }) {
   );
 }
 
-function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
+function Post({ post, stacked, onOpenDetail, onComment, onShare }) {
   const navigate = useNavigate();
   const openDetail = onOpenDetail ?? ((path, state) => navigate(path, { state }));
   const { promotionsForProduct } = usePromotions();
@@ -934,8 +907,6 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
     </div>
   );
 
-  const moreButton = <MoreButton onClick={() => onMenu(menuContent)} />;
-
   const content = (
     <>
       <PostMediaGallery media={postMedia} onOpen={handleImageClick} promotion={promotion} />
@@ -969,7 +940,6 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
             {avatar}
             {meta}
           </div>
-          {moreButton}
         </div>
         {content}
       </div>
@@ -982,7 +952,6 @@ function Post({ post, stacked, onOpenDetail, onComment, onMenu, onShare }) {
       <div className="flex flex-col gap-3 flex-1">
         <div className="flex items-start justify-between">
           {meta}
-          {moreButton}
         </div>
         {content}
       </div>

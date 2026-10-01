@@ -387,7 +387,7 @@ export function ActivityCard({ activity: rawActivity, navigate, profile, getSell
   const openActivity = () => {
     if (activity.type === "Follow store" && (followedStore?.id || activity.entityId)) navigate(`/seller/${encodeURIComponent(followedStore?.id ?? activity.entityId)}`);
     else if (event?.id) navigate(`/event/${event.id}`);
-    else if (listing?.id || listing?.sourceId) navigate(`/product/${listing.databaseId ?? listing.id ?? listing.sourceId}`);
+    else if (listing?.id || listing?.sourceId) navigate(`/product/${encodeURIComponent(listing.sourceId ?? listing.legacyId ?? (String(listing.id).startsWith("listing:") ? String(listing.id).slice("listing:".length) : listing.id))}`);
     else if (post) navigate("/comments", { state: { content: { type: "post", post } } });
   };
   const avatar = followedStore?.avatar ?? profile?.avatar ?? post?.avatar ?? event?.avatar ?? listing?.image;

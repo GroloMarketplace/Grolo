@@ -13,7 +13,7 @@
       "size": "20x20"
     },
     {
-      "filename": "AppIcon-20@2x.png",
+      "filename": "AppIcon-20-ipad@2x.png",
       "idiom": "ipad",
       "scale": "2x",
       "size": "20x20"
@@ -37,7 +37,7 @@
       "size": "29x29"
     },
     {
-      "filename": "AppIcon-29@2x.png",
+      "filename": "AppIcon-29-ipad@2x.png",
       "idiom": "ipad",
       "scale": "2x",
       "size": "29x29"
@@ -61,7 +61,7 @@
       "size": "40x40"
     },
     {
-      "filename": "AppIcon-40@2x.png",
+      "filename": "AppIcon-40-ipad@2x.png",
       "idiom": "ipad",
       "scale": "2x",
       "size": "40x40"

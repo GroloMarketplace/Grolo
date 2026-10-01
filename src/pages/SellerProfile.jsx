@@ -26,12 +26,12 @@ import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import SellerProfileShareModal from "../components/SellerProfileShareModal";
 import ShareProfileButton from "../components/ShareProfileButton";
 import DistanceLabel from "../components/DistanceLabel";
-import { useProfileMode } from "../context/ProfileModeContext";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import ReputationSummary from "../components/ReputationSummary";
 import UnavailableAccount from "../components/UnavailableAccount";
 import { useBlockedAccount } from "../hooks/useBlockedAccount";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
+import { contentTimestamp } from "../utils/feedRanking";
 
 function isCanonicalSellerId(value) {
   return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -48,7 +48,6 @@ export default function SellerProfile() {
   const { posts } = usePosts();
   const { getSellerProfile } = useSellerSettings();
   const { listings } = useListings();
-  const { storeOpenedAt } = useProfileMode();
   const [profileListings, setProfileListings] = useState(null);
   const resolvedSeller = useResolvedSeller(sellerId);
   const seller = resolvedSeller ?? sellers[sellerId] ?? { id: sellerId, name: "Seller" };
@@ -59,9 +58,10 @@ export default function SellerProfile() {
   const blocked = useBlockedAccount(seller.id);
   const reputationSnapshot = useReputationSnapshot(seller.id);
   const sellerPaymentMethods = getPaymentMethods(seller.id);
+  const sellerOpenedAt = typeof sellerProfile.storeOpenedAt === "number" ? sellerProfile.storeOpenedAt : Date.parse(sellerProfile.storeOpenedAt ?? "");
   const createdBySeller = (item) => {
     const createdAt = typeof item.createdAt === "number" ? item.createdAt : Date.parse(item.createdAt);
-    return !Number.isNaN(createdAt) && createdAt >= storeOpenedAt;
+    return !Number.isNaN(createdAt) && (!Number.isFinite(sellerOpenedAt) || createdAt >= sellerOpenedAt);
   };
   const sellerEvents = upcomingEvents(seller.id).filter(createdBySeller);
   const sellerRatingData = sellerRating(seller.id);
@@ -92,7 +92,7 @@ export default function SellerProfile() {
   const sellerPosts = [...followingPosts, ...communityPosts, ...posts].filter(
     (post, index, allPosts) =>
       String(post.sellerId) === String(seller.id) && createdBySeller(post) && allPosts.findIndex((item) => item.id === post.id) === index,
-  );
+  ).sort((first, second) => contentTimestamp(second) - contentTimestamp(first));
   const savedProfileState = readNavigationState(`seller-profile-${seller.id}`, { activeTab: 0, scrollTop: 0, tabScrollLeft: 0 });
   const [activeTab, setActiveTab] = useState(savedProfileState.activeTab);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);

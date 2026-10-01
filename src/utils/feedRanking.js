@@ -100,12 +100,13 @@ export function rankFeedItems(items, {
       return {
         item,
         index,
+        timestamp: contentTimestamp(content),
         score: recency * 0.7 + engagementAndRelevance * 0.2 + distanceScore * 0.1,
         recency,
         engagementAndRelevance,
         distance,
       };
     })
-    .sort((a, b) => b.score - a.score || b.recency - a.recency || (a.distance ?? Infinity) - (b.distance ?? Infinity) || a.index - b.index)
+    .sort((a, b) => b.timestamp - a.timestamp || b.score - a.score || a.index - b.index)
     .map(({ item }) => item);
 }

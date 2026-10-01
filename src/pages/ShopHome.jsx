@@ -30,6 +30,7 @@ import LocationAutocomplete from "../components/LocationAutocomplete";
 import { formatLocation, friendlyLocation } from "../data/locations";
 import { SaveButton, SaveToast, useSaveFeedback } from "../components/SaveFeedback";
 import { MoreVertical } from "lucide-react";
+import { contentTimestamp } from "../utils/feedRanking";
 
 export default function ShopHome() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -117,7 +118,9 @@ export default function ShopHome() {
   const outOfStockSellerProducts = sellerProducts.filter(isListingOutOfStock);
   const unavailableServiceProducts = sellerProducts.filter((product) => isServiceListing(product) && serviceStatusFor(product) === "Temporarily Not Accepting New Clients");
   const lowStockSellerProducts = sellerProducts.filter((product) => !isServiceListing(product) && !isListingOutOfStock(product) && Number(product.quantityAvailable) <= 5);
-  const sellerPosts = posts.filter((post) => post.sellerId === seller.id && createdBySeller(post));
+  const sellerPosts = posts
+    .filter((post) => post.sellerId === seller.id && createdBySeller(post))
+    .sort((first, second) => contentTimestamp(second) - contentTimestamp(first));
   const [managedPosts, setManagedPosts] = useState(sellerPosts);
   // Events are read straight from EventContext (which persists to localStorage)
   // rather than kept in local component state, so edits/deletes made through

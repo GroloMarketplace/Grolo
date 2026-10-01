@@ -44,7 +44,7 @@ import PromotionBadge from "../components/PromotionBadge";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useNotifications } from "../context/NotificationContext";
 import { useTrustSafety } from "../context/TrustSafetyContext";
-import { discoveryRadiusLabel, distanceInKmBetween, isWithinDiscoveryRadius, resolveUserLocation, sortByDistance } from "../utils/locationRadius";
+import { discoveryRadiusLabel, isWithinDiscoveryRadius, resolveUserLocation } from "../utils/locationRadius";
 import DistanceLabel from "../components/DistanceLabel";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
 import { contentTimestamp, rankFeedItems } from "../utils/feedRanking";
@@ -383,15 +383,14 @@ function FollowingFeed({ followedSellers, location, radius, hiddenContentIds, bl
   );
 }
 
-function getFollowedItems({ posts, events, listings, hiddenContentIds, location }) {
+function getFollowedItems({ posts, events, listings, hiddenContentIds }) {
   const items = [
     ...posts.map((post) => ({ type: "post", id: `post:${post.id}`, post })),
     ...events.map((event) => ({ type: "event", id: `event:${event.id}`, event })),
     ...listings.map((product) => ({ type: "listing", id: `listing:${product.id}`, product })),
   ];
   const visible = items.filter((item) => !hiddenContentIds.has(item.id));
-  // Closer content first; ties (or unknown distance) fall back to newest first.
-  return sortByDistance(visible, location, feedItemContent, (a, b) => contentTimestamp(feedItemContent(b)) - contentTimestamp(feedItemContent(a)));
+  return visible.sort((a, b) => contentTimestamp(feedItemContent(b)) - contentTimestamp(feedItemContent(a)));
 }
 
 function feedItemContent(item) {

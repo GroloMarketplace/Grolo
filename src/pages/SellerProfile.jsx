@@ -370,7 +370,7 @@ function ListingSection({ title, count, products, navigate, onCategory }) {
 function PostsTab({ posts, navigate, profile }) {
   return (
     <TabPanel>
-      {posts.length === 0 ? <EmptyTab>No posts yet</EmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{posts.map((post) => <ActivityCard key={post.id} activity={{ id: post.id, type: "post", label: post.name, timestamp: post.time, post }} navigate={navigate} profile={profile} />)}</div>}
+      {posts.length === 0 ? <EmptyTab>No posts yet</EmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{posts.map((post) => <ActivityCard key={post.id} activity={{ id: post.id, type: "post", contentType: "post", label: post.name, timestamp: post.createdAt ?? post.time, post }} navigate={navigate} profile={profile} />)}</div>}
     </TabPanel>
   );
 }

@@ -18,6 +18,7 @@ import OutlineIcon from "../components/OutlineIcon";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { usePosts } from "../context/PostContext";
+import { useEngagement } from "../context/EngagementContext";
 import { useReviews } from "../context/ReviewContext";
 import SellerProfileShareModal from "../components/SellerProfileShareModal";
 import ShareProfileButton from "../components/ShareProfileButton";
@@ -28,6 +29,7 @@ import ReputationSummary from "../components/ReputationSummary";
 import LocationAutocomplete from "../components/LocationAutocomplete";
 import { formatLocation, friendlyLocation } from "../data/locations";
 import { SaveButton, SaveToast, useSaveFeedback } from "../components/SaveFeedback";
+import { MoreVertical } from "lucide-react";
 
 export default function ShopHome() {
   const { isSidebarOpen, openSidebar, closeSidebar } = useSidebar();
@@ -88,6 +90,7 @@ export default function ShopHome() {
     markSellerOrdersSeen(seller.id);
   }, [markSellerOrdersSeen, seller.id]);
   const { posts } = usePosts();
+  const { getPostEngagement } = useEngagement();
   const { sellerRating } = useReviews();
   const { getFollowerCount } = useFollow();
   const reputationSnapshot = useReputationSnapshot(user?.id ?? "current-user");
@@ -442,7 +445,7 @@ export default function ShopHome() {
                   className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto no-scrollbar"
                 >
                 <ShopListingsTab sellerId={seller.id} products={activeSellerProducts} lowStockProducts={lowStockSellerProducts} outOfStockProducts={outOfStockSellerProducts} unavailableServiceProducts={unavailableServiceProducts} archivedProducts={archivedListings.filter((product) => String(product.sellerId ?? "") === String(seller.id ?? ""))} hasOrderHistory={(product) => storeOrders.some((order) => order.productId === product.id || order.orderItems?.some((item) => item.productId === product.id || item.listingId === product.databaseId))} navigate={navigate} onDelete={handleDeleteListing} onRestore={handleRestoreListing} onPermanentDelete={handlePermanentDeleteListing} />
-                <ShopPostsTab posts={managedPosts} onEdit={handleEditPost} onDelete={handleDeletePost} onCreate={handleCreatePost} />
+                <ShopPostsTab posts={managedPosts} getPostEngagement={getPostEngagement} navigate={navigate} onEdit={handleEditPost} onDelete={handleDeletePost} onCreate={handleCreatePost} />
                 <ShopEventsTab events={sellerEvents} navigate={navigate} onEdit={handleEditEvent} onDelete={handleDeleteEvent} />
                 </div>
               </div>
@@ -511,11 +514,52 @@ function ShopListingsTab({ sellerId, products, lowStockProducts, outOfStockProdu
   );
 }
 
-function ShopPostsTab({ posts, onEdit, onDelete, onCreate }) {
+function getPostMedia(post) {
+  if (post.media?.length) return post.media.map((item) => typeof item === "string" ? item : item.url).filter(Boolean);
+  if (post.images?.length) return post.images.filter(Boolean);
+  return post.image ? [post.image] : [];
+}
+
+function formatPostTimestamp(post) {
+  if (typeof post.time === "string") {
+    const relative = post.time.trim();
+    if (relative === "Just now") return relative;
+    if (/^\d+[mhd](?: ago)?$/.test(relative)) return relative.endsWith(" ago") ? relative : `${relative} ago`;
+  }
+  const parsed = new Date(post.createdAt);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 60000));
+  if (elapsedMinutes < 1) return "Just now";
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return `${elapsedHours}h ago`;
+  return `${Math.floor(elapsedHours / 24)}d ago`;
+}
+
+function ShopPostsTab({ posts, getPostEngagement, navigate, onEdit, onDelete, onCreate }) {
+  const [openMenuId, setOpenMenuId] = useState(null);
+
   return (
     <ShopTabPanel>
       <div className="mb-3 flex items-center justify-between"><h2 className="text-[18px] font-semibold">Posts</h2><button type="button" onClick={onCreate} className="text-[14px] font-medium text-[#498467]">+ New Post</button></div>
-      {posts.length === 0 ? <ShopEmptyTab>No posts yet. Share an update with your community.</ShopEmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{posts.map((post) => <div key={post.id} className="w-full rounded-lg border border-[#E6E6E6] p-3"><div className="flex items-center gap-2"><img src={post.avatar} alt={post.name} className="h-8 w-8 rounded-full object-cover" /><div><p className="text-[14px] font-semibold">{post.name}</p><p className="text-[12px] text-[#828282]">{post.time}</p></div></div>{post.image && <img src={post.image} alt="" className="mt-3 aspect-square w-full rounded-lg object-cover" />}<p className="mt-3 text-[14px] leading-[140%]">{post.body}</p><div className="mt-3 flex gap-2"><button type="button" onClick={() => onEdit(post)} className="flex-1 rounded border border-[#498467] py-1 text-[12px] font-medium text-[#498467]">Edit</button><button type="button" onClick={() => onDelete(post.id)} className="flex-1 rounded border border-red-500 py-1 text-[12px] font-medium text-red-500">Delete</button></div></div>)}</div>}
+      {posts.length === 0 ? <ShopEmptyTab>No posts yet. Share an update with your community.</ShopEmptyTab> : <div className="flex w-full min-w-0 flex-col gap-4">{posts.map((post) => {
+        const engagement = getPostEngagement(post);
+        const media = getPostMedia(post);
+        return <article key={post.id} onClick={() => navigate(`/post/${post.id}`)} className="relative w-full cursor-pointer rounded-lg border border-[#E6E6E6] p-3 text-left transition-colors hover:bg-[#F5FFF6]">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2"><img src={post.avatar} alt={post.name} className="h-8 w-8 shrink-0 rounded-full object-cover" /><div className="min-w-0"><p className="truncate text-[14px] font-semibold">{post.name}</p><p className="text-[12px] text-[#828282]">{formatPostTimestamp(post)}</p></div></div>
+            <div className="relative shrink-0">
+              <button type="button" aria-label={`Manage post by ${post.name}`} onClick={(event) => { event.stopPropagation(); setOpenMenuId((current) => current === post.id ? null : post.id); }} className="rounded-full p-1.5 text-[#5D6D64] hover:bg-[#F5FFF6]"><MoreVertical className="h-5 w-5" /></button>
+              {openMenuId === post.id && <div className="absolute right-0 top-9 z-20 w-40 rounded-xl border border-[#DCEBE0] bg-white p-1.5 shadow-lg" onClick={(event) => event.stopPropagation()}>
+                <button type="button" onClick={() => { setOpenMenuId(null); onEdit(post); }} className="w-full rounded-lg px-3 py-2 text-left text-[13px] font-medium hover:bg-[#F5FFF6]">Edit Post</button>
+                <button type="button" onClick={() => { setOpenMenuId(null); onDelete(post.id); }} className="w-full rounded-lg px-3 py-2 text-left text-[13px] font-medium text-red-500 hover:bg-[#FFF5F5]">Delete Post</button>
+              </div>}
+            </div>
+          </div>
+          {media.length > 0 && <div className={`mt-3 grid gap-2 ${media.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>{media.map((image, index) => <img key={`${image}-${index}`} src={image} alt="" className="aspect-square w-full rounded-lg object-cover" />)}</div>}<p className="mt-3 text-[14px] leading-[140%]">{post.body}</p>
+          <div className="mt-3 flex items-center gap-4 text-[13px] text-[#5D6D64]" aria-label="Post engagement"><span>❤️ {engagement.likes}</span><span>💬 {engagement.comments}</span><span>↗️ {engagement.shares}</span></div>
+        </article>;
+      })}</div>}
     </ShopTabPanel>
   );
 }

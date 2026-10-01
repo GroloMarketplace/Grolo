@@ -29,6 +29,7 @@ import ReputationSummary from "../components/ReputationSummary";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import { useActivity } from "../context/ActivityContext";
+import { useEngagement } from "../context/EngagementContext";
 import { useRegrow } from "../context/RegrowContext";
 
 const BUYER = {
@@ -375,14 +376,27 @@ export function CommunityImpactTab({ metrics, publicView = false, profileId = "y
   );
 }
 
+function formatActivityTimestamp(value) {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const relative = value.trim();
+    if (relative === "Just now") return relative;
+    if (/^\d+[mhd](?: ago)?$/.test(relative)) return relative.endsWith(" ago") ? relative : `${relative} ago`;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "" : parsed.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
 export function ActivityCard({ activity: rawActivity, navigate, profile, getSellerProfile }) {
   const activity = rawActivity && typeof rawActivity === "object" ? rawActivity : {};
   const content = activity.content ?? activity.event ?? activity.listing ?? activity.post ?? null;
-  const contentType = content?.type ?? activity.contentType ?? (activity.type === "Save event" ? "event" : activity.type === "Save listing" ? "listing" : activity.entityId?.startsWith("event:") ? "event" : activity.entityId?.startsWith("post:") ? "post" : null);
+  const contentType = content?.type ?? activity.contentType ?? (activity.type === "Save event" ? "event" : activity.type === "Save listing" ? "listing" : activity.post ? "post" : activity.entityId?.startsWith("event:") ? "event" : activity.entityId?.startsWith("post:") ? "post" : null);
   const event = contentType === "event" && content && typeof content === "object" ? content.event ?? content : null;
   const listing = contentType === "listing" && content && typeof content === "object" ? content.listing ?? content : null;
   const post = contentType === "post" && content && typeof content === "object" ? content.post ?? content : null;
   const followedStore = activity.type === "Follow store" ? getSellerProfile?.(activity.entityId) : null;
+  const { getPostEngagement } = useEngagement();
+  const postEngagement = post ? getPostEngagement(post) : null;
   const isSavedListing = activity.type === "Save listing" && Boolean(listing);
   const openActivity = () => {
     if (activity.type === "Follow store" && (followedStore?.id || activity.entityId)) navigate(`/seller/${encodeURIComponent(followedStore?.id ?? activity.entityId)}`);
@@ -391,8 +405,8 @@ export function ActivityCard({ activity: rawActivity, navigate, profile, getSell
     else if (post) navigate("/comments", { state: { content: { type: "post", post } } });
   };
   const avatar = followedStore?.avatar ?? profile?.avatar ?? post?.avatar ?? event?.avatar ?? listing?.image;
-  const activityLabel = followedStore?.name || (isSavedListing ? `Saved ${listing.name ?? listing.title ?? "listing"}` : activity.label);
-  const timestamp = activity.timestamp ? new Date(activity.timestamp).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+  const activityLabel = followedStore?.name || (post && profile?.name) || (isSavedListing ? `Saved ${listing.name ?? listing.title ?? "listing"}` : activity.label);
+  const timestamp = formatActivityTimestamp(activity.timestamp);
   const preview = followedStore ? <StorePreview store={followedStore} /> : event ? <EventPreview event={event} /> : listing ? <ListingPreview listing={listing} /> : post ? <PostPreview post={post} text={activity.text} /> : <p className="mt-3 rounded-md bg-[#F5FFF6] p-3 text-[13px] text-[#4F4F4F]">The original content is no longer available.</p>;
   const actionLabel = followedStore ? "View Store" : isSavedListing ? "View Listing" : "";
 
@@ -412,6 +426,7 @@ export function ActivityCard({ activity: rawActivity, navigate, profile, getSell
         <span className="shrink-0 text-[12px] text-[#498467]">{activity.type}</span>
       </div>
       {preview}
+      {postEngagement && <div className="mt-3 flex items-center gap-4 text-[13px] text-[#5D6D64]" aria-label="Post engagement"><span>❤️ {postEngagement.likes}</span><span>💬 {postEngagement.comments}</span><span>↗️ {postEngagement.shares}</span></div>}
       {actionLabel && <button type="button" onClick={openActivity} className="mt-3 w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">{actionLabel}</button>}
     </article>
   );
@@ -437,7 +452,10 @@ export function ReviewsTab({ reviews }) {
 
 function PostPreview({ post, text }) {
   if (!post) return null;
-  return <><img src={post.image} alt="" className="mt-3 aspect-square w-full rounded-lg object-cover" /><p className="mt-2 text-[14px] leading-[140%]">{text || post.body}</p></>;
+  const media = post.media?.length
+    ? post.media.map((item) => typeof item === "string" ? item : item.url).filter(Boolean)
+    : post.images?.length ? post.images.filter(Boolean) : post.image ? [post.image] : [];
+  return <>{media.length > 0 && <div className={`mt-3 grid gap-2 ${media.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>{media.map((image, index) => <img key={`${image}-${index}`} src={image} alt="" className="aspect-square w-full rounded-lg object-cover" />)}</div>}<p className="mt-2 text-[14px] leading-[140%]">{text || post.body}</p></>;
 }
 
 function EventPreview({ event }) {

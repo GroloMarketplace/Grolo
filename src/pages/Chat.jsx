@@ -129,6 +129,14 @@ export default function Chat() {
   const legacySeller = Object.values(sellers).find((s) => s.id === sellerId);
   const seller = liveSeller?.name || liveSeller?.avatar ? liveSeller : legacySeller ?? { id: sellerId, name: listing?.shop ?? conversation?.storeName ?? "Seller" };
   const conversationProfile = getConversationProfile({ ...conversation, sellerId, participantId: conversation?.participantId ?? (String(user?.id) === String(sellerId) ? conversation?.buyerId : sellerId), name: conversation?.name ?? seller.name }, getSellerProfile, buyerProfile, user?.id);
+  const participantStoreId = conversation?.sellerId ?? conversation?.storeId ?? null;
+  const participantIsStore = Boolean(participantStoreId) && String(conversationProfile.id) === String(participantStoreId);
+  const participantProfilePath = conversationProfile.id
+    ? `${participantIsStore ? "/seller" : "/profile"}/${encodeURIComponent(conversationProfile.id)}`
+    : null;
+  const openParticipantProfile = () => {
+    if (participantProfilePath) navigate(participantProfilePath);
+  };
   const isOrderThread = location.state?.orderConversation === true || conversation?.conversationType === "order";
   const tradeProposal = conversation?.tradeProposal;
   const tradeStatus = tradeProposal?.status ?? "pending";
@@ -228,9 +236,11 @@ export default function Chat() {
             />
           </svg>
         </button>
-        <ProfileAvatar profile={conversationProfile} size="w-8 h-8" />
-        <div className="flex-1">
-          <div className="text-[16px] font-semibold">{conversationProfile.name}</div>
+        <button type="button" onClick={openParticipantProfile} aria-label={`Open ${conversationProfile.name} profile`} className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#498467]">
+          <ProfileAvatar profile={conversationProfile} size="w-8 h-8" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <button type="button" onClick={openParticipantProfile} className="max-w-full truncate text-left text-[16px] font-semibold focus-visible:outline-none focus-visible:underline" aria-label={`Open ${conversationProfile.name} profile`}>{conversationProfile.name}</button>
           {isOrderThread && currentOrderContext ? (
             <div className={`text-[12px] ${getOrderStatusClass(currentOrderContext.status)}`}>{getOrderStatusLabel(currentOrderContext.status)} · Order {currentOrderContext.orderNumber}</div>
           ) : isTradeThread ? (

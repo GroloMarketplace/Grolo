@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
@@ -10,6 +11,8 @@ import { uploadImage } from "../lib/imageStorage";
 import { normalizeUsername, validateBuyerProfile } from "../utils/validation";
 import LocationAutocomplete from "../components/LocationAutocomplete";
 import { formatLocation, friendlyLocation } from "../data/locations";
+import { getLatestNativePushToken, registerNativePushNotifications, requestNativePushPermission } from "../lib/pushNotifications";
+import { savePushToken } from "../lib/api/pushTokens";
 
 const INTERESTS = [
   "Farmers Markets", "Garden & Produce", "Bakery & Sweets", "Meal Prep & Catering",
@@ -133,7 +136,7 @@ export default function Onboarding() {
         {step === 2 && <PhotoStep form={form} handleFile={handleFile} error={error} uploadProgress={uploadProgress} onContinue={() => { setError(""); setStep(3); }} onSkip={() => { setError(""); setStep(3); }} />}
         {step === 3 && <InterestsStep interests={form.interests} toggleInterest={toggleInterest} onContinue={() => { setError(""); setStep(4); }} />}
         {step === 4 && <LocationStep form={form} update={update} error={error} saving={saving} onContinue={finish} />}
-        {step === 5 && <ReadyStep form={form} onEnter={enterGrolo} />}
+        {step === 5 && <NotificationStep settings={settings} updateSettings={updateSettings} user={user} onComplete={enterGrolo} />}
       </div>
     </MobileScreenLayout>
   );
@@ -159,8 +162,48 @@ function LocationStep({ form, update, error, saving, onContinue }) {
   return <Step title="Set Your Community Location"><LocationAutocomplete label="City or Location" value={form.location} location={form.locationDetails} onChange={(value) => { update("locationDetails", value); update("location", friendlyLocation(value)); }} placeholder="Search neighborhood, city, or postal code" />{error && <ErrorMessage>{error}</ErrorMessage>}<NextButton onClick={onContinue} disabled={saving}>{saving ? "Saving profile..." : "Continue"}</NextButton></Step>;
 }
 
-function ReadyStep({ form, onEnter }) {
-  return <Step title="You're Ready to Grow Local"><p className="text-center text-[14px] text-[#4F4F4F]">Your Grolo profile is ready.</p><div className="rounded-lg bg-[#F5FFF6] p-4 text-[14px] text-[#355F45]"><div>✓ Profile Created</div><div>✓ Interests Selected</div><div>✓ Community Access Unlocked</div></div><div className="flex items-center gap-3"><ProfileAvatar profile={{ avatar: form.avatar, name: form.displayName }} size="h-14 w-14" /><div><div className="font-semibold">{form.displayName}</div><div className="text-[12px] text-[#828282]">@{form.username}</div></div></div><NextButton onClick={onEnter}>Enter Grolo</NextButton></Step>;
+function NotificationStep({ settings, updateSettings, user, onComplete }) {
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState("");
+
+  const enableNotifications = async () => {
+    setStatus("working");
+    setError("");
+    try {
+      const permission = await requestNativePushPermission();
+      if (permission === "denied") {
+        setStatus("idle");
+        setError("Notifications are disabled. You can enable them later in Settings.");
+        return;
+      }
+      if (permission === "granted") {
+        const saveToken = (token) => savePushToken({ userId: user?.id, token, platform: Capacitor.getPlatform() }).catch(() => {});
+        const registration = await registerNativePushNotifications({ onToken: saveToken });
+        const token = registration.token ?? getLatestNativePushToken();
+        if (token) await saveToken(token);
+        await updateSettings({ notifications: { ...settings.notifications, pushEnabled: true } });
+      }
+      onComplete();
+    } catch (requestError) {
+      setStatus("idle");
+      setError(requestError.message || "We couldn't enable notifications. You can try again later.");
+    }
+  };
+
+  return (
+    <Step title="Stay connected with Grolo">
+      <p className="text-[14px] leading-6 text-[#4F4F4F]">Get helpful updates from your community, even when the app is closed.</p>
+      <div className="rounded-2xl border border-[#C9DCCB] bg-white p-4 text-[15px] shadow-sm">
+        <div className="flex items-center gap-3 py-2"><span className="text-xl">💬</span><span>New messages</span></div>
+        <div className="flex items-center gap-3 py-2"><span className="text-xl">🛒</span><span>New orders</span></div>
+        <div className="flex items-center gap-3 py-2"><span className="text-xl">⭐</span><span>New reviews</span></div>
+        <div className="flex items-center gap-3 py-2"><span className="text-xl">👥</span><span>New followers</span></div>
+      </div>
+      {error && <ErrorMessage>{error}</ErrorMessage>}
+      <NextButton onClick={enableNotifications} disabled={status === "working"}>{status === "working" ? "Enabling..." : "Enable Notifications"}</NextButton>
+      <button type="button" onClick={onComplete} disabled={status === "working"} className="text-[13px] font-medium text-[#498467] disabled:opacity-50">Maybe Later</button>
+    </Step>
+  );
 }
 
 function Step({ title, children }) { return <div className="mx-auto flex w-full max-w-full flex-col gap-5"><div><div className="mb-1 text-[12px] font-medium uppercase tracking-wide text-[#498467]">Grolo setup</div><h1 className="text-[24px] font-semibold">{title}</h1></div>{children}</div>; }

@@ -29,7 +29,6 @@ import ReputationSummary from "../components/ReputationSummary";
 import LocationAutocomplete from "../components/LocationAutocomplete";
 import { formatLocation, friendlyLocation } from "../data/locations";
 import { SaveButton, SaveToast, useSaveFeedback } from "../components/SaveFeedback";
-import { MoreVertical } from "lucide-react";
 import { contentTimestamp } from "../utils/feedRanking";
 
 export default function ShopHome() {
@@ -540,8 +539,6 @@ function formatPostTimestamp(post) {
 }
 
 function ShopPostsTab({ posts, getPostEngagement, navigate, onEdit, onDelete, onCreate }) {
-  const [openMenuId, setOpenMenuId] = useState(null);
-
   return (
     <ShopTabPanel>
       <div className="mb-3 flex items-center justify-between"><h2 className="text-[18px] font-semibold">Posts</h2><button type="button" onClick={onCreate} className="text-[14px] font-medium text-[#498467]">+ New Post</button></div>
@@ -552,11 +549,7 @@ function ShopPostsTab({ posts, getPostEngagement, navigate, onEdit, onDelete, on
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2"><img src={post.avatar} alt={post.name} className="h-8 w-8 shrink-0 rounded-full object-cover" /><div className="min-w-0"><p className="truncate text-[14px] font-semibold">{post.name}</p><p className="text-[12px] text-[#828282]">{formatPostTimestamp(post)}</p></div></div>
             <div className="relative shrink-0">
-              <button type="button" aria-label={`Manage post by ${post.name}`} onClick={(event) => { event.stopPropagation(); setOpenMenuId((current) => current === post.id ? null : post.id); }} className="rounded-full p-1.5 text-[#5D6D64] hover:bg-[#F5FFF6]"><MoreVertical className="h-5 w-5" /></button>
-              {openMenuId === post.id && <div className="absolute right-0 top-9 z-20 w-40 rounded-xl border border-[#DCEBE0] bg-white p-1.5 shadow-lg" onClick={(event) => event.stopPropagation()}>
-                <button type="button" onClick={() => { setOpenMenuId(null); onEdit(post); }} className="w-full rounded-lg px-3 py-2 text-left text-[13px] font-medium hover:bg-[#F5FFF6]">Edit Post</button>
-                <button type="button" onClick={() => { setOpenMenuId(null); onDelete(post.id); }} className="w-full rounded-lg px-3 py-2 text-left text-[13px] font-medium text-red-500 hover:bg-[#FFF5F5]">Delete Post</button>
-              </div>}
+
             </div>
           </div>
           {media.length > 0 && <div className={`mt-3 grid gap-2 ${media.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>{media.map((image, index) => <img key={`${image}-${index}`} src={image} alt="" className="aspect-square w-full rounded-lg object-cover" />)}</div>}<p className="mt-3 text-[14px] leading-[140%]">{post.body}</p>

@@ -1,4 +1,4 @@
-import { MoreVertical, Pencil, StopCircle, Trash2, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
@@ -63,15 +63,7 @@ export default function Promotions() {
                 <article key={promotion.id} className="relative rounded-xl border border-[#F3D38A] bg-gradient-to-br from-[#FFFDF5] to-[#F5FFF6] p-5 shadow-[0_5px_18px_rgba(73,132,103,0.14)]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2"><PromotionBadge promotion={promotion} /><span className="text-[12px] font-medium text-[#6B756F]">{promotionUrgencyLabel(promotion)}</span></div>
-                    <div className="relative">
-                      <button type="button" aria-label={`Manage ${promotion.title}`} onClick={() => setOpenMenu((current) => current === promotion.id ? null : promotion.id)} className="rounded-full p-1.5 text-[#5D6D64] hover:bg-white"><MoreVertical className="h-5 w-5" /></button>
-                      {openMenu === promotion.id && <div className="absolute right-0 top-9 z-20 w-48 rounded-xl border border-[#DCEBE0] bg-white p-1.5 shadow-lg">
-                        <ActionButton icon={Pencil} label="Edit Promotion" onClick={() => { setOpenMenu(null); navigate(`/edit-promotion/${promotion.id}`); }} />
-                        <ActionButton icon={StopCircle} label="End Promotion" disabled={busyId === promotion.id} onClick={() => runAction(promotion.id, endPromotion, "Promotion ended")} />
-                        {primaryListing && <ActionButton icon={ExternalLink} label="View Listing" onClick={() => { setOpenMenu(null); navigate(`/product/${primaryListing.id}`); }} />}
-                        <ActionButton icon={Trash2} label="Delete Promotion" danger disabled={busyId === promotion.id} onClick={() => { setOpenMenu(null); setPendingDelete(promotion); }} />
-                      </div>}
-                    </div>
+
                   </div>
                   <h2 className="mt-4 text-[21px] font-bold">{promotion.title}</h2>
                   <p className="mt-1 text-[15px] font-semibold text-[#498467]">{promotionDisplayLabel(promotion)}</p>

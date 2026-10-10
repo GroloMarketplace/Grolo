@@ -8,9 +8,9 @@ export default function AttachListingModal({ listings, selectedListingId, select
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="attach-listing-title">
-      <section className="flex max-h-[80vh] w-full max-w-[420px] flex-col rounded-2xl bg-white p-5 shadow-2xl">
+      <section className="flex max-h-[80vh] w-full max-w-[420px] flex-col rounded-2xl bg-white px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-5 shadow-2xl">
         <h2 id="attach-listing-title" className="text-[18px] font-semibold">Attach Listing</h2>
-        <div className="mt-4 flex-1 overflow-y-auto no-scrollbar">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto no-scrollbar">
           {listings.length === 0 ? (
             <p className="py-8 text-center text-[14px] text-[#828282]">You don't have any listings yet.</p>
           ) : (
@@ -39,7 +39,7 @@ export default function AttachListingModal({ listings, selectedListingId, select
             </div>
           )}
         </div>
-        <div className="mt-5 flex gap-3">
+        <div className="mt-5 flex shrink-0 gap-3">
           <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-[#E6E6E6] py-3 text-[14px] font-medium">Cancel</button>
           <button
             type="button"
@@ -47,7 +47,7 @@ export default function AttachListingModal({ listings, selectedListingId, select
             onClick={() => pendingListings.length && onSelect(pendingListings)}
             className="flex-1 rounded-lg bg-[#498467] py-3 text-[14px] font-medium text-white disabled:opacity-50"
           >
-            Select
+            Attach Listings{pendingListings.length ? ` (${pendingListings.length})` : ""}
           </button>
         </div>
       </section>

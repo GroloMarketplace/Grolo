@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { formatListingPrice } from "../utils/listingDisplay";
 import TradeBadge from "./TradeBadge";
 
@@ -6,9 +7,9 @@ export default function AttachListingModal({ listings, selectedListingId, select
   const [pendingIds, setPendingIds] = useState(() => selectedListingIds ?? (selectedListingId ? [selectedListingId] : []));
   const pendingListings = listings.filter((listing) => pendingIds.includes(listing.id));
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="attach-listing-title">
-      <section className="flex max-h-[80vh] w-full max-w-[420px] flex-col rounded-2xl bg-white px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-5 shadow-2xl">
+  return createPortal(
+    <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="attach-listing-title">
+      <section className="flex max-h-[75dvh] min-h-0 w-full max-w-[420px] flex-col rounded-2xl bg-white px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-5 shadow-2xl">
         <h2 id="attach-listing-title" className="text-[18px] font-semibold">Attach Listing</h2>
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto no-scrollbar">
           {listings.length === 0 ? (
@@ -51,6 +52,7 @@ export default function AttachListingModal({ listings, selectedListingId, select
           </button>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }

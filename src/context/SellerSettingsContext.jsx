@@ -205,9 +205,11 @@ export function SellerSettingsProvider({ children }) {
         ...(updates.notifications ?? {}),
       },
     };
+    const profileUpdates = sellerProfileUpdates(next);
     const { data, error } = await supabase
       .from("profiles")
-      .upsert({ id: user.id, ...sellerProfileUpdates(next) }, { onConflict: "id" })
+      .update(profileUpdates)
+      .eq("id", user.id)
       .select("*")
       .single();
     if (error) throw error;

@@ -117,6 +117,7 @@ test("seller settings updates cannot overwrite seller activation", () => {
     storeOpenedAt: null,
   });
   assert.deepEqual(payload, { shop_name: "Updated store" });
+  assert.deepEqual(sellerProfileUpdates({ banner: "https://example.com/banner.webp" }), { banner_url: "https://example.com/banner.webp" });
   assert.deepEqual(withoutSellerActivationFields({ shop_name: "Updated store", seller_status: "buyer", store_onboarding_status: false, store_opened_at: null }), { shop_name: "Updated store" });
   assert.equal(hasRepairableStoreProfile({ shop_name: "Updated store", store_opened_at: "2026-08-15T12:00:00.000Z" }), true);
   assert.equal(hasRepairableStoreProfile({ shop_name: "", store_opened_at: "2026-08-15T12:00:00.000Z" }), false);

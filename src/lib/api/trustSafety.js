@@ -66,7 +66,7 @@ export async function blockUser(blockerId, blockedId) {
   try {
     await createReport({ reporterUserId: blockerId, reportedUserId: blockedId, contentType: "user", contentId: blockedId, reason: "user_blocked", optionalDescription: "User was blocked by the reporter." });
   } catch (reportError) {
-    if (!/already reported/i.test(reportError.message ?? "")) throw reportError;
+    console.error("Unable to create moderation report for user block", reportError);
   }
 }
 

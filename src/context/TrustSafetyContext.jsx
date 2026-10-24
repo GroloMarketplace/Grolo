@@ -9,15 +9,18 @@ export function TrustSafetyProvider({ children }) {
   const { user } = useAuth();
   const [blockedUserIds, setBlockedUserIds] = useState(new Set());
   const [explicitlyUnblockedUserIds, setExplicitlyUnblockedUserIds] = useState(new Set());
+  const [lastBlockedUserId, setLastBlockedUserId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     if (!user?.id || !isSupabaseConfigured) {
       setBlockedUserIds(new Set());
       setExplicitlyUnblockedUserIds(new Set());
+      setLastBlockedUserId(null);
       return undefined;
     }
     setExplicitlyUnblockedUserIds(new Set());
+    setLastBlockedUserId(null);
     getBlockedUsers(user.id)
       .then((rows) => { if (!cancelled) setBlockedUserIds(new Set(rows.map((row) => String(row.blocked_id)))); })
       .catch((error) => console.error("Unable to load blocked users", error));
@@ -39,6 +42,7 @@ export function TrustSafetyProvider({ children }) {
       return next;
     });
     setBlockedUserIds((current) => new Set([...current, String(userId)]));
+    setLastBlockedUserId(String(userId));
   }, [user?.id]);
   const unblock = useCallback(async (userId) => {
     if (!user?.id) return;
@@ -49,9 +53,10 @@ export function TrustSafetyProvider({ children }) {
       return next;
     });
     setExplicitlyUnblockedUserIds((current) => new Set([...current, String(userId)]));
+    setLastBlockedUserId((current) => String(current) === String(userId) ? null : current);
   }, [user?.id]);
 
-  return <TrustSafetyContext.Provider value={{ blockedUserIds, isBlocked, checkBlocked, block, unblock }}>{children}</TrustSafetyContext.Provider>;
+  return <TrustSafetyContext.Provider value={{ blockedUserIds, lastBlockedUserId, isBlocked, checkBlocked, block, unblock }}>{children}</TrustSafetyContext.Provider>;
 }
 
 export function useTrustSafety() {

@@ -16,6 +16,7 @@ import TrustSafetyActions from "../components/TrustSafetyActions";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
 import UnavailableAccount from "../components/UnavailableAccount";
 import { useBlockedAccount } from "../hooks/useBlockedAccount";
+import { useTrustSafety } from "../context/TrustSafetyContext";
 import { isCanonicalUuid } from "../lib/api/messages";
 
 const FALLBACK_AVATAR = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80";
@@ -44,6 +45,7 @@ export default function PublicProfile() {
   const resolvedProfile = useResolvedPublicProfile(userId);
   const profileSellerId = resolvedProfile?.id ?? (isCanonicalUuid(userId) ? userId : null);
   const blocked = useBlockedAccount(profileSellerId ?? userId);
+  const { lastBlockedUserId } = useTrustSafety();
   const profile = resolvedProfile
     ? {
       username: resolvedProfile.username ?? resolvedProfile.name ?? userId,
@@ -92,7 +94,7 @@ export default function PublicProfile() {
     };
   }, [activeTab, userId]);
 
-  if (blocked) return <UnavailableAccount onBack={() => navigate(-1)} />;
+  if (blocked) return <UnavailableAccount onBack={() => navigate(-1)} message={String(lastBlockedUserId) === String(profileSellerId ?? userId) ? "Account blocked successfully." : undefined} />;
 
   const handleTabChange = (index) => {
     setActiveTab(index);

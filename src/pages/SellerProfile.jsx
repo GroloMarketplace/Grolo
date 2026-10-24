@@ -31,6 +31,7 @@ import ReputationSummary from "../components/ReputationSummary";
 import TrustSafetyActions from "../components/TrustSafetyActions";
 import UnavailableAccount from "../components/UnavailableAccount";
 import { useBlockedAccount } from "../hooks/useBlockedAccount";
+import { useTrustSafety } from "../context/TrustSafetyContext";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
 import { contentTimestamp } from "../utils/feedRanking";
 
@@ -57,6 +58,7 @@ export default function SellerProfile() {
     : isCanonicalSellerId(sellerId) ? sellerId : null;
   const sellerProfile = getSellerProfile(profileSellerId ?? seller.id);
   const blocked = useBlockedAccount(seller.id);
+  const { lastBlockedUserId } = useTrustSafety();
   const reputationSnapshot = useReputationSnapshot(seller.id);
   const sellerPaymentMethods = getPaymentMethods(seller.id);
   const sellerOpenedAt = typeof sellerProfile.storeOpenedAt === "number" ? sellerProfile.storeOpenedAt : Date.parse(sellerProfile.storeOpenedAt ?? "");
@@ -115,7 +117,7 @@ export default function SellerProfile() {
     };
   }, [activeTab, seller.id]);
 
-  if (blocked) return <UnavailableAccount onBack={() => navigate(-1)} />;
+  if (blocked) return <UnavailableAccount onBack={() => navigate(-1)} message={String(lastBlockedUserId) === String(seller.id) ? "Account blocked successfully." : undefined} />;
 
   const tabs = ["Listings", "Posts", "Events"];
 

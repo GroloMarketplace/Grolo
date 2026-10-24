@@ -81,6 +81,7 @@ import SellerStatuses from "./pages/SellerStatuses";
 import FoundingMember from "./pages/FoundingMember";
 import TrustReputation from "./pages/TrustReputation";
 import SuspendedAccount from "./pages/SuspendedAccount";
+import BlockedUsers from "./pages/BlockedUsers";
 
 const Messages = lazy(() => import("./pages/Messages"));
 const Chat = lazy(() => import("./pages/Chat"));
@@ -169,6 +170,7 @@ export default function App() {
         <Route path="/community-guidelines" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><CommunityGuidelines /></PhoneFrame>} />
         <Route path="/terms-acceptance" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute allowUnverified><TermsAcceptance /></ProtectedRoute></PhoneFrame>} />
         <Route path="/account-suspended" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SuspendedAccount /></PhoneFrame>} />
+        <Route path="/blocked-users" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute><BlockedUsers /></ProtectedRoute></PhoneFrame>} />
         <Route path="/onboarding" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute><Onboarding /></ProtectedRoute></PhoneFrame>} />
         <Route path="/" element={<PhoneFrame key="home"><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
         <Route path="/home" element={<PhoneFrame key="home"><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />

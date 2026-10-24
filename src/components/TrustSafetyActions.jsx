@@ -49,8 +49,8 @@ export default function TrustSafetyActions({ contentType, targetType, contentId,
         <MoreVertical size={18} />
       </button>
       {menuOpen && <div className="absolute right-0 top-9 z-30 min-w-40 rounded-lg border border-[#E0E0E0] bg-white p-1 shadow-lg">
-        {blockUserId && <button type="button" onClick={(event) => { event.stopPropagation(); setMenuOpen(false); (blocked ? unblock(blockUserId) : block(blockUserId)).catch((error) => setMessage(error.message)); }} className="block w-full rounded-md px-3 py-2 text-left text-[13px] text-[#B42318] hover:bg-[#FFF2F0]">{blocked ? "Unblock" : "Block"}</button>}
-        <button type="button" onClick={(event) => { event.stopPropagation(); setMenuOpen(false); setOpen(true); }} className="block w-full rounded-md px-3 py-2 text-left text-[13px] text-[#4F5B51] hover:bg-[#F5F5F5]">Report</button>
+        {blockUserId && <button type="button" onClick={(event) => { event.stopPropagation(); setMenuOpen(false); (blocked ? unblock(blockUserId) : block(blockUserId)).catch((error) => setMessage(error.message)); }} className="block w-full rounded-md px-3 py-2 text-left text-[13px] text-[#B42318] hover:bg-[#FFF2F0]">{blocked ? "Unblock User" : "Block User"}</button>}
+        <button type="button" onClick={(event) => { event.stopPropagation(); setMenuOpen(false); setOpen(true); }} className="block w-full rounded-md px-3 py-2 text-left text-[13px] text-[#4F5B51] hover:bg-[#F5F5F5]">{resolvedContentType === "user" ? "Report User" : "Report"}</button>
       </div>}
       {message && <span role="status" className="ml-2 text-[12px] text-[#498467]">{message}</span>}
       {open && createPortal(<div className="fixed inset-0 z-[120] flex items-end bg-black/30" onClick={() => setOpen(false)} role="presentation">

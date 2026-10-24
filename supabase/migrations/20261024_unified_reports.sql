@@ -15,6 +15,13 @@ create table if not exists public.reports (
 alter table public.reports
   add column if not exists updated_at timestamptz default now();
 
+create table if not exists public.user_blocks (
+  id uuid primary key default gen_random_uuid(),
+  blocker_id uuid references auth.users(id) on delete cascade,
+  blocked_id uuid references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
 alter table public.reports
   add column if not exists reporter_user_id uuid references auth.users(id) on delete cascade,
   add column if not exists reported_user_id uuid references auth.users(id) on delete set null,
@@ -55,7 +62,7 @@ alter table public.reports alter column content_type set not null;
 alter table public.reports alter column content_id set not null;
 
 alter table public.reports add constraint reports_content_type_check check (content_type in ('user', 'listing', 'post', 'review', 'message', 'event'));
-alter table public.reports add constraint reports_reason_check check (reason in ('spam', 'harassment_bullying', 'hate_speech', 'fraud_scam', 'explicit_inappropriate', 'illegal_goods_services', 'other'));
+alter table public.reports add constraint reports_reason_check check (reason in ('spam', 'harassment_bullying', 'hate_speech', 'fraud_scam', 'explicit_inappropriate', 'illegal_goods_services', 'other', 'user_blocked'));
 
 create unique index if not exists reports_reporter_content_unique_idx
   on public.reports (reporter_user_id, content_type, content_id);
@@ -69,5 +76,7 @@ create policy "Users can create their own reports" on public.reports for insert 
 drop policy if exists "Users can view their own reports" on public.reports;
 create policy "Users can view their own reports" on public.reports for select to authenticated
   using (auth.uid() = reporter_user_id or exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin));
+
+create unique index if not exists user_blocks_blocker_blocked_idx on public.user_blocks (blocker_id, blocked_id);
 
 notify pgrst, 'reload schema';

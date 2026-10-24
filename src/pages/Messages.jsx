@@ -15,6 +15,8 @@ import { getOrderStatusClass, getOrderStatusLabel } from "../utils/orderStatus";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { formatMessageTimestamp } from "../utils/messageTimestamp";
 import { formatLocation } from "../data/locations";
+import { useAuth } from "../context/AuthContext";
+import { useTrustSafety } from "../context/TrustSafetyContext";
 
 const TAB_NAMES = ["All", "Selling", "Buying", "Trading", "Orders"];
 
@@ -39,6 +41,8 @@ function latestMessageForConversation(conversation) {
 
 export default function Messages() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { blockedUserIds } = useTrustSafety();
   const scrollRef = useRef(null);
   const savedMessagesState = readNavigationState("messages", { tab: "All", scrollTop: 0 });
   const [tab, setTab] = useState(savedMessagesState.tab);
@@ -72,7 +76,11 @@ export default function Messages() {
     };
   }, []);
 
-  const sortedMessages = sortConversations(safeMessages);
+  const visibleMessages = safeMessages.filter((message) => {
+    const participantIds = [message.participantId, message.sellerId, message.buyerId].filter((id) => id && String(id) !== String(user?.id));
+    return !participantIds.some((id) => blockedUserIds.has(String(id)));
+  });
+  const sortedMessages = sortConversations(visibleMessages);
   const filteredMessages = tab === "All"
     ? sortedMessages
     : tab === "Trading"
@@ -83,10 +91,10 @@ export default function Messages() {
   }, [filteredMessages, safeMessages, sortedMessages, tab]);
   const unreadCountFor = (tabName) => {
     const tabMessages = tabName === "All"
-      ? safeMessages
+      ? visibleMessages
       : tabName === "Trading"
-        ? safeMessages.filter(isTradeConversation)
-        : safeMessages.filter((m) => !isTradeConversation(m) && m.category === tabName);
+        ? visibleMessages.filter(isTradeConversation)
+        : visibleMessages.filter((m) => !isTradeConversation(m) && m.category === tabName);
     return tabMessages.reduce((count, message) => count + unreadMessageCount(message), 0);
   };
 

@@ -373,8 +373,16 @@ function BuyerAccountSettings() {
               <PushPermissionButton status={pushPermissionStatus} onStatusChange={setPushPermissionStatus} />
             </Section>
 
+            <Section title="Privacy & Safety">
+              <button type="button" onClick={() => navigate("/blocked-users")} className="flex w-full items-center justify-between rounded-lg bg-[#F5FFF6] p-3 text-left text-[14px] font-medium text-[#498467]">Blocked Users <span aria-hidden="true">›</span></button>
+            </Section>
+
             <Section title="Privacy">
               <Checkbox label="Show Location Publicly" checked={showLocationPublicly} onChange={() => setShowLocationPublicly((current) => !current)} />
+            </Section>
+
+            <Section title="Privacy & Safety">
+              <button type="button" onClick={() => navigate("/blocked-users")} className="flex w-full items-center justify-between rounded-lg bg-[#F5FFF6] p-3 text-left text-[14px] font-medium text-[#498467]">Blocked Users <span aria-hidden="true">›</span></button>
             </Section>
 
             <div className="flex flex-col gap-2"><SaveButton status={saveStatus} onClick={handleSave} className="w-full rounded-lg bg-[#498467] py-3 text-[16px] font-medium text-white" /></div>

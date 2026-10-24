@@ -63,6 +63,11 @@ export async function blockUser(blockerId, blockedId) {
   requireSupabase();
   const { error } = await supabase.from("user_blocks").insert({ blocker_id: blockerId, blocked_id: blockedId });
   if (error && error.code !== "23505") throw error;
+  try {
+    await createReport({ reporterUserId: blockerId, reportedUserId: blockedId, contentType: "user", contentId: blockedId, reason: "user_blocked", optionalDescription: "User was blocked by the reporter." });
+  } catch (reportError) {
+    if (!/already reported/i.test(reportError.message ?? "")) throw reportError;
+  }
 }
 
 export async function unblockUser(blockerId, blockedId) {

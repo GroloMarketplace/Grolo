@@ -68,7 +68,7 @@ export default function AdminModeration() {
         <div className="flex flex-col gap-3">
           {visibleReports.map((report) => <article key={report.id} className="rounded-xl border border-[#E0E0E0] p-4">
             <div className="flex items-start justify-between gap-3"><div><p className="font-semibold capitalize">{report.target_type} report</p><p className="mt-1 text-[12px] text-[#777]">Target: {report.target_id}</p></div><span className="rounded-full bg-[#F5F5F5] px-2 py-1 text-[11px]">{report.status}</span></div>
-            <p className="mt-3 text-[14px] font-medium">{report.reason.replaceAll("_", " ")}</p>
+            <p className="mt-3 text-[14px] font-medium">{report.reason === "user_blocked" ? "User Blocked" : report.reason.replaceAll("_", " ")}</p>
             {report.details && <p className="mt-1 text-[13px] text-[#555]">{report.details}</p>}
             <div className="mt-3 flex flex-wrap gap-2">
               {STATUSES.filter((status) => status !== report.status).map((status) => <button key={status} type="button" onClick={() => updateStatus(report, status)} className="rounded-lg border border-[#498467] px-2.5 py-1.5 text-[12px] text-[#498467]">{status}</button>)}

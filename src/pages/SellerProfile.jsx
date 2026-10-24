@@ -152,7 +152,7 @@ export default function SellerProfile() {
 
   return (
     <MobileScreenLayout>
-      <Header onBack={() => navigate(-1)} shareButton={<ShareProfileButton onClick={() => setIsShareModalOpen(true)} />} />
+      <Header onBack={() => navigate(-1)} shareButton={<ShareProfileButton onClick={() => setIsShareModalOpen(true)} />} right={<TrustSafetyActions contentType="user" contentId={seller.id} reportedUserId={seller.id} blockUserId={seller.id} compact />} />
       <div ref={pageScrollRef} className="overflow-y-auto flex-1 no-scrollbar">
         {sellerProfile.vacationMode && <div className="mx-4 mt-4 mb-4 rounded-lg border border-[#F5A623] bg-[#FFF4E5] p-3"><div className="text-[14px] font-semibold text-[#8A4B08]">🟠 Store Temporarily Closed</div><p className="mt-1 text-[13px] text-[#8A4B08]">{sellerProfile.vacationMessage || "This seller is currently not accepting orders."}</p>{sellerProfile.returnDate && <p className="mt-1 text-[12px] text-[#8A4B08]">Returning {new Date(`${sellerProfile.returnDate}T00:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>}</div>}
         {/* Banner */}
@@ -183,7 +183,6 @@ export default function SellerProfile() {
             </div>
 
             <p className="text-[14px] mt-3 leading-[140%]">{sellerProfile.description}</p>
-            <TrustSafetyActions contentType="user" contentId={seller.id} reportedUserId={seller.id} blockUserId={seller.id} />
             <PaymentMethodsList paymentSettings={sellerPaymentMethods} />
 
             <ReputationSummary snapshot={reputationSnapshot} audience="seller" sellerId={seller.id} foundingMember={sellerProfile.foundingMember} memberSince={sellerProfile.createdAt} storeCreatedAt={sellerProfile.storeOpenedAt} includeFoundingMember={false} runtimeDiagnostic className="mt-3" />

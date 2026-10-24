@@ -124,7 +124,8 @@ export default function ProductDetail() {
     <MobileScreenLayout>
       <Header onBack={() => navigate(-1)} />
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
-        <div className="p-6 flex flex-col gap-6">
+        <div className="relative p-6 flex flex-col gap-6">
+          <TrustSafetyActions contentType="listing" contentId={product.databaseId ?? product.id} reportedUserId={product.sellerId ?? seller?.id} className="absolute right-3 top-3 z-20" compact />
         <div className="relative">
           <ImageGallery
             images={product.images ?? [product.image]}
@@ -206,7 +207,6 @@ export default function ProductDetail() {
             )}
           </div>
           <FoundingMemberBadge sellerId={seller?.id} foundingMember={sellerProfile?.foundingMember} />
-          <TrustSafetyActions contentType="listing" contentId={product.databaseId ?? product.id} reportedUserId={product.sellerId ?? seller?.id} />
           <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-3" />
           {reputationSnapshot?.sellerStatus && <TrustMetricSummary metrics={reputationSnapshot.sellerStatus.metrics} audience="seller" memberSince={sellerProfile?.createdAt} storeCreatedAt={sellerProfile?.storeOpenedAt} compact />}
           {vacationMode && <div className="rounded-lg border border-[#D9D9D9] bg-[#F5FFF6] p-3 text-[14px] text-[#4F4F4F]">This store is temporarily not accepting orders.{sellerProfile.vacationMessage && <div className="mt-1 text-[13px] text-[#828282]">{sellerProfile.vacationMessage}</div>}</div>}

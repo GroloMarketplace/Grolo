@@ -533,6 +533,7 @@ function ListingFeedCard({ product, onOpenDetail, onShare }) {
           </button>
           <FoundingMemberBadge sellerId={product.sellerId} iconOnly />
         </div>
+        <TrustSafetyActions contentType="listing" contentId={product.databaseId ?? product.id} reportedUserId={product.sellerId} compact />
       </div>
       <DistanceLabel content={product} className="mt-1" />
       <p className="text-[12px] text-[#828282]">{product.postedAt ?? "Recently posted"}</p>
@@ -718,6 +719,7 @@ function EventPost({ event, onOpenDetail, onComment, onShare }) {
             </span>
             <EventAttendanceCount eventId={event.id} />
           </div>
+          <TrustSafetyActions contentType="event" contentId={event.id} reportedUserId={event.sellerId} compact />
         </div>
       </div>
       <DistanceLabel content={event} />

@@ -54,7 +54,7 @@ alter table public.reports alter column reporter_user_id set not null;
 alter table public.reports alter column content_type set not null;
 alter table public.reports alter column content_id set not null;
 
-alter table public.reports add constraint reports_content_type_check check (content_type in ('user', 'listing', 'post', 'review', 'message'));
+alter table public.reports add constraint reports_content_type_check check (content_type in ('user', 'listing', 'post', 'review', 'message', 'event'));
 alter table public.reports add constraint reports_reason_check check (reason in ('spam', 'harassment_bullying', 'hate_speech', 'fraud_scam', 'explicit_inappropriate', 'illegal_goods_services', 'other'));
 
 create unique index if not exists reports_reporter_content_unique_idx

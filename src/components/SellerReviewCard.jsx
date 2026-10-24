@@ -22,7 +22,8 @@ export default function SellerReviewCard({ review }) {
   }, [avatarUrlUsed, profileAvatarUrl, review]);
 
   return (
-    <article className="flex w-full gap-3 rounded-lg border border-[#E6E6E6] p-3">
+    <article className="relative flex w-full gap-3 rounded-lg border border-[#E6E6E6] p-3">
+      <TrustSafetyActions contentType="review" contentId={review.databaseId ?? review.id ?? review.review_id} reportedUserId={review.reviewerId ?? review.reviewer_id} compact className="absolute right-2 top-2" />
       <img src={avatarUrlUsed} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
       <div className="min-w-0 flex-1">
         <div className="text-[15px] tracking-[1px] text-[#D7A84B]" aria-label={`${rating} out of 5 stars`}>{"★".repeat(rating)}{"☆".repeat(Math.max(5 - rating, 0))}</div>
@@ -31,7 +32,6 @@ export default function SellerReviewCard({ review }) {
         {product && <p className="mt-2 text-[13px] text-[#828282]">Purchased: {product.name}</p>}
         <p className="mt-2 text-[12px] text-[#828282]">{date}</p>
         {criteria.map((criterion) => <p key={criterion} className="mt-2 text-[13px] font-medium text-[#498467]">✓ {criterion}</p>)}
-        <TrustSafetyActions contentType="review" contentId={review.databaseId ?? review.id ?? review.review_id} reportedUserId={review.reviewerId ?? review.reviewer_id} compact />
       </div>
     </article>
   );

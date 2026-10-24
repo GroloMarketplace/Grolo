@@ -10,6 +10,7 @@ import {
 import EventRsvp from "../components/EventRsvp";
 import DistanceLabel from "../components/DistanceLabel";
 import UnavailableAccount from "../components/UnavailableAccount";
+import TrustSafetyActions from "../components/TrustSafetyActions";
 import { formatLocation } from "../data/locations";
 import { useBlockedAccount } from "../hooks/useBlockedAccount";
 
@@ -52,6 +53,7 @@ export default function EventDetail() {
               <h1 className="text-[24px] font-semibold tracking-[-0.48px]">
                 {event.title}
               </h1>
+              <TrustSafetyActions contentType="event" contentId={event.id} reportedUserId={event.sellerId ?? seller?.id} compact />
               <span
                 className={`text-[12px] font-medium px-2 py-1 rounded-full whitespace-nowrap ${
                   status === "Past"

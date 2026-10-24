@@ -511,8 +511,10 @@ function ListingFeedCard({ product, onOpenDetail, onShare }) {
   };
   const openReviews = () => openDetail(`/product/${product.id}/reviews`, { sellerId: product.sellerId });
   const openStore = (event) => {
+    event.preventDefault();
     event.stopPropagation();
-    navigate(`/seller/${product.sellerId}`);
+    const sellerId = seller?.id ?? product.sellerId;
+    if (sellerId) navigate(`/seller/${encodeURIComponent(sellerId)}`);
   };
   return (
     <div
@@ -527,7 +529,7 @@ function ListingFeedCard({ product, onOpenDetail, onShare }) {
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <button type="button" onClick={openStore} className="flex min-w-0 items-center gap-2 text-left">
+          <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={openStore} className="flex min-w-0 items-center gap-2 text-left">
             <img src={seller?.avatar ?? ""} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
             <span className="truncate text-[14px] font-semibold text-[#498467]">{seller?.name ?? product.shop}</span>
           </button>

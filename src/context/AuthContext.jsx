@@ -191,6 +191,27 @@ export function AuthProvider({ children }) {
         }
       }
 
+      const signupTermsAccepted = nextSession.user.user_metadata?.accepted_terms === true;
+      if (signupTermsAccepted && !resolvedProfile?.accepted_terms) {
+        const acceptedTermsAt = nextSession.user.user_metadata?.accepted_terms_at || new Date().toISOString();
+        const acceptance = await supabase
+          .from("profiles")
+          .upsert({ id: nextSession.user.id, accepted_terms: true, accepted_terms_at: acceptedTermsAt }, { onConflict: "id" })
+          .select("*")
+          .single();
+        if (cancelled || currentRequestId !== requestId) return;
+        if (acceptance.error) {
+          console.error("Unable to persist signup terms acceptance", acceptance.error);
+          setProfileError(acceptance.error);
+          setProfileStatus("error");
+          setOnboardingComplete(null);
+          setAuthInitialized(true);
+          setLoading(false);
+          return;
+        }
+        resolvedProfile = acceptance.data;
+      }
+
       setProfile(resolvedProfile ?? null);
       setOnboardingComplete(profileHasCompletedOnboarding(resolvedProfile));
       setProfileStatus("loaded");
@@ -299,7 +320,7 @@ export function AuthProvider({ children }) {
     return data;
   }
 
-  async function signUpWithPassword(email, password, name) {
+  async function signUpWithPassword(email, password, name, acceptedTerms = false) {
     if (!isSupabaseConfigured) throw new Error("Supabase is not configured.");
     const configuredOrigin = import.meta.env.VITE_APP_URL?.trim().replace(/\/$/, "");
     const redirectOrigin = configuredOrigin && !/^https?:\/\/localhost(?::\d+)?$/i.test(configuredOrigin) ? configuredOrigin : "https://grolomarketplace.ca";
@@ -309,7 +330,12 @@ export function AuthProvider({ children }) {
       password,
       options: {
         emailRedirectTo,
-        data: { display_name: name.trim(), full_name: name.trim() },
+        data: {
+          display_name: name.trim(),
+          full_name: name.trim(),
+          accepted_terms: Boolean(acceptedTerms),
+          accepted_terms_at: acceptedTerms ? new Date().toISOString() : null,
+        },
       },
     });
     if (error) throw error;

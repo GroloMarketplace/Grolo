@@ -14,7 +14,9 @@ const rules = [
 export default function CommunityGuidelines() {
   const navigate = useNavigate();
   const location = useLocation();
-  const returnToPreviousPage = () => location.key === "default" ? navigate("/signin", { replace: true }) : navigate(-1);
+  const returnToPreviousPage = () => location.state?.returnTo
+    ? navigate(location.state.returnTo, { replace: true, state: { allowSignup: location.state.allowSignup, signupDraft: location.state.signupDraft } })
+    : location.key === "default" ? navigate("/signin", { replace: true }) : navigate(-1);
 
   return (
     <MobileScreenLayout className="bg-[#F8FBF7]">

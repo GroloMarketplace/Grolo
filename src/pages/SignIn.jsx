@@ -53,6 +53,16 @@ export default function SignIn() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const draft = location.state?.signupDraft;
+    if (!signup || !draft) return;
+    setEmail(draft.email ?? "");
+    setName(draft.name ?? "");
+    setPassword(draft.password ?? "");
+    setConfirmPassword(draft.confirmPassword ?? "");
+    setTermsAccepted(Boolean(draft.termsAccepted));
+  }, [location.state?.signupDraft, signup]);
+
+  useEffect(() => {
     if (isAuthenticated && profileStatus === "loaded" && onboardingComplete !== null) {
       const authDestination = emailVerified ? (onboardingComplete ? "/" : "/onboarding") : "/verify-email";
       navigate(emailVerified && !acceptedTerms ? "/terms-acceptance" : authDestination, { replace: true });
@@ -91,6 +101,18 @@ export default function SignIn() {
     } catch (err) { setError(err.message || "Authentication failed. Please try again."); setStatus("idle"); }
   }
 
+  function openLegal(path) {
+    const signupDraft = signup ? { email, name, password, confirmPassword, termsAccepted } : undefined;
+    const state = signupDraft ? { returnTo: "/signup", allowSignup: true, signupDraft } : undefined;
+    if (path === "/terms") {
+      if (state) navigate("/terms", { state });
+      else navigate("/terms");
+    } else if (path === "/privacy") {
+      if (state) navigate("/privacy", { state });
+      else navigate("/privacy");
+    } else navigate(path, { state });
+  }
+
   function switchMode() { setError(""); setForgot(false); navigate(signup ? "/signin" : "/signup", { state: signup ? undefined : { allowSignup: true } }); }
 
   const title = forgot ? "Reset your password" : signup ? "Create your account" : "Welcome back";
@@ -125,7 +147,7 @@ export default function SignIn() {
               {signup && <><p className="-mt-1 text-xs text-[#748074]">At least 8 characters with one letter and one number.</p><PasswordField label="Confirm password" value={confirmPassword} onChange={(event) => { setConfirmPassword(event.target.value); clearError(); }} autoComplete="new-password" error={error} /></>}
               {signup && <label className="flex items-start gap-3 rounded-xl border border-[#D9E0D8] bg-white p-3 text-[13px] leading-5 text-[#4F5B51]">
                 <input type="checkbox" checked={termsAccepted} onChange={(event) => { setTermsAccepted(event.target.checked); clearError(); }} className="mt-1 h-4 w-4 shrink-0 accent-[#498467]" />
-                <span>I agree to the <button type="button" onClick={() => navigate("/terms")} className="font-semibold text-[#498467] underline underline-offset-2">Terms of Use</button>, <button type="button" onClick={() => navigate("/privacy")} className="font-semibold text-[#498467] underline underline-offset-2">Privacy Policy</button>, and <button type="button" onClick={() => navigate("/community-guidelines")} className="font-semibold text-[#498467] underline underline-offset-2">Community Guidelines</button>.</span>
+                <span>I agree to the <button type="button" onClick={() => openLegal("/terms")} className="font-semibold text-[#498467] underline underline-offset-2">Terms of Use</button>, <button type="button" onClick={() => openLegal("/privacy")} className="font-semibold text-[#498467] underline underline-offset-2">Privacy Policy</button>, and <button type="button" onClick={() => openLegal("/community-guidelines")} className="font-semibold text-[#498467] underline underline-offset-2">Community Guidelines</button>.</span>
               </label>}
               {error && <p role="alert" className="rounded-lg bg-[#FFF2F0] px-3 py-2 text-[13px] text-[#B42318]">{error}</p>}
               <button type="submit" disabled={status === "working" || status === "sending" || (signup && !termsAccepted)} className="h-12 w-full rounded-xl bg-[#498467] text-[15px] font-semibold text-white shadow-sm transition hover:bg-[#376B50] disabled:cursor-not-allowed disabled:opacity-60">{status === "working" ? "Please wait..." : status === "sending" ? "Sending link..." : forgot ? "Send reset link" : signup ? "Create account" : "Sign in"}</button>
@@ -138,7 +160,7 @@ export default function SignIn() {
           )}
         </div>
         <p className="text-center text-xs leading-5 text-[#899389]">
-          By continuing, you agree to our <button type="button" onClick={() => navigate("/terms")} className="font-semibold text-[#498467] underline underline-offset-2">Terms of Service</button> and <button type="button" onClick={() => navigate("/privacy")} className="font-semibold text-[#498467] underline underline-offset-2">Privacy Policy</button>.
+          By continuing, you agree to our <button type="button" onClick={() => openLegal("/terms")} className="font-semibold text-[#498467] underline underline-offset-2">Terms of Service</button> and <button type="button" onClick={() => openLegal("/privacy")} className="font-semibold text-[#498467] underline underline-offset-2">Privacy Policy</button>.
         </p>
       </div>
     </MobileScreenLayout>

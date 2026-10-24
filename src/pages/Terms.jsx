@@ -5,7 +5,9 @@ import MobileScreenLayout from "../components/MobileScreenLayout";
 export default function Terms() {
   const navigate = useNavigate();
   const location = useLocation();
-  const returnToPreviousPage = () => location.key === "default" ? navigate("/signin", { replace: true }) : navigate(-1);
+  const returnToPreviousPage = () => location.state?.returnTo
+    ? navigate(location.state.returnTo, { replace: true, state: { allowSignup: location.state.allowSignup, signupDraft: location.state.signupDraft } })
+    : location.key === "default" ? navigate("/signin", { replace: true }) : navigate(-1);
 
   return (
     <MobileScreenLayout className="bg-[#F8FBF7]">
@@ -24,7 +26,7 @@ export default function Terms() {
               <p className="mt-1 font-semibold text-[#202A21]">Grolo has zero tolerance for objectionable content or abusive users.</p>
               <p className="mt-2">Users may not post or share harassment, hate speech, threats, bullying, discriminatory content, fraudulent content, illegal goods, or sexually explicit or offensive material.</p>
               <p className="mt-2">Content that violates these standards may be removed without notice. Accounts engaging in abusive behavior may be suspended or permanently terminated. Reported content is reviewed by the Grolo moderation team. Grolo reserves the right to remove content and restrict access to protect community safety.</p>
-              <button type="button" onClick={() => navigate("/community-guidelines")} className="mt-3 font-semibold text-[#498467] underline underline-offset-2">Read the Community Guidelines</button>
+              <button type="button" onClick={() => navigate("/community-guidelines", { state: location.state })} className="mt-3 font-semibold text-[#498467] underline underline-offset-2">Read the Community Guidelines</button>
             </section>
             <section><h2 className="font-semibold text-[#202A21]">Contact</h2><p className="mt-1">If you have questions about these terms or a marketplace interaction, contact Grolo support through the app.</p></section>
           </div>

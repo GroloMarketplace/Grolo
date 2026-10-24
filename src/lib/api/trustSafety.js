@@ -51,7 +51,7 @@ export async function getBlockedUsers(userId) {
   const { data, error } = await supabase
     .from("user_blocks")
     .select("blocker_id, blocked_id, created_at")
-    .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`);
+    .eq("blocker_id", userId);
   if (error) throw error;
   return (data ?? []).map((row) => ({
     ...row,

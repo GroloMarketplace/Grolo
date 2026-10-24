@@ -83,6 +83,25 @@ export async function isUserBlocked(firstUserId, secondUserId) {
   return Boolean(data);
 }
 
+export async function getAdminModerationNotifications({ limit = 20, unreadOnly = false } = {}) {
+  requireSupabase();
+  let query = supabase
+    .from("moderation_notifications")
+    .select("id,report_id,admin_user_id,reason,reporter_user_id,reported_user_id,content_type,content_id,created_at,read")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (unreadOnly) query = query.eq("read", false);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function markModerationNotificationRead(notificationId) {
+  requireSupabase();
+  const { error } = await supabase.from("moderation_notifications").update({ read: true }).eq("id", notificationId);
+  if (error) throw error;
+}
+
 export async function getAdminReports({ status, limit = 30, offset = 0 } = {}) {
   requireSupabase();
   let query = supabase

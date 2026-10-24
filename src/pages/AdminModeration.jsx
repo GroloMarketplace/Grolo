@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
-import { getAdminReports, setReportStatus, suspendTarget } from "../lib/api/trustSafety";
+import { getAdminModerationNotifications, getAdminReports, markModerationNotificationRead, setReportStatus, suspendTarget } from "../lib/api/trustSafety";
 
 const STATUSES = ["Open", "Under Review", "Resolved", "Dismissed"];
 
@@ -14,6 +14,7 @@ export default function AdminModeration() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState("");
+  const [moderationNotifications, setModerationNotifications] = useState([]);
   const PAGE_SIZE = 30;
 
   const loadReports = useCallback(() => {
@@ -25,6 +26,21 @@ export default function AdminModeration() {
   }, [filter]);
 
   useEffect(() => { loadReports(); }, [loadReports]);
+
+  useEffect(() => {
+    getAdminModerationNotifications({ limit: 20 })
+      .then(setModerationNotifications)
+      .catch((loadError) => setError(loadError.message || "Moderation notifications could not be loaded."));
+  }, []);
+
+  const markNotificationRead = async (notificationId) => {
+    try {
+      await markModerationNotificationRead(notificationId);
+      setModerationNotifications((current) => current.map((notification) => notification.id === notificationId ? { ...notification, read: true } : notification));
+    } catch (notificationError) {
+      setError(notificationError.message || "Notification could not be marked as read.");
+    }
+  };
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return;
@@ -59,6 +75,12 @@ export default function AdminModeration() {
     <MobileScreenLayout>
       <Header title="Trust & Safety" onBack={() => navigate("/shop")} />
       <div className="flex-1 overflow-y-auto px-4 py-5 no-scrollbar">
+        {moderationNotifications.length > 0 && <section className="mb-5 rounded-xl border border-[#F3D38A] bg-[#FFFDF5] p-4">
+          <div className="mb-3 flex items-center justify-between"><h2 className="text-[16px] font-semibold">Moderation notifications</h2><span className="text-[12px] text-[#777]">{moderationNotifications.filter((notification) => !notification.read).length} unread</span></div>
+          <div className="flex flex-col gap-2">{moderationNotifications.map((notification) => <article key={notification.id} className={`rounded-lg border p-3 ${notification.read ? "border-[#E0E0E0] bg-white" : "border-[#F3D38A] bg-[#FFF8E8]"}`}>
+            <div className="flex items-start justify-between gap-3"><div><p className="text-[13px] font-semibold">New {notification.reason === "user_blocked" ? "User Blocked" : "Report"}</p><p className="mt-1 text-[12px] text-[#555]">{notification.content_type} · {notification.reported_user_id ? `User ${notification.reported_user_id}` : "No reported user"}</p><p className="mt-1 text-[11px] text-[#777]">Reporter: {notification.reporter_user_id} · {new Date(notification.created_at).toLocaleString()}</p></div>{!notification.read && <button type="button" onClick={() => markNotificationRead(notification.id)} className="shrink-0 text-[12px] font-medium text-[#498467]">Mark read</button>}</div>
+          </article>)}</div>
+        </section>}
         <div className="mb-4 flex gap-2 overflow-x-auto no-scrollbar">
           {[...STATUSES, "All"].map((status) => <button key={status} type="button" onClick={() => setFilter(status)} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium ${filter === status ? "bg-[#498467] text-white" : "bg-[#F5F5F5]"}`}>{status}</button>)}
         </div>

@@ -28,6 +28,7 @@ import ShareProfileButton from "../components/ShareProfileButton";
 import DistanceLabel from "../components/DistanceLabel";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import ReputationSummary from "../components/ReputationSummary";
+import TrustSafetyActions from "../components/TrustSafetyActions";
 import UnavailableAccount from "../components/UnavailableAccount";
 import { useBlockedAccount } from "../hooks/useBlockedAccount";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
@@ -182,6 +183,7 @@ export default function SellerProfile() {
             </div>
 
             <p className="text-[14px] mt-3 leading-[140%]">{sellerProfile.description}</p>
+            <TrustSafetyActions contentType="user" contentId={seller.id} reportedUserId={seller.id} blockUserId={seller.id} />
             <PaymentMethodsList paymentSettings={sellerPaymentMethods} />
 
             <ReputationSummary snapshot={reputationSnapshot} audience="seller" sellerId={seller.id} foundingMember={sellerProfile.foundingMember} memberSince={sellerProfile.createdAt} storeCreatedAt={sellerProfile.storeOpenedAt} includeFoundingMember={false} runtimeDiagnostic className="mt-3" />

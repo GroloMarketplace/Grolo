@@ -206,7 +206,7 @@ export default function ProductDetail() {
             )}
           </div>
           <FoundingMemberBadge sellerId={seller?.id} foundingMember={sellerProfile?.foundingMember} />
-          <TrustSafetyActions targetType="listing" targetId={product.databaseId ?? product.id} />
+          <TrustSafetyActions contentType="listing" contentId={product.databaseId ?? product.id} reportedUserId={product.sellerId ?? seller?.id} />
           <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-3" />
           {reputationSnapshot?.sellerStatus && <TrustMetricSummary metrics={reputationSnapshot.sellerStatus.metrics} audience="seller" memberSince={sellerProfile?.createdAt} storeCreatedAt={sellerProfile?.storeOpenedAt} compact />}
           {vacationMode && <div className="rounded-lg border border-[#D9D9D9] bg-[#F5FFF6] p-3 text-[14px] text-[#4F4F4F]">This store is temporarily not accepting orders.{sellerProfile.vacationMessage && <div className="mt-1 text-[13px] text-[#828282]">{sellerProfile.vacationMessage}</div>}</div>}

@@ -1,4 +1,5 @@
 import { events, products, sellers } from "../data/mockData";
+import TrustSafetyActions from "./TrustSafetyActions";
 
 function getReviewTarget(review) {
   const product = products.find((item) => item.id === (review.productId ?? review.listingId ?? review.serviceId));
@@ -46,5 +47,6 @@ export default function BuyerReviewCard({ review, navigate }) {
     </>
   );
 
-  return target.path ? <button type="button" onClick={() => navigate(target.path)} className="flex w-full gap-3 rounded-lg border border-[#E6E6E6] p-3 text-left transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#498467]">{card}</button> : <article className="flex w-full gap-3 rounded-lg border border-[#E6E6E6] p-3">{card}</article>;
+  const reportAction = <TrustSafetyActions contentType="review" contentId={review.databaseId ?? review.id ?? review.review_id} reportedUserId={review.reviewerId ?? review.reviewer_id} compact />;
+  return target.path ? <article className="flex w-full items-start gap-3 rounded-lg border border-[#E6E6E6] p-3"><button type="button" onClick={() => navigate(target.path)} className="flex min-w-0 flex-1 gap-3 text-left transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#498467]">{card}</button>{reportAction}</article> : <article className="flex w-full items-start gap-3 rounded-lg border border-[#E6E6E6] p-3"><div className="min-w-0 flex-1">{card}</div>{reportAction}</article>;
 }

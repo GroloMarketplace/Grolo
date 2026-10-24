@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import StarRating from "../components/StarRating";
+import TrustSafetyActions from "../components/TrustSafetyActions";
 import { products } from "../data/mockData";
 import { useReviews } from "../context/ReviewContext";
 
@@ -146,6 +147,7 @@ export function ReviewCard({ review }) {
             </div>
           )}
         </div>
+        <TrustSafetyActions contentType="review" contentId={review.databaseId ?? review.id ?? review.review_id} reportedUserId={review.reviewerId ?? review.reviewer_id} compact />
       </div>
     </div>
   );

@@ -20,6 +20,7 @@ import { createComment, getComments } from "../lib/api/comments";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
 import UnavailableAccount from "../components/UnavailableAccount";
+import TrustSafetyActions from "../components/TrustSafetyActions";
 import { useBlockedAccount } from "../hooks/useBlockedAccount";
 
 function imageReferenceMatches(first, second) {
@@ -137,6 +138,7 @@ export default function PostDetail() {
     <MobileScreenLayout>
       <Header title="Post Detail" onBack={() => navigate(-1)} />
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-5">
+        <div className="flex justify-end"><TrustSafetyActions contentType="post" contentId={post.id} reportedUserId={post.authorId ?? post.sellerId} blockUserId={post.authorId ?? post.sellerId} compact /></div>
         <div className="flex items-center gap-3">
           <button type="button" onClick={openAuthorProfile} aria-label={`Open ${postAuthorName} profile`} className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#498467]"><img src={postAvatar} alt={postAuthorName} className="h-10 w-10 rounded-full object-cover" /></button>
           <div className="min-w-0 flex-1"><div className="flex items-center gap-1"><button type="button" onClick={openAuthorProfile} className="truncate text-left text-[16px] font-semibold text-[#498467] hover:underline">{postAuthorName}</button><FoundingMemberBadge sellerId={post.sellerId} iconOnly /></div><div className="flex flex-col gap-1 text-[12px] text-[#828282]"><DistanceLabel content={post} /><span>{post.location ?? seller?.location ?? "Local community"} · {post.time}</span></div></div>

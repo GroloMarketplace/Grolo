@@ -127,7 +127,7 @@ export default function PublicProfile() {
             </div>
             <p className="mt-3 text-[14px] leading-[140%]">{profile.bio}</p>
             <div className="mt-4 flex gap-3"><button type="button" disabled={!profileSellerId} onClick={() => { if (profileSellerId) toggleFollow(profileSellerId); }} className="flex-1 rounded-lg bg-[#498467] py-2.5 text-[14px] font-medium text-white">{profileSellerId && isFollowing(profileSellerId) ? "Following" : "Follow"}</button><button type="button" onClick={handleMessage} className="flex-1 rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">Message</button></div>
-            <TrustSafetyActions targetType="user" targetId={userId} blockUserId={userId} />
+            <TrustSafetyActions contentType="user" contentId={userId} reportedUserId={userId} blockUserId={userId} />
             <div className="mt-4 grid grid-cols-2 gap-2"><PublicStat icon="users" label="Followers" value={profileSellerId ? getFollowerCount(profileSellerId) : 0} /><PublicStat icon="user" label="Following" value={0} /></div>
           </div>
         </div>

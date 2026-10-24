@@ -252,7 +252,7 @@ export default function Chat() {
             <div className="text-[12px] text-black/50">Active 11m ago</div>
           )}
         </div>
-        <TrustSafetyActions targetType="message" targetId={conversation?.databaseId ?? conversation?.id ?? id} blockUserId={conversationProfile.id} compact />
+        <TrustSafetyActions contentType="message" contentId={conversation?.databaseId ?? conversation?.id ?? id} reportedUserId={conversationProfile.id} blockUserId={conversationProfile.id} compact />
       </div>
       <div ref={messageListRef} className="min-h-0 flex-1 flex flex-col gap-3 p-4 overflow-y-auto no-scrollbar">
         {isOrderThread && currentOrderContext ? (

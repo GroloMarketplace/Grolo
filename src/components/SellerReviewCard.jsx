@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { products, sellers } from "../data/mockData";
+import TrustSafetyActions from "./TrustSafetyActions";
 
 const REVIEW_CRITERIA = ["Would Transact Again", "Communicated Well", "Arrived for Pickup", "Polite and Respectful"];
 
@@ -30,6 +31,7 @@ export default function SellerReviewCard({ review }) {
         {product && <p className="mt-2 text-[13px] text-[#828282]">Purchased: {product.name}</p>}
         <p className="mt-2 text-[12px] text-[#828282]">{date}</p>
         {criteria.map((criterion) => <p key={criterion} className="mt-2 text-[13px] font-medium text-[#498467]">✓ {criterion}</p>)}
+        <TrustSafetyActions contentType="review" contentId={review.databaseId ?? review.id ?? review.review_id} reportedUserId={review.reviewerId ?? review.reviewer_id} compact />
       </div>
     </article>
   );

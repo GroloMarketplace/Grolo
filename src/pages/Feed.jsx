@@ -40,6 +40,7 @@ import { useListings } from "../context/ListingContext";
 import { usePosts } from "../context/PostContext";
 import TradeBadge from "../components/TradeBadge";
 import PromotionBadge from "../components/PromotionBadge";
+import TrustSafetyActions from "../components/TrustSafetyActions";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useNotifications } from "../context/NotificationContext";
 import { useTrustSafety } from "../context/TrustSafetyContext";
@@ -940,6 +941,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onShare }) {
             {avatar}
             {meta}
           </div>
+          <TrustSafetyActions contentType="post" contentId={post.id} reportedUserId={post.authorId ?? post.sellerId} blockUserId={post.authorId ?? post.sellerId} compact />
         </div>
         {content}
       </div>
@@ -952,6 +954,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onShare }) {
       <div className="flex flex-col gap-3 flex-1">
         <div className="flex items-start justify-between">
           {meta}
+          <TrustSafetyActions contentType="post" contentId={post.id} reportedUserId={post.authorId ?? post.sellerId} blockUserId={post.authorId ?? post.sellerId} compact />
         </div>
         {content}
       </div>

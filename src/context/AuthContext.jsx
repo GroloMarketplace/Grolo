@@ -258,6 +258,20 @@ export function AuthProvider({ children }) {
     return data;
   }
 
+  async function acceptTerms() {
+    if (!isSupabaseConfigured || !session?.user?.id) throw new Error("You must be signed in to accept the terms.");
+    const acceptedTermsAt = new Date().toISOString();
+    const { data, error } = await supabase
+      .from("profiles")
+      .upsert({ id: session.user.id, accepted_terms: true, accepted_terms_at: acceptedTermsAt }, { onConflict: "id" })
+      .select("*")
+      .single();
+    if (error) throw error;
+    setProfile((current) => ({ ...(current ?? {}), ...data }));
+    setProfileStatus("loaded");
+    return data;
+  }
+
   async function signInWithPassword(email, password) {
     if (!isSupabaseConfigured) throw new Error("Supabase is not configured.");
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -351,9 +365,11 @@ export function AuthProvider({ children }) {
     refreshProfile,
     isSuspended: Boolean(profile?.suspended_at),
     onboardingComplete,
+    acceptedTerms: Boolean(profile?.accepted_terms),
     emailVerified: isEmailVerified(session?.user),
     isAuthenticated: Boolean(session),
     signInWithPassword,
+    acceptTerms,
     resendVerificationEmail,
     refreshSession,
     signUpWithPassword,

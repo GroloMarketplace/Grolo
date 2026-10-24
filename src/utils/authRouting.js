@@ -1,4 +1,4 @@
-const PUBLIC_ROUTES = new Set(["/signin", "/reset-password", "/terms", "/privacy", "/confirm-email"]);
+const PUBLIC_ROUTES = new Set(["/signin", "/reset-password", "/terms", "/privacy", "/community-guidelines", "/confirm-email"]);
 
 export function authRouteDecision({
   authInitialized,
@@ -7,6 +7,7 @@ export function authRouteDecision({
   emailVerified,
   profileStatus,
   onboardingComplete,
+  acceptedTerms = true,
   pathname,
   pendingVerificationEmail = "",
   allowSignup = false,
@@ -30,6 +31,10 @@ export function authRouteDecision({
 
   if (!emailVerified && pathname !== "/verify-email" && pathname !== "/confirm-email") {
     return { waiting: false, redirectTo: "/verify-email", decision: "redirect-unverified-to-verify-email" };
+  }
+
+  if (emailVerified && !acceptedTerms && !["/terms-acceptance", "/terms", "/privacy", "/community-guidelines"].includes(pathname)) {
+    return { waiting: false, redirectTo: "/terms-acceptance", decision: "redirect-to-terms-acceptance" };
   }
 
   if (emailVerified && (pathname === "/signin" || pathname === "/signup")) {

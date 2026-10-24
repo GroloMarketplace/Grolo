@@ -49,6 +49,8 @@ alter table profiles add column if not exists store_onboarding_status boolean no
 alter table profiles add column if not exists store_opened_at timestamptz;
 alter table profiles add column if not exists founding_member boolean not null default false;
 alter table profiles add column if not exists onboarding_completed boolean not null default false;
+alter table profiles add column if not exists accepted_terms boolean not null default false;
+alter table profiles add column if not exists accepted_terms_at timestamptz;
 
 alter table profiles enable row level security;
 

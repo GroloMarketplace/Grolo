@@ -42,21 +42,23 @@ export default function SignIn() {
   const location = useLocation();
   const navigate = useNavigate();
   const signup = location.pathname === "/signup";
-  const { signInWithPassword, signUpWithPassword, sendPasswordReset, isAuthenticated, emailVerified, profileStatus, profileError, onboardingComplete } = useAuth();
+  const { signInWithPassword, signUpWithPassword, sendPasswordReset, isAuthenticated, emailVerified, profileStatus, profileError, onboardingComplete, acceptedTerms } = useAuth();
   const [forgot, setForgot] = useState(false);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (isAuthenticated && profileStatus === "loaded" && onboardingComplete !== null) {
-      navigate(emailVerified ? (onboardingComplete ? "/" : "/onboarding") : "/verify-email", { replace: true });
+      const authDestination = emailVerified ? (onboardingComplete ? "/" : "/onboarding") : "/verify-email";
+      navigate(emailVerified && !acceptedTerms ? "/terms-acceptance" : authDestination, { replace: true });
     }
     if (isAuthenticated && profileStatus === "error") setError(profileError?.message || "Unable to load your profile. Please try again.");
-  }, [emailVerified, isAuthenticated, navigate, onboardingComplete, profileError, profileStatus]);
+  }, [acceptedTerms, emailVerified, isAuthenticated, navigate, onboardingComplete, profileError, profileStatus]);
 
   const clearError = () => { if (error) setError(""); };
   const normalizedEmail = email.trim().toLowerCase();
@@ -73,6 +75,7 @@ export default function SignIn() {
     if (passwordError) { setError(passwordError); return; }
     if (signup && !name.trim()) { setError("Name is required."); return; }
     if (signup && password !== confirmPassword) { setError("Passwords do not match."); return; }
+    if (!termsAccepted) { setError("You must agree to the Terms of Use, Privacy Policy, and Community Guidelines to continue."); return; }
     if (!isSupabaseConfigured) { setError("Authentication is currently unavailable. Please try again later."); return; }
     try {
       setStatus("working");
@@ -120,8 +123,12 @@ export default function SignIn() {
               <label className="flex flex-col gap-2 text-[13px] font-medium text-[#30352f]">Email<input type="email" value={email} onChange={(event) => { setEmail(event.target.value); clearError(); }} autoComplete="email" placeholder="you@example.com" className="h-12 rounded-xl border border-[#D9E0D8] bg-white px-4 text-[15px] outline-none focus:border-[#498467] focus:ring-2 focus:ring-[#498467]/15" /></label>
               {!forgot && <PasswordField label="Password" value={password} onChange={(event) => { setPassword(event.target.value); clearError(); }} autoComplete={signup ? "new-password" : "current-password"} error={error} />}
               {signup && <><p className="-mt-1 text-xs text-[#748074]">At least 8 characters with one letter and one number.</p><PasswordField label="Confirm password" value={confirmPassword} onChange={(event) => { setConfirmPassword(event.target.value); clearError(); }} autoComplete="new-password" error={error} /></>}
+              {!forgot && <label className="flex items-start gap-3 rounded-xl border border-[#D9E0D8] bg-white p-3 text-[13px] leading-5 text-[#4F5B51]">
+                <input type="checkbox" checked={termsAccepted} onChange={(event) => { setTermsAccepted(event.target.checked); clearError(); }} className="mt-1 h-4 w-4 shrink-0 accent-[#498467]" />
+                <span>I agree to the <button type="button" onClick={() => navigate("/terms")} className="font-semibold text-[#498467] underline underline-offset-2">Terms of Use</button>, <button type="button" onClick={() => navigate("/privacy")} className="font-semibold text-[#498467] underline underline-offset-2">Privacy Policy</button>, and <button type="button" onClick={() => navigate("/community-guidelines")} className="font-semibold text-[#498467] underline underline-offset-2">Community Guidelines</button>.</span>
+              </label>}
               {error && <p role="alert" className="rounded-lg bg-[#FFF2F0] px-3 py-2 text-[13px] text-[#B42318]">{error}</p>}
-              <button type="submit" disabled={status === "working" || status === "sending"} className="h-12 w-full rounded-xl bg-[#498467] text-[15px] font-semibold text-white shadow-sm transition hover:bg-[#376B50] disabled:cursor-not-allowed disabled:opacity-60">{status === "working" ? "Please wait..." : status === "sending" ? "Sending link..." : forgot ? "Send reset link" : signup ? "Create account" : "Sign in"}</button>
+              <button type="submit" disabled={status === "working" || status === "sending" || (!forgot && !termsAccepted)} className="h-12 w-full rounded-xl bg-[#498467] text-[15px] font-semibold text-white shadow-sm transition hover:bg-[#376B50] disabled:cursor-not-allowed disabled:opacity-60">{status === "working" ? "Please wait..." : status === "sending" ? "Sending link..." : forgot ? "Send reset link" : signup ? "Create account" : "Sign in"}</button>
               {!signup && !forgot && <button type="button" onClick={() => { setForgot(true); setError(""); }} className="w-full text-center text-[13px] font-semibold text-[#498467]">Forgot password?</button>}
             </form>
           )}

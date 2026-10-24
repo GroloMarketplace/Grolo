@@ -47,6 +47,8 @@ import ResetPassword from "./pages/ResetPassword";
 import ConfirmEmail, { VerifyEmail } from "./pages/ConfirmEmail";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
+import CommunityGuidelines from "./pages/CommunityGuidelines";
+import TermsAcceptance from "./pages/TermsAcceptance";
 import Onboarding from "./pages/Onboarding";
 import AccountSettings from "./pages/AccountSettings";
 import Saved from "./pages/Saved";
@@ -93,7 +95,7 @@ const EditListing = lazy(() => import("./pages/EditListing"));
 const OpenStore = lazy(() => import("./pages/OpenStore"));
 
 function AuthStartupGate({ children }) {
-  const { authInitialized, loading, session, emailVerified, profileStatus, onboardingComplete } = useAuth();
+  const { authInitialized, loading, session, emailVerified, profileStatus, onboardingComplete, acceptedTerms } = useAuth();
   const location = useLocation();
   const { pathname } = location;
   const pendingVerificationEmail = readPendingVerificationEmail();
@@ -104,6 +106,7 @@ function AuthStartupGate({ children }) {
     emailVerified,
     profileStatus,
     onboardingComplete,
+    acceptedTerms,
     pathname,
     pendingVerificationEmail,
     allowSignup: location.state?.allowSignup === true,
@@ -163,6 +166,8 @@ export default function App() {
         <Route path="/verify-email" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute allowUnverified><VerifyEmail /></ProtectedRoute></PhoneFrame>} />
         <Route path="/terms" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><Terms /></PhoneFrame>} />
         <Route path="/privacy" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><Privacy /></PhoneFrame>} />
+        <Route path="/community-guidelines" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><CommunityGuidelines /></PhoneFrame>} />
+        <Route path="/terms-acceptance" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute allowUnverified><TermsAcceptance /></ProtectedRoute></PhoneFrame>} />
         <Route path="/account-suspended" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SuspendedAccount /></PhoneFrame>} />
         <Route path="/onboarding" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute><Onboarding /></ProtectedRoute></PhoneFrame>} />
         <Route path="/" element={<PhoneFrame key="home"><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />

@@ -53,10 +53,26 @@ export async function getBlockedUsers(userId) {
     .select("blocker_id, blocked_id, created_at")
     .eq("blocker_id", userId);
   if (error) throw error;
-  return (data ?? []).map((row) => ({
-    ...row,
-    blocked_id: String(row.blocker_id) === String(userId) ? row.blocked_id : row.blocker_id,
-  }));
+  const rows = data ?? [];
+  const blockedIds = rows.map((row) => row.blocked_id).filter(Boolean);
+  const { data: profiles, error: profilesError } = blockedIds.length
+    ? await supabase.from("profiles").select("id,display_name,username,shop_name,avatar_url").in("id", blockedIds)
+    : { data: [], error: null };
+  if (profilesError) throw profilesError;
+  const profilesById = new Map((profiles ?? []).map((profile) => [String(profile.id), profile]));
+  return rows.map((row) => {
+    const profile = profilesById.get(String(row.blocked_id));
+    return {
+      ...row,
+      blocked_id: row.blocked_id,
+      profile: profile ? {
+        id: profile.id,
+        avatar: profile.avatar_url ?? null,
+        name: profile.display_name ?? profile.username ?? profile.shop_name ?? "User",
+        username: profile.username ?? null,
+      } : { id: row.blocked_id, avatar: null, name: "User", username: null },
+    };
+  });
 }
 
 export async function blockUser(blockerId, blockedId) {

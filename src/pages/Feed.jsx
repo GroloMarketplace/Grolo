@@ -99,7 +99,6 @@ export default function Feed() {
   const [tab, setTab] = useState(initialTabRef.current);
   const [communityFilter, setCommunityFilter] = useState(communityFilterRef.current);
   const [shareContent, setShareContent] = useState(null);
-  const hiddenContentIds = new Set();
   const [feedToast, setFeedToast] = useState("");
   const [refreshDistance, setRefreshDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -112,7 +111,7 @@ export default function Feed() {
   const { savedItems } = useSavedItems();
   const { settings: buyerSettings = {} } = useBuyerSettings();
   const { buyerOrders } = useOrders();
-  const { blockedUserIds } = useTrustSafety();
+  const { blockedUserIds, hiddenContentIds } = useTrustSafety();
   const totalUnreadNotifications = unreadNotificationCount;
 
   useEffect(() => {
@@ -535,7 +534,7 @@ function ListingFeedCard({ product, onOpenDetail, onShare }) {
           </button>
           <FoundingMemberBadge sellerId={product.sellerId} iconOnly />
         </div>
-        <TrustSafetyActions contentType="listing" contentId={product.databaseId ?? product.id} reportedUserId={product.sellerId} compact />
+        <TrustSafetyActions contentType="listing" contentId={product.databaseId ?? product.id} reportedUserId={product.sellerId} hideItem={{ contentType: "listing", contentId: product.id }} compact />
       </div>
       <DistanceLabel content={product} className="mt-1" />
       <p className="text-[12px] text-[#828282]">{product.postedAt ?? "Recently posted"}</p>
@@ -721,7 +720,7 @@ function EventPost({ event, onOpenDetail, onComment, onShare }) {
             </span>
             <EventAttendanceCount eventId={event.id} />
           </div>
-          <TrustSafetyActions contentType="event" contentId={event.id} reportedUserId={event.sellerId} compact />
+          <TrustSafetyActions contentType="event" contentId={event.id} reportedUserId={event.sellerId} hideItem={{ contentType: "event", contentId: event.id }} compact />
         </div>
       </div>
       <DistanceLabel content={event} />
@@ -945,7 +944,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onShare }) {
             {avatar}
             {meta}
           </div>
-          <TrustSafetyActions contentType="post" contentId={post.id} reportedUserId={post.authorId ?? post.sellerId} blockUserId={post.authorId ?? post.sellerId} compact />
+          <TrustSafetyActions contentType="post" contentId={post.id} reportedUserId={post.authorId ?? post.sellerId} blockUserId={post.authorId ?? post.sellerId} hideItem={{ contentType: "post", contentId: post.id }} compact />
         </div>
         {content}
       </div>
@@ -958,7 +957,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onShare }) {
       <div className="flex flex-col gap-3 flex-1">
         <div className="flex items-start justify-between">
           {meta}
-          <TrustSafetyActions contentType="post" contentId={post.id} reportedUserId={post.authorId ?? post.sellerId} blockUserId={post.authorId ?? post.sellerId} compact />
+          <TrustSafetyActions contentType="post" contentId={post.id} reportedUserId={post.authorId ?? post.sellerId} blockUserId={post.authorId ?? post.sellerId} hideItem={{ contentType: "post", contentId: post.id }} compact />
         </div>
         {content}
       </div>

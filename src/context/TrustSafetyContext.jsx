@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { blockUser, getBlockedUsers, isUserBlocked, unblockUser } from "../lib/api/trustSafety";
+import { getHiddenContent, hiddenContentKey, hideContent as persistHiddenContent, unhideContent as persistUnhiddenContent } from "../lib/api/hiddenContent";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const TrustSafetyContext = createContext(null);
@@ -11,6 +12,7 @@ export function TrustSafetyProvider({ children }) {
   const [blockedUsers, setBlockedUsers] = useState([]);
   const [explicitlyUnblockedUserIds, setExplicitlyUnblockedUserIds] = useState(new Set());
   const [lastBlockedUserId, setLastBlockedUserId] = useState(null);
+  const [hiddenContentIds, setHiddenContentIds] = useState(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -19,6 +21,7 @@ export function TrustSafetyProvider({ children }) {
       setBlockedUsers([]);
       setExplicitlyUnblockedUserIds(new Set());
       setLastBlockedUserId(null);
+      setHiddenContentIds(new Set());
       return undefined;
     }
     setExplicitlyUnblockedUserIds(new Set());
@@ -26,6 +29,9 @@ export function TrustSafetyProvider({ children }) {
     getBlockedUsers(user.id)
       .then((rows) => { if (!cancelled) { setBlockedUsers(rows); setBlockedUserIds(new Set(rows.map((row) => String(row.blocked_id)))); } })
       .catch((error) => console.error("Unable to load blocked users", error));
+    getHiddenContent(user.id)
+      .then((keys) => { if (!cancelled) setHiddenContentIds(keys); })
+      .catch((error) => console.error("Unable to load hidden content", error));
     return () => { cancelled = true; };
   }, [user?.id]);
 
@@ -68,7 +74,39 @@ export function TrustSafetyProvider({ children }) {
     setLastBlockedUserId((current) => String(current) === String(userId) ? null : current);
   }, [user?.id]);
 
-  return <TrustSafetyContext.Provider value={{ blockedUserIds, blockedUsers, lastBlockedUserId, isBlocked, checkBlocked, block, unblock, refreshBlockedUsers }}>{children}</TrustSafetyContext.Provider>;
+  const isHidden = useCallback((contentType, contentId) => hiddenContentIds.has(hiddenContentKey(contentType, contentId)), [hiddenContentIds]);
+  const hideContent = useCallback(async (contentType, contentId) => {
+    if (!user?.id) throw new Error("You must be signed in to hide content.");
+    const key = hiddenContentKey(contentType, contentId);
+    setHiddenContentIds((current) => new Set([...current, key]));
+    try {
+      await persistHiddenContent(user.id, contentType, contentId);
+    } catch (error) {
+      setHiddenContentIds((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+      throw error;
+    }
+  }, [user?.id]);
+  const unhideContent = useCallback(async (contentType, contentId) => {
+    if (!user?.id) return;
+    const key = hiddenContentKey(contentType, contentId);
+    setHiddenContentIds((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
+    try {
+      await persistUnhiddenContent(user.id, contentType, contentId);
+    } catch (error) {
+      setHiddenContentIds((current) => new Set([...current, key]));
+      throw error;
+    }
+  }, [user?.id]);
+
+  return <TrustSafetyContext.Provider value={{ blockedUserIds, blockedUsers, lastBlockedUserId, hiddenContentIds, isBlocked, checkBlocked, block, unblock, isHidden, hideContent, unhideContent, refreshBlockedUsers }}>{children}</TrustSafetyContext.Provider>;
 }
 
 export function useTrustSafety() {

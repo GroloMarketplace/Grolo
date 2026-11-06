@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 
 export default function SellerProfileShareModal({ seller, profile, onClose }) {
@@ -69,10 +70,10 @@ export default function SellerProfileShareModal({ seller, profile, onClose }) {
     link.click();
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="share-profile-title">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end justify-center overflow-hidden bg-black/40 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="share-profile-title">
       <button type="button" aria-label="Close Share Profile" onClick={onClose} className="absolute inset-0 h-full w-full" />
-      <div className="relative max-h-[92vh] w-full max-w-[430px] overflow-y-auto rounded-t-2xl bg-white px-5 pb-6 pt-5 shadow-2xl sm:rounded-2xl">
+      <div className="relative max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-0.5rem))] w-full max-w-[430px] overflow-y-auto overscroll-contain rounded-t-2xl bg-white px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:rounded-2xl">
         <div className="mb-4 flex items-start justify-between">
           <div>
             <h2 id="share-profile-title" className="text-[20px] font-semibold">Share Profile</h2>
@@ -102,6 +103,7 @@ export default function SellerProfileShareModal({ seller, profile, onClose }) {
         </div>
         {status && <p className="mt-3 text-center text-[13px] font-medium text-[#498467]" role="status">{status}</p>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

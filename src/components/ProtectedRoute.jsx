@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { useProfileMode } from "../context/ProfileModeContext";
 
-export default function ProtectedRoute({ children, sellerOnly = false, profileRequired = false, allowUnverified = false }) {
+export default function ProtectedRoute({ children, sellerOnly = false, profileRequired = false, allowUnverified = false, allowGuest = false }) {
   const { isAuthenticated, loading, profileStatus, profileError, profile, onboardingComplete, emailVerified } = useAuth();
   const { canSeller } = useProfileMode();
   const location = useLocation();
@@ -11,6 +11,7 @@ export default function ProtectedRoute({ children, sellerOnly = false, profileRe
   if (!isSupabaseConfigured) return children;
   if (loading || profileStatus === "loading" || profileStatus === "unknown") return null;
   if (!isAuthenticated) {
+    if (allowGuest) return children;
     return <Navigate to="/signin" state={{ from: location }} replace />;
   }
   if (profileRequired && profileStatus === "error") {

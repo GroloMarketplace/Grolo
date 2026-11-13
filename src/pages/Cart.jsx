@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 import { sellers } from "../data/mockData";
 import { useSavedForLater } from "../context/SavedForLaterContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
@@ -18,6 +19,7 @@ function formatCartPrice(value) {
 export default function Cart() {
   const navigate = useNavigate();
   const { items, updateQuantity, getItemPricing, removeItems: removeCartItems, restoreItems, addToCart } = useCart();
+  const { requireAuth } = useAuthPrompt();
   const { items: savedForLaterItems, addItems, removeItems: removeSavedForLater } = useSavedForLater();
   const { listings } = useListings();
   const [undoItem, setUndoItem] = useState(null);
@@ -104,6 +106,7 @@ export default function Cart() {
 
   const handleCheckout = () => {
     if (!canCheckout) return;
+    if (!requireAuth(null, "place orders")) return;
     navigate(checkoutTarget);
   };
 

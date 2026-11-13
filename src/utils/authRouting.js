@@ -1,4 +1,37 @@
-const PUBLIC_ROUTES = new Set(["/signin", "/reset-password", "/terms", "/privacy", "/community-guidelines", "/confirm-email"]);
+const PUBLIC_ROUTES = new Set(["/signin", "/reset-password", "/terms", "/privacy", "/community-guidelines", "/confirm-email", "/account-suspended"]);
+
+// Marketplace browsing paths a guest can open without an account
+// (App Store Review Guideline 5.1.1).
+const GUEST_BROWSING_ROUTES = new Set([
+  "/",
+  "/home",
+  "/search",
+  "/featured",
+  "/community-impact",
+  "/grolo-statuses",
+  "/seller-statuses",
+  "/comments",
+  "/cart",
+]);
+
+const GUEST_BROWSING_PREFIXES = [
+  "/product/",
+  "/listing/",
+  "/category/",
+  "/seller/",
+  "/profile/",
+  "/event/",
+  "/post/",
+  "/promotion/",
+  "/promotions/",
+  "/founding-member/",
+];
+
+export function isGuestBrowsablePath(pathname) {
+  if (!pathname) return false;
+  if (PUBLIC_ROUTES.has(pathname) || GUEST_BROWSING_ROUTES.has(pathname)) return true;
+  return GUEST_BROWSING_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
 
 export function authRouteDecision({
   authInitialized,
@@ -18,7 +51,7 @@ export function authRouteDecision({
   if (!session) {
     const canShowVerification = pathname === "/verify-email" && Boolean(pendingVerificationEmail);
     const canShowSignup = pathname === "/signup" && allowSignup;
-    if (!PUBLIC_ROUTES.has(pathname) && !canShowVerification && !canShowSignup) {
+    if (!isGuestBrowsablePath(pathname) && !canShowVerification && !canShowSignup) {
       const redirectTo = pendingVerificationEmail ? "/verify-email" : "/signin";
       return {
         waiting: false,

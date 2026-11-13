@@ -28,6 +28,7 @@ import TrustSafetyActions from "../components/TrustSafetyActions";
 import { trackAnalyticsEvent } from "../lib/api/analytics";
 import UnavailableAccount from "../components/UnavailableAccount";
 import { useBlockedAccount } from "../hooks/useBlockedAccount";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -37,6 +38,7 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [variantError, setVariantError] = useState("");
+  const { requireAuth } = useAuthPrompt();
   const { addToCart } = useCart();
   const { listings } = useListings();
   const { createSellerConversation } = useMessages();
@@ -79,6 +81,7 @@ export default function ProductDetail() {
 
   const handleMessageSeller = () => {
     if (!seller) return;
+    if (!requireAuth(null, "message sellers")) return;
     const { id: conversationId, serviceContext, conversation } = createSellerConversation({ listing: product, seller });
     navigate(`/messages/${conversationId}`, {
       state: {
@@ -91,6 +94,7 @@ export default function ProductDetail() {
 
   const handleProposeTrade = () => {
     if (!seller) return;
+    if (!requireAuth(null, "propose trades")) return;
     navigate(`/propose-trade/${product.id}`);
   };
 

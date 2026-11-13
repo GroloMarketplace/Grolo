@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
+import { useAuthPrompt } from "./AuthPromptContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { useTrustSafety } from "./TrustSafetyContext";
 import { useActivity } from "./ActivityContext";
@@ -42,6 +43,7 @@ function persistFollowing(userKey, followedSellers) {
 
 export function FollowProvider({ children }) {
   const { user, isSuspended } = useAuth();
+  const { promptAuth } = useAuthPrompt();
   const { checkBlocked } = useTrustSafety();
   const { recordActivity } = useActivity();
   const userKey = user?.id ?? "current-user";
@@ -209,6 +211,10 @@ export function FollowProvider({ children }) {
   });
 
   const toggleFollow = (sellerId) => {
+    if (isSupabaseConfigured && !user?.id) {
+      promptAuth("follow members");
+      return false;
+    }
     const sellerKey = normalizeSellerKey(sellerId);
     const alreadyFollowing = followedSellersRef.current.some((id) => normalizeSellerKey(id) === sellerKey);
     if (alreadyFollowing) {

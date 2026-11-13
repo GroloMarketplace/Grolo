@@ -2,6 +2,7 @@ import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useFollow } from "../context/FollowContext";
 import { useMessages } from "../context/MessageContext";
@@ -11,6 +12,7 @@ import { isWithinDiscoveryRadius, resolveUserLocation } from "../utils/locationR
 export default function ShareSheet({ content, onClose, onSuccess }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { requireAuth } = useAuthPrompt();
   const { followedSellers } = useFollow();
   const { messages } = useMessages();
   const { settings: buyerSettings } = useBuyerSettings();
@@ -103,6 +105,10 @@ export default function ShareSheet({ content, onClose, onSuccess }) {
 
   const sendTo = (target) => {
     if (!target) return;
+    if (!requireAuth(null, "message members")) {
+      onClose();
+      return;
+    }
     navigate(`/messages/${encodeURIComponent(target.id)}`, {
       state: {
         pendingConversation: {

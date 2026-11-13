@@ -41,7 +41,7 @@ export function PostProvider({ children }) {
     const cachedPosts = readPosts(storageKey) ?? [];
     setPosts(cachedPosts);
 
-    if (!isSupabaseConfigured || !user?.id) return () => { cancelled = true; };
+    if (!isSupabaseConfigured) return () => { cancelled = true; };
 
     getPostsApi()
       .then((remotePosts) => {

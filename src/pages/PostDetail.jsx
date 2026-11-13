@@ -11,6 +11,7 @@ import { useEngagement } from "../context/EngagementContext";
 import { usePosts } from "../context/PostContext";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useAuth } from "../context/AuthContext";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 import { useListings } from "../context/ListingContext";
 import DistanceLabel from "../components/DistanceLabel";
 import TradeBadge from "../components/TradeBadge";
@@ -38,6 +39,7 @@ export default function PostDetail() {
   const { getPostEngagement, updatePost, togglePostLike, incrementPostShares, togglePostRegrow } = useEngagement();
   const { settings: buyerProfile } = useBuyerSettings();
   const { user: authUser } = useAuth();
+  const { requireAuth } = useAuthPrompt();
   const { listings } = useListings();
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [showRegrowConfirm, setShowRegrowConfirm] = useState(false);
@@ -82,6 +84,7 @@ export default function PostDetail() {
   }, [state?.notificationId, state?.storedPostId, state?.notificationThumbnail, post?.id, post?.image]);
 
   const handleSubmitReply = async ({ text, parentComment }) => {
+    if (!requireAuth(null, "post comments")) return;
     let reply = { id: `${parentComment ? "reply" : "comment"}-${Date.now()}`, username: buyerProfile.displayName, avatar: buyerProfile.avatar, timestamp: "now", likes: 0, text };
     try {
       if (isSupabaseConfigured && authUser?.id) {
@@ -114,7 +117,10 @@ export default function PostDetail() {
   };
 
   const handleCommentLike = async (comment, nextLiked) => {
-    if (!authUser?.id) return;
+    if (!authUser?.id) {
+      requireAuth(null, "like comments");
+      return;
+    }
     await persistCommentLike({
       commentId: comment.id,
       userId: authUser.id,

@@ -1,5 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { useActivity } from "./ActivityContext";
+import { useAuth } from "./AuthContext";
+import { useAuthPrompt } from "./AuthPromptContext";
+import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 const EngagementContext = createContext(null);
 const STORAGE_KEY = "grolo-post-engagement";
@@ -27,6 +30,8 @@ function keyFor(type, id) {
 
 export function EngagementProvider({ children }) {
   const { recordActivity } = useActivity();
+  const { isAuthenticated } = useAuth();
+  const { promptAuth } = useAuthPrompt();
   const [engagement, setEngagement] = useState(readEngagement);
 
   const getEngagement = useCallback((type, item) => {
@@ -56,6 +61,10 @@ export function EngagementProvider({ children }) {
   const updatePost = useCallback((id, update) => updateEngagement("post", id, update), [updateEngagement]);
 
   const toggleLike = useCallback((type, id, content = null) => {
+    if (isSupabaseConfigured && !isAuthenticated) {
+      promptAuth("like community content");
+      return false;
+    }
     let nextLiked;
     setEngagement((current) => {
       const key = keyFor(type, id);
@@ -67,7 +76,7 @@ export function EngagementProvider({ children }) {
       return next;
     });
     return nextLiked;
-  }, [recordActivity]);
+  }, [isAuthenticated, promptAuth, recordActivity]);
 
   const togglePostLike = useCallback((id, content = null) => toggleLike("post", id, content), [toggleLike]);
 
@@ -84,6 +93,10 @@ export function EngagementProvider({ children }) {
   const incrementPostShares = useCallback((id) => incrementShares("post", id), [incrementShares]);
 
   const toggleRegrow = useCallback((type, id) => {
+    if (isSupabaseConfigured && !isAuthenticated) {
+      promptAuth("regrow community content");
+      return false;
+    }
     let nextRegrown;
     setEngagement((current) => {
       const key = keyFor(type, id);
@@ -95,7 +108,7 @@ export function EngagementProvider({ children }) {
       return next;
     });
     return nextRegrown;
-  }, [recordActivity]);
+  }, [isAuthenticated, promptAuth, recordActivity]);
 
   const togglePostRegrow = useCallback((id) => toggleRegrow("post", id), [toggleRegrow]);
 

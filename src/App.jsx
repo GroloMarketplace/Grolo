@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect } from "react";
 import PhoneFrame from "./components/PhoneFrame";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider, readPendingVerificationEmail, useAuth } from "./context/AuthContext";
+import { AuthPromptProvider } from "./context/AuthPromptContext";
 import { authRouteDecision } from "./utils/authRouting";
 import { ActivityProvider } from "./context/ActivityContext";
 import { NotificationProvider } from "./context/NotificationContext";
@@ -132,6 +133,7 @@ export default function App() {
   return (
     <AppErrorBoundary>
       <AuthProvider>
+      <AuthPromptProvider>
       <ActivityProvider>
       <NotificationProvider>
       <TrustSafetyProvider>
@@ -172,16 +174,16 @@ export default function App() {
         <Route path="/account-suspended" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SuspendedAccount /></PhoneFrame>} />
         <Route path="/blocked-users" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute><BlockedUsers /></ProtectedRoute></PhoneFrame>} />
         <Route path="/onboarding" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute><Onboarding /></ProtectedRoute></PhoneFrame>} />
-        <Route path="/" element={<PhoneFrame key="home"><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
-        <Route path="/home" element={<PhoneFrame key="home"><ProtectedRoute profileRequired><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
+        <Route path="/" element={<PhoneFrame key="home"><ProtectedRoute profileRequired allowGuest><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
+        <Route path="/home" element={<PhoneFrame key="home"><ProtectedRoute profileRequired allowGuest><AppErrorBoundary label="Home Feed"><Feed /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
         <Route path="/notifications" element={<PhoneFrame><ProtectedRoute><AppErrorBoundary label="Notifications"><NotificationCenter /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
         <Route path="/notification-settings" element={<PhoneFrame><ProtectedRoute><AppErrorBoundary label="Notification Settings"><NotificationSettings /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
         <Route path="/shop" element={<PhoneFrame><AppErrorBoundary label="Seller Profile"><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></AppErrorBoundary></PhoneFrame>} />
         <Route path="/seller-profile" element={<PhoneFrame><AppErrorBoundary label="Seller Profile"><ProtectedRoute sellerOnly><ShopHome /></ProtectedRoute></AppErrorBoundary></PhoneFrame>} />
-        <Route path="/profile" element={<PhoneFrame><AppErrorBoundary label="Buyer Profile"><BuyerProfile /></AppErrorBoundary></PhoneFrame>} />
+        <Route path="/profile" element={<PhoneFrame><ProtectedRoute><AppErrorBoundary label="Buyer Profile"><BuyerProfile /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
         <Route path="/profile/:userId" element={<PhoneFrame><PublicProfile /></PhoneFrame>} />
-        <Route path="/buyer-profile" element={<PhoneFrame><AppErrorBoundary label="Buyer Profile"><BuyerProfile /></AppErrorBoundary></PhoneFrame>} />
-        <Route path="/my-shop/reviews" element={<PhoneFrame><StoreReviews /></PhoneFrame>} />
+        <Route path="/buyer-profile" element={<PhoneFrame><ProtectedRoute><AppErrorBoundary label="Buyer Profile"><BuyerProfile /></AppErrorBoundary></ProtectedRoute></PhoneFrame>} />
+        <Route path="/my-shop/reviews" element={<PhoneFrame><ProtectedRoute sellerOnly><StoreReviews /></ProtectedRoute></PhoneFrame>} />
         <Route
           path="/my-shop/advertising"
           element={
@@ -263,7 +265,7 @@ export default function App() {
         <Route path="/seller-statuses" element={<PhoneFrame><SellerStatuses /></PhoneFrame>} />
         <Route path="/founding-member/:memberId" element={<PhoneFrame><FoundingMember /></PhoneFrame>} />
 
-        <Route path="/trust-reputation" element={<PhoneFrame><TrustReputation /></PhoneFrame>} />
+        <Route path="/trust-reputation" element={<PhoneFrame><ProtectedRoute><TrustReputation /></ProtectedRoute></PhoneFrame>} />
         <Route path="/comments" element={<PhoneFrame hideTabBar><Comments /></PhoneFrame>} />
         <Route
           path="/my-shop/orders"
@@ -288,7 +290,7 @@ export default function App() {
             </PhoneFrame>
           }
         />
-        <Route path="/orders/:id" element={<PhoneFrame><OrderTracking /></PhoneFrame>} />
+        <Route path="/orders/:id" element={<PhoneFrame><ProtectedRoute><OrderTracking /></ProtectedRoute></PhoneFrame>} />
         <Route
           path="/leave-review/:productId"
           element={
@@ -303,7 +305,7 @@ export default function App() {
         <Route path="/seller/:sellerId/category/:categoryName" element={<PhoneFrame><StoreCategory /></PhoneFrame>} />
         <Route path="/category/:categoryName" element={<PhoneFrame><Category /></PhoneFrame>} />
         <Route path="/featured" element={<PhoneFrame><Featured /></PhoneFrame>} />
-        <Route path="/trading" element={<PhoneFrame><Trading /></PhoneFrame>} />
+        <Route path="/trading" element={<PhoneFrame><ProtectedRoute><Trading /></ProtectedRoute></PhoneFrame>} />
         <Route path="/search" element={<PhoneFrame key="search"><AppErrorBoundary label="Search"><Search /></AppErrorBoundary></PhoneFrame>} />
         <Route
           path="/messages"
@@ -324,10 +326,10 @@ export default function App() {
           }
         />
         <Route path="/cart" element={<PhoneFrame><Cart /></PhoneFrame>} />
-        <Route path="/checkout" element={<PhoneFrame><Checkout /></PhoneFrame>} />
-        <Route path="/checkout/:sellerId" element={<PhoneFrame><StoreCheckout /></PhoneFrame>} />
-        <Route path="/delivery-address" element={<PhoneFrame hideTabBar><DeliveryAddress /></PhoneFrame>} />
-        <Route path="/order-confirmation" element={<PhoneFrame key="order-confirmation"><OrderConfirmation /></PhoneFrame>} />
+        <Route path="/checkout" element={<PhoneFrame><ProtectedRoute><Checkout /></ProtectedRoute></PhoneFrame>} />
+        <Route path="/checkout/:sellerId" element={<PhoneFrame><ProtectedRoute><StoreCheckout /></ProtectedRoute></PhoneFrame>} />
+        <Route path="/delivery-address" element={<PhoneFrame hideTabBar><ProtectedRoute><DeliveryAddress /></ProtectedRoute></PhoneFrame>} />
+        <Route path="/order-confirmation" element={<PhoneFrame key="order-confirmation"><ProtectedRoute><OrderConfirmation /></ProtectedRoute></PhoneFrame>} />
         <Route
           path="/profit"
           element={
@@ -449,6 +451,7 @@ export default function App() {
       </TrustSafetyProvider>
       </NotificationProvider>
       </ActivityProvider>
+      </AuthPromptProvider>
       </AuthProvider>
     </AppErrorBoundary>
   );

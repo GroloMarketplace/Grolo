@@ -9,6 +9,7 @@ import { ActivityCard, CommunityImpactTab, ReviewsTab, TrustStatusBadge } from "
 import { useBuyerTrust } from "../context/BuyerTrustContext";
 import { getBuyerImpactMetrics } from "../utils/buyerImpact";
 import { useFollow } from "../context/FollowContext";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useResolvedPublicProfile } from "../hooks/useEntityResolution";
@@ -40,6 +41,7 @@ export default function PublicProfile() {
   const { userId } = useParams();
   const { state } = useLocation();
   const { isFollowing, toggleFollow, getFollowerCount } = useFollow();
+  const { requireAuth } = useAuthPrompt();
   const { reviewsForBuyer } = useBuyerTrust();
   const reputationSnapshot = useReputationSnapshot(userId);
   const resolvedProfile = useResolvedPublicProfile(userId);
@@ -102,6 +104,7 @@ export default function PublicProfile() {
   };
 
   const handleMessage = () => {
+    if (!requireAuth(null, "message members")) return;
     navigate(`/messages/${encodeURIComponent(userId)}`, {
       state: {
         pendingConversation: {

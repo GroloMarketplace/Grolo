@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
+import { useAuthPrompt } from "./AuthPromptContext";
 import { useActivity } from "./ActivityContext";
 import { addFavorite, getFavorites, removeFavorite } from "../lib/api/favorites";
 import { getListingById } from "../lib/api/listings";
@@ -40,6 +41,7 @@ function savedListingFromFavorite(row) {
 
 export function SavedProvider({ children }) {
   const { user, isSuspended } = useAuth();
+  const { promptAuth } = useAuthPrompt();
   const { recordActivity } = useActivity();
   const storageKey = `${STORAGE_KEY}-${user?.id ?? "anonymous"}`;
   const [savedItems, setSavedItems] = useState(() => readSavedItems(storageKey));
@@ -73,6 +75,10 @@ export function SavedProvider({ children }) {
 
   const toggleSaved = useCallback(
     (items) => {
+      if (isSupabaseConfigured && !user?.id) {
+        promptAuth("save items");
+        return;
+      }
       const saved = savedItems.some((item) => item.id === items[0].id);
       if (isSuspended && !saved) {
         showToast("Your account is suspended and cannot save listings.");
@@ -99,7 +105,7 @@ export function SavedProvider({ children }) {
         }).catch((error) => console.error("Unable to resolve favorite listing", error));
       }
     },
-    [isSuspended, recordActivity, savedItems, showToast, storageKey, user?.id],
+    [isSuspended, promptAuth, recordActivity, savedItems, showToast, storageKey, user?.id],
   );
 
   return (

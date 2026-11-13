@@ -7,6 +7,7 @@ import { getActiveCartTotalQuantity } from "../utils/cartGrouping";
 import { useMessages } from "../context/MessageContext";
 import { useOrders } from "../context/OrderContext";
 import { useAuth } from "../context/AuthContext";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 
 const tabs = [
   {
@@ -97,7 +98,8 @@ export default function TabBar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { profileMode } = useProfileMode();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const { promptAuth } = useAuthPrompt();
   const { getNewSellerOrderCount, markSellerOrdersSeen } = useOrders();
   const { items } = useCart();
   const { listings } = useListings();
@@ -117,8 +119,18 @@ export default function TabBar() {
         : savedSearchState.currentRoute === "featured"
           ? { pathname: "/featured", state: { fromSearch: true } }
           : "/search";
-  const handleProfileClick = () => {
+  const handleProfileClick = (event) => {
+    if (!isAuthenticated) {
+      event.preventDefault();
+      promptAuth("view your profile");
+      return;
+    }
     if (profileType === "seller") markSellerOrdersSeen(user?.id);
+  };
+  const handleMessagesClick = (event) => {
+    if (isAuthenticated) return;
+    event.preventDefault();
+    promptAuth("message sellers");
   };
   const handleSearchClick = (event) => {
     if (isSearchRoute) {
@@ -139,7 +151,7 @@ export default function TabBar() {
           <NavLink
             key={tab.to}
             to={tab.to === "/shop" ? profilePath : tab.to === "/" ? { pathname: "/", state: { tab: "Your Community" } } : tab.to === "/search" ? searchPath : tab.to}
-            onClick={tab.to === "/shop" ? handleProfileClick : tab.to === "/search" ? handleSearchClick : undefined}
+            onClick={tab.to === "/shop" ? handleProfileClick : tab.to === "/search" ? handleSearchClick : tab.to === "/messages" ? handleMessagesClick : undefined}
             end={tab.to === "/"}
             className="flex-1 flex items-center justify-center"
           >

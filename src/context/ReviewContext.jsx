@@ -107,7 +107,7 @@ export function ReviewProvider({ children }) {
     setProductAggregates(new Map());
     setSellerAggregates(new Map());
 
-    if (!user?.id || !isSupabaseConfigured) {
+    if (!isSupabaseConfigured) {
       return () => {
         cancelled = true;
       };

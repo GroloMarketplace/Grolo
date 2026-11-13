@@ -320,7 +320,13 @@ test("auth routing covers fresh launch, verification, onboarding, and expiry sta
     loading: false,
     profileStatus: "loaded",
   };
-  assert.deepEqual(authRouteDecision({ ...base, session: null, emailVerified: false, onboardingComplete: false, pathname: "/" }).redirectTo, "/signin");
+  assert.deepEqual(authRouteDecision({ ...base, session: null, emailVerified: false, onboardingComplete: false, pathname: "/" }).redirectTo, null);
+  for (const guestPath of ["/search", "/featured", "/category/Home", "/product/listing-1", "/listing/listing-1", "/seller/seller-1", "/profile/user-1", "/post/post-1", "/event/event-1", "/community-impact", "/comments", "/cart"]) {
+    assert.equal(authRouteDecision({ ...base, session: null, emailVerified: false, onboardingComplete: false, pathname: guestPath }).redirectTo, null, `guest path ${guestPath} should render`);
+  }
+  for (const accountPath of ["/profile", "/buyer-profile", "/messages", "/notifications", "/saved", "/create-listing", "/orders", "/orders/order-1", "/checkout", "/trading", "/account-settings", "/open-store"]) {
+    assert.equal(authRouteDecision({ ...base, session: null, emailVerified: false, onboardingComplete: false, pathname: accountPath }).redirectTo, "/signin", `account path ${accountPath} should redirect`);
+  }
   assert.equal(authRouteDecision({ ...base, session: null, emailVerified: false, onboardingComplete: false, pathname: "/verify-email", pendingVerificationEmail: "new@example.com" }).redirectTo, null);
   assert.equal(authRouteDecision({ ...base, session: null, emailVerified: false, onboardingComplete: false, pathname: "/signup" }).redirectTo, "/signin");
   assert.equal(authRouteDecision({ ...base, session: null, emailVerified: false, onboardingComplete: false, pathname: "/signup", allowSignup: true }).redirectTo, null);

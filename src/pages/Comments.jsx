@@ -8,6 +8,7 @@ import { formatLocation } from "../data/locations";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useEngagement } from "../context/EngagementContext";
 import { useAuth } from "../context/AuthContext";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { createComment, getComments } from "../lib/api/comments";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
@@ -22,6 +23,7 @@ export default function Comments() {
   const { state } = useLocation();
   const { settings } = useBuyerSettings();
   const { user } = useAuth();
+  const { requireAuth } = useAuthPrompt();
   const { updatePost } = useEngagement();
   const content = state?.content ?? fallbackContent;
   const contentId = content.type === "event" ? content.event?.id : content.post?.id;
@@ -33,7 +35,7 @@ export default function Comments() {
     let cancelled = false;
     async function loadComments() {
       if (!contentId) return;
-      if (!isSupabaseConfigured || !user?.id) {
+      if (!isSupabaseConfigured) {
         return;
       }
       try {
@@ -52,6 +54,7 @@ export default function Comments() {
   }, [content.type, contentId, state?.highlightedComment, storageKey, updatePost, user?.id]);
 
   const handleSubmit = async ({ text, parentComment }) => {
+    if (!requireAuth(null, "post comments")) return;
     const localComment = {
       id: `${parentComment ? "reply" : "comment"}-${Date.now()}`,
       ...CURRENT_USER,

@@ -8,6 +8,7 @@ import { useListings } from "../context/ListingContext";
 import { getListings } from "../lib/api/listings";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { useFollow } from "../context/FollowContext";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 import { useReviews } from "../context/ReviewContext";
 import {
   formatEventDate,
@@ -44,6 +45,7 @@ export default function SellerProfile() {
   const navigate = useNavigate();
   const { isFollowing, toggleFollow, getFollowerCount, followedSellers, followsLoaded } = useFollow();
   const { user } = useAuth();
+  const { requireAuth } = useAuthPrompt();
   const { sellerRating } = useReviews();
   const { upcomingEvents } = useEvents();
   const { getPaymentMethods } = usePaymentMethods();
@@ -139,6 +141,7 @@ export default function SellerProfile() {
   };
 
   const handleMessageClick = () => {
+    if (!requireAuth(null, "message sellers")) return;
     // Check if conversation already exists with this seller
     const existingConversation = messages.find((m) => m.sellerId === sellerId);
     

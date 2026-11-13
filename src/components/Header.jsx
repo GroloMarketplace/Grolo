@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import { useSellerSettings } from "../context/SellerSettingsContext";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 
 const ACTION_CLASS = "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E6ECE8] bg-[#F8FAF8] text-[#1F5A45] shadow-[0_2px_8px_rgba(31,90,69,0.08)] transition-colors hover:bg-[#EEF5F0] active:bg-[#E5F0E8]";
 
@@ -15,6 +16,7 @@ export default function Header({ title, titleContent, onBack, onMenu, right, pos
   const { settings: buyerSettings } = useBuyerSettings();
   const { profileMode } = useProfileMode();
   const { getSellerProfile } = useSellerSettings();
+  const { requireAuth } = useAuthPrompt();
   const avatar = profileMode === "seller" ? getSellerProfile("current-user").avatar : buyerSettings.avatar;
   const leftAction = onBack
     ? <HeaderAction label="Back" onClick={onBack}><ChevronLeft className="h-5 w-5" strokeWidth={2.2} /></HeaderAction>
@@ -31,7 +33,7 @@ export default function Header({ title, titleContent, onBack, onMenu, right, pos
         {postButton}
         {shareButton}
         {right ?? (!hideProfile && (
-          <HeaderAction label="Open Account Settings" onClick={() => navigate("/account-settings")} className="overflow-hidden p-0">
+          <HeaderAction label="Open Account Settings" onClick={() => requireAuth(() => navigate("/account-settings"), "manage your account")} className="overflow-hidden p-0">
             {avatar ? <img src={avatar} alt="Profile" className="h-full w-full object-cover" /> : <UserRound className="h-[18px] w-[18px]" strokeWidth={2} />}
           </HeaderAction>
         ))}

@@ -22,6 +22,7 @@ import { CompactReputationHeader } from "../components/ReputationSummary";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useMarketplaceDiscovery } from "../hooks/useEntityResolution";
 import { useTrustSafety } from "../context/TrustSafetyContext";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 
 // TODO: Reintroduce Map Search in a future update.
 const TABS = ["Local", "History", "My Orders"];
@@ -359,6 +360,7 @@ const COMMUNITY_TIPS = [
 
 function CommunityTipsCarousel() {
   const navigate = useNavigate();
+  const { requireAuth } = useAuthPrompt();
   const touchStartX = useRef(null);
   const didSwipeRef = useRef(false);
   const pausedRef = useRef(false);
@@ -399,6 +401,10 @@ function CommunityTipsCarousel() {
     if (didSwipeRef.current) {
       event.preventDefault();
       didSwipeRef.current = false;
+      return;
+    }
+    if (["/profile", "/create-listing", "/create-event"].includes(tip.route)) {
+      requireAuth(() => navigate(tip.route));
       return;
     }
     navigate(tip.route);

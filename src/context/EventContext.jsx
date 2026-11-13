@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { sellers } from "../data/mockData";
 import { useAuth } from "./AuthContext";
+import { useAuthPrompt } from "./AuthPromptContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { createEvent as createEventApi, createEventAttendanceConfirmationNotifications, deleteEvent as deleteEventApi, getEvents as getEventsApi, respondToEventAttendanceConfirmation, updateEvent as updateEventApi, DEFAULT_EVENT_IMAGE } from "../lib/api/events";
 import { refreshUserReputation } from "../lib/api/reputation";
@@ -104,6 +105,7 @@ export function formatEventTime(time) {
 
 export function EventProvider({ children }) {
   const { user } = useAuth();
+  const { promptAuth } = useAuthPrompt();
   const currentUserId = user?.id ?? "current-user";
   const storageKey = `${EVENTS_STORAGE_KEY}-${currentUserId}`;
   const [events, setEvents] = useState(() => localEvents(readEvents(storageKey)));
@@ -199,6 +201,10 @@ export function EventProvider({ children }) {
   }, [attendees, currentUserId, events]);
 
   const toggleAttendance = useCallback(async (eventId) => {
+    if (isSupabaseConfigured && !user?.id) {
+      promptAuth("RSVP to events");
+      return;
+    }
     const event = events.find((item) => item.id === eventId || item.databaseId === eventId);
     const persistedEventId = event?.databaseId ?? eventId;
     let removing = false;
@@ -243,7 +249,7 @@ export function EventProvider({ children }) {
     if (!removing) {
       void refreshUserReputation(user?.id ?? currentUserId, { eventKey: `event-attendance:${persistedEventId}:${user?.id ?? currentUserId}` });
     }
-  }, [currentUserId, events, user?.id]);
+  }, [currentUserId, events, promptAuth, user?.id]);
 
   const confirmAttendance = useCallback(async (eventId, attended) => {
     const event = events.find((item) => item.id === eventId || item.databaseId === eventId);

@@ -19,6 +19,7 @@ import {
 } from "../data/mockData";
 import { useFollow } from "../context/FollowContext";
 import { useAuth } from "../context/AuthContext";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 import { useOrders } from "../context/OrderContext";
 import {
   eventStatus,
@@ -105,6 +106,7 @@ export default function Feed() {
   const [feedVersion, setFeedVersion] = useState(0);
   const touchStartRef = useRef(null);
   const pullDistanceRef = useRef(0);
+  const { requireAuth } = useAuthPrompt();
   const { unreadCount: unreadNotificationCount } = useNotifications();
   const { refreshListings } = useListings();
   const { followedSellers } = useFollow();
@@ -261,7 +263,7 @@ export default function Feed() {
             {tab === t && <div className="absolute -bottom-2.5 left-0 right-0 h-0.5 bg-[#498467]" />}
           </button>
         ))}
-        <button type="button" onClick={() => navigate("/notifications", { state: { fromTab: tab } })} aria-label="Notifications" className="absolute right-4 p-1">
+        <button type="button" onClick={() => requireAuth(() => navigate("/notifications", { state: { fromTab: tab } }), "view notifications")} aria-label="Notifications" className="absolute right-4 p-1">
           <span className={`relative block ${totalUnreadNotifications > 0 ? "animate-pulse" : ""}`}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 21V11m0 0C8 11 5 8.5 5 4c4.5 0 7 2.5 7 7Zm0 2c0-5 3-8 8-8 0 4.5-3 8-8 8Z" stroke="#498467" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
             {totalUnreadNotifications > 0 && <span className="absolute -right-1 -top-1 flex h-2 min-w-2 items-center justify-center rounded-full bg-[#498467] px-0.5 text-[8px] font-bold text-white">{totalUnreadNotifications > 9 ? "9+" : totalUnreadNotifications}</span>}

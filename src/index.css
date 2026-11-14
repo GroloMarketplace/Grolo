@@ -90,22 +90,9 @@ select {
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
-.startup-splash video {
+.startup-splash img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-/* Hide native video chrome (iOS start-playback overlay, controls, progress). */
-.startup-splash video::-webkit-media-controls,
-.startup-splash video::-webkit-media-controls-panel,
-.startup-splash video::-webkit-media-controls-play-button,
-.startup-splash video::-webkit-media-controls-start-playback-button {
-  display: none !important;
-  -webkit-appearance: none;
-}
-
-.startup-splash video::-webkit-media-controls-enclosure {
-  display: none !important;
 }

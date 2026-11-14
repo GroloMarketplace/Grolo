@@ -9,27 +9,36 @@ export default function StartupSplash({ children }) {
     const video = videoRef.current;
     if (!video) return undefined;
 
-    // Set the media properties before asking WebKit to start playback. This is
-    // more reliable on a cold launch than relying on the autoplay attribute
-    // alone, especially when the video has an audio track.
+    // Force the IDL properties, not just the markup attributes. iOS evaluates
+    // autoplay eligibility against video.muted / video.playsInline, and React's
+    // muted prop does not reliably set the property before first paint.
     video.defaultMuted = true;
     video.muted = true;
     video.playsInline = true;
+    video.setAttribute("muted", "");
+    video.setAttribute("playsinline", "");
+    video.setAttribute("preload", "auto");
 
-    const playVideo = () => {
+    const playVideo = (source = "manual") => {
+      if (video.paused === false || video.ended) return;
       const playback = video.play();
-      if (playback) playback.catch(() => {});
+      if (playback) {
+        playback.catch((error) => {
+          console.error("[StartupSplash] autoplay failed", { source, error: error?.name ?? String(error) });
+        });
+      }
     };
 
-    playVideo();
-    video.addEventListener("canplay", playVideo);
-    video.addEventListener("loadeddata", playVideo);
+    playVideo("mount");
+
+    // Retry whenever the element becomes playable or is paused again.
+    const retryEvents = ["canplay", "loadeddata", "loadedmetadata", "playing", "pause"];
+    retryEvents.forEach((eventName) => video.addEventListener(eventName, playVideo));
 
     const timeout = window.setTimeout(() => setVisible(false), 12000);
     return () => {
       window.clearTimeout(timeout);
-      video.removeEventListener("canplay", playVideo);
-      video.removeEventListener("loadeddata", playVideo);
+      retryEvents.forEach((eventName) => video.removeEventListener(eventName, playVideo));
     };
   }, []);
 
@@ -41,13 +50,17 @@ export default function StartupSplash({ children }) {
           <video
             ref={videoRef}
             autoPlay
-            defaultMuted
             muted
             playsInline
+            preload="auto"
+            controls={false}
+            disablePictureInPicture
+            disableRemotePlayback
             onEnded={() => setVisible(false)}
             onError={() => setVisible(false)}
-            src={startupAnimation}
-          />
+          >
+            <source src={startupAnimation} type="video/mp4" />
+          </video>
         </div>
       )}
     </>

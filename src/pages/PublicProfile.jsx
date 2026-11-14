@@ -27,6 +27,7 @@ function getFallbackProfile(userId, state) {
   return {
     username: state?.actorUsername ?? userId,
     avatar: state?.actorAvatar ?? FALLBACK_AVATAR,
+    banner: PROFILE_BANNER,
     bio: "Discovering local makers, businesses, and community moments around Calgary.",
     location: "Calgary",
   };
@@ -51,7 +52,8 @@ export default function PublicProfile() {
   const profile = resolvedProfile
     ? {
       username: resolvedProfile.username ?? resolvedProfile.name ?? userId,
-      avatar: resolvedProfile.avatar ?? FALLBACK_AVATAR,
+      avatar: resolvedProfile.avatar || FALLBACK_AVATAR,
+      banner: resolvedProfile.banner || PROFILE_BANNER,
       bio: resolvedProfile.bio ?? resolvedProfile.description ?? "",
       location: resolvedProfile.location ?? "",
     }
@@ -123,7 +125,7 @@ export default function PublicProfile() {
     <MobileScreenLayout>
       <Header title="Profile" onBack={() => navigate(-1)} right={<TrustSafetyActions contentType="user" contentId={userId} reportedUserId={userId} blockUserId={userId} compact />} />
       <div ref={pageScrollRef} className="overflow-y-auto flex-1 no-scrollbar">
-        <div className="relative h-[136px]"><img src={PROFILE_BANNER} alt="Community profile banner" className="h-full w-full object-cover" /></div>
+        <div className="relative h-[136px]"><img src={profile.banner} alt="Community profile banner" className="h-full w-full object-cover" /></div>
         <div className="relative z-10 -mt-8 px-4">
           <div className="rounded-lg bg-white p-4 shadow-sm">
             <div className="flex items-start gap-3">

@@ -108,12 +108,8 @@ export function SellerSettingsProvider({ children }) {
     let cancelled = false;
 
     async function loadProfile() {
-      if (!user?.id) {
-        setProfiles({});
-        return;
-      }
       if (!isSupabaseConfigured) {
-        setProfiles({ [user.id]: emptyProfile });
+        setProfiles(user?.id ? { [user.id]: emptyProfile } : {});
         return;
       }
 
@@ -125,9 +121,11 @@ export function SellerSettingsProvider({ children }) {
         console.error("Unable to load seller profiles", error);
         return;
       }
-      const { data: ownProfile, error: ownProfileError } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      const { data: ownProfile, error: ownProfileError } = user?.id
+        ? await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle()
+        : { data: null, error: null };
       if (ownProfileError) console.error("Unable to load own seller profile", ownProfileError);
-      const rows = (data ?? []).map((row) => row.id === user.id && ownProfile ? ownProfile : row);
+      const rows = (data ?? []).map((row) => row.id === user?.id && ownProfile ? ownProfile : row);
       const migratedImages = {};
       for (const [field, kind] of [["avatar_url", "avatar"], ["banner_url", "banner"]]) {
         if (isTemporaryImageSource(ownProfile?.[field])) {
@@ -145,7 +143,7 @@ export function SellerSettingsProvider({ children }) {
         else Object.assign(ownProfile, migratedImages);
       }
       if (!cancelled) {
-        const finalRows = rows.map((row) => row.id === user.id && ownProfile ? ownProfile : row);
+        const finalRows = rows.map((row) => row.id === user?.id && ownProfile ? ownProfile : row);
         setProfiles(Object.fromEntries(finalRows.map((row) => [row.id, sellerProfileFromRow(row)])));
       }
     }

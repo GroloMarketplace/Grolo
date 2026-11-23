@@ -423,6 +423,7 @@ export default function App() {
             </PhoneFrame>
           }
         />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
         </AuthStartupGate>
         </Suspense>

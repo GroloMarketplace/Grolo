@@ -7,6 +7,7 @@ import { useListings } from "../context/ListingContext";
 import { useProfileMode } from "../context/ProfileModeContext";
 import ProfileAvatar from "../components/ProfileAvatar";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import OfficialBadge from "../components/OfficialBadge";
 import OutlineIcon from "../components/OutlineIcon";
 import { getConversationProfile } from "../utils/conversationProfile";
 import { useSellerSettings } from "../context/SellerSettingsContext";
@@ -177,6 +178,7 @@ function MessageRow({ message, orders, navigate, getSellerProfile, buyerProfile,
           <div className="flex min-w-0 items-center gap-1">
             <div className={`truncate text-[15px] ${showUnread ? "font-bold" : "font-semibold"} text-[#262626]`}>{participantName}</div>
             {participantId === message.sellerId && <FoundingMemberBadge sellerId={message.sellerId} compact iconOnly />}
+            <OfficialBadge accountId={participantId} />
           </div>
           {(participantProfile.location || message.location) && <div className="mt-0.5 flex items-center gap-1 truncate text-[12px] text-[#828282]"><OutlineIcon name="location" size={12} />{formatLocation(participantProfile) || formatLocation(message.location)}</div>}
           <div className="mt-0.5 truncate text-[13px] font-medium text-[#498467]">{listingTitle}</div>

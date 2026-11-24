@@ -7,6 +7,7 @@ import {
 import { EventAttendanceCount } from "./EventRsvp";
 import { sellers } from "../data/mockData";
 import DistanceLabel from "./DistanceLabel";
+import OfficialBadge from "./OfficialBadge";
 import { formatLocation } from "../data/locations";
 
 const BADGE_STYLES = {
@@ -42,8 +43,9 @@ export default function EventCard({ event, showStore }) {
           {event.type}
         </span>
         {showStore && (
-          <span className="text-[12px] text-[#828282]">
+          <span className="flex items-center gap-1 text-[12px] text-[#828282]">
             {sellers[event.sellerId]?.name}
+            <OfficialBadge accountId={event.sellerId} className="scale-75" />
           </span>
         )}
         <DistanceLabel content={event} />
@@ -53,7 +55,7 @@ export default function EventCard({ event, showStore }) {
         </span>
         <EventAttendanceCount eventId={event.id} />
         <span className="text-[12px] text-[#828282]">{formatLocation(event)}</span>
-        <p className="text-[14px] mt-1 leading-[140%] line-clamp-2">
+        <p className="whitespace-pre-wrap text-[14px] mt-1 leading-[140%] line-clamp-2">
           {event.description}
         </p>
       </div>

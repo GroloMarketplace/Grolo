@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import OutlineIcon from "./OutlineIcon";
+import OfficialBadge from "./OfficialBadge";
 
 export default function ThreadedComments({
   comments,
@@ -96,8 +97,8 @@ function CommentBranch({ comment, depth, highlightedCommentId, commentRefs, onRe
         <div className={`${depth ? "border-l border-[#E6E6E6] pl-3" : ""} flex min-w-0 gap-3`} style={depth ? { marginLeft: `${depth * 32}px` } : undefined}>
           <img src={comment.avatar} alt={comment.username} className="h-8 w-8 shrink-0 rounded-full object-cover" />
           <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-2"><span className="text-[14px] font-semibold">{comment.username}</span><span className="text-[12px] text-[#828282]">{comment.timestamp}</span></div>
-            <p className="mt-1 text-[14px] leading-[140%]">{comment.text}</p>
+            <div className="flex items-baseline gap-2"><span className="text-[14px] font-semibold">{comment.username}</span><OfficialBadge accountId={comment.authorId} className="self-center" /><span className="text-[12px] text-[#828282]">{comment.timestamp}</span></div>
+            <p className="mt-1 whitespace-pre-wrap text-[14px] leading-[140%]">{comment.text}</p>
             <button type="button" onClick={() => onReply(comment)} className="mt-2 inline-flex items-center gap-1 text-[12px] text-[#828282]"><OutlineIcon name="reply" size={14} />Reply</button>
           </div>
         </div>

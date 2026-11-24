@@ -14,6 +14,7 @@ import OutlineIcon from "../components/OutlineIcon";
 import ImpactIcon from "../components/ImpactIcon";
 import { getBuyerTrustLevel, getBuyerStatusPresentation } from "../data/buyerTrust";
 import TrustLevelIcon from "../components/TrustLevelIcon";
+import OfficialBadge from "../components/OfficialBadge";
 import { useSavedItems } from "../context/SavedContext";
 import { useBuyerTrust } from "../context/BuyerTrustContext";
 import { useAuth } from "../context/AuthContext";
@@ -190,7 +191,7 @@ export default function BuyerProfile() {
                     Display name
                     <input value={profileDraft.displayName} onChange={(event) => handleProfileChange("displayName", event.target.value)} className="w-full rounded-md border border-[#E6E6E6] px-2 py-1 text-[20px] font-semibold text-black outline-none focus:border-[#498467]" />
                   </label>
-                ) : <h1 className="text-[20px] font-semibold">{buyerProfile.username || "Your profile"}</h1>}
+                ) : <h1 className="flex items-center gap-1.5 text-[20px] font-semibold">{buyerProfile.username || "Your profile"}<OfficialBadge accountId={user?.id} /></h1>}
                 {editing ? (
                   <label className="mt-2 flex flex-col gap-1 text-[11px] font-medium text-[#828282]">
                     Username
@@ -212,7 +213,7 @@ export default function BuyerProfile() {
                 Bio
                 <textarea value={profileDraft.bio} onChange={(event) => handleProfileChange("bio", event.target.value)} rows={3} className="resize-none rounded-md border border-[#E6E6E6] px-2 py-2 text-[14px] font-normal text-black outline-none focus:border-[#498467]" />
               </label>
-            ) : <p className="mt-3 text-[14px] leading-[140%]">{buyerProfile.bio}</p>}
+            ) : <p className="mt-3 whitespace-pre-wrap text-[14px] leading-[140%]">{buyerProfile.bio}</p>}
             {editing && <label className="mt-3 flex items-center gap-2 text-[13px] text-[#505050]"><input type="checkbox" checked={profileDraft.showLocationPublicly} onChange={(event) => handleProfileChange("showLocationPublicly", event.target.checked)} className="h-4 w-4 accent-[#498467]" />Show location publicly</label>}
             {profileError && <p role="alert" className="mt-3 text-[13px] text-red-600">{profileError}</p>}
             <button type="button" disabled={savingProfile} onClick={handleProfileButton} className="mt-4 w-full rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467] disabled:cursor-wait disabled:opacity-60">{savingProfile ? "Saving…" : editing ? "Save Profile" : "Edit Profile"}</button>
@@ -455,7 +456,7 @@ function PostPreview({ post, text }) {
   const media = post.media?.length
     ? post.media.map((item) => typeof item === "string" ? item : item.url).filter(Boolean)
     : post.images?.length ? post.images.filter(Boolean) : post.image ? [post.image] : [];
-  return <>{media.length > 0 && <div className={`mt-3 grid gap-2 ${media.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>{media.map((image, index) => <img key={`${image}-${index}`} src={image} alt="" className="aspect-square w-full rounded-lg object-cover" />)}</div>}<p className="mt-2 text-[14px] leading-[140%]">{text || post.body}</p></>;
+  return <>{media.length > 0 && <div className={`mt-3 grid gap-2 ${media.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>{media.map((image, index) => <img key={`${image}-${index}`} src={image} alt="" className="aspect-square w-full rounded-lg object-cover" />)}</div>}<p className="mt-2 whitespace-pre-wrap text-[14px] leading-[140%]">{text || post.body}</p></>;
 }
 
 function EventPreview({ event }) {

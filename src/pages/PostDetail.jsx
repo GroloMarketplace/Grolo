@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import MobileScreenLayout from "../components/MobileScreenLayout";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import OfficialBadge from "../components/OfficialBadge";
 import ShareSheet from "../components/ShareSheet";
 import ThreadedComments from "../components/ThreadedComments";
 import { products, sellers } from "../data/mockData";
@@ -147,7 +148,7 @@ export default function PostDetail() {
         <div className="flex items-center gap-3">
 
           <button type="button" onClick={openAuthorProfile} aria-label={`Open ${postAuthorName} profile`} className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#498467]"><img src={postAvatar} alt={postAuthorName} className="h-10 w-10 rounded-full object-cover" /></button>
-          <div className="min-w-0 flex-1"><div className="flex items-center gap-1"><button type="button" onClick={openAuthorProfile} className="truncate text-left text-[16px] font-semibold text-[#498467] hover:underline">{postAuthorName}</button><FoundingMemberBadge sellerId={post.sellerId} iconOnly /></div><div className="flex flex-col gap-1 text-[12px] text-[#828282]"><DistanceLabel content={post} /><span>{post.location ?? seller?.location ?? "Local community"} · {post.time}</span></div></div>
+          <div className="min-w-0 flex-1"><div className="flex items-center gap-1"><button type="button" onClick={openAuthorProfile} className="truncate text-left text-[16px] font-semibold text-[#498467] hover:underline">{postAuthorName}</button><OfficialBadge accountId={post?.sellerId ?? post?.authorId} /><FoundingMemberBadge sellerId={post.sellerId} iconOnly /></div><div className="flex flex-col gap-1 text-[12px] text-[#828282]"><DistanceLabel content={post} /><span>{post.location ?? seller?.location ?? "Local community"} · {post.time}</span></div></div>
           <TrustSafetyActions contentType="post" contentId={post.id} reportedUserId={post.authorId ?? post.sellerId} blockUserId={post.authorId ?? post.sellerId} compact />
         </div>
         {postImages.length > 0 && (

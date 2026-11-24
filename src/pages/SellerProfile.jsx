@@ -26,6 +26,7 @@ import { formatListingPrice, groupListingsBySubcategory, isListingActive, isList
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import SellerProfileShareModal from "../components/SellerProfileShareModal";
 import ShareProfileButton from "../components/ShareProfileButton";
+import OfficialBadge from "../components/OfficialBadge";
 import DistanceLabel from "../components/DistanceLabel";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import ReputationSummary from "../components/ReputationSummary";
@@ -159,7 +160,7 @@ export default function SellerProfile() {
     <MobileScreenLayout>
       <Header onBack={() => navigate(-1)} shareButton={<ShareProfileButton onClick={() => setIsShareModalOpen(true)} />} right={<TrustSafetyActions contentType="user" contentId={seller.id} reportedUserId={seller.id} blockUserId={seller.id} compact />} />
       <div ref={pageScrollRef} className="overflow-y-auto flex-1 no-scrollbar">
-        {sellerProfile.vacationMode && <div className="mx-4 mt-4 mb-4 rounded-lg border border-[#F5A623] bg-[#FFF4E5] p-3"><div className="text-[14px] font-semibold text-[#8A4B08]">🟠 Store Temporarily Closed</div><p className="mt-1 text-[13px] text-[#8A4B08]">{sellerProfile.vacationMessage || "This seller is currently not accepting orders."}</p>{sellerProfile.returnDate && <p className="mt-1 text-[12px] text-[#8A4B08]">Returning {new Date(`${sellerProfile.returnDate}T00:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>}</div>}
+        {sellerProfile.vacationMode && <div className="mx-4 mt-4 mb-4 rounded-lg border border-[#F5A623] bg-[#FFF4E5] p-3"><div className="text-[14px] font-semibold text-[#8A4B08]">🟠 Store Temporarily Closed</div><p className="mt-1 whitespace-pre-wrap text-[13px] text-[#8A4B08]">{sellerProfile.vacationMessage || "This seller is currently not accepting orders."}</p>{sellerProfile.returnDate && <p className="mt-1 text-[12px] text-[#8A4B08]">Returning {new Date(`${sellerProfile.returnDate}T00:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>}</div>}
         {/* Banner */}
         <div className="h-[136px] relative">
           <img
@@ -179,7 +180,7 @@ export default function SellerProfile() {
                 className="w-16 h-16 rounded-full object-cover border-2 border-white shadow"
               />
               <div className="flex-1">
-                <h1 className="text-[20px] font-semibold">{sellerProfile.name}</h1>
+                <h1 className="flex items-center gap-1.5 text-[20px] font-semibold">{sellerProfile.name}<OfficialBadge accountId={seller?.id ?? sellerProfile.id} /></h1>
 
                 <p className="mt-0.5 flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{formatLocation(sellerProfile)}</p>
                 <DistanceLabel content={sellerProfile} />
@@ -187,7 +188,7 @@ export default function SellerProfile() {
               </div>
             </div>
 
-            <p className="text-[14px] mt-3 leading-[140%]">{sellerProfile.description}</p>
+            <p className="whitespace-pre-wrap text-[14px] mt-3 leading-[140%]">{sellerProfile.description}</p>
             <PaymentMethodsList paymentSettings={sellerPaymentMethods} />
 
             <ReputationSummary snapshot={reputationSnapshot} audience="seller" sellerId={seller.id} foundingMember={sellerProfile.foundingMember} memberSince={sellerProfile.createdAt} storeCreatedAt={sellerProfile.storeOpenedAt} includeFoundingMember={false} runtimeDiagnostic className="mt-3" />

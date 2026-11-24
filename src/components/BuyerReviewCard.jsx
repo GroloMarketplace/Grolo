@@ -41,7 +41,7 @@ export default function BuyerReviewCard({ review, navigate }) {
         <div className="text-[15px] tracking-[1px] text-[#D7A84B]" aria-label={`${review.rating} out of 5 stars`}>{"★".repeat(review.rating)}{"☆".repeat(Math.max(5 - review.rating, 0))}</div>
         <h3 className="mt-1 truncate text-[15px] font-semibold">{target.title}</h3>
         <p className="mt-0.5 text-[13px] text-[#828282]">{target.subtitle}</p>
-        <p className="mt-2 text-[14px] leading-[140%] text-[#4F4F4F]">“{review.text}”</p>
+        <p className="mt-2 whitespace-pre-wrap text-[14px] leading-[140%] text-[#4F4F4F]">“{review.text}”</p>
         <p className="mt-2 text-[12px] text-[#828282]">{submittedDate}</p>
       </div>
     </>

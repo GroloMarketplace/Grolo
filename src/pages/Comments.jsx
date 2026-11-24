@@ -12,6 +12,7 @@ import { useAuthPrompt } from "../context/AuthPromptContext";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { createComment, getComments } from "../lib/api/comments";
 import { useResolvedSeller } from "../hooks/useEntityResolution";
+import OfficialBadge from "../components/OfficialBadge";
 
 const CURRENT_USER = {
   username: "you",
@@ -154,13 +155,13 @@ function OriginalContent({ content, profile }) {
         <div className="flex items-center gap-2">
           <img src={seller?.avatar} alt={seller?.name} className="h-8 w-8 rounded-full object-cover" />
           <div>
-            <div className="text-[14px] font-semibold text-[#498467]">{seller?.name}</div>
+            <div className="flex items-center gap-1 text-[14px] font-semibold text-[#498467]">{seller?.name}<OfficialBadge accountId={event?.sellerId} /></div>
             <div className="text-[12px] text-[#828282]">{formatEventDate(event.date)}</div>
           </div>
         </div>
         <img src={event.image} alt={event.title} className="mt-3 aspect-square w-full rounded object-cover" />
         <h1 className="mt-3 text-[17px] font-semibold">{event.title}</h1>
-        <p className="mt-1 text-[14px] leading-[140%]">{event.description}</p>
+        <p className="mt-1 whitespace-pre-wrap text-[14px] leading-[140%]">{event.description}</p>
         <div className="mt-3 flex flex-col gap-1 text-[12px] text-[#828282]">
           <span>{formatEventDate(event.date)} · {formatEventTime(event.startTime)} – {formatEventTime(event.endTime)}</span>
           <span>{formatLocation(event)}</span>
@@ -178,12 +179,12 @@ function OriginalContent({ content, profile }) {
       <div className="flex items-center gap-2">
         <img src={postAvatar} alt={post.name} className="h-8 w-8 rounded-full object-cover" />
         <div>
-          <div className="text-[14px] font-semibold text-[#498467]">{post.name}</div>
+          <div className="flex items-center gap-1 text-[14px] font-semibold text-[#498467]">{post.name}<OfficialBadge accountId={post.sellerId ?? post.authorId} /></div>
           <div className="text-[12px] text-[#828282]">{post.time}</div>
         </div>
       </div>
       {post.image && <img src={post.image} alt="" className="mt-3 aspect-square w-full rounded object-cover" />}
-      <p className="mt-3 text-[14px] leading-[140%]">{post.body}</p>
+      <p className="mt-3 whitespace-pre-wrap text-[14px] leading-[140%]">{post.body}</p>
     </section>
   );
 }

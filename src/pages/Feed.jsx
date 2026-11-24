@@ -51,6 +51,16 @@ import { useResolvedSeller } from "../hooks/useEntityResolution";
 import { contentTimestamp, rankFeedItems } from "../utils/feedRanking";
 import { promotionMatchesListing, promotedContentImage } from "../utils/promotionMedia";
 import { promotionUrgencyLabel, usePromotions } from "../context/PromotionContext";
+import OfficialBadge from "../components/OfficialBadge";
+
+function useOfficialAccountCheck() {
+  const { getSellerProfile } = useSellerSettings();
+  return (accountId) => Boolean(accountId && getSellerProfile(accountId)?.isOfficial);
+}
+
+function withinRadiusOrOfficial(content, sellerId, location, radius, isOfficial) {
+  return isOfficial(sellerId) || isWithinDiscoveryRadius(content, location, radius);
+}
 
 const TABS = ["Following", "Your Community"];
 const COMMUNITY_FILTERS = ["For You", "Posts", "Events", "Listings"];
@@ -352,10 +362,11 @@ function FollowingFeed({ followedSellers, location, radius, hiddenContentIds, bl
   const { upcomingEvents } = useEvents();
   const { listings } = useListings();
   const { posts } = usePosts();
+  const isOfficial = useOfficialAccountCheck();
   const visibleAccount = (accountId) => !blockedUserIds.has(String(accountId));
-  const events = upcomingEvents().filter((event) => visibleAccount(event.sellerId) && sellerIdMatches(followedSellers, event.sellerId) && eventMatchesDiscoveryRadius(event, location, radius));
-  const followedPosts = [...followingPosts, ...posts].filter((post) => visibleAccount(post.sellerId) && sellerIdMatches(followedSellers, post.sellerId) && isWithinDiscoveryRadius(post, location, radius));
-  const followedListings = listings.filter((product) => visibleAccount(product.sellerId) && sellerIdMatches(followedSellers, product.sellerId) && isWithinDiscoveryRadius(product, location, radius));
+  const events = upcomingEvents().filter((event) => visibleAccount(event.sellerId) && sellerIdMatches(followedSellers, event.sellerId) && (isOfficial(event.sellerId) || eventMatchesDiscoveryRadius(event, location, radius)));
+  const followedPosts = [...followingPosts, ...posts].filter((post) => visibleAccount(post.sellerId) && sellerIdMatches(followedSellers, post.sellerId) && withinRadiusOrOfficial(post, post.sellerId, location, radius, isOfficial));
+  const followedListings = listings.filter((product) => visibleAccount(product.sellerId) && sellerIdMatches(followedSellers, product.sellerId) && withinRadiusOrOfficial(product, product.sellerId, location, radius, isOfficial));
   const items = getFollowedItems({ posts: followedPosts, events, listings: followedListings, hiddenContentIds, location });
 
   return (
@@ -390,11 +401,12 @@ function CommunityFeed({ filter, followedSellers, followedSellerIds, interactedS
   const { getEngagement } = useEngagement();
   const { activePromotions } = usePromotions();
   const [touchStart, setTouchStart] = useState(null);
+  const isOfficial = useOfficialAccountCheck();
   const visibleAccount = (accountId) => !blockedUserIds.has(String(accountId));
-  const events = upcomingEvents().filter((event) => visibleAccount(event.sellerId) && eventMatchesDiscoveryRadius(event, location, radius));
-  const nearbyListings = listings.filter((listing) => visibleAccount(listing.sellerId) && isWithinDiscoveryRadius(listing, location, radius));
-  const nearbyPosts = posts.filter((post) => visibleAccount(post.sellerId ?? post.authorId) && isWithinDiscoveryRadius(post, location, radius));
-  const currentPromotions = activePromotions().filter((promotion) => visibleAccount(promotion.sellerId) && isWithinDiscoveryRadius(promotionLocationContent(promotion, listings), location, radius));
+  const events = upcomingEvents().filter((event) => visibleAccount(event.sellerId) && (isOfficial(event.sellerId) || eventMatchesDiscoveryRadius(event, location, radius)));
+  const nearbyListings = listings.filter((listing) => visibleAccount(listing.sellerId) && withinRadiusOrOfficial(listing, listing.sellerId, location, radius, isOfficial));
+  const nearbyPosts = posts.filter((post) => visibleAccount(post.sellerId ?? post.authorId) && withinRadiusOrOfficial(post, post.sellerId ?? post.authorId, location, radius, isOfficial));
+  const currentPromotions = activePromotions().filter((promotion) => visibleAccount(promotion.sellerId) && (isOfficial(promotion.sellerId) || isWithinDiscoveryRadius(promotionLocationContent(promotion, listings), location, radius)));
   const items = getCommunityItems(filter, {
     events,
     listings: nearbyListings,
@@ -533,6 +545,7 @@ function ListingFeedCard({ product, onOpenDetail, onShare }) {
           <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={openStore} className="flex min-w-0 items-center gap-2 text-left">
             <img src={seller?.avatar ?? ""} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
             <span className="truncate text-[14px] font-semibold text-[#498467]">{seller?.name ?? product.shop}</span>
+            <OfficialBadge accountId={product.sellerId} />
           </button>
           <FoundingMemberBadge sellerId={product.sellerId} iconOnly />
         </div>
@@ -579,6 +592,7 @@ function PromotionFeedCard({ promotion, product, onOpenDetail, onShare }) {
         <button type="button" onClick={openSeller} className="flex min-w-0 items-center gap-2 text-left">
           <img src={seller.avatar ?? ""} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
           <span className="truncate text-[14px] font-semibold text-[#498467]">{storeName}</span>
+          <OfficialBadge accountId={promotion.sellerId} />
         </button>
       </div>
       <div className="px-4 pt-3">
@@ -714,6 +728,7 @@ function EventPost({ event, onOpenDetail, onComment, onShare }) {
               >
                 {seller?.name}
               </button>
+              <OfficialBadge accountId={event.sellerId} />
               <FoundingMemberBadge sellerId={event.sellerId} iconOnly />
               <span className="shrink-0 text-[14px] text-[#B56576]">in {displayPostClassification("Event")}</span>
             </div>
@@ -747,7 +762,7 @@ function EventPost({ event, onOpenDetail, onComment, onShare }) {
         </h3>
       </button>
 
-      <p className="text-[14px] leading-[140%]">{event.description}</p>
+      <p className="whitespace-pre-wrap text-[14px] leading-[140%]">{event.description}</p>
 
       <div className="flex flex-col gap-1">
         <EventMeta label="Category" value={event.type} />
@@ -813,11 +828,13 @@ function Post({ post, stacked, onOpenDetail, onComment, onShare }) {
   const { getPostEngagement, togglePostLike, incrementPostShares, togglePostRegrow } = useEngagement();
   const { settings: buyerProfile } = useBuyerSettings();
   const { listings } = useListings();
+  const isOfficialAccount = useOfficialAccountCheck();
   const engagement = getPostEngagement(post);
   const resolvedSeller = useResolvedSeller(post.sellerId ?? post.authorId);
   const seller = resolvedSeller ?? sellers[post.sellerId] ?? Object.values(sellers).find((item) => item.id === post.sellerId);
   const postAvatar = seller?.avatar ?? (post.authorId === currentUser.id ? buyerProfile.avatar : "");
   const sellerName = seller?.name ?? post.name;
+  const officialAnnouncement = isOfficialAccount(post.sellerId ?? post.authorId);
   const reposts = engagement.regrows;
   const likes = engagement.likes;
   const comments = engagement.comments;
@@ -905,6 +922,8 @@ function Post({ post, stacked, onOpenDetail, onComment, onShare }) {
         >
           {sellerName}
         </button>
+        <OfficialBadge accountId={post.sellerId ?? post.authorId} />
+        {officialAnnouncement && <span className="shrink-0 rounded-full bg-[#E8F5EA] px-2 py-0.5 text-[11px] font-medium text-[#498467]">Official</span>}
         <FoundingMemberBadge sellerId={post.sellerId} iconOnly />
         <span className="shrink-0 text-[14px] text-[#B56576]">in {displayPostClassification(post.classification)}</span>
       </div>
@@ -918,7 +937,7 @@ function Post({ post, stacked, onOpenDetail, onComment, onShare }) {
       <PostMediaGallery media={postMedia} onOpen={handleImageClick} promotion={promotion} />
 
       {product && <VacationBadge sellerId={product.sellerId} />}
-      <button type="button" onClick={openPostDetail} className="text-left text-[14px] leading-[140%]">{post.body}</button>
+      <button type="button" onClick={openPostDetail} className="whitespace-pre-wrap text-left text-[14px] leading-[140%]">{post.body}</button>
 
       {product && <AttachedListingCard product={product} onOpenDetail={openDetail} />}
 
@@ -1298,6 +1317,7 @@ export function Notifications() {
                   >
                     {n.name}
                   </button>
+                  <OfficialBadge accountId={actorUserId} />
                   <span className="text-[14px] text-black/50">{n.time}</span>
                 </div>
                 <div className="mt-0.5 text-[14px] leading-5 text-black/60">{n.action}</div>

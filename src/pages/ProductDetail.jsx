@@ -13,6 +13,7 @@ import { usePaymentMethods } from "../context/PaymentMethodsContext";
 import { useCart } from "../context/CartContext";
 import OutlineIcon from "../components/OutlineIcon";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import OfficialBadge from "../components/OfficialBadge";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useListings } from "../context/ListingContext";
 import { useMessages } from "../context/MessageContext";
@@ -204,16 +205,20 @@ export default function ProductDetail() {
                 >
                   {product.shop}
                 </button>
+                <OfficialBadge accountId={seller?.id ?? product.sellerId} />
                 <DistanceLabel content={product} />
               </>
             ) : (
-              product.shop
+              <>
+                {product.shop}
+                <OfficialBadge accountId={product.sellerId} />
+              </>
             )}
           </div>
           <FoundingMemberBadge sellerId={seller?.id} foundingMember={sellerProfile?.foundingMember} />
           <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-3" />
           {reputationSnapshot?.sellerStatus && <TrustMetricSummary metrics={reputationSnapshot.sellerStatus.metrics} audience="seller" memberSince={sellerProfile?.createdAt} storeCreatedAt={sellerProfile?.storeOpenedAt} compact />}
-          {vacationMode && <div className="rounded-lg border border-[#D9D9D9] bg-[#F5FFF6] p-3 text-[14px] text-[#4F4F4F]">This store is temporarily not accepting orders.{sellerProfile.vacationMessage && <div className="mt-1 text-[13px] text-[#828282]">{sellerProfile.vacationMessage}</div>}</div>}
+          {vacationMode && <div className="rounded-lg border border-[#D9D9D9] bg-[#F5FFF6] p-3 text-[14px] text-[#4F4F4F]">This store is temporarily not accepting orders.{sellerProfile.vacationMessage && <div className="mt-1 whitespace-pre-wrap text-[13px] text-[#828282]">{sellerProfile.vacationMessage}</div>}</div>}
           <PaymentMethodsList paymentSettings={sellerPaymentMethods} />
           {!isService && <FulfillmentInfo paymentSettings={sellerPaymentMethods} />}
           <button
@@ -315,7 +320,7 @@ export default function ProductDetail() {
             </svg>
           </button>
           {open && (
-            <p className="text-[16px] leading-[140%]">
+            <p className="whitespace-pre-wrap text-[16px] leading-[140%]">
               {product.description ?? "No description provided yet."}
             </p>
           )}
@@ -352,7 +357,7 @@ export default function ProductDetail() {
             >
               <StarRating rating={review.rating} size={20} />
               <div className="flex flex-col gap-1">
-                <p className="text-[16px]">{review.text}</p>
+                <p className="whitespace-pre-wrap text-[16px]">{review.text}</p>
               </div>
               {review.photos?.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto no-scrollbar">

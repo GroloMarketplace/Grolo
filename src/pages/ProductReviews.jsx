@@ -132,7 +132,7 @@ export function ReviewCard({ review }) {
             <span className="text-[12px] text-[#828282]">{review.date}</span>
           </div>
 
-          <p className="text-[14px] mt-2 leading-[140%]">{review.text}</p>
+          <p className="whitespace-pre-wrap text-[14px] mt-2 leading-[140%]">{review.text}</p>
 
           {review.photos?.length > 0 && (
             <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">

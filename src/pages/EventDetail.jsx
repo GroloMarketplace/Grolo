@@ -9,6 +9,7 @@ import {
 } from "../context/EventContext";
 import EventRsvp from "../components/EventRsvp";
 import DistanceLabel from "../components/DistanceLabel";
+import OfficialBadge from "../components/OfficialBadge";
 import UnavailableAccount from "../components/UnavailableAccount";
 import TrustSafetyActions from "../components/TrustSafetyActions";
 import { formatLocation } from "../data/locations";
@@ -75,6 +76,7 @@ export default function EventDetail() {
                 {seller.name}
               </button>
             )}
+            <OfficialBadge accountId={seller?.id ?? event.sellerId} className="self-center" />
             <DistanceLabel content={event} />
           </div>
 
@@ -89,7 +91,7 @@ export default function EventDetail() {
 
           <div className="flex flex-col gap-2">
             <h2 className="text-[16px] font-semibold">About this event</h2>
-            <p className="text-[14px] leading-[140%]">{event.description}</p>
+            <p className="whitespace-pre-wrap text-[14px] leading-[140%]">{event.description}</p>
           </div>
 
           <EventRsvp eventId={event.id} />

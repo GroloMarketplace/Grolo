@@ -51,6 +51,7 @@ alter table profiles add column if not exists founding_member boolean not null d
 alter table profiles add column if not exists onboarding_completed boolean not null default false;
 alter table profiles add column if not exists accepted_terms boolean not null default false;
 alter table profiles add column if not exists accepted_terms_at timestamptz;
+alter table profiles add column if not exists is_official boolean not null default false;
 
 alter table profiles enable row level security;
 

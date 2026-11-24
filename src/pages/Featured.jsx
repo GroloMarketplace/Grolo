@@ -13,6 +13,7 @@ import { trendingScore } from "../utils/trendingScore";
 import { events, promotions, sellers } from "../data/mockData";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import OfficialBadge from "../components/OfficialBadge";
 import { EventAttendanceCount } from "../components/EventRsvp";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import DistanceLabel from "../components/DistanceLabel";
@@ -221,7 +222,7 @@ function FeaturedStoreCard({ store }) {
       <button type="button" onClick={() => navigate(`/seller/${store.id}`)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <img src={store.avatar} alt={store.name} className="h-16 w-16 shrink-0 rounded-full object-cover" />
         <span className="min-w-0">
-          <span className="flex flex-wrap items-center gap-2"><span className="truncate text-[16px] font-semibold">{store.name}</span><FoundingMemberBadge sellerId={store.id} compact /></span>
+          <span className="flex flex-wrap items-center gap-2"><span className="truncate text-[16px] font-semibold">{store.name}</span><OfficialBadge accountId={store.id} /><FoundingMemberBadge sellerId={store.id} compact /></span>
           <span className="block text-[13px] text-[#828282]">{STORE_CATEGORIES[store.id] ?? "Local store"}</span>
           <DistanceLabel content={store} className="mt-1 block" />
           <span className="mt-1 block text-[12px] text-[#828282]"><span className="text-[#498467]">★</span> {Number.isFinite(Number(store.rating)) ? Number(store.rating).toFixed(1) : "New"} ({Number(store.reviewCount) || 0})</span>

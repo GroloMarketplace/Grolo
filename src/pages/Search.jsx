@@ -23,6 +23,7 @@ import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useMarketplaceDiscovery } from "../hooks/useEntityResolution";
 import { useTrustSafety } from "../context/TrustSafetyContext";
 import { useAuthPrompt } from "../context/AuthPromptContext";
+import OfficialBadge from "../components/OfficialBadge";
 
 // TODO: Reintroduce Map Search in a future update.
 const TABS = ["Local", "History", "My Orders"];
@@ -201,8 +202,8 @@ function SearchResults({ products, sellers, events, posts, blockedUserIds, query
   const groups = [
     { title: "Products", items: productResults, render: (product) => <ProductSearchRow key={product.id} product={product} onProduct={onProduct} /> },
     { title: "Stores", items: storeResults, render: (seller) => <SellerResultRow key={seller.id} seller={seller} onClick={() => navigate(`/seller/${seller.id}`)} /> },
-    { title: "Events", items: eventResults, render: (event) => <ResultRow key={event.id} title={event.title} subtitle={formatLocation(event)} content={event} onClick={() => navigate(`/event/${event.id}`)} /> },
-    { title: "Posts", items: postResults, render: (post) => <ResultRow key={post.id} title={post.body} subtitle={post.name} onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })} /> },
+    { title: "Events", items: eventResults, render: (event) => <ResultRow key={event.id} title={event.title} subtitle={formatLocation(event)} content={event} officialAccountId={event.sellerId} onClick={() => navigate(`/event/${event.id}`)} /> },
+    { title: "Posts", items: postResults, render: (post) => <ResultRow key={post.id} title={post.body} subtitle={<span className="inline-flex items-center gap-1">{post.name}<OfficialBadge accountId={post.sellerId ?? post.authorId} /></span>} onClick={() => navigate("/comments", { state: { content: { type: "post", post } } })} /> },
     { title: "Trades", items: tradeResults, render: (product) => <ResultRow key={`trade-${product.id}`} title={`Looking to trade ${product.name}`} subtitle={`For ${product.desiredTradeItems || product.tradeAvailable}`} onClick={() => onProduct(product.id)} /> },
   ];
   const hasResults = groups.some((group) => group.items.length > 0);
@@ -218,7 +219,7 @@ function ProductSearchRow({ product, onProduct }) {
       <button type="button" onClick={() => onProduct(product.id)} className="min-w-0 flex-1 text-left">
         <ServiceCategoryLabel listing={product} className="block" />
         <div className="truncate text-[14px] font-medium">{product.name}</div>
-        <div className="mt-1 text-[12px] text-[#828282]">{product.shop}</div>
+        <div className="mt-1 flex items-center gap-1 text-[12px] text-[#828282]">{product.shop}<OfficialBadge accountId={product.sellerId} /></div>
         <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-1 max-w-full" />
         <DistanceLabel content={product} className="mt-1 block" />
         <div className="mt-1 text-[14px] font-semibold text-[#498467]">{formatListingPrice(product)}</div>
@@ -234,7 +235,7 @@ function SellerResultRow({ seller, onClick }) {
   return (
     <button type="button" onClick={onClick} className="flex w-full items-center justify-between rounded-lg border border-[#E6E6E6] p-3 text-left hover:bg-[#F5FFF6]">
       <div className="min-w-0">
-        <div className="truncate text-[14px] font-medium">{seller.name}</div>
+        <div className="flex items-center gap-1 truncate text-[14px] font-medium">{seller.name}<OfficialBadge accountId={seller.id} /></div>
         <div className="mt-1 truncate text-[12px] text-[#828282]">{formatLocation(seller)}</div>
         <CompactReputationHeader snapshot={reputationSnapshot} audience="seller" className="mt-1 max-w-full" />
         <DistanceLabel content={seller} className="mt-1 block" />
@@ -244,8 +245,8 @@ function SellerResultRow({ seller, onClick }) {
   );
 }
 
-function ResultRow({ title, subtitle, content, onClick }) {
-  return <button type="button" onClick={onClick} className="flex w-full items-center justify-between rounded-lg border border-[#E6E6E6] p-3 text-left hover:bg-[#F5FFF6]"><div className="min-w-0"><div className="truncate text-[14px] font-medium">{title}</div>{subtitle && <div className="mt-1 truncate text-[12px] text-[#828282]">{subtitle}</div>}{content && <DistanceLabel content={content} className="mt-1 block" />}</div><span className="ml-3 text-[20px] text-[#498467]">›</span></button>;
+function ResultRow({ title, subtitle, content, onClick, officialAccountId }) {
+  return <button type="button" onClick={onClick} className="flex w-full items-center justify-between rounded-lg border border-[#E6E6E6] p-3 text-left hover:bg-[#F5FFF6]"><div className="min-w-0"><div className="flex items-center gap-1 truncate text-[14px] font-medium">{title}<OfficialBadge accountId={officialAccountId} /></div>{subtitle && <div className="mt-1 truncate text-[12px] text-[#828282]">{subtitle}</div>}{content && <DistanceLabel content={content} className="mt-1 block" />}</div><span className="ml-3 text-[20px] text-[#498467]">›</span></button>;
 }
 
 function History({ products, onProduct }) {

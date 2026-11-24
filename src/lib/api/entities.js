@@ -46,6 +46,7 @@ function sellerProfileFromRow(row) {
     storeOpenedAt,
     foundingMember: Boolean(profile.founding_member ?? profile.foundingMember) || isFoundingYearStore(storeOpenedAt),
     storeProfile: Boolean(profile.shop_name || profile.store_onboarding_status || storeOpenedAt),
+    isOfficial: Boolean(profile.is_official ?? profile.isOfficial),
   };
 }
 

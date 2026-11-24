@@ -112,7 +112,7 @@ function TradeListingCard({ product, navigate }) {
           <DistanceLabel content={product} />
           <div className="mt-2 rounded-lg bg-[#F5FFF6] p-3">
             <p className="text-[12px] font-medium text-[#498467]">Looking For</p>
-            <p className="mt-1 text-[14px]">{product.desiredTradeItems}</p>
+            <p className="mt-1 whitespace-pre-wrap text-[14px]">{product.desiredTradeItems}</p>
           </div>
         </div>
       </button>

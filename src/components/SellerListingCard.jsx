@@ -9,6 +9,7 @@ import ServiceCategoryLabel from "./ServiceCategoryLabel";
 import ConfirmationModal from "./ConfirmationModal";
 import DistanceLabel from "./DistanceLabel";
 import TradeBadge from "./TradeBadge";
+import OfficialBadge from "./OfficialBadge";
 
 export default function SellerListingCard({ product, onDelete, onRestore, onPermanentDelete, archived = false, hasOrderHistory = false }) {
   const navigate = useNavigate();
@@ -100,8 +101,9 @@ export default function SellerListingCard({ product, onDelete, onRestore, onPerm
         {/* Product Info */}
         <div className="flex flex-col gap-0.5">
           <ServiceCategoryLabel listing={product} />
-          <div className="text-[12px] text-black/50 line-clamp-2">
+          <div className="flex items-center gap-1 text-[12px] text-black/50 line-clamp-2">
             {product.shop}
+            <OfficialBadge accountId={product.sellerId} className="scale-75" />
           </div>
           <DistanceLabel content={product} />
           <div className="text-[14px] text-black line-clamp-2">

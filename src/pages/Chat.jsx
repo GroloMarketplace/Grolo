@@ -14,6 +14,7 @@ import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { getOrderStatusClass, getOrderStatusLabel } from "../utils/orderStatus";
 import { formatListingPrice } from "../utils/listingDisplay";
 import TrustSafetyActions from "../components/TrustSafetyActions";
+import OfficialBadge from "../components/OfficialBadge";
 import { useBlockedAccount } from "../hooks/useBlockedAccount";
 import { useTrustSafety } from "../context/TrustSafetyContext";
 import { formatMessageTimestamp } from "../utils/messageTimestamp";
@@ -240,7 +241,10 @@ export default function Chat() {
           <ProfileAvatar profile={conversationProfile} size="w-8 h-8" />
         </button>
         <div className="min-w-0 flex-1">
-          <button type="button" onClick={openParticipantProfile} className="max-w-full truncate text-left text-[16px] font-semibold focus-visible:outline-none focus-visible:underline" aria-label={`Open ${conversationProfile.name} profile`}>{conversationProfile.name}</button>
+          <div className="flex min-w-0 items-center gap-1">
+            <button type="button" onClick={openParticipantProfile} className="min-w-0 truncate text-left text-[16px] font-semibold focus-visible:outline-none focus-visible:underline" aria-label={`Open ${conversationProfile.name} profile`}>{conversationProfile.name}</button>
+            <OfficialBadge accountId={conversationProfile.id} />
+          </div>
           {isOrderThread && currentOrderContext ? (
             <div className={`text-[12px] ${getOrderStatusClass(currentOrderContext.status)}`}>{getOrderStatusLabel(currentOrderContext.status)} · Order {currentOrderContext.orderNumber}</div>
           ) : isTradeThread ? (
@@ -301,7 +305,7 @@ export default function Chat() {
               </div>
             )}
             {tradeProposal.message && (
-              <div className="text-[13px] text-[#4F4F4F]">
+              <div className="whitespace-pre-wrap text-[13px] text-[#4F4F4F]">
                 <span className="font-medium text-[#356B4A]">Message: </span>
                 {tradeProposal.message}
               </div>
@@ -360,7 +364,7 @@ export default function Chat() {
           >
             <div className={`flex w-full flex-col ${message.from === "me" ? "items-end" : "items-start"}`}>
               <div
-                className={`w-fit max-w-[75%] whitespace-normal break-words px-4 py-2 rounded-2xl text-[14px] font-medium leading-5 ${
+                className={`w-fit max-w-[75%] whitespace-pre-wrap break-words px-4 py-2 rounded-2xl text-[14px] font-medium leading-5 ${
                   message.from === "me"
                     ? "bg-[#498467] text-white rounded-br-md"
                     : "bg-[#E9E9EB] text-black rounded-bl-md"

@@ -15,6 +15,7 @@ import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { useResolvedPublicProfile } from "../hooks/useEntityResolution";
 import TrustSafetyActions from "../components/TrustSafetyActions";
 import FoundingMemberBadge from "../components/FoundingMemberBadge";
+import OfficialBadge from "../components/OfficialBadge";
 import UnavailableAccount from "../components/UnavailableAccount";
 import { useBlockedAccount } from "../hooks/useBlockedAccount";
 import { useTrustSafety } from "../context/TrustSafetyContext";
@@ -130,9 +131,9 @@ export default function PublicProfile() {
           <div className="rounded-lg bg-white p-4 shadow-sm">
             <div className="flex items-start gap-3">
               <img src={profile.avatar} alt={profile.username} className="h-16 w-16 rounded-full border-2 border-white object-cover shadow" />
-              <div className="flex-1"><h1 className="text-[20px] font-semibold">{profile.username}</h1><FoundingMemberBadge sellerId={userId} foundingMember={Boolean(profile.founding_member) || Boolean(profile.foundingMember)} /><p className="text-[14px] text-[#828282]">@{profile.username}</p><div className="mt-0.5 flex flex-col gap-0.5"><TrustStatusBadge status={reputationSnapshot?.buyerStatus} buyerId={profile.username} />{profile.location && <p className="flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{formatLocation(profile)}</p>}</div></div>
+              <div className="flex-1"><h1 className="flex items-center gap-1.5 text-[20px] font-semibold">{profile.username}<OfficialBadge accountId={profile.id ?? userId} /></h1><FoundingMemberBadge sellerId={userId} foundingMember={Boolean(profile.founding_member) || Boolean(profile.foundingMember)} /><p className="text-[14px] text-[#828282]">@{profile.username}</p><div className="mt-0.5 flex flex-col gap-0.5"><TrustStatusBadge status={reputationSnapshot?.buyerStatus} buyerId={profile.username} />{profile.location && <p className="flex items-center gap-1 text-[13px] text-[#828282]"><OutlineIcon name="location" size={14} />{formatLocation(profile)}</p>}</div></div>
             </div>
-            <p className="mt-3 text-[14px] leading-[140%]">{profile.bio}</p>
+            <p className="mt-3 whitespace-pre-wrap text-[14px] leading-[140%]">{profile.bio}</p>
             <div className="mt-4 flex gap-3"><button type="button" disabled={!profileSellerId} onClick={() => { if (profileSellerId) toggleFollow(profileSellerId); }} className="flex-1 rounded-lg bg-[#498467] py-2.5 text-[14px] font-medium text-white">{profileSellerId && isFollowing(profileSellerId) ? "Following" : "Follow"}</button><button type="button" onClick={handleMessage} className="flex-1 rounded-lg border border-[#498467] py-2.5 text-[14px] font-medium text-[#498467]">Message</button></div>
             <div className="mt-4 grid grid-cols-2 gap-2"><PublicStat icon="users" label="Followers" value={profileSellerId ? getFollowerCount(profileSellerId) : 0} /><PublicStat icon="user" label="Following" value={0} /></div>
           </div>

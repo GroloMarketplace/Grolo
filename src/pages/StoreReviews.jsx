@@ -210,7 +210,7 @@ export default function StoreReviews() {
                       </div>
                     )}
 
-                    <p className="text-[14px] mt-3 leading-[140%]">{review.text}</p>
+                    <p className="whitespace-pre-wrap text-[14px] mt-3 leading-[140%]">{review.text}</p>
 
                     {review.photos?.length > 0 && (
                       <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">

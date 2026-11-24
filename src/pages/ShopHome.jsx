@@ -22,6 +22,7 @@ import { useEngagement } from "../context/EngagementContext";
 import { useReviews } from "../context/ReviewContext";
 import SellerProfileShareModal from "../components/SellerProfileShareModal";
 import ShareProfileButton from "../components/ShareProfileButton";
+import OfficialBadge from "../components/OfficialBadge";
 import ConfirmationModal from "../components/ConfirmationModal";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
 import { groupListingsBySubcategory, isListingActive, isListingOutOfStock, isServiceListing, listingCategoryLabel, serviceStatusFor } from "../utils/listingDisplay";
@@ -269,7 +270,7 @@ export default function ShopHome() {
                         className="text-[20px] font-semibold w-full outline-none border-b border-[#E6E6E6] pb-1"
                       />
                     ) : (
-                      <h1 className="text-[20px] font-semibold">{storeName}</h1>
+                      <h1 className="flex items-center gap-1.5 text-[20px] font-semibold">{storeName}<OfficialBadge accountId={seller?.id ?? user?.id} /></h1>
                     )}
 
                     {isEditing ? (
@@ -289,7 +290,7 @@ export default function ShopHome() {
                     rows={3}
                   />
                 ) : (
-                  <p className="text-[14px] mt-3 leading-[140%]">{description}</p>
+                  <p className="whitespace-pre-wrap text-[14px] mt-3 leading-[140%]">{description}</p>
                 )}
 
                 {isEditing && (
@@ -551,12 +552,12 @@ function ShopPostsTab({ posts, getPostEngagement, navigate, onEdit, onDelete, on
         const media = getPostMedia(post);
         return <article key={post.id} onClick={() => navigate(`/post/${post.id}`)} className="relative w-full cursor-pointer rounded-lg border border-[#E6E6E6] p-3 text-left transition-colors hover:bg-[#F5FFF6]">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-2"><img src={post.avatar} alt={post.name} className="h-8 w-8 shrink-0 rounded-full object-cover" /><div className="min-w-0"><p className="truncate text-[14px] font-semibold">{post.name}</p><p className="text-[12px] text-[#828282]">{formatPostTimestamp(post)}</p></div></div>
+            <div className="flex min-w-0 items-center gap-2"><img src={post.avatar} alt={post.name} className="h-8 w-8 shrink-0 rounded-full object-cover" /><div className="min-w-0"><p className="flex items-center gap-1 truncate text-[14px] font-semibold">{post.name}<OfficialBadge accountId={post.sellerId ?? post.authorId} /></p><p className="text-[12px] text-[#828282]">{formatPostTimestamp(post)}</p></div></div>
             <div className="relative shrink-0">
 
             </div>
           </div>
-          {media.length > 0 && <div className={`mt-3 grid gap-2 ${media.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>{media.map((image, index) => <img key={`${image}-${index}`} src={image} alt="" className="aspect-square w-full rounded-lg object-cover" />)}</div>}<p className="mt-3 text-[14px] leading-[140%]">{post.body}</p>
+          {media.length > 0 && <div className={`mt-3 grid gap-2 ${media.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>{media.map((image, index) => <img key={`${image}-${index}`} src={image} alt="" className="aspect-square w-full rounded-lg object-cover" />)}</div>}<p className="whitespace-pre-wrap mt-3 text-[14px] leading-[140%]">{post.body}</p>
           <div className="mt-3 flex items-center gap-4 text-[13px] text-[#5D6D64]" aria-label="Post engagement"><span>❤️ {engagement.likes}</span><span>💬 {engagement.comments}</span><span>↗️ {engagement.shares}</span></div>
         </article>;
       })}</div>}

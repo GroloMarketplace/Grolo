@@ -52,6 +52,7 @@ const emptyProfile = {
   website: "",
   phone: "",
   email: "",
+  isOfficial: false,
 };
 
 function isFoundingYearStore(value) {
@@ -96,6 +97,7 @@ function sellerProfileFromRow(row) {
     website: row.seller_website ?? "",
     phone: row.seller_phone ?? "",
     email: row.seller_email ?? "",
+    isOfficial: Boolean(row.is_official ?? row.isOfficial),
   };
 }
 

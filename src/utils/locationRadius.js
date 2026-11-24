@@ -21,6 +21,23 @@ const KNOWN_LOCATIONS = {
 
 export const LOCATION_RADIUS_OPTIONS = [5, 10, 25, 50, 100, 250, Infinity];
 
+// "Anywhere" is represented as Infinity in app state, but profiles.location_radius
+// is a NOT NULL numeric column and JSON cannot serialize Infinity (it becomes
+// null). 20,020 km exceeds the maximum possible distance between any two points
+// on Earth (~20,015 km), so it is semantically equivalent to "no limit".
+export const UNLIMITED_RADIUS_KM = 20020;
+
+export function locationRadiusForStorage(radius) {
+  const value = Number(radius);
+  return Number.isFinite(value) && value > 0 ? value : UNLIMITED_RADIUS_KM;
+}
+
+export function locationRadiusFromStorage(radius) {
+  const value = Number(radius);
+  if (!Number.isFinite(value)) return 25;
+  return value >= UNLIMITED_RADIUS_KM ? Infinity : value;
+}
+
 function coordinatesFor(value, fallback = null) {
   const normalized = String(value ?? "").toLowerCase();
   const match = Object.keys(KNOWN_LOCATIONS).find((name) => normalized.includes(name));

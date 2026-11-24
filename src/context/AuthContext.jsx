@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase, isSupabaseConfigured } from "../lib/supabaseClient";
 import { APP_URL } from "../lib/appUrl";
+import { locationRadiusForStorage } from "../utils/locationRadius";
 
 const AuthContext = createContext(null);
 const LEGACY_BUYER_KEY = "grolo-buyer-settings";
@@ -79,7 +80,7 @@ function readLegacyProfile(userId) {
       username: buyer.username,
       bio: buyer.bio,
       location: buyer.location,
-      location_radius: buyer.locationRadius,
+      location_radius: locationRadiusForStorage(buyer.locationRadius),
       latitude: buyer.latitude,
       longitude: buyer.longitude,
       city: buyer.city,

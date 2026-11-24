@@ -3,6 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import { useAuth } from "./AuthContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { isTemporaryImageSource, uploadImageSource } from "../lib/imageStorage";
+import { locationRadiusForStorage, locationRadiusFromStorage } from "../utils/locationRadius";
 
 const BuyerSettingsContext = createContext(null);
 
@@ -52,7 +53,7 @@ function settingsFromProfile(profile, user) {
     username: profile?.username ?? metadata.username ?? "",
     bio: profile?.bio ?? "",
     location: profile?.location ?? "",
-    locationRadius: profile?.location_radius ?? 25,
+    locationRadius: locationRadiusFromStorage(profile?.location_radius ?? 25),
     latitude: profile?.latitude ?? null,
     longitude: profile?.longitude ?? null,
     neighborhood: profile?.neighborhood ?? "",
@@ -123,6 +124,7 @@ function profileUpdates(updates) {
   Object.entries(fields).forEach(([key, column]) => {
     if (updates[key] !== undefined) next[column] = updates[key];
   });
+  if (next.location_radius !== undefined) next.location_radius = locationRadiusForStorage(next.location_radius);
   if (updates.notifications !== undefined) next.buyer_notifications = updates.notifications;
   return next;
 }

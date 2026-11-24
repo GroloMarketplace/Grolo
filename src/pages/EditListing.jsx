@@ -37,7 +37,9 @@ export default function EditListing() {
   const [serviceStatus, setServiceStatus] = useState("Accepting New Clients");
   const [listingStatus, setListingStatus] = useState("Available");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("Produce");
+  const [category, setCategory] = useState("");
+  const [customCategory, setCustomCategory] = useState("");
+  const [subcategory, setSubcategory] = useState("");
   const [availableForTrade, setAvailableForTrade] = useState(false);
   const [desiredTradeItems, setDesiredTradeItems] = useState("");
   const [location, setLocation] = useState("");
@@ -58,7 +60,9 @@ export default function EditListing() {
     setServiceStatus(product.status === "Archived" ? "Archived" : product.serviceStatus || "Accepting New Clients");
     setListingStatus(product.status === "Archived" ? "Archived" : "Available");
     setDescription(product.description || "");
-    setCategory(product.category || "Produce");
+    setCategory(product.category || "");
+    setCustomCategory(product.category === "Other" ? (product.subcategory || "") : "");
+    setSubcategory(product.category === "Other" ? "" : (product.subcategory || ""));
     setAvailableForTrade(product.availableForTrade ?? false);
     setDesiredTradeItems(product.desiredTradeItems ?? "");
     setLocation(formatLocation(product) || "");
@@ -78,6 +82,17 @@ export default function EditListing() {
   const handleSave = async () => {
     if (!product) return;
     const isService = category === "Services";
+    if (category === "Other") {
+      const trimmedCustomCategory = customCategory.trim();
+      if (!trimmedCustomCategory) {
+        setSaveError("Please enter a category.");
+        return;
+      }
+      if (trimmedCustomCategory.length > 50) {
+        setSaveError("Category must be 50 characters or less.");
+        return;
+      }
+    }
     const hasVariants = variants.length > 0;
     const normalizedQuantity = !hasVariants && Number.isInteger(Number(quantityAvailable)) && Number(quantityAvailable) >= 0
       ? Number(quantityAvailable)
@@ -102,6 +117,7 @@ export default function EditListing() {
         serviceAreaRadius: isService && serviceAreaRadius !== "" ? Number(serviceAreaRadius) : null,
         description,
         category,
+        subcategory: category === "Other" ? customCategory.trim() : subcategory.trim(),
         availableForTrade,
         desiredTradeItems: availableForTrade ? desiredTradeItems : "",
         location: isService ? serviceArea : formatLocation(locationDetails) || location,
@@ -192,13 +208,41 @@ export default function EditListing() {
             onChange={(e) => setCategory(e.target.value)}
             className="w-full p-3 border border-[#E6E6E6] rounded-lg text-[14px] outline-none"
           >
-            <option value="Produce">Produce</option>
+            <option value="" disabled>Select category</option>
+            <option value="Garden">Garden</option>
             <option value="Bakery">Bakery</option>
             <option value="Crafts">Crafts</option>
-            <option value="Other">Other</option>
+            <option value="Meal Prep">Meal Prep</option>
             <option value="Services">Services</option>
+            <option value="Other">Other</option>
           </select>
         </div>
+        {category === "Other" && (
+          <div className="mb-4">
+            <label className="text-[14px] font-semibold mb-2 block">Enter Category</label>
+            <input
+              type="text"
+              value={customCategory}
+              onChange={(e) => setCustomCategory(e.target.value)}
+              className="w-full p-3 border border-[#E6E6E6] rounded-lg text-[14px] outline-none"
+              placeholder="Enter a category"
+              required
+            />
+          </div>
+        )}
+        {category && category !== "Other" && (
+          <div className="mb-4">
+            <label className="text-[14px] font-semibold mb-2 block">Subcategory <span className="font-normal text-[#828282]">(optional)</span></label>
+            <input
+              type="text"
+              value={subcategory}
+              onChange={(e) => setSubcategory(e.target.value)}
+              maxLength={50}
+              className="w-full p-3 border border-[#E6E6E6] rounded-lg text-[14px] outline-none"
+              placeholder="e.g. Pottery Mugs"
+            />
+          </div>
+        )}
         <div className="mb-4">
           <label className="text-[14px] font-semibold mb-2 block">Listing Status</label>
           <select

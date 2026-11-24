@@ -10,7 +10,7 @@ import { useListings } from "../context/ListingContext";
 import DistanceLabel from "../components/DistanceLabel";
 import PromotionBadge from "../components/PromotionBadge";
 import TradeBadge from "../components/TradeBadge";
-import { formatListingPrice } from "../utils/listingDisplay";
+import { formatListingPrice, listingCategoryLabel } from "../utils/listingDisplay";
 
 function getCategoryName(value) {
   try {
@@ -48,7 +48,7 @@ export default function Category() {
   }, [category]);
   const categoryExists = categories.some((item) => item.name === category);
   const categoryProducts = useMemo(
-    () => listings.filter((product) => product.category?.toLowerCase() === category.toLowerCase()),
+    () => listings.filter((product) => listingCategoryLabel(product).toLowerCase() === category.toLowerCase()),
     [category, listings],
   );
   const filteredProducts = categoryProducts.filter((product) => {

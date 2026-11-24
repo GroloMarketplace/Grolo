@@ -24,7 +24,7 @@ import SellerProfileShareModal from "../components/SellerProfileShareModal";
 import ShareProfileButton from "../components/ShareProfileButton";
 import ConfirmationModal from "../components/ConfirmationModal";
 import { useReputationSnapshot } from "../hooks/useReputationRead";
-import { isListingActive, isListingOutOfStock, isServiceListing, serviceStatusFor } from "../utils/listingDisplay";
+import { groupListingsBySubcategory, isListingActive, isListingOutOfStock, isServiceListing, listingCategoryLabel, serviceStatusFor } from "../utils/listingDisplay";
 import ReputationSummary from "../components/ReputationSummary";
 import LocationAutocomplete from "../components/LocationAutocomplete";
 import { formatLocation, friendlyLocation } from "../data/locations";
@@ -493,7 +493,7 @@ function ShopEmptyTab({ children }) {
 function groupListingsByCategory(products) {
   const groups = new Map();
   products.forEach((product) => {
-    const category = product.category?.trim() || "Other";
+    const category = listingCategoryLabel(product);
     groups.set(category, [...(groups.get(category) ?? []), product]);
   });
   return [...groups.entries()];
@@ -507,7 +507,11 @@ function ShopListingsTab({ sellerId, products, lowStockProducts, outOfStockProdu
         <h2 className="text-[18px] font-semibold">Listings</h2>
         <button type="button" onClick={() => navigate("/create-listing")} className="text-[14px] font-medium text-[#498467]">+ New Listing</button>
       </div>
-      {products.length === 0 ? <ShopEmptyTab>No listings yet. Create your first listing to start selling on Grolo.</ShopEmptyTab> : categoryGroups.map(([category, categoryProducts]) => <section key={category} className="mb-5 last:mb-0"><button type="button" onClick={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/${encodeURIComponent(category)}`)} className="mb-3 flex w-full items-center justify-between text-left"><h2 className="text-[16px] font-semibold">{category} ({categoryProducts.length})</h2><span aria-hidden="true" className="text-[20px] text-[#828282]">›</span></button><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{categoryProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>)}
+      {products.length === 0 ? <ShopEmptyTab>No listings yet. Create your first listing to start selling on Grolo.</ShopEmptyTab> : categoryGroups.map(([category, categoryProducts]) => {
+        const { subcategories, ungrouped } = groupListingsBySubcategory(categoryProducts);
+        const renderRow = (items) => <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{items.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div>;
+        return <section key={category} className="mb-5 last:mb-0"><button type="button" onClick={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/${encodeURIComponent(category)}`)} className="mb-3 flex w-full items-center justify-between text-left"><h2 className="text-[16px] font-semibold">{category} ({categoryProducts.length})</h2><span aria-hidden="true" className="text-[20px] text-[#828282]">›</span></button>{subcategories.map((group) => <div key={group.name} className="mb-3"><h3 className="mb-2 text-[14px] font-semibold text-[#4F5B51]">{group.name} ({group.products.length})</h3>{renderRow(group.products)}</div>)}{ungrouped.length > 0 && renderRow(ungrouped)}</section>;
+      })}
       {lowStockProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Low Stock</h2><p className="mb-3 text-[13px] text-[#9A6700]">These listings have five or fewer items remaining.</p><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{lowStockProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>}
       {unavailableServiceProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><h2 className="mb-3 text-[18px] font-semibold">Unavailable Services</h2><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{unavailableServiceProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>}
       {outOfStockProducts.length > 0 && <section className="mt-6 border-t border-black/5 pt-4"><button type="button" onClick={() => navigate(`/seller/${encodeURIComponent(sellerId)}/category/Out%20of%20Stock`)} className="mb-3 flex w-full items-center justify-between text-left"><h2 className="text-[18px] font-semibold">Out of Stock ({outOfStockProducts.length})</h2><span aria-hidden="true" className="text-[20px] text-[#828282]">›</span></button><div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">{outOfStockProducts.map((product) => <SellerListingCard key={product.id} product={product} hasOrderHistory={hasOrderHistory(product)} onDelete={onDelete} />)}</div></section>}

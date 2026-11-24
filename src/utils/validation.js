@@ -8,6 +8,7 @@ export const VALIDATION_LIMITS = {
   socialHandle: 50,
   title: 120,
   description: 2000,
+  customCategory: 50,
   listingLocation: 240,
   quantity: 1000000,
   deliveryRadius: 500,
@@ -77,6 +78,13 @@ export function validateSellerProfile(form) {
 
 export function validateListing(form, isService = false) {
   if (!form.title?.trim() || form.title.trim().length > VALIDATION_LIMITS.title) return `Listing title is required and must be ${VALIDATION_LIMITS.title} characters or fewer.`;
+  if (form.category === "Other") {
+    const customCategory = String(form.customCategory ?? form.subcategory ?? "").trim();
+    if (!customCategory) return "Please enter a category.";
+    if (customCategory.length > VALIDATION_LIMITS.customCategory) return "Category must be 50 characters or less.";
+  }
+  const folderSubcategory = String(form.subcategory ?? "").trim();
+  if (folderSubcategory.length > VALIDATION_LIMITS.customCategory) return "Subcategory must be 50 characters or less.";
   if (!form.description?.trim() || form.description.trim().length > VALIDATION_LIMITS.description) return `Description is required and must be ${VALIDATION_LIMITS.description} characters or fewer.`;
   const price = Number(form.price);
   if (!isService && (!Number.isFinite(price) || price <= 0)) return "Price must be greater than $0.00.";

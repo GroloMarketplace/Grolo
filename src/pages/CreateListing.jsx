@@ -68,6 +68,8 @@ export default function CreateListing() {
   const [formData, setFormData] = useState({
     title: "",
     category: "",
+    customCategory: "",
+    subcategory: "",
     price: "",
     pricingType: "",
     serviceStatus: "Accepting New Clients",
@@ -102,6 +104,8 @@ export default function CreateListing() {
     if (hasDraftContent({
       title: formData.title,
       category: formData.category,
+      customCategory: formData.customCategory,
+      subcategory: formData.subcategory,
       price: formData.price,
       description: formData.description,
       location: formData.location,
@@ -128,6 +132,17 @@ export default function CreateListing() {
     e.preventDefault();
     setSubmitError("");
     const isService = formData.category === "Services";
+    if (formData.category === "Other") {
+      const customCategory = formData.customCategory.trim();
+      if (!customCategory) {
+        setSubmitError("Please enter a category.");
+        return;
+      }
+      if (customCategory.length > 50) {
+        setSubmitError("Category must be 50 characters or less.");
+        return;
+      }
+    }
     const validationError = validateListing(formData, isService);
     if (!formData.category) {
       setSubmitError("Choose a listing category.");
@@ -151,6 +166,7 @@ export default function CreateListing() {
       title: formData.title,
       name: formData.title,
       category: formData.category,
+      subcategory: formData.category === "Other" ? formData.customCategory.trim() : formData.subcategory.trim(),
       price: isService ? formData.price : Number(formData.price),
       variants: isService ? [] : formData.variants.map((variant) => ({ name: variant.name.trim(), price: Number(variant.price) })),
       ...(isService ? {
@@ -253,8 +269,37 @@ export default function CreateListing() {
               <option value="Crafts">Crafts</option>
               <option value="Meal Prep">Meal Prep</option>
               <option value="Services">Services</option>
+              <option value="Other">Other</option>
             </select>
           </div>
+
+          {formData.category === "Other" && (
+            <div>
+              <label className="block text-[14px] font-medium mb-2">Enter Category</label>
+              <input
+                type="text"
+                value={formData.customCategory}
+                onChange={updateField("customCategory")}
+                className="w-full px-4 py-3 rounded-lg border border-[#E6E6E6] focus:outline-none focus:border-[#498467]"
+                placeholder="Enter a category"
+                required
+              />
+            </div>
+          )}
+
+          {formData.category && formData.category !== "Other" && (
+            <div>
+              <label className="block text-[14px] font-medium mb-2">Subcategory <span className="font-normal text-[#828282]">(optional)</span></label>
+              <input
+                type="text"
+                value={formData.subcategory}
+                onChange={updateField("subcategory")}
+                maxLength={50}
+                className="w-full px-4 py-3 rounded-lg border border-[#E6E6E6] focus:outline-none focus:border-[#498467]"
+                placeholder="e.g. Pottery Mugs"
+              />
+            </div>
+          )}
 
           {isService ? (
             <>

@@ -193,7 +193,7 @@ function SearchResults({ products, sellers, events, posts, blockedUserIds, query
   const nearestFirst = (items) => sortByDistance(items, userLocation);
   const allPosts = posts ?? [];
   const matches = (value) => String(value ?? "").toLowerCase().includes(normalizedQuery);
-  const productResults = nearestFirst(products.filter((product) => visibleAccount(product.sellerId) && matches(`${product.name} ${product.description} ${product.shop}`)));
+  const productResults = nearestFirst(products.filter((product) => visibleAccount(product.sellerId) && matches(`${product.name} ${product.description} ${product.shop} ${product.subcategory}`)));
   const storeResults = nearestFirst(sellers.filter((seller) => visibleAccount(seller.id) && matches(`${seller.name} ${seller.description} ${seller.location}`)));
   const eventResults = nearestFirst(events.filter((event) => visibleAccount(event.sellerId) && matches(`${event.title} ${event.description} ${event.type} ${event.location}`)));
   const postResults = nearestFirst(allPosts.filter((post, index, posts) => visibleAccount(post.sellerId ?? post.authorId) && posts.findIndex((item) => item.id === post.id) === index && matches(`${post.body} ${post.name} ${post.classification}`)));

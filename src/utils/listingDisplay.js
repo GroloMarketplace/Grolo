@@ -2,6 +2,39 @@ export function isServiceListing(listing) {
   return String(listing?.category ?? "").trim().toLowerCase() === "services";
 }
 
+export function listingCategoryLabel(listing) {
+  const category = String(listing?.category ?? "").trim() || "Other";
+  if (category.toLowerCase() === "other") {
+    const customCategory = String(listing?.subcategory ?? "").trim();
+    if (customCategory) return customCategory;
+  }
+  return category;
+}
+
+export function listingSubcategory(listing) {
+  if (String(listing?.category ?? "").trim().toLowerCase() === "other") return "";
+  return String(listing?.subcategory ?? "").trim();
+}
+
+export function groupListingsBySubcategory(products) {
+  const subcategories = [];
+  const index = new Map();
+  const ungrouped = [];
+  (products ?? []).forEach((product) => {
+    const name = listingSubcategory(product);
+    if (!name) {
+      ungrouped.push(product);
+      return;
+    }
+    if (!index.has(name)) {
+      index.set(name, []);
+      subcategories.push({ name, products: index.get(name) });
+    }
+    index.get(name).push(product);
+  });
+  return { subcategories, ungrouped };
+}
+
 export function serviceStatusFor(listing) {
   return listing?.serviceStatus ?? listing?.service_status ?? "Accepting New Clients";
 }

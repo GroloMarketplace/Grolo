@@ -204,15 +204,35 @@ export async function getListingById(id) {
 
 export async function searchListings(queryText, { limit = 30, offset = 0 } = {}) {
   requireSupabase();
-  const { data, error } = await supabase
-    .from("listings")
-    .select(LISTING_SELECT)
-    .textSearch("search_vector", queryText, { type: "websearch" })
-    .in("status", ["Active", "active", "Published", "published"])
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
-  if (error) throw error;
-  return attachListingStatistics(mapListingRows(data));
+  const sanitizedQuery = String(queryText ?? "").trim();
+  if (!sanitizedQuery) return [];
+  const fetchLimit = offset + limit;
+  const activeStatuses = ["Active", "active", "Published", "published"];
+  const subcategoryPattern = `%${sanitizedQuery.replace(/[%_\\]/g, "")}%`;
+  const [textResult, subcategoryResult] = await Promise.all([
+    supabase
+      .from("listings")
+      .select(LISTING_SELECT)
+      .textSearch("search_vector", sanitizedQuery, { type: "websearch" })
+      .in("status", activeStatuses)
+      .order("created_at", { ascending: false })
+      .range(0, fetchLimit - 1),
+    supabase
+      .from("listings")
+      .select(LISTING_SELECT)
+      .ilike("subcategory", subcategoryPattern)
+      .in("status", activeStatuses)
+      .order("created_at", { ascending: false })
+      .range(0, fetchLimit - 1),
+  ]);
+  if (textResult.error) throw textResult.error;
+  if (subcategoryResult.error) throw subcategoryResult.error;
+  const mergedRows = new Map();
+  [...(textResult.data ?? []), ...(subcategoryResult.data ?? [])].forEach((row) => mergedRows.set(row.id, row));
+  const rows = [...mergedRows.values()]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(offset, offset + limit);
+  return attachListingStatistics(rows.map(listingFromRow));
 }
 
 export async function getCategories() {

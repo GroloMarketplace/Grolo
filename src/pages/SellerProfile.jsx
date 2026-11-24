@@ -22,7 +22,7 @@ import { formatLocation } from "../data/locations";
 import { useSellerSettings } from "../context/SellerSettingsContext";
 import { useAuth } from "../context/AuthContext";
 import { readNavigationState, writeNavigationState } from "../hooks/navigationState";
-import { formatListingPrice, isListingActive, isListingOutOfStock, isServiceListing, serviceStatusFor } from "../utils/listingDisplay";
+import { formatListingPrice, groupListingsBySubcategory, isListingActive, isListingOutOfStock, isServiceListing, listingCategoryLabel, serviceStatusFor } from "../utils/listingDisplay";
 import ServiceCategoryLabel from "../components/ServiceCategoryLabel";
 import SellerProfileShareModal from "../components/SellerProfileShareModal";
 import ShareProfileButton from "../components/ShareProfileButton";
@@ -304,7 +304,7 @@ function EmptyTab({ children }) {
 function groupListingsByCategory(products) {
   const groups = new Map();
   products.forEach((product) => {
-    const category = product.category?.trim() || "Other";
+    const category = listingCategoryLabel(product);
     groups.set(category, [...(groups.get(category) ?? []), product]);
   });
   return [...groups.entries()];
@@ -345,6 +345,23 @@ function ListingsTab({ sellerId, products, navigate }) {
 }
 
 function ListingSection({ title, count, products, navigate, onCategory }) {
+  const { subcategories, ungrouped } = groupListingsBySubcategory(products);
+  const renderGrid = (items) => (
+    <div className="grid w-full min-w-0 grid-cols-2 gap-3">
+      {items.map((product) => {
+        return (
+          <button key={product.id} type="button" onClick={() => navigate(`/product/${product.id}`)} className="text-left">
+            <div className="relative">
+              <img src={product.image} alt={product.name} className="aspect-square w-full rounded-lg object-cover" />
+            </div>
+            <ServiceCategoryLabel listing={product} className="mt-2 block" />
+            <span className="mt-1 block text-[14px] font-medium">{product.name}</span>
+            <span className="mt-0.5 block text-[16px] font-semibold text-[#498467]">{formatListingPrice(product)}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
   return (
     <section>
       <button type="button" onClick={onCategory} className="mb-3 flex w-full items-center justify-between text-left">
@@ -354,20 +371,15 @@ function ListingSection({ title, count, products, navigate, onCategory }) {
       {products.length === 0 ? (
         <EmptyTab>No active listings</EmptyTab>
       ) : (
-        <div className="grid w-full min-w-0 grid-cols-2 gap-3">
-          {products.map((product) => {
-            return (
-              <button key={product.id} type="button" onClick={() => navigate(`/product/${product.id}`)} className="text-left">
-                <div className="relative">
-                  <img src={product.image} alt={product.name} className="aspect-square w-full rounded-lg object-cover" />
-                </div>
-                <ServiceCategoryLabel listing={product} className="mt-2 block" />
-                <span className="mt-1 block text-[14px] font-medium">{product.name}</span>
-                <span className="mt-0.5 block text-[16px] font-semibold text-[#498467]">{formatListingPrice(product)}</span>
-              </button>
-            );
-          })}
-        </div>
+        <>
+          {subcategories.map((group) => (
+            <div key={group.name} className="mb-4 last:mb-0">
+              <h3 className="mb-2 text-[14px] font-semibold text-[#4F5B51]">{group.name} ({group.products.length})</h3>
+              {renderGrid(group.products)}
+            </div>
+          ))}
+          {renderGrid(ungrouped)}
+        </>
       )}
     </section>
   );

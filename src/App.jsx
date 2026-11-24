@@ -166,6 +166,9 @@ export default function App() {
         <Route path="/signup" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><SignIn /></PhoneFrame>} />
         <Route path="/reset-password" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ResetPassword /></PhoneFrame>} />
         <Route path="/confirm-email" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ConfirmEmail /></PhoneFrame>} />
+        <Route path="/auth/callback" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ConfirmEmail /></PhoneFrame>} />
+        <Route path="/confirm" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ConfirmEmail /></PhoneFrame>} />
+        <Route path="/confirmed" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ConfirmEmail /></PhoneFrame>} />
         <Route path="/verify-email" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><ProtectedRoute allowUnverified><VerifyEmail /></ProtectedRoute></PhoneFrame>} />
         <Route path="/terms" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><Terms /></PhoneFrame>} />
         <Route path="/privacy" element={<PhoneFrame hideTabBar backgroundColor="bg-white"><Privacy /></PhoneFrame>} />

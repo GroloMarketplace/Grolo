@@ -29,24 +29,30 @@ export default function ConfirmEmail() {
 
   useEffect(() => {
     if (!isSupabaseConfigured) return undefined;
-    const params = new URLSearchParams(window.location.search);
+    const search = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const params = new URLSearchParams(search.toString() ? `${search}&${hash}` : hash.toString());
     const code = params.get("code");
     const tokenHash = params.get("token_hash");
     const type = params.get("type") || "signup";
     const linkError = params.get("error_description") || params.get("error");
+    const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
 
     if (linkError) {
       setStatus("error");
       setError(decodeURIComponent(linkError.replace(/\+/g, " ")));
       return undefined;
     }
-    if (!code && !tokenHash) return undefined;
+    if (!code && !tokenHash && !(accessToken && refreshToken)) return undefined;
 
     let cancelled = false;
     setStatus("working");
-    const verify = code
-      ? supabase.auth.exchangeCodeForSession(code)
-      : supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+    const verify = accessToken && refreshToken
+      ? supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+      : code
+        ? supabase.auth.exchangeCodeForSession(code)
+        : supabase.auth.verifyOtp({ token_hash: tokenHash, type });
     verify
       .then(({ error: verifyError }) => {
         if (cancelled) return;
@@ -56,6 +62,7 @@ export default function ConfirmEmail() {
           return;
         }
         setStatus("done");
+        window.history.replaceState(null, "", window.location.pathname);
       })
       .catch((verifyError) => {
         if (cancelled) return;

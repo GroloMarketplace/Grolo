@@ -1,4 +1,5 @@
-const PUBLIC_ROUTES = new Set(["/signin", "/reset-password", "/terms", "/privacy", "/community-guidelines", "/confirm-email", "/account-suspended"]);
+const CONFIRM_EMAIL_PATHS = ["/confirm-email", "/auth/callback", "/confirm", "/confirmed"];
+const PUBLIC_ROUTES = new Set(["/signin", "/reset-password", "/terms", "/privacy", "/community-guidelines", ...CONFIRM_EMAIL_PATHS, "/account-suspended"]);
 
 // Marketplace browsing paths a guest can open without an account
 // (App Store Review Guideline 5.1.1).
@@ -62,7 +63,7 @@ export function authRouteDecision({
     return { waiting: false, redirectTo: null, decision: "render-public-route" };
   }
 
-  if (!emailVerified && pathname !== "/verify-email" && pathname !== "/confirm-email") {
+  if (!emailVerified && pathname !== "/verify-email" && !CONFIRM_EMAIL_PATHS.includes(pathname)) {
     return { waiting: false, redirectTo: "/verify-email", decision: "redirect-unverified-to-verify-email" };
   }
 

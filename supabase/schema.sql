@@ -497,6 +497,14 @@ returns trigger
 language plpgsql
 as $$
 begin
+  if tg_op = 'DELETE' then
+    if not exists (select 1 from public.profiles p where p.id = old.sender_id)
+      or not exists (select 1 from public.conversations c where c.id = old.conversation_id)
+    then
+      return old;
+    end if;
+  end if;
+
   raise exception 'Messages are immutable after creation.'
     using errcode = 'insufficient_privilege';
 end;
@@ -604,7 +612,7 @@ create policy "Grolo users can delete own images"
 create table if not exists orders (
   id uuid primary key default gen_random_uuid(),
   buyer_id uuid not null references auth.users(id) on delete cascade,
-  seller_id uuid not null references profiles(id) on delete restrict,
+  seller_id uuid references profiles(id) on delete set null,
   fulfillment_method text not null default 'pickup' check (fulfillment_method in ('pickup', 'delivery')),
   status text not null default 'Seller Notified',
   subtotal numeric(10, 2) not null default 0 check (subtotal >= 0),
@@ -619,7 +627,7 @@ create table if not exists orders (
 create table if not exists order_items (
   id uuid primary key default gen_random_uuid(),
   order_id uuid not null references orders(id) on delete cascade,
-  listing_id uuid not null references listings(id) on delete restrict,
+  listing_id uuid references listings(id) on delete set null,
   quantity integer not null check (quantity > 0),
   unit_price numeric(10, 2) not null check (unit_price >= 0),
   line_total numeric(10, 2) not null check (line_total >= 0),
@@ -642,7 +650,7 @@ create table if not exists payments (
   payment_id uuid primary key default gen_random_uuid(),
   order_id uuid not null references orders(id) on delete cascade,
   buyer_id uuid not null references auth.users(id) on delete cascade,
-  seller_id uuid not null references profiles(id) on delete restrict,
+  seller_id uuid references profiles(id) on delete set null,
   amount numeric(10, 2) not null default 0 check (amount >= 0),
   payment_status text not null default 'pending',
   created_at timestamptz not null default now(),
@@ -1034,8 +1042,11 @@ returns trigger
 language plpgsql
 as $$
 begin
-  if new.buyer_id is distinct from old.buyer_id
-    or new.seller_id is distinct from old.seller_id
+  if (new.buyer_id is distinct from old.buyer_id
+    or (new.seller_id is distinct from old.seller_id
+        and not (new.seller_id is null
+                 and old.seller_id is not null
+                 and not exists (select 1 from public.profiles p where p.id = old.seller_id)))
     or new.subtotal is distinct from old.subtotal
     or new.delivery_fee is distinct from old.delivery_fee
     or new.total is distinct from old.total
@@ -1081,6 +1092,21 @@ returns trigger
 language plpgsql
 as $$
 begin
+  if tg_op = 'UPDATE' then
+    if new.listing_id is null
+      and old.listing_id is not null
+      and not exists (select 1 from public.listings l where l.id = old.listing_id)
+      and (to_jsonb(new) - 'listing_id' - 'updated_at')
+        = (to_jsonb(old) - 'listing_id' - 'updated_at')
+    then
+      return new;
+    end if;
+  elsif tg_op = 'DELETE' then
+    if not exists (select 1 from public.orders o where o.id = old.order_id) then
+      return old;
+    end if;
+  end if;
+
   raise exception 'Order items are immutable after creation.'
     using errcode = 'insufficient_privilege';
 end;

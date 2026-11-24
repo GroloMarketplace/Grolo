@@ -21,14 +21,32 @@ function ConfirmationCard({ children }) {
   );
 }
 
+function hasConfirmationParams() {
+  const search = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const params = new URLSearchParams(search.toString() ? `${search}&${hash}` : hash.toString());
+  return Boolean(
+    params.get("code")
+      || params.get("token_hash")
+      || (params.get("access_token") && params.get("refresh_token"))
+      || params.get("error_description")
+      || params.get("error"),
+  );
+}
+
 export default function ConfirmEmail() {
   const navigate = useNavigate();
-  const { isAuthenticated, emailVerified } = useAuth();
-  const [status, setStatus] = useState("idle");
+  const [status, setStatus] = useState(() => (hasConfirmationParams() ? "working" : "idle"));
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return undefined;
+    if (!isSupabaseConfigured) {
+      if (hasConfirmationParams()) {
+        setStatus("error");
+        setError("Email confirmation is unavailable because Supabase is not configured.");
+      }
+      return undefined;
+    }
     const search = new URLSearchParams(window.location.search);
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const params = new URLSearchParams(search.toString() ? `${search}&${hash}` : hash.toString());
@@ -74,12 +92,6 @@ export default function ConfirmEmail() {
     };
   }, []);
 
-  useEffect(() => {
-    if (status === "done" && isAuthenticated && emailVerified) {
-      navigate("/", { replace: true });
-    }
-  }, [status, isAuthenticated, emailVerified, navigate]);
-
   if (status === "working") {
     return (
       <ConfirmationCard>
@@ -106,32 +118,12 @@ export default function ConfirmEmail() {
     );
   }
 
-  if (status === "done" && (!isAuthenticated || !emailVerified)) {
-    return (
-      <ConfirmationCard>
-        <CheckCircle2 className="mx-auto mb-3 text-[#498467]" size={34} />
-        <h1 className="text-2xl font-semibold text-[#202A21]">Email Confirmed</h1>
-        <p className="mt-2 text-[15px] leading-6 text-[#687368]">Your email has been successfully verified.</p>
-        <p className="mt-1 text-[15px] leading-6 text-[#687368]">Sign in to continue setting up your Grolo profile.</p>
-        <button type="button" onClick={() => navigate("/signin", { replace: true })} className="mt-6 h-12 w-full rounded-xl bg-[#498467] text-[15px] font-semibold text-white shadow-sm">
-          Log In
-        </button>
-      </ConfirmationCard>
-    );
-  }
-
   return (
     <ConfirmationCard>
-      <CheckCircle2 className="mx-auto mb-3 text-[#498467]" size={34} />
-      <h1 className="text-2xl font-semibold text-[#202A21]">Email Confirmed</h1>
+      <CheckCircle2 className="mx-auto mb-3 text-[#498467]" size={48} />
+      <h1 className="text-2xl font-semibold text-[#202A21]">✅ Email Confirmed!</h1>
       <p className="mt-2 text-[15px] leading-6 text-[#687368]">Your email has been successfully verified.</p>
-      <p className="mt-1 text-[15px] leading-6 text-[#687368]">You can now log in and start exploring Grolo.</p>
-      <button type="button" onClick={() => navigate("/signin", { replace: true })} className="mt-6 h-12 w-full rounded-xl bg-[#498467] text-[15px] font-semibold text-white shadow-sm">
-        Log In
-      </button>
-      <button type="button" onClick={() => navigate("/", { replace: true })} className="mt-3 w-full py-2 text-[14px] font-medium text-[#498467]">
-        Return to Home
-      </button>
+      <p className="mt-1 text-[15px] leading-6 text-[#687368]">Please return to the Grolo app and log in to continue.</p>
     </ConfirmationCard>
   );
 }

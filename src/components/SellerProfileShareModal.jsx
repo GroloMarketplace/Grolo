@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import QRCode from "qrcode";
+import { absoluteAppUrl } from "../lib/appUrl";
 
 export default function SellerProfileShareModal({ seller, profile, onClose }) {
   const [qrCode, setQrCode] = useState("");
   const [status, setStatus] = useState("");
   const profilePath = `/seller/${encodeURIComponent(seller.id)}`;
-  const profileLink = useMemo(() => `${window.location.origin}${profilePath}`, [profilePath]);
+  const profileLink = useMemo(() => absoluteAppUrl(profilePath), [profilePath]);
   const shareText = `Check out ${profile.name} on Grolo and discover local products, events, and community updates.`;
 
   useEffect(() => {

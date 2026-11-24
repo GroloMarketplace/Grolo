@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase, isSupabaseConfigured } from "../lib/supabaseClient";
+import { APP_URL } from "../lib/appUrl";
 
 const AuthContext = createContext(null);
 const LEGACY_BUYER_KEY = "grolo-buyer-settings";
@@ -303,12 +304,10 @@ export function AuthProvider({ children }) {
   async function resendVerificationEmail(emailOverride) {
     const email = emailOverride?.trim() || session?.user?.email;
     if (!isSupabaseConfigured || !email) throw new Error("Unable to determine the account email.");
-    const configuredOrigin = import.meta.env.VITE_APP_URL?.trim().replace(/\/$/, "");
-    const redirectOrigin = configuredOrigin && !/^https?:\/\/localhost(?::\d+)?$/i.test(configuredOrigin) ? configuredOrigin : window.location.origin;
     const { error } = await supabase.auth.resend({
       type: "signup",
       email,
-      options: { emailRedirectTo: `${redirectOrigin}/confirm-email` },
+      options: { emailRedirectTo: `${APP_URL}/confirm-email` },
     });
     if (error) throw error;
   }
@@ -322,9 +321,7 @@ export function AuthProvider({ children }) {
 
   async function signUpWithPassword(email, password, name, acceptedTerms = false) {
     if (!isSupabaseConfigured) throw new Error("Supabase is not configured.");
-    const configuredOrigin = import.meta.env.VITE_APP_URL?.trim().replace(/\/$/, "");
-    const redirectOrigin = configuredOrigin && !/^https?:\/\/localhost(?::\d+)?$/i.test(configuredOrigin) ? configuredOrigin : "https://grolomarketplace.ca";
-    const emailRedirectTo = `${redirectOrigin}/confirm-email`;
+    const emailRedirectTo = `${APP_URL}/confirm-email`;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -345,7 +342,7 @@ export function AuthProvider({ children }) {
   async function sendPasswordReset(email) {
     if (!isSupabaseConfigured) throw new Error("Supabase is not configured.");
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${APP_URL}/reset-password`,
     });
     if (error) throw error;
   }

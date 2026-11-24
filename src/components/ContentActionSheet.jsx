@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useFollow } from "../context/FollowContext";
 import { useSavedItems } from "../context/SavedContext";
+import { absoluteAppUrl } from "../lib/appUrl";
 
 const REPORT_OPTIONS = ["Spam", "Misleading Information", "Inappropriate Content", "Harassment", "Other"];
 
@@ -17,7 +18,7 @@ export default function ContentActionSheet({ content, onClose, onHide, onToast }
   const saveItems = content.savedItems ?? [content.savedItem ?? content];
 
   const handleShare = () => {
-    const url = `${window.location.origin}${content.sharePath ?? "/"}`;
+    const url = absoluteAppUrl(content.sharePath ?? "/");
     if (navigator.share) navigator.share({ title: content.title ?? content.name, url }).catch(() => {});
     else navigator.clipboard?.writeText(url).catch(() => {});
     onClose();

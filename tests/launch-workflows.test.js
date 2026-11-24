@@ -602,24 +602,24 @@ test("follower counts derive from the live user_follows aggregate", async () => 
   assert.match(sellerProfile, /isFollowing\(profileSellerId\)/);
 });
 
-test("email confirmation uses the dedicated confirmation page and login destination", async () => {
-  const [authContext, app, confirmEmail, signIn] = await Promise.all([
+test("email confirmation uses the dedicated confirmation page and app return message", async () => {
+  const [authContext, app, appUrl, confirmEmail, signIn] = await Promise.all([
     readFile(new URL("../src/context/AuthContext.jsx", import.meta.url), "utf8"),
     readFile(new URL("../src/App.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/lib/appUrl.js", import.meta.url), "utf8"),
     readFile(new URL("../src/pages/ConfirmEmail.jsx", import.meta.url), "utf8"),
     readFile(new URL("../src/pages/SignIn.jsx", import.meta.url), "utf8"),
   ]);
-  assert.match(authContext, /const configuredOrigin = import\.meta\.env\.VITE_APP_URL\?\.trim\(\)/);
-  assert.match(authContext, /localhost\(\?::\\d\+\)\?\$\/i/);
-  assert.match(authContext, /https:\/\/grolomarketplace\.ca/);
-  assert.match(authContext, /const emailRedirectTo = `\$\{redirectOrigin\}\/confirm-email`/);
+  assert.match(appUrl, /VITE_APP_URL/);
+  assert.match(appUrl, /https:\/\/grolomarketplace\.ca/);
+  assert.match(appUrl, /localhost\|127/);
+  assert.match(authContext, /\$\{APP_URL\}\/confirm-email/);
   assert.match(authContext, /emailRedirectTo,/);
   assert.match(app, /path="\/confirm-email"/);
   assert.match(confirmEmail, /Email Confirmed/);
   assert.match(confirmEmail, /Your email has been successfully verified\./);
-  assert.match(confirmEmail, /You can now log in and start exploring Grolo\./);
-  assert.match(confirmEmail, /Log In/);
-  assert.match(confirmEmail, /Return to Home/);
+  assert.match(confirmEmail, /Please return to the Grolo app and log in to continue\./);
+  assert.doesNotMatch(confirmEmail, /Return to Home/);
   assert.match(signIn, /setStatus\("idle"\); setForgot\(false\); navigate\("\/signin", \{ replace: true \}\)/);
 });
 

@@ -7,6 +7,7 @@ import { useBuyerSettings } from "../context/BuyerSettingsContext";
 import { useFollow } from "../context/FollowContext";
 import { useMessages } from "../context/MessageContext";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
+import { absoluteAppUrl } from "../lib/appUrl";
 import { isWithinDiscoveryRadius, resolveUserLocation } from "../utils/locationRadius";
 
 export default function ShareSheet({ content, onClose, onSuccess }) {
@@ -35,7 +36,7 @@ export default function ShareSheet({ content, onClose, onSuccess }) {
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  const link = content ? `${window.location.origin}${content.sharePath ?? "/"}` : "";
+  const link = content ? absoluteAppUrl(content.sharePath ?? "/") : "";
   const location = resolveUserLocation(buyerSettings);
   const radius = buyerSettings?.locationRadius ?? 25;
   const recentRecipients = useMemo(() => {
